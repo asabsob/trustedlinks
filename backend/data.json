@@ -1,0 +1,225 @@
+{
+  "users": [
+    {
+      "id": "FBL13RTP",
+      "email": "asabsoub@iisal.net",
+      "password": "123",
+      "emailVerified": true,
+      "verifyToken": null,
+      "subscriptionPlan": "p2",
+      "planActivatedAt": "2025-11-25T09:18:45.519Z",
+      "createdAt": "2025-11-25T09:17:53.140Z"
+    },
+    {
+      "id": "j50qoNJJ",
+      "email": "asub@iisal.net",
+      "password": "123",
+      "emailVerified": true,
+      "verifyToken": null,
+      "subscriptionPlan": "p2",
+      "planActivatedAt": "2025-11-26T17:35:43.316Z",
+      "createdAt": "2025-11-26T17:34:32.529Z"
+    },
+    {
+      "id": "9FoaY6oi",
+      "email": "asabsoub@iisal.net",
+      "password": "123",
+      "emailVerified": false,
+      "verifyToken": "824f9203531560958de56177f2b822a42e0b6186",
+      "subscriptionPlan": null,
+      "planActivatedAt": null,
+      "createdAt": "2025-11-28T13:19:17.091Z"
+    }
+  ],
+  "businesses": [
+    {
+      "id": "fvyG-Fkt",
+      "ownerUserId": "FBL13RTP",
+      "owner": "FBL13RTP",
+      "name": "coco",
+      "nameAr": "كوكو",
+      "nameEn": "coco",
+      "category": [
+        "PROFESSIONAL_SERVICES"
+      ],
+      "whatsapp": "9745598",
+      "whatsappLink": "https://wa.me/97431598",
+      "mapLink": "https://maps.app.goo.gl/SnLJQmyz2r7zyYjk8",
+      "mediaLink": "https://www.instagram.com/cocobubbletea.jo/",
+      "otpVerified": true,
+      "metaVerified": true,
+      "meta_status": "VERIFIED",
+      "status": "Active",
+      "verified": true,
+      "clicks": [
+        {
+          "type": "media",
+          "at": "2025-11-26T09:03:19.123Z"
+        },
+        {
+          "type": "details",
+          "at": "2025-11-26T09:03:27.867Z"
+        },
+        {
+          "type": "whatsapp",
+          "at": "2025-11-26T09:03:31.440Z"
+        },
+        {
+          "type": "whatsapp",
+          "at": "2025-11-26T09:03:52.988Z"
+        },
+        {
+          "type": "whatsapp",
+          "at": "2025-11-26T09:03:53.029Z"
+        },
+        {
+          "type": "media",
+          "at": "2025-11-26T17:24:56.016Z"
+        },
+        {
+          "type": "map",
+          "at": "2025-11-26T17:25:06.319Z"
+        },
+        {
+          "type": "whatsapp",
+          "at": "2025-11-26T17:25:15.235Z"
+        },
+        {
+          "type": "whatsapp",
+          "at": "2025-11-26T17:25:15.377Z"
+        },
+        {
+          "type": "details",
+          "at": "2025-11-26T17:36:02.060Z"
+        },
+        {
+          "type": "whatsapp",
+          "at": "2025-11-26T17:43:49.827Z"
+        },
+        {
+          "type": "whatsapp",
+          "at": "2025-11-26T17:43:49.938Z"
+        },
+        {
+          "type": "whatsapp",
+          "at": "2025-11-26T17:44:18.453Z"
+        },
+        {
+          "type": "whatsapp",
+          "at": "2025-11-26T17:44:18.536Z"
+        },
+        {
+          "type": "whatsapp",
+          "at": "2025-11-27T14:54:58.296Z"
+        },
+        {
+          "type": "whatsapp",
+          "at": "2025-11-27T14:54:58.378Z"
+        },
+        {
+          "type": "details",
+          "at": "2025-11-27T19:40:25.534Z"
+        },
+        {
+          "type": "map",
+          "at": "2025-11-27T20:52:39.040Z"
+        },
+        {
+          "type": "whatsapp",
+          "at": "2025-11-27T20:52:54.033Z"
+        },
+        {
+          "type": "whatsapp",
+          "at": "2025-11-27T20:52:54.095Z"
+        },
+        {
+          "type": "map",
+          "at": "2025-11-28T13:07:03.112Z"
+        },
+        {
+          "type": "media",
+          "at": "2025-11-28T13:07:12.142Z"
+        },
+        {
+          "type": "whatsapp",
+          "at": "2025-11-28T13:07:23.966Z"
+        },
+        {
+          "type": "whatsapp",
+          "at": "2025-11-28T13:07:24.009Z"
+        },
+        {
+          "type": "whatsapp",
+          "at": "2025-12-03T20:14:47.390Z"
+        },
+        {
+          "type": "whatsapp",
+          "at": "2025-12-03T20:14:47.485Z"
+        }
+      ],
+      "recentInteractions": [
+        {
+          "type": "message",
+          "at": "2025-11-26T09:03:53.029Z"
+        },
+        {
+          "type": "message",
+          "at": "2025-11-26T17:25:15.377Z"
+        },
+        {
+          "type": "message",
+          "at": "2025-11-26T17:43:49.938Z"
+        },
+        {
+          "type": "message",
+          "at": "2025-11-26T17:44:18.536Z"
+        },
+        {
+          "type": "message",
+          "at": "2025-11-27T14:54:58.378Z"
+        },
+        {
+          "type": "message",
+          "at": "2025-11-27T20:52:54.095Z"
+        },
+        {
+          "type": "message",
+          "at": "2025-11-28T13:07:24.009Z"
+        },
+        {
+          "type": "message",
+          "at": "2025-12-03T20:14:47.485Z"
+        }
+      ],
+      "views": 52,
+      "createdAt": "2025-11-25T09:18:45.519Z",
+      "mediaViews": 3
+    },
+    {
+      "id": "RGtAXPUa",
+      "ownerUserId": "j50qoNJJ",
+      "owner": "j50qoNJJ",
+      "name": "coco",
+      "nameAr": "كوكو",
+      "nameEn": "coco",
+      "category": [
+        "PROFESSIONAL_SERVICES"
+      ],
+      "whatsapp": "97455831598",
+      "whatsappLink": "https://wa.me/97455831598",
+      "mapLink": "",
+      "mediaLink": "",
+      "otpVerified": true,
+      "metaVerified": true,
+      "meta_status": "VERIFIED",
+      "status": "Active",
+      "verified": true,
+      "clicks": [],
+      "recentInteractions": [],
+      "views": 30,
+      "createdAt": "2025-11-26T17:35:43.317Z",
+      "mediaViews": 0
+    }
+  ],
+  "notifications": []
+}

@@ -1,0 +1,32 @@
+{
+  "users": [
+    {
+      "id": "GO5UyvRS",
+      "email": "in@wifaqemd.com",
+      "password": "123",
+      "token": "-D9bdmfzWf8WoIvW",
+      "businessId": null,
+      "emailVerified": true,
+      "verifyToken": null
+    },
+    {
+      "id": "hk4WQHQS",
+      "email": "asa@iisal.net",
+      "password": "123",
+      "token": "BcsmnGPqyea4lkb5",
+      "businessId": null,
+      "emailVerified": true,
+      "verifyToken": null
+    },
+    {
+      "id": "m4xIXNRt",
+      "email": "asabsoub@iisal.net",
+      "password": "123",
+      "token": "LcU_vM7YJeUMLE6-",
+      "businessId": null,
+      "emailVerified": false,
+      "verifyToken": "3eaf4cc675dce0351da2f5f72b6c27c126683d33"
+    }
+  ],
+  "businesses": []
+}
