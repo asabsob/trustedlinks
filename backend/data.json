@@ -155,6 +155,14 @@
         {
           "type": "whatsapp",
           "at": "2025-12-03T20:14:47.485Z"
+        },
+        {
+          "type": "details",
+          "at": "2026-01-04T22:06:04.967Z"
+        },
+        {
+          "type": "whatsapp",
+          "at": "2026-01-04T22:06:09.028Z"
         }
       ],
       "recentInteractions": [
@@ -191,7 +199,7 @@
           "at": "2025-12-03T20:14:47.485Z"
         }
       ],
-      "views": 52,
+      "views": 60,
       "createdAt": "2025-11-25T09:18:45.519Z",
       "mediaViews": 3
     },
@@ -216,7 +224,7 @@
       "verified": true,
       "clicks": [],
       "recentInteractions": [],
-      "views": 30,
+      "views": 36,
       "createdAt": "2025-11-26T17:35:43.317Z",
       "mediaViews": 0
     }
