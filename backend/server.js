@@ -14,8 +14,6 @@
 // ---------------------------------------------------------------------------
 import express from "express";
 import cors from "cors";
-import fs from "fs";
-import path from "path";
 import { fileURLToPath } from "url";
 import { nanoid } from "nanoid";
 import nodemailer from "nodemailer";
@@ -26,7 +24,10 @@ import bcrypt from "bcrypt";
 import geolib from "geolib"; // ✅ Keep here only once at the top
 import OpenAI from "openai";
 import authRoutes from "./routes/auth.js";
-
+import connectDB from "./db.js";
+import User from "./models/User.js";
+import Otp from "./models/Otp.js";
+import fetch from "node-fetch";
 
 
 dotenv.config();
@@ -369,30 +370,31 @@ import fetch from "node-fetch";
 app.post("/api/whatsapp/verify", async (req, res) => {
   try {
     const { whatsapp } = req.body;
-    if (!whatsapp) return res.status(400).json({ error: "WhatsApp number required" });
-
-    // ✅ 1. Check if number already used
-   const dataPath = path.join(__dirname, "data.json");
-const db = safeReadJSON(dataPath, { businesses: [] });
-    const exists = db.businesses.some((b) => b.whatsapp === whatsapp);
-
-    if (exists) {
-      return res.status(409).json({ error: "This WhatsApp number is already registered." });
+    if (!whatsapp) {
+      return res.status(400).json({ error: "WhatsApp number required" });
     }
 
-    // ✅ 2. Generate 6-digit OTP
+    // 1️⃣ Check duplication (MongoDB)
+    const exists = await User.findOne({ whatsapp });
+    if (exists) {
+      return res
+        .status(409)
+        .json({ error: "This WhatsApp number is already registered." });
+    }
+
+    // 2️⃣ Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // ✅ 3. Save temporary OTP (you can use in-memory or a file)
-    const otpDataPath = path.join(__dirname, "otp.json");
-    let otpDB = {};
-    if (fs.existsSync(otpDataPath)) {
-     otpDB = safeReadJSON(otpDataPath, {});
-    }
-    otpDB[whatsapp] = { otp, createdAt: Date.now() };
-    fs.writeFileSync(otpDataPath, JSON.stringify(otpDB, null, 2));
+    // 3️⃣ Save OTP in MongoDB (overwrite old if exists)
+    await Otp.deleteMany({ whatsapp });
 
-    // ✅ 4. Send OTP via WhatsApp Cloud API
+    await Otp.create({
+      whatsapp,
+      code: otp,
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
+    });
+
+    // 4️⃣ Send OTP via WhatsApp API
     const messageData = {
       messaging_product: "whatsapp",
       to: whatsapp,
@@ -417,39 +419,13 @@ const db = safeReadJSON(dataPath, { businesses: [] });
       return res.status(500).json({ error: "Failed to send OTP message." });
     }
 
-    return res.json({ success: true, message: "OTP sent successfully." });
+    res.json({ success: true, message: "OTP sent successfully." });
   } catch (err) {
     console.error("❌ WhatsApp verification error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-// ---------------------------------------------------------------------------
-// Verify OTP
-// ---------------------------------------------------------------------------
-app.post("/api/whatsapp/verify-otp", (req, res) => {
-  const { whatsapp, otp } = req.body;
-  const otpDataPath = path.join(__dirname, "otp.json");
-  if (!fs.existsSync(otpDataPath))
-    return res.status(400).json({ error: "OTP not found." });
-
-  const otpDB = JSON.parse(fs.readFileSync(otpDataPath, "utf8"));
-  const record = otpDB[whatsapp];
-
-  if (!record) return res.status(400).json({ error: "No OTP found for this number." });
-  if (record.otp !== otp) return res.status(401).json({ error: "Invalid OTP." });
-  if (Date.now() - record.createdAt > 5 * 60 * 1000)
-    return res.status(410).json({ error: "OTP expired." });
-
-  delete otpDB[whatsapp];
-  fs.writeFileSync(otpDataPath, JSON.stringify(otpDB, null, 2));
-
-  return res.json({ success: true });
-});
-
-// ---------------------------------------------------------------------------
-// 🔁 RESEND OTP for WhatsApp number
-// ---------------------------------------------------------------------------
 app.post("/api/whatsapp/resend-otp", async (req, res) => {
   try {
     const { whatsapp } = req.body;
@@ -458,25 +434,26 @@ app.post("/api/whatsapp/resend-otp", async (req, res) => {
       return res.status(400).json({ error: "WhatsApp number required" });
     }
 
-    // Load stored OTPs
-    const otpDataPath = path.join(__dirname, "otp.json");
-    let otpDB = fs.existsSync(otpDataPath)
-      ? JSON.parse(fs.readFileSync(otpDataPath, "utf8"))
-      : {};
+    const existing = await Otp.findOne({ whatsapp });
 
-    // Check if number has an entry (meaning user already requested OTP)
-    if (!otpDB[whatsapp]) {
-      return res.status(400).json({ error: "No OTP request found. Please request OTP first." });
+    if (!existing) {
+      return res
+        .status(400)
+        .json({ error: "No OTP request found. Please request OTP first." });
     }
 
-    // Generate NEW OTP
+    // Generate new OTP
     const newOTP = Math.floor(100000 + Math.random() * 900000).toString();
-    otpDB[whatsapp] = { otp: newOTP, createdAt: Date.now() };
 
-    // Save updated OTP
-    fs.writeFileSync(otpDataPath, JSON.stringify(otpDB, null, 2));
+    await Otp.updateOne(
+      { whatsapp },
+      {
+        code: newOTP,
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+      }
+    );
 
-    // Send new OTP via WhatsApp
+    // Send OTP via WhatsApp
     const messageData = {
       messaging_product: "whatsapp",
       to: whatsapp,
@@ -496,18 +473,18 @@ app.post("/api/whatsapp/resend-otp", async (req, res) => {
     if (!waRes.ok) {
       const errText = await waRes.text();
       console.error("WhatsApp resend error:", errText);
-      return res.status(500).json({ error: "Failed to resend OTP via WhatsApp" });
+      return res
+        .status(500)
+        .json({ error: "Failed to resend OTP via WhatsApp" });
     }
 
-    return res.json({
-      success: true,
-      message: "OTP resent successfully",
-    });
+    res.json({ success: true, message: "OTP resent successfully" });
   } catch (err) {
     console.error("❌ Resend OTP error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
+
 
 // ---------------------------------------------------------------------------
 // 🔍 Check if WhatsApp number is verified by Meta
@@ -1426,6 +1403,8 @@ app.use((err, _req, res, _next) => {
   console.error("🔥 Unhandled error:", err);
   res.status(500).json({ error: "Internal Server Error" });
 });
+
+connectDB();
 
 // ============================================================================
 // START SERVER
