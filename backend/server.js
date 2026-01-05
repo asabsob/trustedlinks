@@ -27,7 +27,7 @@ import authRoutes from "./routes/auth.js";
 import connectDB from "./db.js";
 import User from "./models/User.js";
 import Otp from "./models/Otp.js";
-import fetch from "node-fetch";
+
 
 
 dotenv.config();
