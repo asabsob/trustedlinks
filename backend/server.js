@@ -365,19 +365,41 @@ app.post("/api/auth/forgot-password", async (req, res) => {
 // ---------------------------------------------------------------------------
 // Validate WhatsApp number (check duplication + send OTP)
 // ---------------------------------------------------------------------------
-import fetch from "node-fetch";
+app.post("/api/whatsapp/verify", async (req, res) => {
+  try {
+    const { whatsapp } = req.body;
 
+    if (!whatsapp) {
+      return res.status(400).json({ error: "WhatsApp number required" });
+    }
 
-    // 3️⃣ Save OTP in MongoDB (overwrite old if exists)
+    // 1) Check duplication (MongoDB)
+    const exists = await User.findOne({ whatsapp });
+    if (exists) {
+      return res.status(409).json({ error: "This WhatsApp number is already registered." });
+    }
+
+    // 2) Generate OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // 3) Save OTP in MongoDB (overwrite old if exists)
     await Otp.deleteMany({ whatsapp });
-
     await Otp.create({
       whatsapp,
       code: otp,
-      expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
     });
 
-    // 4️⃣ Send OTP via WhatsApp API
+    // 4) If WhatsApp env is not ready, skip sending (temporary)
+    if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) {
+      console.log("🧪 WhatsApp disabled (env missing). OTP generated for:", whatsapp, "OTP:", otp);
+      return res.json({
+        success: true,
+        message: "OTP generated. WhatsApp sending is temporarily disabled.",
+      });
+    }
+
+    // 5) Send OTP via WhatsApp API
     const messageData = {
       messaging_product: "whatsapp",
       to: whatsapp,
@@ -386,16 +408,6 @@ import fetch from "node-fetch";
         body: `🔐 Trusted Links Verification Code: ${otp}\nPlease enter this code to verify your WhatsApp number.`,
       },
     };
-
-    // ✅ If WhatsApp env is not ready, skip sending message (temporary)
-if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) {
-  console.log("🧪 WhatsApp disabled (env missing). OTP generated for:", whatsapp, "OTP:", otp);
-  return res.json({
-    success: true,
-    message: "OTP generated. WhatsApp sending is temporarily disabled.",
-  });
-}
-
 
     const response = await fetch(WHATSAPP_API_URL, {
       method: "POST",
@@ -411,6 +423,13 @@ if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) {
       console.error("WhatsApp API error:", err);
       return res.status(500).json({ error: "Failed to send OTP message." });
     }
+
+    return res.json({ success: true, message: "OTP sent successfully." });
+  } catch (err) {
+    console.error("❌ WhatsApp verification error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
 
 
 app.post("/api/whatsapp/resend-otp", async (req, res) => {
