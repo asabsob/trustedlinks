@@ -405,6 +405,16 @@ app.post("/api/whatsapp/verify", async (req, res) => {
       },
     };
 
+    // ✅ If WhatsApp env is not ready, skip sending message (temporary)
+if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) {
+  console.log("🧪 WhatsApp disabled (env missing). OTP generated for:", whatsapp, "OTP:", otp);
+  return res.json({
+    success: true,
+    message: "OTP generated. WhatsApp sending is temporarily disabled.",
+  });
+}
+
+
     const response = await fetch(WHATSAPP_API_URL, {
       method: "POST",
       headers: {
@@ -426,6 +436,14 @@ app.post("/api/whatsapp/verify", async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+
+if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) {
+  console.log("🧪 WhatsApp disabled (env missing). Resent OTP for:", whatsapp, "OTP:", newOTP);
+  return res.json({
+    success: true,
+    message: "OTP resent (mock). WhatsApp sending is temporarily disabled.",
+  });
+}
 
 app.post("/api/whatsapp/resend-otp", async (req, res) => {
   try {
