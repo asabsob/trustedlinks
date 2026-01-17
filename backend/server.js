@@ -375,6 +375,15 @@ app.post("/api/whatsapp/verify", async (req, res) => {
       return res.status(400).json({ error: "WhatsApp number required" });
     }
 
+    
+if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) {
+  console.log("🧪 WhatsApp disabled (env missing). Resent OTP for:", whatsapp, "OTP:", newOTP);
+  return res.json({
+    success: true,
+    message: "OTP resent (mock). WhatsApp sending is temporarily disabled.",
+  });
+}
+
     // 1️⃣ Check duplication (MongoDB)
     const exists = await User.findOne({ whatsapp });
     if (exists) {
@@ -437,13 +446,6 @@ if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) {
   }
 });
 
-if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) {
-  console.log("🧪 WhatsApp disabled (env missing). Resent OTP for:", whatsapp, "OTP:", newOTP);
-  return res.json({
-    success: true,
-    message: "OTP resent (mock). WhatsApp sending is temporarily disabled.",
-  });
-}
 
 app.post("/api/whatsapp/resend-otp", async (req, res) => {
   try {
