@@ -368,33 +368,6 @@ app.post("/api/auth/forgot-password", async (req, res) => {
 import fetch from "node-fetch";
 
 
-app.post("/api/whatsapp/verify", async (req, res) => {
-  try {
-    const { whatsapp } = req.body;
-    if (!whatsapp) {
-      return res.status(400).json({ error: "WhatsApp number required" });
-    }
-
-    
-if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) {
-  console.log("🧪 WhatsApp disabled (env missing). Resent OTP for:", whatsapp, "OTP:", newOTP);
-  return res.json({
-    success: true,
-    message: "OTP resent (mock). WhatsApp sending is temporarily disabled.",
-  });
-}
-
-    // 1️⃣ Check duplication (MongoDB)
-    const exists = await User.findOne({ whatsapp });
-    if (exists) {
-      return res
-        .status(409)
-        .json({ error: "This WhatsApp number is already registered." });
-    }
-
-    // 2️⃣ Generate OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
     // 3️⃣ Save OTP in MongoDB (overwrite old if exists)
     await Otp.deleteMany({ whatsapp });
 
@@ -439,13 +412,6 @@ if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) {
       return res.status(500).json({ error: "Failed to send OTP message." });
     }
 
-    res.json({ success: true, message: "OTP sent successfully." });
-  } catch (err) {
-    console.error("❌ WhatsApp verification error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
 
 app.post("/api/whatsapp/resend-otp", async (req, res) => {
   try {
@@ -463,18 +429,22 @@ app.post("/api/whatsapp/resend-otp", async (req, res) => {
         .json({ error: "No OTP request found. Please request OTP first." });
     }
 
-    // Generate new OTP
     const newOTP = Math.floor(100000 + Math.random() * 900000).toString();
 
     await Otp.updateOne(
       { whatsapp },
-      {
-        code: newOTP,
-        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
-      }
+      { code: newOTP, expiresAt: new Date(Date.now() + 5 * 60 * 1000) }
     );
 
-    // Send OTP via WhatsApp
+    // ✅ If WhatsApp env is not ready, skip sending message (temporary)
+    if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) {
+      console.log("🧪 WhatsApp disabled (env missing). Resent OTP for:", whatsapp, "OTP:", newOTP);
+      return res.json({
+        success: true,
+        message: "OTP resent (mock). WhatsApp sending is temporarily disabled.",
+      });
+    }
+
     const messageData = {
       messaging_product: "whatsapp",
       to: whatsapp,
@@ -494,15 +464,13 @@ app.post("/api/whatsapp/resend-otp", async (req, res) => {
     if (!waRes.ok) {
       const errText = await waRes.text();
       console.error("WhatsApp resend error:", errText);
-      return res
-        .status(500)
-        .json({ error: "Failed to resend OTP via WhatsApp" });
+      return res.status(500).json({ error: "Failed to resend OTP via WhatsApp" });
     }
 
-    res.json({ success: true, message: "OTP resent successfully" });
+    return res.json({ success: true, message: "OTP resent successfully" });
   } catch (err) {
     console.error("❌ Resend OTP error:", err);
-    res.status(500).json({ error: "Server error" });
+    return res.status(500).json({ error: "Server error" });
   }
 });
 
