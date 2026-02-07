@@ -1,12 +1,40 @@
 // ============================================================================
-// WhatsAppVerify Component — Clean Optimized Version (with correct + position)
+// WhatsAppVerify Component — JAVNA ONLY (Production-ready)
+// Uses VITE_API_BASE for Railway/Vercel
+// Endpoints:
+//   POST /api/whatsapp/request-otp  { whatsapp }
+//   POST /api/whatsapp/verify-otp   { whatsapp, code }
 // ============================================================================
 
 import React, { useEffect, useState, useRef } from "react";
 
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
+
+async function post(path, body) {
+  const r = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {}),
+  });
+
+  const txt = await r.text();
+  let data = {};
+  try {
+    data = JSON.parse(txt);
+  } catch {
+    // If backend returns HTML by mistake, show a helpful error
+    throw new Error(`Non-JSON response (${r.status}). Check API_BASE / routes.`);
+  }
+
+  if (!r.ok) {
+    throw new Error(data?.error || `Request failed (${r.status})`);
+  }
+
+  return data;
+}
+
 export default function WhatsAppVerify({
   lang = "en",
-  token = null,
   businessName = "",
   currentWhatsapp = "",
   onVerified,
@@ -15,10 +43,8 @@ export default function WhatsAppVerify({
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
-  const [metaVerified, setMetaVerified] = useState(null);
   const [loading, setLoading] = useState(false);
   const [timer, setTimer] = useState(0);
-
   const dropdownRef = useRef();
 
   const countries = [
@@ -34,8 +60,8 @@ export default function WhatsAppVerify({
   const [country, setCountry] = useState(countries[0]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
-const fullNumber = (country.dial + whatsapp).replace(/(\+?\d+)(0)(\d{7,})/, "$1$3");
-
+  // keep + + remove local 0 after country code (e.g. +9620XXXXXXXX -> +962XXXXXXXX)
+  const fullNumber = (country.dial + whatsapp).replace(/(\+?\d+)(0)(\d{7,})/, "$1$3");
 
   useEffect(() => {
     const handler = (e) => {
@@ -60,22 +86,13 @@ const fullNumber = (country.dial + whatsapp).replace(/(\+?\d+)(0)(\d{7,})/, "$1$
     }
 
     setLoading(true);
-
     try {
-      const res = await fetch("http://localhost:5175/api/whatsapp/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ whatsapp: fullNumber }),
-      });
-
-      const data = await res.json();
-
-      if (!data.success) {
-        alert(lang === "ar" ? "فشل الإرسال" : "Failed to send OTP");
-      } else {
-        setOtpSent(true);
-        setTimer(60);
-      }
+      await post("/api/whatsapp/request-otp", { whatsapp: fullNumber });
+      setOtpSent(true);
+      setTimer(60);
+      alert(lang === "ar" ? "تم إرسال الرمز على واتساب" : "OTP sent on WhatsApp");
+    } catch (e) {
+      alert(e.message);
     } finally {
       setLoading(false);
     }
@@ -88,52 +105,38 @@ const fullNumber = (country.dial + whatsapp).replace(/(\+?\d+)(0)(\d{7,})/, "$1$
     }
 
     setLoading(true);
-
     try {
-      const res = await fetch("http://localhost:5175/api/whatsapp/verify-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ whatsapp: fullNumber, otp }),
-      });
-
-      const data = await res.json();
-
-      if (!data.success) {
-        alert(lang === "ar" ? "رمز غير صحيح" : "Invalid OTP");
-        return;
-      }
+      // backend expects { whatsapp, code }
+      await post("/api/whatsapp/verify-otp", { whatsapp: fullNumber, code: otp.trim() });
 
       setOtpVerified(true);
 
-      const metaRes = await fetch("http://localhost:5175/api/whatsapp/check-meta", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          whatsapp: fullNumber,
-          phone_number_id: "780458835160824",
-          business_name: businessName || "Business",
-        }),
-      });
+      // JAVNA ONLY: no meta checks
+      if (onVerified) {
+        const digits = fullNumber.replace(/\D/g, "");
+        onVerified({
+          whatsapp: digits, // digits only
+          whatsappLink: `https://wa.me/${digits}`,
+          metaVerified: null, // not used
+        });
+      }
 
-      const metaData = await metaRes.json();
-      setMetaVerified(metaData.verified);
-
-      if (onVerified)
-  onVerified({
-    whatsapp: fullNumber.replace(/\D/g, ""),     // digits only
-    whatsappLink: `https://wa.me/${fullNumber.replace(/\D/g, "")}`,
-    metaVerified: metaData.verified
-  });
-
+      alert(lang === "ar" ? "تم التحقق بنجاح ✅" : "Verified ✅");
+    } catch (e) {
+      alert(lang === "ar" ? `فشل التحقق: ${e.message}` : `Verify failed: ${e.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // 🔑 This makes +962 always render correctly (+ on the LEFT)
+  const resendOtp = async () => {
+    if (timer > 0) return;
+    await sendOtp();
+  };
+
   const CountryItem = ({ item }) => (
     <div className="flex items-center gap-2">
-      <img src={item.flag} className="w-5 h-4 rounded-sm" />
+      <img src={item.flag} className="w-5 h-4 rounded-sm" alt={item.code} />
       <span dir="ltr" className="inline-block">
         {item.dial}
       </span>
@@ -145,10 +148,7 @@ const fullNumber = (country.dial + whatsapp).replace(/(\+?\d+)(0)(\d{7,})/, "$1$
       dir={lang === "ar" ? "rtl" : "ltr"}
       className="w-full bg-white p-4 border rounded-xl shadow-sm space-y-3"
     >
-      {/* Country + Number */}
       <div className="flex gap-3">
-
-        {/* Country Selector */}
         <div className="relative w-40" ref={dropdownRef}>
           <button
             type="button"
@@ -181,7 +181,6 @@ const fullNumber = (country.dial + whatsapp).replace(/(\+?\d+)(0)(\d{7,})/, "$1$
           )}
         </div>
 
-        {/* Number Input */}
         <input
           value={whatsapp}
           onChange={(e) => setWhatsapp(e.target.value)}
@@ -191,14 +190,14 @@ const fullNumber = (country.dial + whatsapp).replace(/(\+?\d+)(0)(\d{7,})/, "$1$
         />
       </div>
 
-      {/* Buttons */}
       {!otpSent && (
         <button
+          type="button"
           onClick={sendOtp}
           disabled={loading}
           className="w-full bg-green-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition"
         >
-          {lang === "ar" ? "إرسال الرمز" : "Send OTP"}
+          {loading ? (lang === "ar" ? "جاري الإرسال..." : "Sending...") : (lang === "ar" ? "إرسال الرمز" : "Send OTP")}
         </button>
       )}
 
@@ -213,16 +212,18 @@ const fullNumber = (country.dial + whatsapp).replace(/(\+?\d+)(0)(\d{7,})/, "$1$
           />
 
           <button
+            type="button"
             onClick={verifyOtp}
             disabled={loading}
             className="w-full bg-green-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition"
           >
-            {lang === "ar" ? "تحقق" : "Verify"}
+            {loading ? (lang === "ar" ? "جاري التحقق..." : "Verifying...") : (lang === "ar" ? "تحقق" : "Verify")}
           </button>
 
           <button
-            onClick={() => timer <= 0 && setTimer(60)}
-            disabled={timer > 0}
+            type="button"
+            onClick={resendOtp}
+            disabled={timer > 0 || loading}
             className={`w-full py-2 rounded-lg text-sm font-semibold transition ${
               timer > 0 ? "bg-gray-400 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"
             }`}
@@ -237,13 +238,7 @@ const fullNumber = (country.dial + whatsapp).replace(/(\+?\d+)(0)(\d{7,})/, "$1$
       {otpVerified && (
         <div className="flex items-center gap-2 text-green-600 font-semibold text-sm">
           <span>✅</span>
-          <span>
-            {metaVerified === true
-              ? (lang === "ar" ? "موثّق من ميتا" : "Meta Verified")
-              : metaVerified === false
-              ? (lang === "ar" ? "بإنتظار التوثيق" : "Pending Verification")
-              : ""}
-          </span>
+          <span>{lang === "ar" ? "تم توثيق واتساب" : "WhatsApp verified"}</span>
         </div>
       )}
     </div>

@@ -7,6 +7,8 @@ import { useNavigate } from "react-router-dom";
 import { Listbox, Transition } from "@headlessui/react";
 import WhatsAppVerify from "../components/WhatsAppVerify";
 
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
+
 export default function Signup({ lang }) {
   const [businessNameAr, setBusinessNameAr] = useState("");
   const [businessNameEn, setBusinessNameEn] = useState("");
@@ -104,7 +106,7 @@ export default function Signup({ lang }) {
     // Create user
     // --------------------------------------------------------------
     try {
-      const res = await fetch("/api/auth/signup", {
+      const res = await fetch(`${API_BASE}/api/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
