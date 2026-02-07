@@ -37,13 +37,34 @@ const DB_FILE = path.join(__dirname, "data.json");
 // ---------------------------------------------------------------------------
 // CORS + JSON
 // ---------------------------------------------------------------------------
+const allowedOrigins = new Set([
+  FRONTEND_ORIGIN,
+  "https://trustedlinks.net",
+  "http://localhost:5173",
+]);
+
 app.use(
   cors({
-    origin: [FRONTEND_ORIGIN, /^http:\/\/localhost:\d+$/, /^http:\/\/127\.0\.0\.1:\d+$/],
+    origin: (origin, cb) => {
+      // allow server-to-server / curl without Origin
+      if (!origin) return cb(null, true);
+
+      const ok =
+        allowedOrigins.has(origin) ||
+        /^http:\/\/localhost:\d+$/.test(origin) ||
+        /^http:\/\/127\.0\.0\.1:\d+$/.test(origin);
+
+      return cb(ok ? null : new Error("CORS blocked"), ok);
+    },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-API-Key"],
     credentials: false,
   })
 );
-app.use(express.json({ limit: "1mb" }));
+
+// Preflight for all routes
+app.options("*", cors());
+
 
 // ---------------------------------------------------------------------------
 // Constants
