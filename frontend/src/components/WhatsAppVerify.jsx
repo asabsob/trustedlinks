@@ -10,9 +10,6 @@ import React, { useEffect, useState, useRef } from "react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 
-console.log("VITE_API_BASE =", import.meta.env.VITE_API_BASE);
-console.log("API_BASE USED =", API_BASE);
-
 async function post(path, body) {
   const r = await fetch(`${API_BASE}${path}`, {
     method: "POST",
