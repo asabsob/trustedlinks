@@ -491,5 +491,10 @@ app.get("/api/test", (_req, res) => res.json({ ok: true, message: "✅ Backend i
 // ============================================================================
 app.listen(PORT, () => {
   console.log(`✅ Trusted Links API running on http://localhost:${PORT}`);
+
+  console.log("ENV_HAS_JAVNA_API_KEY:", Object.prototype.hasOwnProperty.call(process.env, "JAVNA_API_KEY"));
+  console.log("JAVNA_API_KEY_RAW:", JSON.stringify(process.env.JAVNA_API_KEY));
+  console.log("JAVNA_KEYS:", Object.keys(process.env).filter(k => k.includes("JAVNA")));
+
   console.log(`JAVNA_API_KEY: ${JAVNA_API_KEY ? "Loaded ✅" : "Missing ❌"}`);
 });
