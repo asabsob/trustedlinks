@@ -486,6 +486,13 @@ app.post("/api/admin/login", async (req, res) => {
 // ============================================================================
 app.get("/api/test", (_req, res) => res.json({ ok: true, message: "✅ Backend is reachable" }));
 
+app.get("/api/health", (_req, res) => {
+  res.json({
+    ok: true,
+    javnaKeyLoaded: Boolean(process.env.JAVNA_API_KEY),
+    javnaKeyLength: (process.env.JAVNA_API_KEY || "").length,
+  });
+});
 // ============================================================================
 // Start server
 // ============================================================================
