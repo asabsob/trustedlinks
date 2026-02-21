@@ -77,10 +77,11 @@ const GMAIL_USER = process.env.GMAIL_USER || "";
 const GMAIL_PASS = process.env.GMAIL_APP_PASSWORD || "";
 
 const JAVNA_API_KEY = process.env.JAVNA_API_KEY || "";
+const JAVNA_FROM = process.env.JAVNA_FROM || ""; // ✅ لازم تضيفه على Railway
 const JAVNA_BASE_URL = process.env.JAVNA_BASE_URL || "https://whatsapp.api.javna.com/whatsapp/v1.0";
-// endpoints (حسب صفحة Javna)
-// send text:
+
 const JAVNA_SEND_TEXT_URL = `${JAVNA_BASE_URL}/message/text`;
+const JAVNA_SEND_TEMPLATE_URL = `${JAVNA_BASE_URL}/message/template`; // ✅ لازم
 
 // ---------------------------------------------------------------------------
 // DB Helpers (flat JSON)
@@ -186,7 +187,42 @@ async function javnaSendText({ to, body }) {
     return { ok: true, raw: txt };
   }
 }
+async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
+  if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
+  if (!JAVNA_FROM) throw new Error("Missing JAVNA_FROM");
 
+  const headers = {
+    "Content-Type": "application/json",
+    "X-API-Key": JAVNA_API_KEY,
+  };
+
+  const templateName = lang === "ar" ? "trustedlinks_otp_ar" : "trustedlinks_otp_en";
+
+  const payload = {
+    From: JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`,
+    To: to.startsWith("+") ? to : `+${to}`,
+    TemplateName: templateName,
+    Language: lang === "ar" ? "ar" : "en",
+    Parameters: [
+      { name: "1", value: String(code) }, // matches {{1}}
+    ],
+  };
+
+  const r = await fetch(JAVNA_SEND_TEMPLATE_URL, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  const txt = await r.text();
+  if (!r.ok) throw new Error(`Javna template failed (${r.status}): ${txt}`);
+
+  try {
+    return JSON.parse(txt);
+  } catch {
+    return { ok: true, raw: txt };
+  }
+}
 // ---------------------------------------------------------------------------
 // OTP Helpers (stored in data.json)
 // ---------------------------------------------------------------------------
@@ -301,11 +337,11 @@ if (!/^\d{10,15}$/.test(clean)) {
       return res.json({ success: true, message: "OTP generated (mock).", devOtp: otp });
     }
 
-    await javnaSendText({
-      to: clean,
-      body: `🔐 Trusted Links OTP: ${otp}\nEnter this code to verify your WhatsApp number. (Valid 5 minutes)`,
-    });
-
+   await javnaSendOtpTemplate({
+  to: clean,     // digits only OK
+  code: otp,
+  lang: "en",    // أو "ar" حسب واجهتك
+});
     return res.json({ success: true, message: "OTP sent." });
   } catch (e) {
     console.error("request-otp error", e.message);
