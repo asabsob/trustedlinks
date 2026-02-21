@@ -252,6 +252,40 @@ app.post("/api/auth/login", async (req, res) => {
   return res.json({ ok: true, token, subscriptionPlan: user.subscriptionPlan, planActivatedAt: user.planActivatedAt });
 });
 
+const JAVNA_FROM = process.env.JAVNA_FROM || "";
+const JAVNA_SEND_TEMPLATE_URL = `${JAVNA_BASE_URL}/message/template`;
+
+// JAVNA: send template OTP
+async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
+  if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
+  if (!JAVNA_FROM) throw new Error("Missing JAVNA_FROM");
+
+  const headers = {
+    "Content-Type": "application/json",
+    "X-API-Key": JAVNA_API_KEY,
+  };
+
+  const templateName = lang === "ar" ? "trustedlinks_otp_ar" : "trustedlinks_otp_en";
+
+  const payload = {
+    From: JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`,
+    To: to.startsWith("+") ? to : `+${to}`,
+    TemplateName: templateName,
+    Language: lang === "ar" ? "ar" : "en",
+    Parameters: [{ name: "1", value: String(code) }],
+  };
+
+  const r = await fetch(JAVNA_SEND_TEMPLATE_URL, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  const txt = await r.text();
+  if (!r.ok) throw new Error(`Javna template failed (${r.status}): ${txt}`);
+
+  try { return JSON.parse(txt); } catch { return { ok: true, raw: txt }; }
+}
 // ============================================================================
 // WhatsApp OTP (Javna) - for business signup
 // ============================================================================
