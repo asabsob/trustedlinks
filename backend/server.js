@@ -161,10 +161,19 @@ async function javnaSendText({ to, body }) {
     "X-API-Key": JAVNA_API_KEY,
   };
 
+  const From = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
+  const To = to.startsWith("+") ? to : `+${to}`;
+  const Text = String(body || "").trim();
+
+  // ✅ IMPORTANT: Javna expects Messages[]
   const payload = {
-    From: JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`,
-    To: to.startsWith("+") ? to : `+${to}`,
-    Text: String(body || ""),
+    Messages: [
+      {
+        From,
+        To,
+        Text,
+      },
+    ],
   };
 
   const r = await fetch(JAVNA_SEND_TEXT_URL, {
@@ -176,7 +185,11 @@ async function javnaSendText({ to, body }) {
   const txt = await r.text();
   if (!r.ok) throw new Error(`Javna send failed (${r.status}): ${txt}`);
 
-  try { return JSON.parse(txt); } catch { return { ok: true, raw: txt }; }
+  try {
+    return JSON.parse(txt);
+  } catch {
+    return { ok: true, raw: txt };
+  }
 }
 // ---------------------------------------------------------------------------
 // OTP Helpers (stored in data.json)
@@ -263,14 +276,23 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
     "X-API-Key": JAVNA_API_KEY,
   };
 
+  const From = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
+  const To = to.startsWith("+") ? to : `+${to}`;
   const templateName = lang === "ar" ? "trustedlinks_otp_ar" : "trustedlinks_otp_en";
 
+  // ✅ IMPORTANT: Javna expects Messages[]
   const payload = {
-    From: JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`,
-    To: to.startsWith("+") ? to : `+${to}`,
-    TemplateName: templateName,
-    Language: lang === "ar" ? "ar" : "en",
-    Parameters: [{ name: "1", value: String(code) }],
+    Messages: [
+      {
+        From,
+        To,
+        TemplateName: templateName,
+        Language: lang === "ar" ? "ar" : "en",
+
+        // ✅ جرّب أولاً Name/Value (أكثر شيوعاً)
+        Parameters: [{ Name: "1", Value: String(code) }],
+      },
+    ],
   };
 
   const r = await fetch(JAVNA_SEND_TEMPLATE_URL, {
@@ -282,7 +304,11 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   const txt = await r.text();
   if (!r.ok) throw new Error(`Javna template failed (${r.status}): ${txt}`);
 
-  try { return JSON.parse(txt); } catch { return { ok: true, raw: txt }; }
+  try {
+    return JSON.parse(txt);
+  } catch {
+    return { ok: true, raw: txt };
+  }
 }
 // ============================================================================
 // WhatsApp OTP (Javna) - for business signup
