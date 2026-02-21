@@ -270,13 +270,18 @@ app.post("/api/auth/login", async (req, res) => {
  */
 app.post("/api/whatsapp/request-otp", async (req, res) => {
   try {
-    const { whatsapp } = req.body || {};
-    const clean = cleanDigits(whatsapp);
+   const { whatsapp } = req.body || {};
 
-    if (!clean || clean.length < 8) {
-      return res.status(400).json({ error: "Invalid WhatsApp number" });
-    }
+if (!whatsapp) {
+  return res.status(400).json({ error: "WhatsApp number missing" });
+}
 
+const clean = cleanDigits(whatsapp);
+
+// International validation: 10–15 digits (E.164 without +)
+if (!/^\d{10,15}$/.test(clean)) {
+  return res.status(400).json({ error: "Invalid WhatsApp number" });
+}
     const db = load();
 
     // duplication check: if already used in businesses
