@@ -2,11 +2,11 @@
 // WhatsAppVerify Component — JAVNA ONLY (Production-ready)
 // Uses VITE_API_BASE for Railway/Vercel
 // Endpoints:
-//   POST /api/whatsapp/request-otp  { whatsapp }
-//   POST /api/whatsapp/verify-otp   { whatsapp, code }
+//   POST /api/whatsapp/request-otp { whatsapp: fullNumber }
+//   POST /api/whatsapp/verify-otp  { whatsapp: fullNumber, code }
 // ============================================================================
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 
@@ -22,20 +22,29 @@ async function post(path, body) {
   try {
     data = JSON.parse(txt);
   } catch {
-    // If backend returns HTML by mistake, show a helpful error
     throw new Error(`Non-JSON response (${r.status}). Check API_BASE / routes.`);
   }
 
-  if (!r.ok) {
-    throw new Error(data?.error || `Request failed (${r.status})`);
-  }
-
+  if (!r.ok) throw new Error(data?.error || `Request failed (${r.status})`);
   return data;
+}
+
+// Keep digits only for local input (user types 07xxxxxxx, spaces, etc.)
+function digitsOnly(v = "") {
+  return String(v).replace(/\D/g, "");
+}
+
+// Build E.164-like number: +<country><national_without_leading_0>
+function buildInternational(dial, localInput) {
+  const localDigits = digitsOnly(localInput);
+  const normalizedLocal = localDigits.replace(/^0+/, ""); // remove leading zeros
+  const dialDigits = String(dial || "").replace(/\D/g, ""); // "+962" -> "962"
+  return `+${dialDigits}${normalizedLocal}`;
 }
 
 export default function WhatsAppVerify({
   lang = "en",
-  businessName = "",
+  businessName = "", // kept for future use (not used in Javna-only)
   currentWhatsapp = "",
   onVerified,
 }) {
@@ -45,7 +54,7 @@ export default function WhatsAppVerify({
   const [otpVerified, setOtpVerified] = useState(false);
   const [loading, setLoading] = useState(false);
   const [timer, setTimer] = useState(0);
-  const dropdownRef = useRef();
+  const dropdownRef = useRef(null);
 
   const countries = [
     { code: "JO", dial: "+962", flag: "/flags/jo.png", nameAr: "الأردن" },
@@ -60,8 +69,8 @@ export default function WhatsAppVerify({
   const [country, setCountry] = useState(countries[0]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  // keep + + remove local 0 after country code (e.g. +9620XXXXXXXX -> +962XXXXXXXX)
-  const fullNumber = (country.dial + whatsapp).replace(/(\+?\d+)(0)(\d{7,})/, "$1$3");
+  // ✅ Always compute full international number cleanly
+  const fullNumber = useMemo(() => buildInternational(country.dial, whatsapp), [country.dial, whatsapp]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -80,8 +89,16 @@ export default function WhatsAppVerify({
   }, [timer]);
 
   const sendOtp = async () => {
-    if (!whatsapp.trim()) {
+    const localDigits = digitsOnly(whatsapp);
+    if (!localDigits) {
       alert(lang === "ar" ? "أدخل رقم الهاتف" : "Enter your phone number");
+      return;
+    }
+
+    // Basic sanity: after normalization, should be at least 8 digits
+    const normalizedLocal = localDigits.replace(/^0+/, "");
+    if (normalizedLocal.length < 8) {
+      alert(lang === "ar" ? "رقم غير صالح" : "Invalid phone number");
       return;
     }
 
@@ -106,18 +123,16 @@ export default function WhatsAppVerify({
 
     setLoading(true);
     try {
-      // backend expects { whatsapp, code }
       await post("/api/whatsapp/verify-otp", { whatsapp: fullNumber, code: otp.trim() });
 
       setOtpVerified(true);
 
-      // JAVNA ONLY: no meta checks
       if (onVerified) {
         const digits = fullNumber.replace(/\D/g, "");
         onVerified({
-          whatsapp: digits, // digits only
+          whatsapp: digits,
           whatsappLink: `https://wa.me/${digits}`,
-          metaVerified: null, // not used
+          metaVerified: null,
         });
       }
 
@@ -130,7 +145,8 @@ export default function WhatsAppVerify({
   };
 
   const resendOtp = async () => {
-    if (timer > 0) return;
+    if (timer > 0 || loading) return;
+    setOtp(""); // optional: reset otp input
     await sendOtp();
   };
 
@@ -144,10 +160,8 @@ export default function WhatsAppVerify({
   );
 
   return (
-    <div
-      dir={lang === "ar" ? "rtl" : "ltr"}
-      className="w-full bg-white p-4 border rounded-xl shadow-sm space-y-3"
-    >
+    <div dir={lang === "ar" ? "rtl" : "ltr"} className="w-full bg-white p-4 border rounded-xl shadow-sm space-y-3">
+      {/* Country + Number */}
       <div className="flex gap-3">
         <div className="relative w-40" ref={dropdownRef}>
           <button
@@ -185,9 +199,14 @@ export default function WhatsAppVerify({
           value={whatsapp}
           onChange={(e) => setWhatsapp(e.target.value)}
           type="text"
-          placeholder={lang === "ar" ? "رقم الهاتف" : "Phone number"}
+          placeholder={lang === "ar" ? "رقم الهاتف (بدون كود الدولة)" : "Phone number (without country code)"}
           className="flex-1 border rounded-lg px-3 py-2 text-sm"
         />
+      </div>
+
+      {/* (Optional) show normalized full number for debugging UX */}
+      <div className="text-xs text-gray-500" dir="ltr">
+        {lang === "ar" ? "سيتم الإرسال إلى:" : "Will send to:"} {fullNumber}
       </div>
 
       {!otpSent && (
@@ -197,7 +216,7 @@ export default function WhatsAppVerify({
           disabled={loading}
           className="w-full bg-green-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition"
         >
-          {loading ? (lang === "ar" ? "جاري الإرسال..." : "Sending...") : (lang === "ar" ? "إرسال الرمز" : "Send OTP")}
+          {loading ? (lang === "ar" ? "جاري الإرسال..." : "Sending...") : lang === "ar" ? "إرسال الرمز" : "Send OTP"}
         </button>
       )}
 
@@ -217,7 +236,7 @@ export default function WhatsAppVerify({
             disabled={loading}
             className="w-full bg-green-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition"
           >
-            {loading ? (lang === "ar" ? "جاري التحقق..." : "Verifying...") : (lang === "ar" ? "تحقق" : "Verify")}
+            {loading ? (lang === "ar" ? "جاري التحقق..." : "Verifying...") : lang === "ar" ? "تحقق" : "Verify"}
           </button>
 
           <button
@@ -228,9 +247,7 @@ export default function WhatsAppVerify({
               timer > 0 ? "bg-gray-400 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"
             }`}
           >
-            {timer > 0
-              ? (lang === "ar" ? `إعادة خلال ${timer}s` : `Resend in ${timer}s`)
-              : (lang === "ar" ? "إعادة الإرسال" : "Resend")}
+            {timer > 0 ? (lang === "ar" ? `إعادة خلال ${timer}s` : `Resend in ${timer}s`) : lang === "ar" ? "إعادة الإرسال" : "Resend"}
           </button>
         </div>
       )}
