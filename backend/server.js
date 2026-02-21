@@ -556,9 +556,9 @@ process.on("unhandledRejection", (reason) => {
 // ============================================================================
 // Start server
 // ============================================================================
-app.listen(PORT, () => {
-  console.log(`✅ Trusted Links API running on http://localhost:${PORT}`);
-
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`✅ Trusted Links API running on port ${PORT}`);
+});
   console.log("ENV_HAS_JAVNA_API_KEY:", Object.prototype.hasOwnProperty.call(process.env, "JAVNA_API_KEY"));
   console.log("JAVNA_API_KEY_RAW:", JSON.stringify(process.env.JAVNA_API_KEY));
   console.log("JAVNA_KEYS:", Object.keys(process.env).filter(k => k.includes("JAVNA")));
