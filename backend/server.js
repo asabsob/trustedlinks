@@ -533,6 +533,9 @@ app.post("/api/admin/login", async (req, res) => {
 // ============================================================================
 // Health check
 // ============================================================================
+app.get("/", (_req, res) => res.status(200).send("OK"));
+app.get("/healthz", (_req, res) => res.status(200).json({ ok: true }));
+
 app.get("/api/test", (_req, res) => res.json({ ok: true, message: "✅ Backend is reachable" }));
 
 app.get("/api/health", (_req, res) => {
@@ -541,6 +544,14 @@ app.get("/api/health", (_req, res) => {
     javnaKeyLoaded: Boolean(process.env.JAVNA_API_KEY),
     javnaKeyLength: (process.env.JAVNA_API_KEY || "").length,
   });
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("UNCAUGHT_EXCEPTION:", err);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("UNHANDLED_REJECTION:", reason);
 });
 // ============================================================================
 // Start server
