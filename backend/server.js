@@ -252,7 +252,7 @@ app.post("/api/auth/login", async (req, res) => {
   return res.json({ ok: true, token, subscriptionPlan: user.subscriptionPlan, planActivatedAt: user.planActivatedAt });
 });
 
-const JAVNA_FROM = process.env.JAVNA_FROM || "";
+
 const JAVNA_SEND_TEMPLATE_URL = `${JAVNA_BASE_URL}/message/template`;
 
 // JAVNA: send template OTP
