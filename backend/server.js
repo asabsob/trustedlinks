@@ -61,7 +61,7 @@ app.use(
     credentials: false,
   })
 );
-
+app.use(express.json({ limit: "1mb" }));
 // Preflight for all routes
 app.options("*", cors());
 
