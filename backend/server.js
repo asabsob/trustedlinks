@@ -253,8 +253,6 @@ app.post("/api/auth/login", async (req, res) => {
 });
 
 
-const JAVNA_SEND_TEMPLATE_URL = `${JAVNA_BASE_URL}/message/template`;
-
 // JAVNA: send template OTP
 async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
