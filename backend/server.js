@@ -249,18 +249,27 @@ app.post("/api/auth/login", async (req, res) => {
 
 
 // JAVNA: send template OTP
+
 async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
   if (!JAVNA_FROM) throw new Error("Missing JAVNA_FROM");
 
-  const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
+  const headers = {
+    "Content-Type": "application/json",
+    "X-API-Key": JAVNA_API_KEY,
+  };
+
   const templateName = lang === "ar" ? "trustedlinks_otp_ar" : "trustedlinks_otp_en";
 
+  const From = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
+  const To = to.startsWith("+") ? to : `+${to}`;
+
+  // ✅ Javna expects Messages array (based on your 400 error)
   const payload = {
     Messages: [
       {
-        From: JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`,
-        To: to.startsWith("+") ? to : `+${to}`,
+        From,
+        To,
         TemplateName: templateName,
         Language: lang === "ar" ? "ar" : "en",
         Parameters: [{ name: "1", value: String(code) }],
@@ -268,9 +277,15 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
     ],
   };
 
-  const r = await fetch(JAVNA_SEND_TEMPLATE_URL, { method: "POST", headers, body: JSON.stringify(payload) });
+  const r = await fetch(JAVNA_SEND_TEMPLATE_URL, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
   const txt = await r.text();
   if (!r.ok) throw new Error(`Javna template failed (${r.status}): ${txt}`);
+
   try { return JSON.parse(txt); } catch { return { ok: true, raw: txt }; }
 }
 // ============================================================================
@@ -343,7 +358,10 @@ app.post("/api/whatsapp/verify-otp", (req, res) => {
       };
       return res.status(400).json({ success: false, error: map[v.reason] || "OTP failed" });
     }
-
+    
+const resp = await javnaSendOtpTemplate({ to: clean, code: otp, lang: "en" });
+console.log("JAVNA_TEMPLATE_RESPONSE:", resp);
+    
     save(db);
     return res.json({ success: true, verified: true });
   } catch (e) {
