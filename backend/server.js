@@ -328,11 +328,14 @@ if (!/^\d{10,15}$/.test(clean)) {
       return res.json({ success: true, message: "OTP generated (mock).", devOtp: otp });
     }
 
-   await javnaSendOtpTemplate({
-  to: clean,     // digits only OK
+  const resp = await javnaSendOtpTemplate({
+  to: clean,
   code: otp,
-  lang: "en",    // أو "ar" حسب واجهتك
+  lang: "en",
 });
+
+console.log("JAVNA_TEMPLATE_RESPONSE:", resp);
+    
     return res.json({ success: true, message: "OTP sent." });
   } catch (e) {
     console.error("request-otp error", e.message);
