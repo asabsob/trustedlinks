@@ -359,9 +359,7 @@ app.post("/api/whatsapp/verify-otp", (req, res) => {
       return res.status(400).json({ success: false, error: map[v.reason] || "OTP failed" });
     }
     
-const resp = await javnaSendOtpTemplate({ to: clean, code: otp, lang: "en" });
-console.log("JAVNA_TEMPLATE_RESPONSE:", resp);
-    
+
     save(db);
     return res.json({ success: true, verified: true });
   } catch (e) {
