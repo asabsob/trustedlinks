@@ -158,27 +158,74 @@ async function javnaSendText({ to, body }) {
 
   const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
 
+  const From = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
+  const To = to.startsWith("+") ? to : `+${to}`;
+
   const payload = {
     Messages: [
       {
-        From: JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`,
-      const To = to.startsWith("+") ? to : `+${to}`;
+        From,
+        Destinations: [To],
+        Text: String(body || ""),
+      },
+    ],
+  };
 
-const payload = {
-  Messages: [
-    {
-      From,
-      Destinations: [To],
-      Text: String(body || ""),
-    },
-  ],
-};
+  const r = await fetch(JAVNA_SEND_TEXT_URL, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
 
-  const r = await fetch(JAVNA_SEND_TEXT_URL, { method: "POST", headers, body: JSON.stringify(payload) });
   const txt = await r.text();
-  console.log("JAVNA_TEMPLATE_RESPONSE:", r.status, txt);
   if (!r.ok) throw new Error(`Javna send failed (${r.status}): ${txt}`);
-  try { return JSON.parse(txt); } catch { return { ok: true, raw: txt }; }
+
+  try {
+    return JSON.parse(txt);
+  } catch {
+    return { ok: true, raw: txt };
+  }
+}
+
+// JAVNA: send template OTP
+async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
+  if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
+  if (!JAVNA_FROM) throw new Error("Missing JAVNA_FROM");
+
+  const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
+
+  // ⚠️ مهم: تأكد من اسم التمبلت بالضبط في Javna
+  const templateName = lang === "ar" ? "trustedlinks_otp_ar" : "trustedlinks_otp_en";
+
+  const From = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
+  const To = to.startsWith("+") ? to : `+${to}`;
+
+  const payload = {
+    Messages: [
+      {
+        From,
+        Destinations: [To],
+        TemplateName: templateName,
+        Language: lang === "ar" ? "ar" : "en",
+        Parameters: [{ name: "1", value: String(code) }],
+      },
+    ],
+  };
+
+  const r = await fetch(JAVNA_SEND_TEMPLATE_URL, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  const txt = await r.text();
+  if (!r.ok) throw new Error(`Javna template failed (${r.status}): ${txt}`);
+
+  try {
+    return JSON.parse(txt);
+  } catch {
+    return { ok: true, raw: txt };
+  }
 }
 // ---------------------------------------------------------------------------
 // OTP Helpers (stored in data.json)
