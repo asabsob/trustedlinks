@@ -170,6 +170,7 @@ async function javnaSendText({ to, body }) {
 
   const r = await fetch(JAVNA_SEND_TEXT_URL, { method: "POST", headers, body: JSON.stringify(payload) });
   const txt = await r.text();
+  console.log("JAVNA_TEMPLATE_RESPONSE:", r.status, txt);
   if (!r.ok) throw new Error(`Javna send failed (${r.status}): ${txt}`);
   try { return JSON.parse(txt); } catch { return { ok: true, raw: txt }; }
 }
@@ -327,16 +328,9 @@ if (!/^\d{10,15}$/.test(clean)) {
       console.log("🧪 JAVNA disabled (missing key). OTP:", otp, "to:", clean);
       return res.json({ success: true, message: "OTP generated (mock).", devOtp: otp });
     }
-
-  const resp = await javnaSendOtpTemplate({
-  to: clean,
-  code: otp,
-  lang: "en",
-});
-
-console.log("JAVNA_TEMPLATE_RESPONSE:", resp);
+const javnaRes = await javnaSendOtpTemplate({ to: clean, code: otp, lang: "en" });
+return res.json({ success: true, message: "OTP sent.", javna: javnaRes });
     
-    return res.json({ success: true, message: "OTP sent." });
   } catch (e) {
     console.error("request-otp error", e.message);
     return res.status(500).json({ error: "Failed to send OTP" });
