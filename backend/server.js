@@ -162,11 +162,17 @@ async function javnaSendText({ to, body }) {
     Messages: [
       {
         From: JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`,
-        To: to.startsWith("+") ? to : `+${to}`,
-        Text: String(body || ""),
-      },
-    ],
-  };
+      const To = to.startsWith("+") ? to : `+${to}`;
+
+const payload = {
+  Messages: [
+    {
+      From,
+      Destinations: [To],
+      Text: String(body || ""),
+    },
+  ],
+};
 
   const r = await fetch(JAVNA_SEND_TEXT_URL, { method: "POST", headers, body: JSON.stringify(payload) });
   const txt = await r.text();
@@ -266,20 +272,21 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
     : "trustedlinks_otp_en";
 
   const From = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
-  const To = to.startsWith("+") ? to : `+${to}`;
+const To = to.startsWith("+") ? to : `+${to}`;
 
-  // ✅ Javna expects Messages array (based on your 400 error)
-  const payload = {
-    Messages: [
-      {
-        From,
-        To,
-        TemplateName: templateName,
-        Language: lang === "ar" ? "ar" : "en",
-        Parameters: [{ name: "1", value: String(code) }],
-      },
-    ],
-  };
+const payload = {
+  Messages: [
+    {
+      From,
+      // ❗ بدل To
+      Destinations: [To],          // الشكل الأكثر شيوعاً
+      // destinations: [To],       // إذا بدهم lowercase (اختياري)
+      TemplateName: templateName,
+      Language: lang === "ar" ? "ar" : "en",
+      Parameters: [{ name: "1", value: String(code) }],
+    },
+  ],
+};
 
   const r = await fetch(JAVNA_SEND_TEMPLATE_URL, {
     method: "POST",
