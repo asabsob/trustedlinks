@@ -260,7 +260,10 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
     "X-API-Key": JAVNA_API_KEY,
   };
 
-  const templateName = lang === "ar" ? "trustedlinks_otp_ar" : "trustedlinks_otp_en";
+  const templateName =
+  lang === "ar"
+    ? "turstedlinks_otp_ar"   // ← صحح الاسم هنا
+    : "trustedlinks_otp_en";
 
   const From = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
   const To = to.startsWith("+") ? to : `+${to}`;
