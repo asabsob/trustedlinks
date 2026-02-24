@@ -180,11 +180,7 @@ async function javnaSendText({ to, body }) {
   const txt = await r.text();
   if (!r.ok) throw new Error(`Javna send failed (${r.status}): ${txt}`);
 
-  try {
-    return JSON.parse(txt);
-  } catch {
-    return { ok: true, raw: txt };
-  }
+  try { return JSON.parse(txt); } catch { return { ok: true, raw: txt }; }
 }
 
 // JAVNA: send template OTP
@@ -194,18 +190,23 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
 
   const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
 
-  const templateName = lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
-
   const From = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
   const To = to.startsWith("+") ? to : `+${to}`;
+
+  // ✅ IMPORTANT: template names exactly as in Javna portal
+  const templateName = lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
 
   const payload = {
     Messages: [
       {
         From,
         Destinations: [To],
+
+        // ✅ Javna expects these exact keys (per your error)
         TemplateName: templateName,
-        TemplateLanguage: (lang === "ar" ? "ar" : "en"),
+        TemplateLanguage: lang === "ar" ? "ar" : "en",
+
+        // keep your OTP variable mapping
         Parameters: [{ name: "1", value: String(code) }],
       },
     ],
