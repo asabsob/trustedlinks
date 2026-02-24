@@ -193,7 +193,10 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
 
   const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
 
+  // انتبه: بالعربي عندك اسم template فيه typo حسب الصورة
   const templateName = lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
+  const templateLang = lang === "ar" ? "ar" : "en";
+
   const From = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
   const To = to.startsWith("+") ? to : `+${to}`;
 
@@ -202,9 +205,21 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
       {
         From,
         Destinations: [To],
-        TemplateName: templateName,
-        TemplateLanguage: lang === "ar" ? "ar" : "en",
+
+        // ✅ الشكل اللي كثير مزودين بيطلبوه
+        Template: {
+          Name: templateName,
+          Language: templateLang,
+        },
+
+        // ✅ باراميتر OTP
         Parameters: [{ name: "1", value: String(code) }],
+
+        // (اختياري) نخلي نسخة lowercase كمان لو parser تبعهم حساس
+        template: {
+          name: templateName,
+          language: templateLang,
+        },
       },
     ],
   };
