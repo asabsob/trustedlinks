@@ -363,6 +363,7 @@ if (javnaResp?.stats?.rejected === "1") {
 }
 
 return res.json({ success: true, message: "OTP sent.", javna: javnaResp });
+return res.json({ success: true, message: "OTP sent.", javna: javnaResp });
 }
 
 return res.json({ success: true, message: "OTP sent.", javna: javnaRes });
