@@ -80,9 +80,12 @@ const JAVNA_API_KEY = process.env.JAVNA_API_KEY || "";
 const JAVNA_FROM = process.env.JAVNA_FROM || ""; // ✅ لازم تضيفه على Railway
 const JAVNA_BASE_URL = process.env.JAVNA_BASE_URL || "https://whatsapp.api.javna.com/whatsapp/v1.0";
 
-const JAVNA_SEND_TEXT_URL = `${JAVNA_BASE_URL}/message/text`;
-const JAVNA_SEND_TEMPLATE_URL = `${JAVNA_BASE_URL}/message/template`; // ✅ لازم
+// ✅ خَلّيهم overrideable من Railway (الأهم)
+const JAVNA_SEND_TEXT_URL =
+  process.env.JAVNA_SEND_TEXT_URL || `${JAVNA_BASE_URL}/message/text`;
 
+const JAVNA_SEND_TEMPLATE_URL =
+  process.env.JAVNA_SEND_TEMPLATE_URL || `${JAVNA_BASE_URL}/message/template`;
 // ---------------------------------------------------------------------------
 // DB Helpers (flat JSON)
 // ---------------------------------------------------------------------------
@@ -190,37 +193,23 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
 
   const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
 
-  const templateName = lang === "ar" ? "trustedlinks_otp_ar" : "trustedlinks_otp_en";
-  const templateLang = lang === "ar" ? "ar" : "en";
-
+  const templateName = lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
   const From = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
   const To = to.startsWith("+") ? to : `+${to}`;
 
-  // ✅ IMPORTANT:
-  // 1) Put TemplateName/TemplateLanguage at ROOT (some Javna schemas expect that)
-  // 2) Send destinations in multiple keys: Destenations (their typo), Destinations, destinations
-  // 3) Use Parameters with Name/Value as well as name/value
   const payload = {
-    TemplateName: templateName,
-    TemplateLanguage: templateLang,
     Messages: [
       {
         From,
-        Destenations: [To],    // ✅ match their internal typo
         Destinations: [To],
-        destinations: [To],
-
         TemplateName: templateName,
-        TemplateLanguage: templateLang,
-
-        Parameters: [
-          { Name: "1", Value: String(code) },
-          { name: "1", value: String(code) },
-        ],
+        TemplateLanguage: lang === "ar" ? "ar" : "en",
+        Parameters: [{ name: "1", value: String(code) }],
       },
     ],
   };
 
+  console.log("JAVNA_TEMPLATE_URL:", JAVNA_SEND_TEMPLATE_URL);
   console.log("JAVNA_TEMPLATE_PAYLOAD:", JSON.stringify(payload));
 
   const r = await fetch(JAVNA_SEND_TEMPLATE_URL, {
@@ -230,10 +219,10 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   });
 
   const txt = await r.text();
-  console.log("JAVNA_TEMPLATE_RESPONSE:", txt);
+  console.log("JAVNA_TEMPLATE_RESPONSE_RAW:", txt);
 
   if (!r.ok) throw new Error(`Javna template failed (${r.status}): ${txt}`);
-  try { return JSON.parse(txt); } catch { return { ok: true, raw: txt }; }
+  return JSON.parse(txt);
 }
 // ---------------------------------------------------------------------------
 // OTP Helpers (stored in data.json)
@@ -552,6 +541,7 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log("ENV_HAS_JAVNA_API_KEY:", Object.prototype.hasOwnProperty.call(process.env, "JAVNA_API_KEY"));
   console.log("JAVNA_API_KEY_RAW:", JSON.stringify(process.env.JAVNA_API_KEY));
   console.log("JAVNA_KEYS:", Object.keys(process.env).filter(k => k.includes("JAVNA")));
-
+console.log("JAVNA_SEND_TEXT_URL:", JAVNA_SEND_TEXT_URL);
+console.log("JAVNA_SEND_TEMPLATE_URL:", JAVNA_SEND_TEMPLATE_URL);
   console.log(`JAVNA_API_KEY: ${JAVNA_API_KEY ? "Loaded ✅" : "Missing ❌"}`);
 });
