@@ -318,26 +318,23 @@ app.post("/api/auth/login", async (req, res) => {
 
 
 // ============================================================================
-// WhatsApp OTP (Javna) - for business signup
+// WhatsApp OTP (Javna) - for business signup  (fixed)
 // ============================================================================
-/**
- * Request OTP
- * body: { whatsapp }
- */
 app.post("/api/whatsapp/request-otp", async (req, res) => {
   try {
-   const { whatsapp } = req.body || {};
+    const { whatsapp } = req.body || {};
 
-if (!whatsapp) {
-  return res.status(400).json({ error: "WhatsApp number missing" });
-}
+    if (!whatsapp) {
+      return res.status(400).json({ error: "WhatsApp number missing" });
+    }
 
-const clean = cleanDigits(whatsapp);
+    const clean = cleanDigits(whatsapp);
 
-// International validation: 10–15 digits (E.164 without +)
-if (!/^\d{10,15}$/.test(clean)) {
-  return res.status(400).json({ error: "Invalid WhatsApp number" });
-}
+    // International validation: 10–15 digits (E.164 without +)
+    if (!/^\d{10,15}$/.test(clean)) {
+      return res.status(400).json({ error: "Invalid WhatsApp number" });
+    }
+
     const db = load();
 
     // duplication check: if already used in businesses
@@ -356,49 +353,35 @@ if (!/^\d{10,15}$/.test(clean)) {
       console.log("🧪 JAVNA disabled (missing key). OTP:", otp, "to:", clean);
       return res.json({ success: true, message: "OTP generated (mock).", devOtp: otp });
     }
-const javnaResp = await javnaSendOtpTemplate({ to: `+${clean}`, code: otp, lang: "en" });
 
-if (javnaResp?.stats?.rejected === "1") {
-  return res.status(400).json({ success: false, error: "Javna rejected template", javna: javnaResp });
-}
+    // --- call Javna and handle response ---
+    try {
+      // pass digits only — javnaSendOtpTemplate will normalise and add '+'
+      const javnaResp = await javnaSendOtpTemplate({ to: clean, code: otp, lang: "en" });
 
-return res.json({ success: true, message: "OTP sent.", javna: javnaResp });
-return res.json({ success: true, message: "OTP sent.", javna: javnaResp });
-}
+      // log for Railway (very important to inspect payload/response)
+      console.log("JAVNA_RESP:", JSON.stringify(javnaResp));
 
-return res.json({ success: true, message: "OTP sent.", javna: javnaRes });
-    
-  } catch (e) {
-    console.error("request-otp error", e.message);
-    return res.status(500).json({ error: "Failed to send OTP" });
-  }
-});
+      // check common rejection signals from Javna
+      const rejectedCount =
+        javnaResp?.stats?.rejected ||
+        (Array.isArray(javnaResp?.rejectedMessages) ? String(javnaResp.rejectedMessages.length) : "0");
 
-/**
- * Verify OTP
- * body: { whatsapp, code }
- */
-app.post("/api/whatsapp/verify-otp", (req, res) => {
-  try {
-    const { whatsapp, code } = req.body || {};
-    const db = load();
+      if (String(rejectedCount) !== "0") {
+        // return full javna object so client / logs can show the reason
+        return res.status(400).json({ success: false, error: "Javna rejected template", javna: javnaResp });
+      }
 
-    const v = verifyOtp(db, { whatsapp, code, purpose: "business_signup" });
-    if (!v.ok) {
-      const map = {
-        NO_OTP: "No OTP request found",
-        BAD_CODE: "Invalid code",
-        EXPIRED: "OTP expired",
-      };
-      return res.status(400).json({ success: false, error: map[v.reason] || "OTP failed" });
+      // success — include devOtp so you can test if message not delivered but OTP stored
+      return res.json({ success: true, message: "OTP sent.", javna: javnaResp, devOtp: otp });
+    } catch (err) {
+      console.error("javna send error:", err);
+      // return JS-friendly error to client and logs
+      return res.status(500).json({ success: false, error: "Javna send failed", details: String(err) });
     }
-    
-
-    save(db);
-    return res.json({ success: true, verified: true });
   } catch (e) {
-    console.error("verify-otp error", e);
-    return res.status(500).json({ error: "Server error" });
+    console.error("request-otp error", e);
+    return res.status(500).json({ error: "Failed to send OTP" });
   }
 });
 
