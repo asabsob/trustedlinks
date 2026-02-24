@@ -194,7 +194,6 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
 
   const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
 
-  // ⚠️ مهم: تأكد من اسم التمبلت بالضبط في Javna
   const templateName = lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
 
   const From = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
@@ -206,7 +205,7 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
         From,
         Destinations: [To],
         TemplateName: templateName,
-        Language: lang === "ar" ? "ar" : "en",
+        TemplateLanguage: (lang === "ar" ? "ar" : "en"),
         Parameters: [{ name: "1", value: String(code) }],
       },
     ],
@@ -221,11 +220,7 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   const txt = await r.text();
   if (!r.ok) throw new Error(`Javna template failed (${r.status}): ${txt}`);
 
-  try {
-    return JSON.parse(txt);
-  } catch {
-    return { ok: true, raw: txt };
-  }
+  try { return JSON.parse(txt); } catch { return { ok: true, raw: txt }; }
 }
 // ---------------------------------------------------------------------------
 // OTP Helpers (stored in data.json)
@@ -343,6 +338,12 @@ if (!/^\d{10,15}$/.test(clean)) {
       return res.json({ success: true, message: "OTP generated (mock).", devOtp: otp });
     }
 const javnaRes = await javnaSendOtpTemplate({ to: clean, code: otp, lang: "en" });
+
+const rejected = Number(javnaRes?.stats?.rejected || 0);
+if (rejected > 0) {
+  return res.status(400).json({ success: false, error: "Javna rejected template", javna: javnaRes });
+}
+
 return res.json({ success: true, message: "OTP sent.", javna: javnaRes });
     
   } catch (e) {
