@@ -190,42 +190,37 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
 
   const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
 
+  const templateName = lang === "ar" ? "trustedlinks_otp_ar" : "trustedlinks_otp_en";
+  const templateLang = lang === "ar" ? "ar" : "en";
+
   const From = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
   const To = to.startsWith("+") ? to : `+${to}`;
 
-  const templateName = lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
-  const templateLang = lang === "ar" ? "ar" : "en";
-
-  const msg = {
-    From,
-
-    // destinations (Javna عندك واضح يشتغل على Destinations)
-    Destinations: [To],
-    destinations: [To],
-
-    // ✅ كل احتمالات التمبلت (بنفس الوقت)
+  // ✅ IMPORTANT:
+  // 1) Put TemplateName/TemplateLanguage at ROOT (some Javna schemas expect that)
+  // 2) Send destinations in multiple keys: Destenations (their typo), Destinations, destinations
+  // 3) Use Parameters with Name/Value as well as name/value
+  const payload = {
     TemplateName: templateName,
     TemplateLanguage: templateLang,
+    Messages: [
+      {
+        From,
+        Destenations: [To],    // ✅ match their internal typo
+        Destinations: [To],
+        destinations: [To],
 
-    templateName,
-    templateLanguage: templateLang,
+        TemplateName: templateName,
+        TemplateLanguage: templateLang,
 
-    Language: templateLang,
-
-    // بعض APIs بتتوقع template object
-    Template: {
-      Name: templateName,
-      Language: templateLang,
-      Parameters: [{ name: "1", value: String(code) }],
-    },
-
-    // وبعضها يتوقع Parameters مباشرة
-    Parameters: [{ name: "1", value: String(code) }],
+        Parameters: [
+          { Name: "1", Value: String(code) },
+          { name: "1", value: String(code) },
+        ],
+      },
+    ],
   };
 
-  const payload = { Messages: [msg] };
-
-  // ✅ هذا أهم سطر: خلي Railway يطبع payload اللي فعليًا طلع
   console.log("JAVNA_TEMPLATE_PAYLOAD:", JSON.stringify(payload));
 
   const r = await fetch(JAVNA_SEND_TEMPLATE_URL, {
@@ -238,7 +233,6 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   console.log("JAVNA_TEMPLATE_RESPONSE:", txt);
 
   if (!r.ok) throw new Error(`Javna template failed (${r.status}): ${txt}`);
-
   try { return JSON.parse(txt); } catch { return { ok: true, raw: txt }; }
 }
 // ---------------------------------------------------------------------------
