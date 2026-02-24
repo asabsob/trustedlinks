@@ -193,24 +193,40 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   const From = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
   const To = to.startsWith("+") ? to : `+${to}`;
 
-  // ✅ IMPORTANT: template names exactly as in Javna portal
   const templateName = lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
+  const templateLang = lang === "ar" ? "ar" : "en";
 
-  const payload = {
-    Messages: [
-      {
-        From,
-        Destinations: [To],
+  const msg = {
+    From,
 
-        // ✅ Javna expects these exact keys (per your error)
-        TemplateName: templateName,
-        TemplateLanguage: lang === "ar" ? "ar" : "en",
+    // destinations (Javna عندك واضح يشتغل على Destinations)
+    Destinations: [To],
+    destinations: [To],
 
-        // keep your OTP variable mapping
-        Parameters: [{ name: "1", value: String(code) }],
-      },
-    ],
+    // ✅ كل احتمالات التمبلت (بنفس الوقت)
+    TemplateName: templateName,
+    TemplateLanguage: templateLang,
+
+    templateName,
+    templateLanguage: templateLang,
+
+    Language: templateLang,
+
+    // بعض APIs بتتوقع template object
+    Template: {
+      Name: templateName,
+      Language: templateLang,
+      Parameters: [{ name: "1", value: String(code) }],
+    },
+
+    // وبعضها يتوقع Parameters مباشرة
+    Parameters: [{ name: "1", value: String(code) }],
   };
+
+  const payload = { Messages: [msg] };
+
+  // ✅ هذا أهم سطر: خلي Railway يطبع payload اللي فعليًا طلع
+  console.log("JAVNA_TEMPLATE_PAYLOAD:", JSON.stringify(payload));
 
   const r = await fetch(JAVNA_SEND_TEMPLATE_URL, {
     method: "POST",
@@ -219,6 +235,8 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   });
 
   const txt = await r.text();
+  console.log("JAVNA_TEMPLATE_RESPONSE:", txt);
+
   if (!r.ok) throw new Error(`Javna template failed (${r.status}): ${txt}`);
 
   try { return JSON.parse(txt); } catch { return { ok: true, raw: txt }; }
@@ -338,11 +356,13 @@ if (!/^\d{10,15}$/.test(clean)) {
       console.log("🧪 JAVNA disabled (missing key). OTP:", otp, "to:", clean);
       return res.json({ success: true, message: "OTP generated (mock).", devOtp: otp });
     }
-const javnaRes = await javnaSendOtpTemplate({ to: clean, code: otp, lang: "en" });
+const javnaResp = await javnaSendOtpTemplate({ to: `+${clean}`, code: otp, lang: "en" });
 
-const rejected = Number(javnaRes?.stats?.rejected || 0);
-if (rejected > 0) {
-  return res.status(400).json({ success: false, error: "Javna rejected template", javna: javnaRes });
+if (javnaResp?.stats?.rejected === "1") {
+  return res.status(400).json({ success: false, error: "Javna rejected template", javna: javnaResp });
+}
+
+return res.json({ success: true, message: "OTP sent.", javna: javnaResp });
 }
 
 return res.json({ success: true, message: "OTP sent.", javna: javnaRes });
