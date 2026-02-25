@@ -79,9 +79,15 @@ const GMAIL_PASS = process.env.GMAIL_APP_PASSWORD || "";
 const JAVNA_API_KEY = process.env.JAVNA_API_KEY || "";
 const JAVNA_FROM = process.env.JAVNA_FROM || ""; // ✅ لازم تضيفه على Railway
 
-const JAVNA_BASE_URL = process.env.JAVNA_BASE_URL || "https://whatsapp.api.javna.com/whatsapp/v1.0";
-const JAVNA_SEND_TEMPLATE_URL = `${JAVNA_BASE_URL}/message/template`;
+const RAW_JAVNA_BASE_URL =
+  process.env.JAVNA_BASE_URL || "https://whatsapp.api.javna.com/whatsapp/v1.0";
+
+// remove trailing slashes to avoid // in final URL
+const JAVNA_BASE_URL = RAW_JAVNA_BASE_URL.replace(/\/+$/, "");
+
 const JAVNA_SEND_TEXT_URL = `${JAVNA_BASE_URL}/message/text`;
+const JAVNA_SEND_TEMPLATE_URL = `${JAVNA_BASE_URL}/message/template`;
+
 
 // ---------------------------------------------------------------------------
 // DB Helpers (flat JSON)
