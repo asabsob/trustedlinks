@@ -150,6 +150,22 @@ function adminAuth(req, res, next) {
 }
 
 // ---------------------------------------------------------------------------
+// JAVNA Config (single place)
+// ---------------------------------------------------------------------------
+const JAVNA_API_KEY = process.env.JAVNA_API_KEY || "";
+const JAVNA_FROM = process.env.JAVNA_FROM || "";
+
+// ✅ FIX: Base ثابت (لأنك حذفت JAVNA_BASE_URL من Railway)
+// مهم: لازم يكون /whatsapp/v1.0 وليس مجرد https://whatsapp.api.javna.com
+const JAVNA_BASE_URL = "https://whatsapp.api.javna.com/whatsapp/v1.0";
+
+const JAVNA_SEND_TEXT_URL = `${JAVNA_BASE_URL}/message/text`;
+const JAVNA_SEND_TEMPLATE_URL = `${JAVNA_BASE_URL}/message/template`;
+
+console.log("JAVNA_SEND_TEXT_URL:", JAVNA_SEND_TEXT_URL);
+console.log("JAVNA_SEND_TEMPLATE_URL:", JAVNA_SEND_TEMPLATE_URL);
+
+// ---------------------------------------------------------------------------
 // JAVNA Client (single place)
 // ---------------------------------------------------------------------------
 async function javnaSendText({ to, body }) {
@@ -171,19 +187,16 @@ async function javnaSendText({ to, body }) {
     ],
   };
 
-  const r = await fetch(JAVNA_SEND_TEXT_URL, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(payload),
-  });
-
+  const r = await fetch(JAVNA_SEND_TEXT_URL, { method: "POST", headers, body: JSON.stringify(payload) });
   const txt = await r.text();
   if (!r.ok) throw new Error(`Javna send failed (${r.status}): ${txt}`);
 
   try { return JSON.parse(txt); } catch { return { ok: true, raw: txt }; }
 }
 
+// ---------------------------------------------------------------------------
 // JAVNA: send template OTP
+// ---------------------------------------------------------------------------
 async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
   if (!JAVNA_FROM) throw new Error("Missing JAVNA_FROM");
@@ -193,19 +206,19 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   const From = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
   const To = to.startsWith("+") ? to : `+${to}`;
 
+  // ✅ template names (لاحظ ar عندك مكتوبة turstedlinks_otp_ar)
   const templateName = lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
   const templateLang = lang === "ar" ? "ar" : "en";
 
+  // ✅ FIX: Javna wants TemplateName/TemplateLanguage at message level (مش داخل Template)
   const payload = {
     Messages: [
       {
         From,
         Destinations: [To],
-        Template: {
-          Name: templateName,
-          Language: templateLang,
-          Parameters: [{ name: "1", value: String(code) }],
-        },
+        TemplateName: templateName,
+        TemplateLanguage: templateLang,
+        Parameters: [{ name: "1", value: String(code) }],
       },
     ],
   };
