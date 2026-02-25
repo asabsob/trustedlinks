@@ -206,11 +206,9 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   const From = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
   const To = to.startsWith("+") ? to : `+${to}`;
 
-  // ✅ template names (لاحظ ar عندك مكتوبة turstedlinks_otp_ar)
   const templateName = lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
   const templateLang = lang === "ar" ? "ar" : "en";
 
-  // ✅ FIX: Javna wants TemplateName/TemplateLanguage at message level (مش داخل Template)
   const payload = {
     Messages: [
       {
@@ -231,7 +229,6 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   console.log("JAVNA_TEMPLATE_RESPONSE_RAW:", txt);
 
   if (!r.ok) throw new Error(`Javna template failed (${r.status}): ${txt}`);
-
   try { return JSON.parse(txt); } catch { return { ok: true, raw: txt }; }
 }
 // ---------------------------------------------------------------------------
