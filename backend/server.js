@@ -190,40 +190,37 @@ async function javnaSendText({ to, body }) {
 }
 
 // JAVNA: send template OTP
-const JAVNA_TEMPLATE_ID_EN = process.env.JAVNA_TEMPLATE_ID_EN || "";
-const JAVNA_TEMPLATE_ID_AR = process.env.JAVNA_TEMPLATE_ID_AR || "";
-
 async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
   if (!JAVNA_FROM) throw new Error("Missing JAVNA_FROM");
 
-  const templateId = lang === "ar" ? JAVNA_TEMPLATE_ID_AR : JAVNA_TEMPLATE_ID_EN;
-  const templateLang = lang === "ar" ? "ar" : "en";
-  if (!templateId) throw new Error("Missing JAVNA_TEMPLATE_ID_(EN/AR)");
+  const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
 
   const From = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
   const To = to.startsWith("+") ? to : `+${to}`;
+
+  const templateName = lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
+  const templateLang = lang === "ar" ? "ar" : "en";
 
   const payload = {
     Messages: [
       {
         From,
         Destinations: [To],
-        TemplateId: templateId,
-        TemplateLanguage: templateLang,
-        Parameters: [{ name: "1", value: String(code) }],
+        Template: {
+          Name: templateName,
+          Language: templateLang,
+          Parameters: [{ name: "1", value: String(code) }],
+        },
       },
     ],
   };
-
-  const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
 
   console.log("JAVNA_TEMPLATE_URL:", JAVNA_SEND_TEMPLATE_URL);
   console.log("JAVNA_TEMPLATE_PAYLOAD:", JSON.stringify(payload));
 
   const r = await fetch(JAVNA_SEND_TEMPLATE_URL, { method: "POST", headers, body: JSON.stringify(payload) });
   const txt = await r.text();
-
   console.log("JAVNA_TEMPLATE_RESPONSE_RAW:", txt);
 
   if (!r.ok) throw new Error(`Javna template failed (${r.status}): ${txt}`);
