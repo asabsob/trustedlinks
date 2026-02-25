@@ -78,7 +78,7 @@ const GMAIL_PASS = process.env.GMAIL_APP_PASSWORD || "";
 
 const JAVNA_API_KEY = process.env.JAVNA_API_KEY || "";
 const JAVNA_FROM = process.env.JAVNA_FROM || ""; // ✅ لازم تضيفه على Railway
-const JAVNA_BASE_URL = process.env.JAVNA_BASE_URL || "https://whatsapp.api.javna.com/whatsapp/v1.0";
+const JAVNA_BASE_URL = process.env.JAVNA_BASE_URL || "https://whatsapp.api.javna.com/";
 
 // ✅ خَلّيهم overrideable من Railway (الأهم)
 const JAVNA_SEND_TEXT_URL =
@@ -193,35 +193,43 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
 
   const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
 
-  // انتبه: بالعربي عندك اسم template فيه typo حسب الصورة
-  const templateName = lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
-  const templateLang = lang === "ar" ? "ar" : "en";
+  // ✅ استخدم templateId (من اللي أرسلته)
+  const TEMPLATE_ID_EN = process.env.JAVNA_TEMPLATE_ID_EN; // ضعها في Railway Variables
+  const TEMPLATE_ID_AR = process.env.JAVNA_TEMPLATE_ID_AR; // ضعها في Railway Variables
+
+  const templateId = (lang === "ar" ? TEMPLATE_ID_AR : TEMPLATE_ID_EN);
+  const templateLanguage = (lang === "ar" ? "ar" : "en");
+
+  if (!templateId) throw new Error("Missing JAVNA_TEMPLATE_ID_(EN/AR)");
 
   const From = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
   const To = to.startsWith("+") ? to : `+${to}`;
 
+  // ✅ Msg بأكثر شكل متوافق مع اختلافات Javna
+  const msg = {
+    From,
+
+    // destinations variants (واضح عندهم typo)
+    Destinations: [To],
+    destenations: [To],
+    Destenations: [To],
+
+    // template via ID (الأهم)
+    TemplateId: templateId,
+    TemplateLanguage: templateLanguage,
+
+    templateId: templateId,
+    templateLanguage: templateLanguage,
+
+    // parameters
+    Parameters: [{ name: "1", value: String(code) }],
+    parameters: [{ name: "1", value: String(code) }],
+  };
+
   const payload = {
-    Messages: [
-      {
-        From,
-        Destinations: [To],
-
-        // ✅ الشكل اللي كثير مزودين بيطلبوه
-        Template: {
-          Name: templateName,
-          Language: templateLang,
-        },
-
-        // ✅ باراميتر OTP
-        Parameters: [{ name: "1", value: String(code) }],
-
-        // (اختياري) نخلي نسخة lowercase كمان لو parser تبعهم حساس
-        template: {
-          name: templateName,
-          language: templateLang,
-        },
-      },
-    ],
+    Messages: [msg],
+    msgs: [msg],
+    messages: [msg],
   };
 
   console.log("JAVNA_TEMPLATE_URL:", JAVNA_SEND_TEMPLATE_URL);
@@ -233,11 +241,12 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
     body: JSON.stringify(payload),
   });
 
-  const txt = await r.text();
-  console.log("JAVNA_TEMPLATE_RESPONSE_RAW:", txt);
+  const raw = await r.text();
+  console.log("JAVNA_TEMPLATE_RESPONSE_RAW:", raw);
 
-  if (!r.ok) throw new Error(`Javna template failed (${r.status}): ${txt}`);
-  return JSON.parse(txt);
+  if (!r.ok) throw new Error(`Javna template failed (${r.status}): ${raw}`);
+
+  try { return JSON.parse(raw); } catch { return { raw }; }
 }
 // ---------------------------------------------------------------------------
 // OTP Helpers (stored in data.json)
