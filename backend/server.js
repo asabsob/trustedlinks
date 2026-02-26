@@ -177,15 +177,17 @@ async function javnaSendText({ to, body }) {
   const From = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
   const To = to.startsWith("+") ? to : `+${to}`;
 
-  const payload = {
-    Messages: [
-      {
-        From,
-        Destinations: [To],
-        Text: String(body || ""),
-      },
-    ],
-  };
+ const payload = {
+  Messages: [
+    {
+      From,
+      Destinations: [To],
+      TemplateName: templateName,
+      TemplateLanguage: templateLang,
+      Parameters: [{ name: "1", value: String(code) }],
+    },
+  ],
+};
 
   const r = await fetch(JAVNA_SEND_TEXT_URL, { method: "POST", headers, body: JSON.stringify(payload) });
   const txt = await r.text();
