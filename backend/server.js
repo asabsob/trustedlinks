@@ -149,11 +149,16 @@ function adminAuth(req, res, next) {
 // JAVNA Config (single place)
 // ---------------------------------------------------------------------------
 // ---------------------- JAVNA CONFIG ----------------------
+// ---------------------- JAVNA CONFIG ----------------------
 const JAVNA_API_KEY = process.env.JAVNA_API_KEY || "";
 const JAVNA_FROM = process.env.JAVNA_FROM || "";
 
+// 👇 يجب أن يكون أولاً
 const JAVNA_BASE_URL = "https://whatsapp.api.javna.com/whatsapp/v1.0";
 
+// 👇 بعده مباشرة
+const JAVNA_SEND_TEXT_URL = `${JAVNA_BASE_URL}/message/text`;
+const JAVNA_SEND_TEMPLATE_URL = `${JAVNA_BASE_URL}/message/template`;
 
 console.log("JAVNA_SEND_TEXT_URL:", JAVNA_SEND_TEXT_URL);
 console.log("JAVNA_SEND_TEMPLATE_URL:", JAVNA_SEND_TEMPLATE_URL);
