@@ -199,23 +199,32 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
   if (!JAVNA_FROM) throw new Error("Missing JAVNA_FROM");
 
-  const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
+  const headers = {
+    "Content-Type": "application/json",
+    "X-API-Key": JAVNA_API_KEY,
+  };
 
   const From = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
   const To = to.startsWith("+") ? to : `+${to}`;
 
-  const TemplateName = lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
-  const TemplateLanguage = lang === "ar" ? "ar" : "en";
+  const templateName =
+    lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
 
-  // ✅ حاول To أولاً (بدون Destinations)
+  const templateLanguage =
+    lang === "ar" ? "ar" : "en";
+
   const payload = {
     Messages: [
       {
         From,
-        To,
-        TemplateName,
-        TemplateLanguage,
-        Parameters: [{ name: "1", value: String(code) }],
+        Destinations: [To],
+        Template: {
+          Name: templateName,
+          Language: templateLanguage,
+          Parameters: [
+            { name: "1", value: String(code) }
+          ],
+        },
       },
     ],
   };
@@ -234,7 +243,7 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
 
   if (!r.ok) throw new Error(`Javna template failed (${r.status}): ${txt}`);
 
-  try { return JSON.parse(txt); } catch { return { ok: true, raw: txt }; }
+  return JSON.parse(txt);
 }
 // ---------------------------------------------------------------------------
 // OTP Helpers (stored in data.json)
