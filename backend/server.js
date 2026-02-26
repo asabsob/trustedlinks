@@ -207,24 +207,21 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   const From = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
   const To = to.startsWith("+") ? to : `+${to}`;
 
-  const templateName =
-    lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
-
-  const templateLanguage =
-    lang === "ar" ? "ar" : "en";
+  const templateName = lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
+  const templateLang = lang === "ar" ? "ar" : "en";
 
   const payload = {
     Messages: [
       {
         From,
         Destinations: [To],
-        Template: {
-          Name: templateName,
-          Language: templateLanguage,
-          Parameters: [
-            { name: "1", value: String(code) }
-          ],
-        },
+
+        // ✅ المطلوب من Javna (حسب رسالة الخطأ)
+        TemplateName: templateName,
+        TemplateLanguage: templateLang,
+
+        // ✅ متغير OTP
+        Parameters: [{ name: "1", value: String(code) }],
       },
     ],
   };
@@ -243,7 +240,7 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
 
   if (!r.ok) throw new Error(`Javna template failed (${r.status}): ${txt}`);
 
-  return JSON.parse(txt);
+  try { return JSON.parse(txt); } catch { return { ok: true, raw: txt }; }
 }
 // ---------------------------------------------------------------------------
 // OTP Helpers (stored in data.json)
