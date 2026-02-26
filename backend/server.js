@@ -76,7 +76,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "trustedlinks_secret";
 const GMAIL_USER = process.env.GMAIL_USER || "";
 const GMAIL_PASS = process.env.GMAIL_APP_PASSWORD || "";
 
-const JAVNA_TEMPLATES_LIST_URL = `${JAVNA_BASE_URL}/account/templates`;
+
 // ---------------------------------------------------------------------------
 // DB Helpers (flat JSON)
 // ---------------------------------------------------------------------------
