@@ -204,16 +204,17 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   const From = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
   const To = to.startsWith("+") ? to : `+${to}`;
 
-  const templateName = lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
-  const templateLang = lang === "ar" ? "ar" : "en";
+  const TemplateName = lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
+  const TemplateLanguage = lang === "ar" ? "ar" : "en";
 
+  // ✅ حاول To أولاً (بدون Destinations)
   const payload = {
     Messages: [
       {
         From,
-        Destinations: [To],
-        TemplateName: templateName,
-        TemplateLanguage: templateLang,
+        To,
+        TemplateName,
+        TemplateLanguage,
         Parameters: [{ name: "1", value: String(code) }],
       },
     ],
@@ -222,11 +223,17 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   console.log("JAVNA_TEMPLATE_URL:", JAVNA_SEND_TEMPLATE_URL);
   console.log("JAVNA_TEMPLATE_PAYLOAD:", JSON.stringify(payload));
 
-  const r = await fetch(JAVNA_SEND_TEMPLATE_URL, { method: "POST", headers, body: JSON.stringify(payload) });
+  const r = await fetch(JAVNA_SEND_TEMPLATE_URL, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
   const txt = await r.text();
   console.log("JAVNA_TEMPLATE_RESPONSE_RAW:", txt);
 
   if (!r.ok) throw new Error(`Javna template failed (${r.status}): ${txt}`);
+
   try { return JSON.parse(txt); } catch { return { ok: true, raw: txt }; }
 }
 // ---------------------------------------------------------------------------
@@ -345,7 +352,13 @@ app.post("/api/whatsapp/request-otp", async (req, res) => {
     // --- call Javna and handle response ---
     try {
       // pass digits only — javnaSendOtpTemplate will normalise and add '+'
-      const javnaResp = await javnaSendOtpTemplate({ to: clean, code: otp, lang: "en" });
+    const javnaResp = await javnaSendOtpTemplate({ to: `+${clean}`, code: otp, lang: "en" });
+
+if (javnaResp?.stats?.rejected === "1") {
+  return res.status(400).json({ success: false, error: "Javna rejected template", javna: javnaResp });
+}
+
+return res.json({ success: true, message: "OTP sent.", javna: javnaResp });
 
       // log for Railway (very important to inspect payload/response)
       console.log("JAVNA_RESP:", JSON.stringify(javnaResp));
