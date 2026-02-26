@@ -152,9 +152,10 @@ function adminAuth(req, res, next) {
 // ---------------------------------------------------------------------------
 // JAVNA Config (single place)
 // ---------------------------------------------------------------------------
+// ---------------------- JAVNA CONFIG ----------------------
+const JAVNA_API_KEY = process.env.JAVNA_API_KEY || "";
+const JAVNA_FROM = process.env.JAVNA_FROM || "";
 
-// ✅ FIX: Base ثابت (لأنك حذفت JAVNA_BASE_URL من Railway)
-// مهم: لازم يكون /whatsapp/v1.0 وليس مجرد https://whatsapp.api.javna.com
 const JAVNA_BASE_URL = "https://whatsapp.api.javna.com/whatsapp/v1.0";
 
 const JAVNA_SEND_TEXT_URL = `${JAVNA_BASE_URL}/message/text`;
