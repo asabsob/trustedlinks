@@ -156,8 +156,6 @@ const JAVNA_FROM = process.env.JAVNA_FROM || "";
 
 const JAVNA_BASE_URL = "https://whatsapp.api.javna.com/whatsapp/v1.0";
 
-const JAVNA_SEND_TEXT_URL = `${JAVNA_BASE_URL}/message/text`;
-const JAVNA_SEND_TEMPLATE_URL = `${JAVNA_BASE_URL}/message/template`;
 
 console.log("JAVNA_SEND_TEXT_URL:", JAVNA_SEND_TEXT_URL);
 console.log("JAVNA_SEND_TEMPLATE_URL:", JAVNA_SEND_TEMPLATE_URL);
