@@ -159,7 +159,7 @@ const JAVNA_SEND_TEXT_URL = `${JAVNA_BASE_URL}/message/text`;
 const JAVNA_SEND_AUTH_TEMPLATE_URL = `${JAVNA_BASE_URL}/message/template/authentication`;
 
 console.log("JAVNA_SEND_TEXT_URL:", JAVNA_SEND_TEXT_URL);
-console.log("JAVNA_SEND_TEMPLATE_URL:", JAVNA_SEND_TEMPLATE_URL);
+console.log("JAVNA_SEND_AUTH_TEMPLATE_URL:", JAVNA_SEND_AUTH_TEMPLATE_URL);
 
 // ---------------------------------------------------------------------------
 // JAVNA Client (single place)
@@ -558,6 +558,6 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log("JAVNA_API_KEY_RAW:", JSON.stringify(process.env.JAVNA_API_KEY));
   console.log("JAVNA_KEYS:", Object.keys(process.env).filter(k => k.includes("JAVNA")));
 console.log("JAVNA_SEND_TEXT_URL:", JAVNA_SEND_TEXT_URL);
-console.log("JAVNA_SEND_TEMPLATE_URL:", JAVNA_SEND_TEMPLATE_URL);
+console.log("JAVNA_SEND_AUTH_TEMPLATE_URL:", JAVNA_SEND_AUTH_TEMPLATE_URL);
   console.log(`JAVNA_API_KEY: ${JAVNA_API_KEY ? "Loaded ✅" : "Missing ❌"}`);
 });
