@@ -388,7 +388,66 @@ return res.json({ success: true, message: "OTP sent.", javna: javnaResp });
     return res.status(500).json({ error: "Failed to send OTP" });
   }
 });
+// ============================================================================
+// WhatsApp OTP Verify (Javna) - for business signup
+// ============================================================================
+app.post("/api/whatsapp/verify-otp", async (req, res) => {
+  try {
+    const { whatsapp, code } = req.body || {};
 
+    if (!whatsapp || !code) {
+      return res.status(400).json({ ok: false, error: "WhatsApp and code are required" });
+    }
+
+    const clean = cleanDigits(whatsapp);
+
+    // International validation: 10–15 digits (E.164 without +)
+    if (!/^\d{10,15}$/.test(clean)) {
+      return res.status(400).json({ ok: false, error: "Invalid WhatsApp number" });
+    }
+
+    const db = load();
+
+    // (optional) prevent verify if already registered
+    const already = db.businesses.find((b) => cleanDigits(b.whatsapp) === clean);
+    if (already) {
+      return res.status(409).json({ ok: false, error: "This WhatsApp number is already registered." });
+    }
+
+    const result = verifyOtp(db, { whatsapp: clean, code, purpose: "business_signup" });
+
+    if (!result.ok) {
+      const map = {
+        NO_OTP: { status: 404, msg: "No OTP found. Request a new code." },
+        BAD_CODE: { status: 401, msg: "Invalid OTP code." },
+        EXPIRED: { status: 410, msg: "OTP expired. Request a new code." },
+      };
+
+      const m = map[result.reason] || { status: 400, msg: "OTP verification failed." };
+      return res.status(m.status).json({ ok: false, error: m.msg, reason: result.reason });
+    }
+
+    // ✅ consume happened inside verifyOtp → now save db
+    save(db);
+
+    // ✅ issue a short-lived token for the next step (business form submit)
+    const token = jwt.sign(
+      { whatsapp: clean, purpose: "business_signup", verified: true },
+      JWT_SECRET,
+      { expiresIn: "15m" }
+    );
+
+    return res.json({
+      ok: true,
+      message: "OTP verified ✅",
+      token,
+      whatsapp: clean,
+    });
+  } catch (e) {
+    console.error("verify-otp error", e);
+    return res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+});
 // ============================================================================
 // WhatsApp Chat Search (Webhook) - Javna -> TrustedLinks
 // ============================================================================
