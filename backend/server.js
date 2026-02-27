@@ -63,8 +63,25 @@ app.use(
 );
 app.use(express.json({ limit: "1mb" }));
 // Preflight for all routes
-app.options("*", cors());
+// Preflight for all routes (use SAME cors config)
+app.options(
+  "*",
+  cors({
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true);
 
+      const ok =
+        allowedOrigins.has(origin) ||
+        /^http:\/\/localhost:\d+$/.test(origin) ||
+        /^http:\/\/127\.0\.0\.1:\d+$/.test(origin);
+
+      return cb(ok ? null : new Error("CORS blocked"), ok);
+    },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-API-Key"],
+    credentials: false,
+  })
+);
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -388,27 +405,28 @@ return res.json({ success: true, message: "OTP sent.", javna: javnaResp });
     return res.status(500).json({ error: "Failed to send OTP" });
   }
 });
+
 // ============================================================================
-// WhatsApp OTP Verify (Javna) - for business signup
+// WhatsApp OTP Verify (Javna) - for business signup (Clean)
 // ============================================================================
 app.post("/api/whatsapp/verify-otp", async (req, res) => {
   try {
     const { whatsapp, code } = req.body || {};
 
     if (!whatsapp || !code) {
-      return res.status(400).json({ ok: false, error: "WhatsApp and code are required" });
+      return res.status(400).json({ ok: false, error: "WhatsApp number and code are required" });
     }
 
     const clean = cleanDigits(whatsapp);
 
-    // International validation: 10–15 digits (E.164 without +)
+    // E.164 without "+" should be 10–15 digits
     if (!/^\d{10,15}$/.test(clean)) {
       return res.status(400).json({ ok: false, error: "Invalid WhatsApp number" });
     }
 
     const db = load();
 
-    // (optional) prevent verify if already registered
+    // Optional: prevent verify if already registered
     const already = db.businesses.find((b) => cleanDigits(b.whatsapp) === clean);
     if (already) {
       return res.status(409).json({ ok: false, error: "This WhatsApp number is already registered." });
@@ -417,20 +435,22 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
     const result = verifyOtp(db, { whatsapp: clean, code, purpose: "business_signup" });
 
     if (!result.ok) {
-      const map = {
-        NO_OTP: { status: 404, msg: "No OTP found. Request a new code." },
-        BAD_CODE: { status: 401, msg: "Invalid OTP code." },
-        EXPIRED: { status: 410, msg: "OTP expired. Request a new code." },
-      };
-
-      const m = map[result.reason] || { status: 400, msg: "OTP verification failed." };
-      return res.status(m.status).json({ ok: false, error: m.msg, reason: result.reason });
+      if (result.reason === "NO_OTP") {
+        return res.status(404).json({ ok: false, error: "No OTP found. Request a new code.", reason: "NO_OTP" });
+      }
+      if (result.reason === "BAD_CODE") {
+        return res.status(401).json({ ok: false, error: "Invalid OTP code.", reason: "BAD_CODE" });
+      }
+      if (result.reason === "EXPIRED") {
+        return res.status(410).json({ ok: false, error: "OTP expired. Request a new code.", reason: "EXPIRED" });
+      }
+      return res.status(400).json({ ok: false, error: "OTP verification failed.", reason: result.reason });
     }
 
-    // ✅ consume happened inside verifyOtp → now save db
+    // verifyOtp consumes otpRequests entry, so save now
     save(db);
 
-    // ✅ issue a short-lived token for the next step (business form submit)
+    // Issue short-lived token for next step (optional)
     const token = jwt.sign(
       { whatsapp: clean, purpose: "business_signup", verified: true },
       JWT_SECRET,
@@ -442,6 +462,7 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
       message: "OTP verified ✅",
       token,
       whatsapp: clean,
+      whatsappLink: `https://wa.me/${clean}`,
     });
   } catch (e) {
     console.error("verify-otp error", e);
