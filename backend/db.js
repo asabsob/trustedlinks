@@ -1,18 +1,21 @@
+// backend/db.js
 import mongoose from "mongoose";
 
-console.log("🧪 MONGODB_URI exists?", !!process.env.MONGODB_URI);
-console.log("🧪 MONGODB_URI length:", process.env.MONGODB_URI?.length);
-
-const connectDB = async () => {
-  try {
-    await mongoose.connect(process.env.MONGODB_URI, {
-      dbName: "trustedlinks"
-    });
-    console.log("✅ MongoDB connected");
-  } catch (error) {
-    console.error("❌ MongoDB connection error:", error.message);
-    process.exit(1);
+export async function connectDB() {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    throw new Error("Missing MONGODB_URI in environment variables");
   }
-};
 
-export default connectDB;
+  if (mongoose.connection.readyState === 1) {
+    console.log("✅ MongoDB already connected");
+    return mongoose.connection;
+  }
+
+  await mongoose.connect(uri, {
+    dbName: process.env.MONGODB_DB || "trustedlinks",
+  });
+
+  console.log("✅ MongoDB connected");
+  return mongoose.connection;
+}
