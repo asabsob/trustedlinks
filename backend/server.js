@@ -21,7 +21,9 @@ import bcrypt from "bcrypt";
 import geolib from "geolib";
 
 dotenv.config();
+import { connectDB } from "./db.js";
 
+await connectDB();
 // ---------------------------------------------------------------------------
 // App + Paths
 // ---------------------------------------------------------------------------
