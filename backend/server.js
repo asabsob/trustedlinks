@@ -211,20 +211,14 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   const templateLang = lang === "ar" ? "ar" : "en";
 
   const payload = {
-    Messages: [
-      {
-        From,
-        Destinations: [To],
-
-        // ✅ المطلوب من Javna (حسب رسالة الخطأ)
-        TemplateName: templateName,
-        TemplateLanguage: templateLang,
-
-        // ✅ متغير OTP
-        Parameters: [{ name: "1", value: String(code) }],
-      },
-    ],
-  };
+  Messages: [{
+    From,
+    Destinations: [To],
+    TemplateName: "trustedlinks_otp_en",
+    TemplateLanguage: "en",
+    Parameters: [{ name: "1", value: String(code) }],
+  }],
+};
 
   console.log("JAVNA_TEMPLATE_URL:", JAVNA_SEND_TEMPLATE_URL);
   console.log("JAVNA_TEMPLATE_PAYLOAD:", JSON.stringify(payload));
