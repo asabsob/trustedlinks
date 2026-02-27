@@ -19,6 +19,7 @@ import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import geolib from "geolib";
+import Otp from "./models/Otp.js";
 
 dotenv.config();
 import { connectDB } from "./db.js";
@@ -284,37 +285,6 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
 
   return JSON.parse(txt);
 }
-// ---------------------------------------------------------------------------
-// OTP Helpers (stored in data.json)
-// ---------------------------------------------------------------------------
-function upsertOtp(db, { whatsapp, code, purpose = "business_signup" }) {
-  const clean = cleanDigits(whatsapp);
-  // remove old for same whatsapp+purpose
-  db.otpRequests = db.otpRequests.filter(
-    (x) => !(x.whatsapp === clean && x.purpose === purpose)
-  );
-  db.otpRequests.push({
-    id: nanoid(10),
-    whatsapp: clean,
-    code,
-    purpose,
-    createdAt: nowISO(),
-    expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(), // 5 min
-  });
-}
-function verifyOtp(db, { whatsapp, code, purpose = "business_signup" }) {
-  const clean = cleanDigits(whatsapp);
-  const rec = db.otpRequests.find(
-    (x) => x.whatsapp === clean && x.purpose === purpose
-  );
-  if (!rec) return { ok: false, reason: "NO_OTP" };
-  if (String(rec.code) !== String(code)) return { ok: false, reason: "BAD_CODE" };
-  if (new Date(rec.expiresAt).getTime() < Date.now()) return { ok: false, reason: "EXPIRED" };
-
-  // consume
-  db.otpRequests = db.otpRequests.filter((x) => x.id !== rec.id);
-  return { ok: true };
-}
 
 // ============================================================================
 // AUTH (Email signup/login) + Email Verification (Clean)
@@ -504,9 +474,17 @@ app.post("/api/whatsapp/request-otp", async (req, res) => {
       return res.status(409).json({ error: "This WhatsApp number is already registered." });
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    upsertOtp(db, { whatsapp: clean, code: otp, purpose: "business_signup" });
-    save(db);
+const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+// ✅ MongoDB OTP: delete old + create new
+await Otp.deleteMany({ whatsapp: clean, purpose: "business_signup" });
+
+await Otp.create({
+  whatsapp: clean,
+  code: otp,
+  purpose: "business_signup",
+  expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+});
 
     // send via Javna (if key exists)
     if (!JAVNA_API_KEY) {
@@ -578,26 +556,23 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
       return res.status(409).json({ ok: false, error: "This WhatsApp number is already registered." });
     }
 
-    const result = verifyOtp(db, { whatsapp: clean, code, purpose: "business_signup" });
+   // ✅ MongoDB OTP verify
+const rec = await Otp.findOne({ whatsapp: clean, purpose: "business_signup" });
 
-    if (!result.ok) {
-      if (result.reason === "NO_OTP") {
-        return res.status(404).json({ ok: false, error: "No OTP found. Request a new code.", reason: "NO_OTP" });
-      }
-      if (result.reason === "BAD_CODE") {
-        return res.status(401).json({ ok: false, error: "Invalid OTP code.", reason: "BAD_CODE" });
-      }
-      if (result.reason === "EXPIRED") {
-        return res.status(410).json({ ok: false, error: "OTP expired. Request a new code.", reason: "EXPIRED" });
-      }
-      return res.status(400).json({ ok: false, error: "OTP verification failed.", reason: result.reason });
-    }
+if (!rec) {
+  return res.status(404).json({ ok: false, error: "No OTP found. Request a new code.", reason: "NO_OTP" });
+}
 
-    // verifyOtp consumes otpRequests entry, so save now
-    save(db);
+if (String(rec.code) !== String(code)) {
+  return res.status(401).json({ ok: false, error: "Invalid OTP code.", reason: "BAD_CODE" });
+}
 
-    // Issue short-lived token for next step (optional)
-    const token = jwt.sign(
+if (rec.expiresAt.getTime() < Date.now()) {
+  return res.status(410).json({ ok: false, error: "OTP expired. Request a new code.", reason: "EXPIRED" });
+}
+
+// ✅ consume OTP
+await Otp.deleteOne({ _id: rec._id });
       { whatsapp: clean, purpose: "business_signup", verified: true },
       JWT_SECRET,
       { expiresIn: "15m" }
