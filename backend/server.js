@@ -292,70 +292,98 @@ function verifyOtp(db, { whatsapp, code, purpose = "business_signup" }) {
 }
 
 // ============================================================================
-// AUTH (Email signup/login) - keep as-is MVP
+// AUTH (Email signup/login) + Email Verification (Clean)
 // ============================================================================
+
 app.post("/api/auth/signup", async (req, res) => {
   try {
     const { email, password } = req.body || {};
-    if (!email || !password) return res.status(400).json({ error: "Email and password required" });
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and password required" });
+    }
 
     const db = load();
-    if (db.users.find((u) => u.email === email)) return res.status(400).json({ error: "Email already registered" });
+    if (db.users.find((u) => u.email === email)) {
+      return res.status(400).json({ error: "Email already registered" });
+    }
 
-   const verifyToken = nanoid(32);
+    const verifyToken = nanoid(32);
 
-const user = {
-  id: nanoid(8),
-  email,
-  password,              // MVP plain
-  emailVerified: false,  // ✅ صار لازم يتوثق
-  verifyToken,           // ✅ token للتوثيق
-  subscriptionPlan: null,
-  planActivatedAt: null,
-  createdAt: nowISO(),
-};
+    const user = {
+      id: nanoid(8),
+      email,
+      password,              // MVP plain (later hash)
+      emailVerified: false,  // ✅ must verify
+      verifyToken,           // ✅
+      subscriptionPlan: null,
+      planActivatedAt: null,
+      createdAt: nowISO(),
+    };
 
-db.users.push(user);
-save(db);
+    db.users.push(user);
+    save(db);
 
-// ✅ إرسال ايميل توثيق (لو المرسل مضبوط)
-if (transporter) {
-  try {
-    const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL || FRONTEND_ORIGIN;
-    const verifyUrl = `${FRONTEND_BASE_URL}/verify-email?email=${encodeURIComponent(email)}&token=${encodeURIComponent(verifyToken)}`;
+    // Send verification email (if configured)
+    if (transporter) {
+      try {
+        const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL || FRONTEND_ORIGIN;
+        const verifyUrl =
+          `${FRONTEND_BASE_URL}/verify-email` +
+          `?email=${encodeURIComponent(email)}` +
+          `&token=${encodeURIComponent(verifyToken)}`;
 
-    await transporter.sendMail({
-      from: GMAIL_USER,
-      to: email,
-      subject: "Verify your email",
-      text: `Verify your email using this link: ${verifyUrl}`,
-      html: `<p>Verify your email:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
+        await transporter.sendMail({
+          from: GMAIL_USER,
+          to: email,
+          subject: "Verify your email",
+          text: `Verify your email using this link: ${verifyUrl}`,
+          html: `<p>Verify your email:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
+        });
+      } catch (err) {
+        console.error("send verification email error:", err);
+        // Do not fail signup
+      }
+    } else {
+      console.log("🧪 Mailer disabled. verifyToken:", verifyToken, "email:", email);
+    }
+
+    return res.json({
+      success: true,
+      user: { id: user.id, email: user.email, emailVerified: user.emailVerified },
     });
-  } catch (err) {
-    console.error("send verification email error:", err);
-    // ما نكسر signup — نخلي المستخدم يتسجل ويعمل resend
+  } catch (e) {
+    console.error("signup error", e);
+    return res.status(500).json({ error: "Internal server error" });
   }
-} else {
-  console.log("🧪 Mailer disabled. verifyToken:", verifyToken, "email:", email);
-}
-
-return res.json({
-  success: true,
-  user: { id: user.id, email: user.email, emailVerified: user.emailVerified },
 });
 
 app.post("/api/auth/login", async (req, res) => {
-  const { email, password } = req.body || {};
-  const db = load();
-  const user = db.users.find((u) => u.email === email && u.password === password);
-if (!user) return res.status(401).json({ error: "Invalid credentials" });
+  try {
+    const { email, password } = req.body || {};
+    const db = load();
+    const user = db.users.find((u) => u.email === email && u.password === password);
 
-if (!user.emailVerified) {
-  return res.status(403).json({
-    error: "Email not verified",
-    code: "EMAIL_NOT_VERIFIED",
-  });
-}
+    if (!user) return res.status(401).json({ error: "Invalid credentials" });
+
+    if (!user.emailVerified) {
+      return res.status(403).json({
+        error: "Email not verified",
+        code: "EMAIL_NOT_VERIFIED",
+      });
+    }
+
+    const token = createToken(user.id);
+    return res.json({
+      ok: true,
+      token,
+      subscriptionPlan: user.subscriptionPlan,
+      planActivatedAt: user.planActivatedAt,
+    });
+  } catch (e) {
+    console.error("login error", e);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 app.post("/api/auth/resend-verification", async (req, res) => {
   try {
@@ -370,7 +398,6 @@ app.post("/api/auth/resend-verification", async (req, res) => {
       return res.json({ ok: true, message: "Email already verified" });
     }
 
-    // ensure token exists
     if (!user.verifyToken) user.verifyToken = nanoid(32);
     save(db);
 
@@ -380,7 +407,10 @@ app.post("/api/auth/resend-verification", async (req, res) => {
     }
 
     const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL || FRONTEND_ORIGIN;
-    const verifyUrl = `${FRONTEND_BASE_URL}/verify-email?email=${encodeURIComponent(email)}&token=${encodeURIComponent(user.verifyToken)}`;
+    const verifyUrl =
+      `${FRONTEND_BASE_URL}/verify-email` +
+      `?email=${encodeURIComponent(email)}` +
+      `&token=${encodeURIComponent(user.verifyToken)}`;
 
     await transporter.sendMail({
       from: GMAIL_USER,
@@ -397,7 +427,7 @@ app.post("/api/auth/resend-verification", async (req, res) => {
   }
 });
 
-    app.get("/api/auth/verify-email", (req, res) => {
+app.get("/api/auth/verify-email", (req, res) => {
   try {
     const { email, token } = req.query || {};
     if (!email || !token) return res.status(400).json({ error: "Missing email/token" });
@@ -422,6 +452,7 @@ app.post("/api/auth/resend-verification", async (req, res) => {
     return res.status(500).json({ error: "Verification failed" });
   }
 });
+
 // ============================================================================
 // WhatsApp OTP (Javna) - for business signup  (fixed)
 // ============================================================================
