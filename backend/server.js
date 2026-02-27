@@ -90,9 +90,15 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@trustedlinks.app";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "123456";
 const JWT_SECRET = process.env.JWT_SECRET || "trustedlinks_secret";
 
-const GMAIL_USER = process.env.GMAIL_USER || "";
-const GMAIL_PASS = process.env.GMAIL_APP_PASSWORD || "";
+const GMAIL_USER = (process.env.GMAIL_USER || "").trim();
+const GMAIL_PASS = (process.env.GMAIL_APP_PASSWORD || "").trim();
 
+console.log("MAIL_ENV_CHECK", {
+  GMAIL_USER: Boolean(GMAIL_USER),
+  GMAIL_PASS: Boolean(GMAIL_PASS),
+  GMAIL_USER_LEN: GMAIL_USER.length,
+  GMAIL_PASS_LEN: GMAIL_PASS.length,
+});
 
 // ---------------------------------------------------------------------------
 // DB Helpers (flat JSON)
