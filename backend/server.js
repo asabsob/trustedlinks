@@ -187,26 +187,29 @@ async function javnaSendText({ to, body }) {
 
   const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
 
-  const From = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
-  const To = to.startsWith("+") ? to : `+${to}`;
+  const from = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
+  const toNumber = to.startsWith("+") ? to : `+${to}`;
 
-const payload = {
-  Messages: [
-    {
-      From,
-      Destinations: [To],
-      TemplateId: templateId,
-      TemplateLanguage: templateLang,
-      Parameters: [{ name: "1", value: String(code) }],
-    },
-  ],
-};
+  const payload = {
+    from,
+    to: toNumber,
+    content: { text: String(body || "") },
+  };
 
-  const r = await fetch(JAVNA_SEND_TEXT_URL, { method: "POST", headers, body: JSON.stringify(payload) });
+  const r = await fetch(JAVNA_SEND_TEXT_URL, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
   const txt = await r.text();
   if (!r.ok) throw new Error(`Javna send failed (${r.status}): ${txt}`);
 
-  try { return JSON.parse(txt); } catch { return { ok: true, raw: txt }; }
+  try {
+    return JSON.parse(txt);
+  } catch {
+    return { ok: true, raw: txt };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -299,39 +302,126 @@ app.post("/api/auth/signup", async (req, res) => {
     const db = load();
     if (db.users.find((u) => u.email === email)) return res.status(400).json({ error: "Email already registered" });
 
-    const user = {
-      id: nanoid(8),
-      email,
-      password, // MVP plain
-      emailVerified: true, // لو بدك تبقى verification بالميل رجّعها false
-      verifyToken: null,
-      subscriptionPlan: null,
-      planActivatedAt: null,
-      createdAt: nowISO(),
-    };
+   const verifyToken = nanoid(32);
 
-    db.users.push(user);
-    save(db);
+const user = {
+  id: nanoid(8),
+  email,
+  password,              // MVP plain
+  emailVerified: false,  // ✅ صار لازم يتوثق
+  verifyToken,           // ✅ token للتوثيق
+  subscriptionPlan: null,
+  planActivatedAt: null,
+  createdAt: nowISO(),
+};
 
-    return res.json({ success: true, user: { id: user.id, email: user.email } });
-  } catch (e) {
-    console.error("signup error", e);
-    return res.status(500).json({ error: "Internal server error" });
+db.users.push(user);
+save(db);
+
+// ✅ إرسال ايميل توثيق (لو المرسل مضبوط)
+if (transporter) {
+  try {
+    const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL || FRONTEND_ORIGIN;
+    const verifyUrl = `${FRONTEND_BASE_URL}/verify-email?email=${encodeURIComponent(email)}&token=${encodeURIComponent(verifyToken)}`;
+
+    await transporter.sendMail({
+      from: GMAIL_USER,
+      to: email,
+      subject: "Verify your email",
+      text: `Verify your email using this link: ${verifyUrl}`,
+      html: `<p>Verify your email:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
+    });
+  } catch (err) {
+    console.error("send verification email error:", err);
+    // ما نكسر signup — نخلي المستخدم يتسجل ويعمل resend
   }
+} else {
+  console.log("🧪 Mailer disabled. verifyToken:", verifyToken, "email:", email);
+}
+
+return res.json({
+  success: true,
+  user: { id: user.id, email: user.email, emailVerified: user.emailVerified },
 });
 
 app.post("/api/auth/login", async (req, res) => {
   const { email, password } = req.body || {};
   const db = load();
   const user = db.users.find((u) => u.email === email && u.password === password);
-  if (!user) return res.status(401).json({ error: "Invalid credentials" });
+if (!user) return res.status(401).json({ error: "Invalid credentials" });
 
-  const token = createToken(user.id);
-  return res.json({ ok: true, token, subscriptionPlan: user.subscriptionPlan, planActivatedAt: user.planActivatedAt });
+if (!user.emailVerified) {
+  return res.status(403).json({
+    error: "Email not verified",
+    code: "EMAIL_NOT_VERIFIED",
+  });
+}
+
+app.post("/api/auth/resend-verification", async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    if (!email) return res.status(400).json({ error: "Email required" });
+
+    const db = load();
+    const user = db.users.find((u) => u.email === email);
+    if (!user) return res.status(404).json({ error: "Email not found" });
+
+    if (user.emailVerified) {
+      return res.json({ ok: true, message: "Email already verified" });
+    }
+
+    // ensure token exists
+    if (!user.verifyToken) user.verifyToken = nanoid(32);
+    save(db);
+
+    if (!transporter) {
+      console.log("🧪 Mailer disabled. verifyToken:", user.verifyToken, "email:", email);
+      return res.status(500).json({ error: "Email service not configured" });
+    }
+
+    const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL || FRONTEND_ORIGIN;
+    const verifyUrl = `${FRONTEND_BASE_URL}/verify-email?email=${encodeURIComponent(email)}&token=${encodeURIComponent(user.verifyToken)}`;
+
+    await transporter.sendMail({
+      from: GMAIL_USER,
+      to: email,
+      subject: "Verify your email",
+      text: `Verify your email using this link: ${verifyUrl}`,
+      html: `<p>Verify your email:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
+    });
+
+    return res.json({ ok: true, message: "Verification email sent" });
+  } catch (e) {
+    console.error("resend-verification error:", e);
+    return res.status(500).json({ error: "Failed to send verification email" });
+  }
 });
 
+    app.get("/api/auth/verify-email", (req, res) => {
+  try {
+    const { email, token } = req.query || {};
+    if (!email || !token) return res.status(400).json({ error: "Missing email/token" });
 
+    const db = load();
+    const user = db.users.find((u) => u.email === String(email));
+    if (!user) return res.status(404).json({ error: "User not found" });
 
+    if (user.emailVerified) return res.json({ ok: true, message: "Already verified" });
+
+    if (String(user.verifyToken) !== String(token)) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+
+    user.emailVerified = true;
+    user.verifyToken = null;
+    save(db);
+
+    return res.json({ ok: true, message: "Email verified ✅" });
+  } catch (e) {
+    console.error("verify-email error:", e);
+    return res.status(500).json({ error: "Verification failed" });
+  }
+});
 // ============================================================================
 // WhatsApp OTP (Javna) - for business signup  (fixed)
 // ============================================================================
