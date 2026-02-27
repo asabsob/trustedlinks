@@ -91,13 +91,23 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "123456";
 const JWT_SECRET = process.env.JWT_SECRET || "trustedlinks_secret";
 
 const GMAIL_USER = (process.env.GMAIL_USER || "").trim();
+const GMAIL_USER = (process.env.GMAIL_USER || "").trim();
+
+// ندعم اسمين عشان ما يضيع الموضوع بين Railway/قديمة
+const GMAIL_PASS = (
+  process.env.GMAIL_APP_PASSWORD ||
+  process.env.GMAIL_PASS ||
+  ""
+).trim();
+
 const GMAIL_PASS = (process.env.GMAIL_APP_PASSWORD || "").trim();
 
 console.log("MAIL_ENV_CHECK", {
-  GMAIL_USER: Boolean(GMAIL_USER),
-  GMAIL_PASS: Boolean(GMAIL_PASS),
-  GMAIL_USER_LEN: GMAIL_USER.length,
-  GMAIL_PASS_LEN: GMAIL_PASS.length,
+  hasUser: Boolean(GMAIL_USER),
+  hasPass: Boolean(GMAIL_PASS),
+  userLen: GMAIL_USER.length,
+  passLen: GMAIL_PASS.length,
+  keys: Object.keys(process.env).filter(k => k.includes("GMAIL")),
 });
 
 // ---------------------------------------------------------------------------
