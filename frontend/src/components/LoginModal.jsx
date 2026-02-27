@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { API_BASE } from "../config/api";
 
 export default function LoginModal({
   isOpen,
@@ -37,25 +38,25 @@ export default function LoginModal({
 
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:5175/api/auth/login", {
+
+      const res = await fetch(`${API_BASE}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        if (res.status === 403) {
+        if (res.status === 403 && data?.code === "EMAIL_NOT_VERIFIED") {
           setError(
-            data.error ||
-              t(
-                "Please verify your email before logging in.",
-                "يرجى تفعيل البريد الإلكتروني قبل تسجيل الدخول."
-              )
+            t(
+              "Please verify your email before logging in.",
+              "يرجى تفعيل البريد الإلكتروني قبل تسجيل الدخول."
+            )
           );
         } else {
-          setError(data.error || t("Login failed.", "فشل تسجيل الدخول."));
+          setError(data?.error || t("Login failed.", "فشل تسجيل الدخول."));
         }
         return;
       }
@@ -79,6 +80,43 @@ export default function LoginModal({
     }
   };
 
+  // -------------- RESEND VERIFICATION --------------
+  const handleResendVerification = async () => {
+    setError("");
+    setInfoMessage("");
+
+    if (!email) {
+      setError(t("Please enter your email first.", "أدخل بريدك الإلكتروني أولاً."));
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const res = await fetch(`${API_BASE}/api/auth/resend-verification`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setError(data?.error || t("Failed to resend email.", "فشل إرسال رابط التفعيل."));
+        return;
+      }
+
+      setInfoMessage(
+        data?.message ||
+          t("Verification email sent. Check your inbox.", "تم إرسال رابط التفعيل. افحص بريدك.")
+      );
+    } catch (err) {
+      setError(t("Error while sending email.", "حدث خطأ أثناء الإرسال."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // -------------- FORGOT PASSWORD --------------
   const handleForgotPassword = async (e) => {
     e.preventDefault();
@@ -86,32 +124,31 @@ export default function LoginModal({
     setInfoMessage("");
 
     if (!forgotEmail) {
-      setError(
-        t("Please enter your email.", "يرجى إدخال البريد الإلكتروني.")
-      );
+      setError(t("Please enter your email.", "يرجى إدخال البريد الإلكتروني."));
       return;
     }
 
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:5175/api/auth/forgot-password", {
+
+      const res = await fetch(`${API_BASE}/api/auth/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: forgotEmail }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
         setError(
-          data.error ||
+          data?.error ||
             t("Failed to reset password.", "فشل في إعادة تعيين كلمة المرور.")
         );
         return;
       }
 
       setInfoMessage(
-        data.message ||
+        data?.message ||
           t(
             "If this email is registered, a reset email has been sent.",
             "إذا كان البريد مسجلاً، تم إرسال رسالة لإعادة التعيين."
@@ -134,14 +171,10 @@ export default function LoginModal({
       className="fixed left-0 right-0 bottom-0 top-16 z-50 flex items-center justify-center bg-gradient-to-br from-green-50 to-gray-200 backdrop-blur-sm transition-all"
       style={{ direction: isRTL ? "rtl" : "ltr" }}
     >
-      {/* CARD */}
       <div
         className="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-8 relative animate-[slideUp_0.4s_ease]"
-        style={{
-          fontFamily: "Tajawal, Inter, sans-serif",
-        }}
+        style={{ fontFamily: "Tajawal, Inter, sans-serif" }}
       >
-        {/* CLOSE BUTTON */}
         <button
           onClick={onClose}
           className={`absolute top-4 ${
@@ -151,16 +184,13 @@ export default function LoginModal({
           ✕
         </button>
 
-        {/* BRAND HEADER */}
         <div className="flex items-center gap-3 mb-6">
           <div className="h-12 w-12 bg-green-600 text-white font-bold rounded-xl flex items-center justify-center">
             TL
           </div>
 
           <div>
-            <div className="text-lg font-semibold text-gray-800">
-              Trusted Links
-            </div>
+            <div className="text-lg font-semibold text-gray-800">Trusted Links</div>
             <div className="text-xs text-gray-500 -mt-1">
               {t("Secure business access", "دخول آمن للنشاط التجاري")}
             </div>
@@ -169,12 +199,10 @@ export default function LoginModal({
 
         <hr className="my-3" />
 
-        {/* TITLE */}
         <h2 className="text-center text-green-700 font-semibold text-lg mb-5">
           {t("Login to your account", "تسجيل الدخول إلى حسابك")}
         </h2>
 
-        {/* ERROR / INFO */}
         {error && (
           <div className="mb-3 p-3 bg-red-100 border border-red-300 rounded-lg text-sm text-red-700">
             {error}
@@ -186,13 +214,10 @@ export default function LoginModal({
           </div>
         )}
 
-        {/* LOGIN / FORGOT SWITCH */}
         {!showForgot ? (
           <form onSubmit={handleLogin} className="space-y-4">
             <div className={isRTL ? "text-right" : "text-left"}>
-              <label className="block text-sm mb-1">
-                {t("Email", "البريد الإلكتروني")}
-              </label>
+              <label className="block text-sm mb-1">{t("Email", "البريد الإلكتروني")}</label>
               <input
                 type="email"
                 placeholder="name@example.com"
@@ -204,9 +229,7 @@ export default function LoginModal({
             </div>
 
             <div className={isRTL ? "text-right" : "text-left"}>
-              <label className="block text-sm mb-1">
-                {t("Password", "كلمة المرور")}
-              </label>
+              <label className="block text-sm mb-1">{t("Password", "كلمة المرور")}</label>
               <input
                 type="password"
                 className="w-full border rounded-lg px-4 py-2 text-sm bg-gray-50 focus:ring-2 focus:ring-green-400 focus:outline-none"
@@ -216,24 +239,21 @@ export default function LoginModal({
               />
             </div>
 
-            {/* LOGIN BUTTON */}
             <button
               type="submit"
               disabled={loading}
               className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-semibold text-sm transition-all shadow-md"
             >
-              {loading
-                ? t("Logging in...", "جاري تسجيل الدخول...")
-                : t("Login", "تسجيل الدخول")}
+              {loading ? t("Logging in...", "جاري تسجيل الدخول...") : t("Login", "تسجيل الدخول")}
             </button>
 
-            {/* ACTION LINKS */}
-            <div
-              className={`flex justify-between text-xs mt-2 ${
-                isRTL ? "flex-row-reverse" : ""
-              }`}
-            >
-              <button type="button" className="underline text-gray-600">
+            <div className={`flex justify-between text-xs mt-2 ${isRTL ? "flex-row-reverse" : ""}`}>
+              <button
+                type="button"
+                onClick={handleResendVerification}
+                className="underline text-gray-600"
+                disabled={loading}
+              >
                 {t("Resend verification email", "إعادة إرسال رابط التفعيل")}
               </button>
 
@@ -252,9 +272,7 @@ export default function LoginModal({
         ) : (
           <form onSubmit={handleForgotPassword} className="space-y-4">
             <div className={isRTL ? "text-right" : "text-left"}>
-              <label className="block text-sm mb-1">
-                {t("Email", "البريد الإلكتروني")}
-              </label>
+              <label className="block text-sm mb-1">{t("Email", "البريد الإلكتروني")}</label>
               <input
                 type="email"
                 className="w-full border rounded-lg px-4 py-2 text-sm bg-gray-50"
@@ -289,17 +307,10 @@ export default function LoginModal({
         )}
       </div>
 
-      {/* Animations */}
       <style>{`
         @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(30px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>
