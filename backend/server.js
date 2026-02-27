@@ -538,41 +538,50 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
     const { whatsapp, code } = req.body || {};
 
     if (!whatsapp || !code) {
-      return res.status(400).json({ ok: false, error: "WhatsApp number and code are required" });
+      return res.status(400).json({
+        ok: false,
+        error: "WhatsApp number and code are required",
+      });
     }
 
     const clean = cleanDigits(whatsapp);
 
-    // E.164 without "+" should be 10–15 digits
     if (!/^\d{10,15}$/.test(clean)) {
       return res.status(400).json({ ok: false, error: "Invalid WhatsApp number" });
     }
 
-    const db = load();
+    // ✅ MongoDB OTP verify
+    const rec = await Otp.findOne({ whatsapp: clean, purpose: "business_signup" });
 
-    // Optional: prevent verify if already registered
-    const already = db.businesses.find((b) => cleanDigits(b.whatsapp) === clean);
-    if (already) {
-      return res.status(409).json({ ok: false, error: "This WhatsApp number is already registered." });
+    if (!rec) {
+      return res.status(404).json({
+        ok: false,
+        error: "No OTP found. Request a new code.",
+        reason: "NO_OTP",
+      });
     }
 
-   // ✅ MongoDB OTP verify
-const rec = await Otp.findOne({ whatsapp: clean, purpose: "business_signup" });
+    if (String(rec.code) !== String(code)) {
+      return res.status(401).json({
+        ok: false,
+        error: "Invalid OTP code.",
+        reason: "BAD_CODE",
+      });
+    }
 
-if (!rec) {
-  return res.status(404).json({ ok: false, error: "No OTP found. Request a new code.", reason: "NO_OTP" });
-}
+    if (rec.expiresAt.getTime() < Date.now()) {
+      return res.status(410).json({
+        ok: false,
+        error: "OTP expired. Request a new code.",
+        reason: "EXPIRED",
+      });
+    }
 
-if (String(rec.code) !== String(code)) {
-  return res.status(401).json({ ok: false, error: "Invalid OTP code.", reason: "BAD_CODE" });
-}
+    // ✅ consume OTP
+    await Otp.deleteOne({ _id: rec._id });
 
-if (rec.expiresAt.getTime() < Date.now()) {
-  return res.status(410).json({ ok: false, error: "OTP expired. Request a new code.", reason: "EXPIRED" });
-}
-
-// ✅ consume OTP
-await Otp.deleteOne({ _id: rec._id });
+    // ✅ Issue short-lived token for next step (optional)
+    const token = jwt.sign(
       { whatsapp: clean, purpose: "business_signup", verified: true },
       JWT_SECRET,
       { expiresIn: "15m" }
