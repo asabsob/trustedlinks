@@ -90,24 +90,21 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@trustedlinks.app";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "123456";
 const JWT_SECRET = process.env.JWT_SECRET || "trustedlinks_secret";
 
+// ✅ Gmail env (trim + support 2 names)
 const GMAIL_USER = (process.env.GMAIL_USER || "").trim();
-const GMAIL_USER = (process.env.GMAIL_USER || "").trim();
-
-// ندعم اسمين عشان ما يضيع الموضوع بين Railway/قديمة
 const GMAIL_PASS = (
   process.env.GMAIL_APP_PASSWORD ||
   process.env.GMAIL_PASS ||
   ""
 ).trim();
 
-const GMAIL_PASS = (process.env.GMAIL_APP_PASSWORD || "").trim();
-
+// ✅ Debug (temporary)
 console.log("MAIL_ENV_CHECK", {
   hasUser: Boolean(GMAIL_USER),
   hasPass: Boolean(GMAIL_PASS),
   userLen: GMAIL_USER.length,
   passLen: GMAIL_PASS.length,
-  keys: Object.keys(process.env).filter(k => k.includes("GMAIL")),
+  keys: Object.keys(process.env).filter((k) => k.includes("GMAIL")),
 });
 
 // ---------------------------------------------------------------------------
