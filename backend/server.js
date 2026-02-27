@@ -173,12 +173,12 @@ async function javnaSendText({ to, body }) {
   const From = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
   const To = to.startsWith("+") ? to : `+${to}`;
 
- const payload = {
+const payload = {
   Messages: [
     {
       From,
       Destinations: [To],
-      TemplateName: templateName,
+      TemplateId: templateId,
       TemplateLanguage: templateLang,
       Parameters: [{ name: "1", value: String(code) }],
     },
