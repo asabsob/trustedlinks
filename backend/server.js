@@ -156,7 +156,7 @@ const JAVNA_BASE_URL = "https://whatsapp.api.javna.com/whatsapp/v1.0";
 
 // 👇 بعده مباشرة
 const JAVNA_SEND_TEXT_URL = `${JAVNA_BASE_URL}/message/text`;
-const JAVNA_SEND_TEMPLATE_URL = `${JAVNA_BASE_URL}/message/template`;
+const JAVNA_SEND_AUTH_TEMPLATE_URL = `${JAVNA_BASE_URL}/message/template/authentication`;
 
 console.log("JAVNA_SEND_TEXT_URL:", JAVNA_SEND_TEXT_URL);
 console.log("JAVNA_SEND_TEMPLATE_URL:", JAVNA_SEND_TEMPLATE_URL);
@@ -199,42 +199,38 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
   if (!JAVNA_FROM) throw new Error("Missing JAVNA_FROM");
 
+  const TEMPLATE_ID =
+    lang === "ar" ? process.env.JAVNA_TEMPLATE_ID_AR : process.env.JAVNA_TEMPLATE_ID_EN;
+
+  if (!TEMPLATE_ID) throw new Error("Missing JAVNA_TEMPLATE_ID_(EN/AR)");
+
   const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
 
   const From = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
   const To = to.startsWith("+") ? to : `+${to}`;
 
-  const templateName = lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en"; // حسب قائمتك
-  const templateLang = lang === "ar" ? "ar" : "en";
-
-  // ✅ الأهم: TemplateName/TemplateLanguage داخل Template
+  // ✅ Authentication endpoint payload (مباشر + واضح)
   const payload = {
-    Messages: [
-      {
-        From,
-        Destinations: [To],
-        Template: {
-          TemplateName: templateName,
-          TemplateLanguage: templateLang,
-          Parameters: [{ name: "1", value: String(code) }],
-        },
-      },
-    ],
+    From,
+    To, // single recipient
+    TemplateId: String(TEMPLATE_ID),
+    TemplateLanguage: lang === "ar" ? "ar" : "en",
+    Parameters: [{ name: "1", value: String(code) }],
   };
 
-  console.log("JAVNA_TEMPLATE_URL:", JAVNA_SEND_TEMPLATE_URL);
-  console.log("JAVNA_TEMPLATE_PAYLOAD:", JSON.stringify(payload));
+  console.log("JAVNA_AUTH_TEMPLATE_URL:", JAVNA_SEND_AUTH_TEMPLATE_URL);
+  console.log("JAVNA_AUTH_TEMPLATE_PAYLOAD:", JSON.stringify(payload));
 
-  const r = await fetch(JAVNA_SEND_TEMPLATE_URL, {
+  const r = await fetch(JAVNA_SEND_AUTH_TEMPLATE_URL, {
     method: "POST",
     headers,
     body: JSON.stringify(payload),
   });
 
   const txt = await r.text();
-  console.log("JAVNA_TEMPLATE_RESPONSE_RAW:", txt);
+  console.log("JAVNA_AUTH_TEMPLATE_RESPONSE_RAW:", txt);
 
-  if (!r.ok) throw new Error(`Javna template failed (${r.status}): ${txt}`);
+  if (!r.ok) throw new Error(`Javna auth template failed (${r.status}): ${txt}`);
 
   try { return JSON.parse(txt); } catch { return { ok: true, raw: txt }; }
 }
