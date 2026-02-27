@@ -107,6 +107,16 @@ console.log("MAIL_ENV_CHECK", {
   keys: Object.keys(process.env).filter((k) => k.includes("GMAIL")),
 });
 
+app.get("/api/debug/mail", (_req, res) => {
+  return res.json({
+    hasUser: Boolean(GMAIL_USER),
+    hasPass: Boolean(GMAIL_PASS),
+    userLen: GMAIL_USER.length,
+    passLen: GMAIL_PASS.length,
+    keys: Object.keys(process.env).filter((k) => k.includes("GMAIL")),
+  });
+});
+
 // ---------------------------------------------------------------------------
 // DB Helpers (flat JSON)
 // ---------------------------------------------------------------------------
