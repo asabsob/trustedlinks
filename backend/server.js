@@ -20,11 +20,27 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import geolib from "geolib";
 import Otp from "./models/Otp.js";
+import { connectDB } from "./db.js";   // ✅ ADD THIS
 
-dotenv.config();
-import { connectDB } from "./db.js";
+dotenv.config(); // ✅ ADD THIS
 
-await connectDB();
+const app = express();
+
+app.get("/api/debug/mongo", (req, res) => {
+  res.json({
+    hasMongo: Boolean(process.env.MONGODB_URI),
+    keys: Object.keys(process.env).filter((k) =>
+      k.toLowerCase().includes("mongo")
+    ),
+  });
+});
+
+try {
+  await connectDB();
+} catch (e) {
+  console.log("❌ Mongo connect skipped:", e.message);
+}
+
 // ---------------------------------------------------------------------------
 // App + Paths
 // ---------------------------------------------------------------------------
