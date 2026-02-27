@@ -199,26 +199,28 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
   if (!JAVNA_FROM) throw new Error("Missing JAVNA_FROM");
 
-  const headers = {
-    "Content-Type": "application/json",
-    "X-API-Key": JAVNA_API_KEY,
-  };
+  const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
 
   const From = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
   const To = to.startsWith("+") ? to : `+${to}`;
 
-  const templateName = lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
+  const templateName = lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en"; // حسب قائمتك
   const templateLang = lang === "ar" ? "ar" : "en";
 
+  // ✅ الأهم: TemplateName/TemplateLanguage داخل Template
   const payload = {
-  Messages: [{
-    From,
-    Destinations: [To],
-    TemplateName: "trustedlinks_otp_en",
-    TemplateLanguage: "en",
-    Parameters: [{ name: "1", value: String(code) }],
-  }],
-};
+    Messages: [
+      {
+        From,
+        Destinations: [To],
+        Template: {
+          TemplateName: templateName,
+          TemplateLanguage: templateLang,
+          Parameters: [{ name: "1", value: String(code) }],
+        },
+      },
+    ],
+  };
 
   console.log("JAVNA_TEMPLATE_URL:", JAVNA_SEND_TEMPLATE_URL);
   console.log("JAVNA_TEMPLATE_PAYLOAD:", JSON.stringify(payload));
