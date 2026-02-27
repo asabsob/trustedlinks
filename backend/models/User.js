@@ -1,13 +1,16 @@
 import mongoose from "mongoose";
 
-const userSchema = new mongoose.Schema(
+const UserSchema = new mongoose.Schema(
   {
-    phone: { type: String, required: true, unique: true },
-    name: String,
-    businessName: String,
-    verified: { type: Boolean, default: false }
+    email: { type: String, unique: true, index: true, required: true },
+    password: { type: String, required: true }, // MVP plain (لاحقًا bcrypt)
+    emailVerified: { type: Boolean, default: false },
+    verifyToken: { type: String, default: null },
+
+    subscriptionPlan: { type: String, default: null },
+    planActivatedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
 
-export default mongoose.model("User", userSchema);
+export default mongoose.model("User", UserSchema);
