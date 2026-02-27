@@ -1,14 +1,16 @@
 import mongoose from "mongoose";
 
-const otpSchema = new mongoose.Schema(
+const OtpSchema = new mongoose.Schema(
   {
-    phone: { type: String, required: true },
+    whatsapp: { type: String, required: true, index: true }, // digits only
     code: { type: String, required: true },
-    expiresAt: { type: Date, required: true }
+    purpose: { type: String, default: "business_signup", index: true },
+    expiresAt: { type: Date, required: true, index: true },
   },
   { timestamps: true }
 );
 
-otpSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+// ⏳ TTL index — يحذف تلقائيًا بعد انتهاء الوقت
+OtpSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-export default mongoose.model("Otp", otpSchema);
+export default mongoose.model("Otp", OtpSchema);
