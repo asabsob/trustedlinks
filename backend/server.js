@@ -199,23 +199,28 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
   if (!JAVNA_FROM) throw new Error("Missing JAVNA_FROM");
 
-  const TEMPLATE_ID =
-    lang === "ar" ? process.env.JAVNA_TEMPLATE_ID_AR : process.env.JAVNA_TEMPLATE_ID_EN;
-
-  if (!TEMPLATE_ID) throw new Error("Missing JAVNA_TEMPLATE_ID_(EN/AR)");
-
   const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
 
   const From = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
   const To = to.startsWith("+") ? to : `+${to}`;
 
-  // ✅ Authentication endpoint payload (مباشر + واضح)
+  const templateId =
+    lang === "ar" ? process.env.JAVNA_TEMPLATE_ID_AR : process.env.JAVNA_TEMPLATE_ID_EN;
+  const templateLang = lang === "ar" ? "ar" : "en";
+
+  if (!templateId) throw new Error("Missing JAVNA_TEMPLATE_ID_(EN/AR)");
+
+  // ✅ لازم Messages + Destinations (مش From/To مباشرة)
   const payload = {
-    From,
-    To, // single recipient
-    TemplateId: String(TEMPLATE_ID),
-    TemplateLanguage: lang === "ar" ? "ar" : "en",
-    Parameters: [{ name: "1", value: String(code) }],
+    Messages: [
+      {
+        From,
+        Destinations: [To],
+        TemplateId: templateId,
+        TemplateLanguage: templateLang,
+        Parameters: [{ name: "1", value: String(code) }],
+      },
+    ],
   };
 
   console.log("JAVNA_AUTH_TEMPLATE_URL:", JAVNA_SEND_AUTH_TEMPLATE_URL);
@@ -231,7 +236,6 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   console.log("JAVNA_AUTH_TEMPLATE_RESPONSE_RAW:", txt);
 
   if (!r.ok) throw new Error(`Javna auth template failed (${r.status}): ${txt}`);
-
   try { return JSON.parse(txt); } catch { return { ok: true, raw: txt }; }
 }
 // ---------------------------------------------------------------------------
