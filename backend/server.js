@@ -184,6 +184,26 @@ if (GMAIL_USER && GMAIL_PASS) {
   });
 }
 
+app.get("/api/debug/send-test-email", async (req, res) => {
+  try {
+    if (!transporter) {
+      return res.status(500).json({ ok: false, error: "Mailer not configured" });
+    }
+
+    const to = req.query.to || "YOUR_EMAIL_HERE"; // حط ايميلك للاختبار
+    const info = await transporter.sendMail({
+      from: GMAIL_USER,
+      to,
+      subject: "TrustedLinks test email ✅",
+      text: "If you received this, Nodemailer is working.",
+    });
+
+    return res.json({ ok: true, messageId: info.messageId });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: String(e) });
+  }
+});
+
 // ---------------------------------------------------------------------------
 // JWT Helpers
 // ---------------------------------------------------------------------------
