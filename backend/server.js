@@ -114,6 +114,7 @@ const GMAIL_USER = (process.env.GMAIL_USER || "").trim();
 const GMAIL_PASS = (
   process.env.GMAIL_APP_PASSWORD ||
   process.env.GMAIL_PASS ||
+  process.env.GMAIL_PASSWORD ||
   ""
 ).trim();
 
