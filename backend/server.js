@@ -23,6 +23,9 @@ import { connectDB } from "./db.js";   // ✅ ADD THIS
 
 dotenv.config(); // ✅ ADD THIS
 
+// ---------------------------------------------------------------------------
+// Email (Resend) - single helper
+// ---------------------------------------------------------------------------
 async function sendEmail({ to, subject, html, text }) {
   const key = (process.env.RESEND_API_KEY || "").trim();
   const from = (process.env.MAIL_FROM || "").trim();
@@ -40,8 +43,8 @@ async function sendEmail({ to, subject, html, text }) {
   });
 
   const data = await r.json().catch(() => ({}));
-
   if (!r.ok) throw new Error(`Resend failed (${r.status}): ${JSON.stringify(data)}`);
+
   return data;
 }
 const app = express();
@@ -155,33 +158,6 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@trustedlinks.app";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "123456";
 const JWT_SECRET = process.env.JWT_SECRET || "trustedlinks_secret";
 
-// ✅ Gmail env (trim + support 2 names)
-const GMAIL_USER = (process.env.GMAIL_USER || "").trim();
-const GMAIL_PASS = (
-  process.env.GMAIL_APP_PASSWORD ||
-  process.env.GMAIL_PASS ||
-  process.env.GMAIL_PASSWORD ||
-  ""
-).trim();
-
-// ✅ Debug (temporary)
-console.log("MAIL_ENV_CHECK", {
-  hasUser: Boolean(GMAIL_USER),
-  hasPass: Boolean(GMAIL_PASS),
-  userLen: GMAIL_USER.length,
-  passLen: GMAIL_PASS.length,
-  keys: Object.keys(process.env).filter((k) => k.includes("GMAIL")),
-});
-
-app.get("/api/debug/mail", (_req, res) => {
-  return res.json({
-    hasUser: Boolean(GMAIL_USER),
-    hasPass: Boolean(GMAIL_PASS),
-    userLen: GMAIL_USER.length,
-    passLen: GMAIL_PASS.length,
-    keys: Object.keys(process.env).filter((k) => k.includes("GMAIL")),
-  });
-});
 
 // ---------------------------------------------------------------------------
 // DB Helpers (flat JSON)
