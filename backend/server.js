@@ -100,6 +100,8 @@ const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT || 5175;
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "http://localhost:5173";
+const FRONTEND_BASE_URL = (process.env.FRONTEND_BASE_URL || FRONTEND_ORIGIN).trim();
+const API_BASE_URL = (process.env.API_BASE_URL || "https://trustedlinks-backend-production.up.railway.app").trim();
 const DB_FILE = path.join(__dirname, "data.json");
 
 // ---------------------------------------------------------------------------
@@ -334,11 +336,11 @@ app.post("/api/auth/signup", async (req, res) => {
       const FRONTEND_BASE_URL =
         process.env.FRONTEND_BASE_URL || FRONTEND_ORIGIN;
 
-      const verifyUrl =
-        `${FRONTEND_BASE_URL}/verify-email` +
-        `?email=${encodeURIComponent(email)}` +
-        `&token=${encodeURIComponent(verifyToken)}`;
-
+   const verifyUrl =
+  `${API_BASE_URL}/api/auth/verify-email` +
+  `?email=${encodeURIComponent(email)}` +
+  `&token=${encodeURIComponent(verifyToken)}`;
+      
       await sendEmail({
         to: email,
         subject: "Verify your email",
@@ -430,30 +432,31 @@ app.post("/api/auth/resend-verification", async (req, res) => {
 app.get("/api/auth/verify-email", (req, res) => {
   try {
     const { email, token } = req.query || {};
-    if (!email || !token) {
-      return res.status(400).json({ error: "Missing email/token" });
-    }
+
+    // وين بدك المستخدم يروح بعد التفعيل؟
+    const successRedirect = `${FRONTEND_BASE_URL}/login?verified=1`;
+    const failRedirect = `${FRONTEND_BASE_URL}/login?verified=0`;
+
+    if (!email || !token) return res.redirect(failRedirect);
 
     const db = load();
     const user = db.users.find((u) => u.email === String(email));
-    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!user) return res.redirect(failRedirect);
 
-    if (user.emailVerified) {
-      return res.json({ ok: true, message: "Already verified" });
-    }
+    if (user.emailVerified) return res.redirect(successRedirect);
 
     if (String(user.verifyToken) !== String(token)) {
-      return res.status(401).json({ error: "Invalid token" });
+      return res.redirect(failRedirect);
     }
 
     user.emailVerified = true;
     user.verifyToken = null;
     save(db);
 
-    return res.json({ ok: true, message: "Email verified ✅" });
+    return res.redirect(successRedirect);
   } catch (e) {
     console.error("verify-email error", e);
-    return res.status(500).json({ error: "Verification failed" });
+    return res.redirect(`${FRONTEND_BASE_URL}/login?verified=0`);
   }
 });
 
