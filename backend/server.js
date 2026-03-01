@@ -13,7 +13,6 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import { nanoid } from "nanoid";
-import nodemailer from "nodemailer";
 import crypto from "crypto";
 import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
@@ -23,7 +22,6 @@ import Otp from "./models/Otp.js";
 import { connectDB } from "./db.js";   // ✅ ADD THIS
 
 dotenv.config(); // ✅ ADD THIS
-dotenv.config();
 
 async function sendEmail({ to, subject, html, text }) {
   const key = (process.env.RESEND_API_KEY || "").trim();
@@ -47,6 +45,32 @@ async function sendEmail({ to, subject, html, text }) {
   return data;
 }
 const app = express();
+
+app.get("/api/debug/resend", (_req, res) => {
+  res.json({
+    hasKey: Boolean(process.env.RESEND_API_KEY),
+    hasFrom: Boolean(process.env.MAIL_FROM),
+    from: process.env.MAIL_FROM || null,
+  });
+});
+
+app.get("/api/debug/send-test-email", async (req, res) => {
+  try {
+    const to = req.query.to;
+    if (!to) return res.status(400).json({ ok: false, error: "Missing ?to=" });
+
+    const result = await sendEmail({
+      to,
+      subject: "TrustedLinks test email ✅",
+      text: "If you received this, Resend is working.",
+      html: "<p>If you received this, <b>Resend</b> is working ✅</p>",
+    });
+
+    res.json({ ok: true, result });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e) });
+  }
+});
 
 app.get("/api/debug/mongo", (req, res) => {
   res.json({
@@ -195,34 +219,7 @@ function cleanDigits(v = "") {
   return String(v).replace(/\D/g, "");
 }
 
-// ---------------------------------------------------------------------------
-// Email (Resend)
-// ---------------------------------------------------------------------------
-async function sendEmail({ to, subject, html, text }) {
-  const key = (process.env.RESEND_API_KEY || "").trim();
-  const from = (process.env.MAIL_FROM || "").trim();
 
-  if (!key) throw new Error("Missing RESEND_API_KEY");
-  if (!from) throw new Error("Missing MAIL_FROM");
-
-  const r = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ from, to, subject, html, text }),
-  });
-
-  const data = await r.json().catch(() => ({}));
-
-  if (!r.ok) {
-    console.error("Resend error:", data);
-    throw new Error(data?.message || "Email send failed");
-  }
-
-  return data;
-}
 
 // ---------------------------------------------------------------------------
 // JAVNA Config (single place)
