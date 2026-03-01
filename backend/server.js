@@ -180,11 +180,10 @@ let transporter = null;
 if (GMAIL_USER && GMAIL_PASS) {
   transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
-    port: 465,
-    secure: true, // SSL
+    port: 587,
+    secure: false, // STARTTLS
     auth: { user: GMAIL_USER, pass: GMAIL_PASS },
-
-    // timeouts (مهمّة على Railway)
+    requireTLS: true,
     connectionTimeout: 20000,
     greetingTimeout: 20000,
     socketTimeout: 20000,
