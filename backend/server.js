@@ -179,8 +179,15 @@ function cleanDigits(v = "") {
 let transporter = null;
 if (GMAIL_USER && GMAIL_PASS) {
   transporter = nodemailer.createTransport({
-    service: "gmail",
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true, // SSL
     auth: { user: GMAIL_USER, pass: GMAIL_PASS },
+
+    // timeouts (مهمّة على Railway)
+    connectionTimeout: 20000,
+    greetingTimeout: 20000,
+    socketTimeout: 20000,
   });
 }
 
