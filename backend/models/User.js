@@ -1,14 +1,12 @@
+// models/User.js
 import mongoose from "mongoose";
 
 const UserSchema = new mongoose.Schema(
   {
-    email: { type: String, unique: true, index: true, required: true },
-    password: { type: String, required: true }, // MVP plain (لاحقًا bcrypt)
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    passwordHash: { type: String, default: "" },
     emailVerified: { type: Boolean, default: false },
     verifyToken: { type: String, default: null },
-
-    subscriptionPlan: { type: String, default: null },
-    planActivatedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
