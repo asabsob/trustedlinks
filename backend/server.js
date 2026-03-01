@@ -23,7 +23,29 @@ import Otp from "./models/Otp.js";
 import { connectDB } from "./db.js";   // ✅ ADD THIS
 
 dotenv.config(); // ✅ ADD THIS
+dotenv.config();
 
+async function sendEmail({ to, subject, html, text }) {
+  const key = (process.env.RESEND_API_KEY || "").trim();
+  const from = (process.env.MAIL_FROM || "").trim();
+
+  if (!key) throw new Error("Missing RESEND_API_KEY");
+  if (!from) throw new Error("Missing MAIL_FROM");
+
+  const r = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ from, to, subject, html, text }),
+  });
+
+  const data = await r.json().catch(() => ({}));
+
+  if (!r.ok) throw new Error(`Resend failed (${r.status}): ${JSON.stringify(data)}`);
+  return data;
+}
 const app = express();
 
 app.get("/api/debug/mongo", (req, res) => {
@@ -174,59 +196,32 @@ function cleanDigits(v = "") {
 }
 
 // ---------------------------------------------------------------------------
-// Mailer (optional)
+// Email (Resend)
 // ---------------------------------------------------------------------------
-let transporter = null;
-if (GMAIL_USER && GMAIL_PASS) {
-  transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 587,
-    secure: false, // STARTTLS
-    auth: { user: GMAIL_USER, pass: GMAIL_PASS },
-    requireTLS: true,
-    connectionTimeout: 20000,
-    greetingTimeout: 20000,
-    socketTimeout: 20000,
+async function sendEmail({ to, subject, html, text }) {
+  const key = (process.env.RESEND_API_KEY || "").trim();
+  const from = (process.env.MAIL_FROM || "").trim();
+
+  if (!key) throw new Error("Missing RESEND_API_KEY");
+  if (!from) throw new Error("Missing MAIL_FROM");
+
+  const r = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ from, to, subject, html, text }),
   });
-}
 
-app.get("/api/debug/send-test-email", async (req, res) => {
-  try {
-    if (!transporter) {
-      return res.status(500).json({ ok: false, error: "Mailer not configured" });
-    }
+  const data = await r.json().catch(() => ({}));
 
-    const to = req.query.to || "YOUR_EMAIL_HERE"; // حط ايميلك للاختبار
-    const info = await transporter.sendMail({
-      from: GMAIL_USER,
-      to,
-      subject: "TrustedLinks test email ✅",
-      text: "If you received this, Nodemailer is working.",
-    });
-
-    return res.json({ ok: true, messageId: info.messageId });
-  } catch (e) {
-    return res.status(500).json({ ok: false, error: String(e) });
+  if (!r.ok) {
+    console.error("Resend error:", data);
+    throw new Error(data?.message || "Email send failed");
   }
-});
 
-// ---------------------------------------------------------------------------
-// JWT Helpers
-// ---------------------------------------------------------------------------
-function createToken(userId) {
-  return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: "7d" });
-}
-function adminAuth(req, res, next) {
-  try {
-    const token = req.headers.authorization?.split(" ")[1];
-    if (!token) throw new Error("Missing token");
-    const decoded = jwt.verify(token, JWT_SECRET);
-    if (decoded.role !== "admin") throw new Error("Invalid role");
-    req.admin = decoded;
-    next();
-  } catch {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  return data;
 }
 
 // ---------------------------------------------------------------------------
@@ -330,7 +325,7 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
 }
 
 // ============================================================================
-// AUTH (Email signup/login) + Email Verification (Clean)
+// AUTH (Email signup/login) + Email Verification (Resend)
 // ============================================================================
 
 app.post("/api/auth/signup", async (req, res) => {
@@ -350,9 +345,9 @@ app.post("/api/auth/signup", async (req, res) => {
     const user = {
       id: nanoid(8),
       email,
-      password,              // MVP plain (later hash)
-      emailVerified: false,  // ✅ must verify
-      verifyToken,           // ✅
+      password, // MVP plain (later hash)
+      emailVerified: false,
+      verifyToken,
       subscriptionPlan: null,
       planActivatedAt: null,
       createdAt: nowISO(),
@@ -361,28 +356,24 @@ app.post("/api/auth/signup", async (req, res) => {
     db.users.push(user);
     save(db);
 
-    // Send verification email (if configured)
-    if (transporter) {
-      try {
-        const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL || FRONTEND_ORIGIN;
-        const verifyUrl =
-          `${FRONTEND_BASE_URL}/verify-email` +
-          `?email=${encodeURIComponent(email)}` +
-          `&token=${encodeURIComponent(verifyToken)}`;
+    // Send verification email (Resend) - do not fail signup if email fails
+    try {
+      const FRONTEND_BASE_URL =
+        process.env.FRONTEND_BASE_URL || FRONTEND_ORIGIN;
 
-        await transporter.sendMail({
-          from: GMAIL_USER,
-          to: email,
-          subject: "Verify your email",
-          text: `Verify your email using this link: ${verifyUrl}`,
-          html: `<p>Verify your email:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
-        });
-      } catch (err) {
-        console.error("send verification email error:", err);
-        // Do not fail signup
-      }
-    } else {
-      console.log("🧪 Mailer disabled. verifyToken:", verifyToken, "email:", email);
+      const verifyUrl =
+        `${FRONTEND_BASE_URL}/verify-email` +
+        `?email=${encodeURIComponent(email)}` +
+        `&token=${encodeURIComponent(verifyToken)}`;
+
+      await sendEmail({
+        to: email,
+        subject: "Verify your email",
+        text: `Verify your email using this link: ${verifyUrl}`,
+        html: `<p>Verify your email:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
+      });
+    } catch (err) {
+      console.error("send verification email error:", err);
     }
 
     return res.json({
@@ -399,7 +390,9 @@ app.post("/api/auth/login", async (req, res) => {
   try {
     const { email, password } = req.body || {};
     const db = load();
-    const user = db.users.find((u) => u.email === email && u.password === password);
+    const user = db.users.find(
+      (u) => u.email === email && u.password === password
+    );
 
     if (!user) return res.status(401).json({ error: "Invalid credentials" });
 
@@ -439,19 +432,15 @@ app.post("/api/auth/resend-verification", async (req, res) => {
     if (!user.verifyToken) user.verifyToken = nanoid(32);
     save(db);
 
-    if (!transporter) {
-      console.log("🧪 Mailer disabled. verifyToken:", user.verifyToken, "email:", email);
-      return res.status(500).json({ error: "Email service not configured" });
-    }
+    const FRONTEND_BASE_URL =
+      process.env.FRONTEND_BASE_URL || FRONTEND_ORIGIN;
 
-    const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL || FRONTEND_ORIGIN;
     const verifyUrl =
       `${FRONTEND_BASE_URL}/verify-email` +
       `?email=${encodeURIComponent(email)}` +
       `&token=${encodeURIComponent(user.verifyToken)}`;
 
-    await transporter.sendMail({
-      from: GMAIL_USER,
+    await sendEmail({
       to: email,
       subject: "Verify your email",
       text: `Verify your email using this link: ${verifyUrl}`,
@@ -468,13 +457,17 @@ app.post("/api/auth/resend-verification", async (req, res) => {
 app.get("/api/auth/verify-email", (req, res) => {
   try {
     const { email, token } = req.query || {};
-    if (!email || !token) return res.status(400).json({ error: "Missing email/token" });
+    if (!email || !token) {
+      return res.status(400).json({ error: "Missing email/token" });
+    }
 
     const db = load();
     const user = db.users.find((u) => u.email === String(email));
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    if (user.emailVerified) return res.json({ ok: true, message: "Already verified" });
+    if (user.emailVerified) {
+      return res.json({ ok: true, message: "Already verified" });
+    }
 
     if (String(user.verifyToken) !== String(token)) {
       return res.status(401).json({ error: "Invalid token" });
@@ -486,7 +479,7 @@ app.get("/api/auth/verify-email", (req, res) => {
 
     return res.json({ ok: true, message: "Email verified ✅" });
   } catch (e) {
-    console.error("verify-email error:", e);
+    console.error("verify-email error", e);
     return res.status(500).json({ error: "Verification failed" });
   }
 });
