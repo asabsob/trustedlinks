@@ -1,11 +1,5 @@
 import React, { useMemo, useState } from "react";
-import {
-  Routes,
-  Route,
-  Navigate,
-  useNavigate,
-  useLocation,
-} from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 
 /* 🌍 Public + User Pages */
 import Home from "./pages/Home.jsx";
@@ -30,15 +24,23 @@ import AdminNotifications from "./pages/admin/AdminNotifications.jsx";
 import AdminSettings from "./pages/admin/AdminSettings.jsx";
 
 /* 🔐 Admin Auth */
-import {
-  AdminAuthProvider,
-  useAdminAuth,
-} from "./context/AdminAuthContext.jsx";
+import { AdminAuthProvider, useAdminAuth } from "./context/AdminAuthContext.jsx";
 
 /* ⭐ Navbar */
 import Navbar from "./components/Navbar.jsx";
 
+// -------------------------
+// User Protected Route
+// -------------------------
+function RequireAuth({ children }) {
+  const token = localStorage.getItem("token");
+  if (!token) return <Navigate to="/" replace />;
+  return children;
+}
+
+// -------------------------
 // Admin Protected Route
+// -------------------------
 function PrivateAdmin({ children }) {
   const { admin, loading } = useAdminAuth();
   if (loading) return null;
@@ -48,15 +50,8 @@ function PrivateAdmin({ children }) {
 // MAIN APP
 export default function App() {
   const [lang, setLang] = useState(localStorage.getItem("lang") || "en");
-
   const navigate = useNavigate();
-  const location = useLocation();
   const token = localStorage.getItem("token");
-
-  // Protect private user pages
-  if (!token && ["/dashboard", "/manage", "/reports"].includes(location.pathname)) {
-    window.location.href = "/";
-  }
 
   // Language Strings
   const strings = useMemo(
@@ -76,7 +71,7 @@ export default function App() {
         },
       },
       ar: {
-        brand: "ترستيت لينكس",
+        brand: "ترستيد لينكس",
         nav: {
           home: "الرئيسية",
           search: "بحث",
@@ -104,15 +99,13 @@ export default function App() {
   const handleLogout = () => {
     localStorage.removeItem("token");
     navigate("/", { replace: true });
+    // ملاحظة: ما في داعي reload غالباً، بس خليها إذا عندك state يعتمد على token
     window.location.reload();
   };
 
   return (
-    <div
-      className={lang === "ar" ? "rtl" : ""}
-      dir={lang === "ar" ? "rtl" : "ltr"}
-    >
-      {/* 🌟 ALWAYS SHOW NAVBAR (header visible even on /login) */}
+    <div className={lang === "ar" ? "rtl" : ""} dir={lang === "ar" ? "rtl" : "ltr"}>
+      {/* 🌟 Navbar */}
       <Navbar
         lang={lang}
         t={t}
@@ -121,9 +114,10 @@ export default function App() {
         handleLogout={handleLogout}
       />
 
+      {/* ✅ لازم Provider يلف كل شيء يحتاج useAdminAuth */}
       <AdminAuthProvider>
         <Routes>
-          {/* Public Pages */}
+          {/* ---------------- Public Pages ---------------- */}
           <Route path="/" element={<Home lang={lang} />} />
           <Route path="/search" element={<Search lang={lang} />} />
           <Route path="/signup" element={<Signup lang={lang} />} />
@@ -131,13 +125,13 @@ export default function App() {
           <Route path="/business/:id" element={<BusinessDetails />} />
           <Route path="/register" element={<Navigate to="/signup" replace />} />
 
-          {/* Login Page (opens modal) */}
+          {/* Login Page */}
           <Route path="/login" element={<LoginPage lang={lang} />} />
 
           {/* Forgot Password */}
           <Route path="/forgot-password" element={<ForgotPassword />} />
 
-          {/* Admin Pages */}
+          {/* ---------------- Admin Pages ---------------- */}
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route
             path="/admin/*"
@@ -155,14 +149,34 @@ export default function App() {
             <Route path="settings" element={<AdminSettings />} />
           </Route>
 
-          {/* User Private Pages */}
-          {token && (
-            <>
-              <Route path="/dashboard" element={<Dashboard lang={lang} />} />
-              <Route path="/manage" element={<ManageLinks lang={lang} />} />
-              <Route path="/reports" element={<Reports lang={lang} />} />
-            </>
-          )}
+          {/* ---------------- User Private Pages ---------------- */}
+          <Route
+            path="/dashboard"
+            element={
+              <RequireAuth>
+                <Dashboard lang={lang} />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/manage"
+            element={
+              <RequireAuth>
+                <ManageLinks lang={lang} />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/reports"
+            element={
+              <RequireAuth>
+                <Reports lang={lang} />
+              </RequireAuth>
+            }
+          />
+
+          {/* ---------------- Fallback ---------------- */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AdminAuthProvider>
 
