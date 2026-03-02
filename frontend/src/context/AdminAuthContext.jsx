@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 
 const AdminAuthContext = createContext(null);
 
@@ -7,81 +7,74 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 export function AdminAuthProvider({ children }) {
   const [admin, setAdmin] = useState(null);
   const [token, setToken] = useState(localStorage.getItem("admintoken") || "");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!!localStorage.getItem("admintoken"));
 
-  // Load admin profile when token changes
+  // Auto fetch admin profile if token exists
   useEffect(() => {
-    let cancelled = false;
+    let alive = true;
 
-    async function loadMe() {
-      // No token → not logged in
+    const run = async () => {
       if (!token) {
-        if (!cancelled) {
-          setAdmin(null);
-          setLoading(false);
-        }
+        if (!alive) return;
+        setAdmin(null);
+        setLoading(false);
         return;
       }
 
+      setLoading(true);
       try {
-        setLoading(true);
-
         const res = await fetch(`${API_BASE}/api/admin/me`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
 
         if (!res.ok || data?.error) {
-          // Token invalid/expired
+          // token invalid
           localStorage.removeItem("admintoken");
-          if (!cancelled) {
-            setToken("");
-            setAdmin(null);
-          }
-        } else {
-          if (!cancelled) setAdmin(data);
-        }
-      } catch (e) {
-        // Network / server error: treat as logged out
-        localStorage.removeItem("admintoken");
-        if (!cancelled) {
+          if (!alive) return;
           setToken("");
           setAdmin(null);
+        } else {
+          if (!alive) return;
+          setAdmin(data);
         }
+      } catch {
+        // network error
+        if (!alive) return;
+        setAdmin(null);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!alive) return;
+        setLoading(false);
       }
-    }
+    };
 
-    loadMe();
+    run();
     return () => {
-      cancelled = true;
+      alive = false;
     };
   }, [token]);
 
   const login = async (email, password) => {
-    setLoading(true);
-
     const res = await fetch(`${API_BASE}/api/admin/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
 
-    const data = await res.json();
-    if (!res.ok) {
-      setLoading(false);
-      throw new Error(data?.error || "Login failed");
-    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Login failed");
 
     localStorage.setItem("admintoken", data.token);
     setToken(data.token);
 
-    // We can optimistically set admin if backend returns it,
-    // otherwise /me will fill it.
-    setLoading(false);
-    return data;
+    // fetch /me
+    const meRes = await fetch(`${API_BASE}/api/admin/me`, {
+      headers: { Authorization: `Bearer ${data.token}` },
+    });
+    const me = await meRes.json().catch(() => ({}));
+    if (!meRes.ok || me?.error) throw new Error(me?.error || "Failed to load admin");
+    setAdmin(me);
   };
 
   const logout = () => {
@@ -91,22 +84,15 @@ export function AdminAuthProvider({ children }) {
     setLoading(false);
   };
 
-  const value = useMemo(
-    () => ({ admin, token, loading, login, logout }),
-    [admin, token, loading]
-  );
-
   return (
-    <AdminAuthContext.Provider value={value}>
+    <AdminAuthContext.Provider value={{ admin, token, loading, login, logout }}>
       {children}
     </AdminAuthContext.Provider>
   );
 }
 
-export function useAdminAuth() {
+export const useAdminAuth = () => {
   const ctx = useContext(AdminAuthContext);
-  if (!ctx) {
-    throw new Error("useAdminAuth must be used within AdminAuthProvider");
-  }
+  if (!ctx) throw new Error("useAdminAuth must be used within AdminAuthProvider");
   return ctx;
-}
+};
