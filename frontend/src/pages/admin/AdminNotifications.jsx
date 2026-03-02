@@ -5,6 +5,7 @@ import { useLang } from "../../context/LangContext.jsx";
 export default function AdminNotifications() {
   const { lang } = useLang();
   const t = (en, ar) => (lang === "ar" ? ar : en);
+  const isRTL = lang === "ar";
 
   const [msg, setMsg] = useState("");
   const [sent, setSent] = useState(false);
@@ -12,16 +13,20 @@ export default function AdminNotifications() {
   const [error, setError] = useState("");
 
   const send = async () => {
-    if (!msg.trim()) {
+    if (loading) return;
+
+    const text = msg.trim();
+    if (!text) {
       setError(t("Message cannot be empty", "لا يمكن أن تكون الرسالة فارغة"));
       return;
     }
+
     setLoading(true);
     setError("");
     setSent(false);
 
     try {
-      await api.sendNotification({ message: msg });
+      await api.sendNotification({ message: text });
       setSent(true);
       setMsg("");
     } catch {
@@ -32,7 +37,10 @@ export default function AdminNotifications() {
   };
 
   return (
-    <div className={`space-y-6 ${lang === "ar" ? "text-right" : "text-left"}`}>
+    <div
+      className={`space-y-6 ${isRTL ? "text-right" : "text-left"}`}
+      dir={isRTL ? "rtl" : "ltr"}
+    >
       <h2 className="text-xl md:text-2xl font-semibold">
         {t("Send Notification", "إرسال إشعار")}
       </h2>
@@ -41,19 +49,25 @@ export default function AdminNotifications() {
         <label className="block text-sm font-medium text-gray-700 mb-2">
           {t("Message Content", "محتوى الرسالة")}
         </label>
+
         <textarea
           className={`w-full border rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 ${
-            lang === "ar" ? "text-right" : "text-left"
+            isRTL ? "text-right" : "text-left"
           }`}
-          rows="4"
+          rows={4}
           value={msg}
-          onChange={(e) => setMsg(e.target.value)}
+          onChange={(e) => {
+            setMsg(e.target.value);
+            if (error) setError("");
+            if (sent) setSent(false);
+          }}
           placeholder={t("Write your message...", "اكتب رسالتك هنا...")}
         />
 
         {error && <div className="text-red-600 mt-2 text-sm">{error}</div>}
 
         <button
+          type="button"
           onClick={send}
           disabled={loading}
           className={`mt-4 w-full sm:w-auto px-6 py-2.5 rounded-lg text-white font-medium transition ${
