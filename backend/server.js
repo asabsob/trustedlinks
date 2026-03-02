@@ -63,7 +63,6 @@ async function sendEmail({ to, subject, html, text }) {
 
   return data;
 }
-const app = express();
 
 app.get("/api/debug/resend", (_req, res) => {
   res.json({
