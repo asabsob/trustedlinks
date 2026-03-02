@@ -1,27 +1,18 @@
 import React from "react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 
 export default function Navbar({ lang, t, token, toggleLang, handleLogout }) {
-  const isArabic = lang === "ar";
-  const navigate = useNavigate();
-
   return (
     <nav className="border-b border-gray-200 bg-white shadow-sm sticky top-0 z-50">
-      <div
-        className="container mx-auto flex items-center justify-between px-6 py-3"
-        style={{ direction: isArabic ? "rtl" : "ltr" }}
-      >
+      <div className="container mx-auto flex items-center justify-between px-6 py-3">
         {/* BRAND */}
-        <Link
-          to="/"
-          className="flex items-center gap-2 font-semibold text-lg text-gray-800"
-        >
+        <Link to="/" className="flex items-center gap-2 font-semibold text-lg text-gray-800">
           <img src="/logo.svg" alt="Logo" className="h-6" />
           {t.brand}
         </Link>
 
         {/* CENTER NAVIGATION */}
-        <div className="flex items-center gap-6">
+        <div className="hidden md:flex items-center gap-6">
           {!token ? (
             <>
               <NavLink
@@ -114,12 +105,12 @@ export default function Navbar({ lang, t, token, toggleLang, handleLogout }) {
               {t.nav.logout}
             </button>
           ) : (
-            <button
-              onClick={() => navigate("/login")}
+            <Link
+              to="/login"
               className="bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg px-3 py-1.5"
             >
               {t.nav.login}
-            </button>
+            </Link>
           )}
         </div>
       </div>
