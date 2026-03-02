@@ -24,7 +24,7 @@ import AdminNotifications from "./pages/admin/AdminNotifications.jsx";
 import AdminSettings from "./pages/admin/AdminSettings.jsx";
 
 /* 🔐 Admin Auth */
-import { AdminAuthProvider, useAdminAuth } from "./context/AdminAuthContext.jsx";
+import { useAdminAuth } from "./context/AdminAuthContext.jsx";
 
 /* ⭐ Navbar */
 import Navbar from "./components/Navbar.jsx";
@@ -99,12 +99,14 @@ export default function App() {
   const handleLogout = () => {
     localStorage.removeItem("token");
     navigate("/", { replace: true });
-    // ملاحظة: ما في داعي reload غالباً، بس خليها إذا عندك state يعتمد على token
     window.location.reload();
   };
 
   return (
-    <div className={lang === "ar" ? "rtl" : ""} dir={lang === "ar" ? "rtl" : "ltr"}>
+    <div
+      className={lang === "ar" ? "rtl" : ""}
+      dir={lang === "ar" ? "rtl" : "ltr"}
+    >
       {/* 🌟 Navbar */}
       <Navbar
         lang={lang}
@@ -114,71 +116,68 @@ export default function App() {
         handleLogout={handleLogout}
       />
 
-      {/* ✅ لازم Provider يلف كل شيء يحتاج useAdminAuth */}
-      <AdminAuthProvider>
-        <Routes>
-          {/* ---------------- Public Pages ---------------- */}
-          <Route path="/" element={<Home lang={lang} />} />
-          <Route path="/search" element={<Search lang={lang} />} />
-          <Route path="/signup" element={<Signup lang={lang} />} />
-          <Route path="/subscribe" element={<Subscribe lang={lang} />} />
-          <Route path="/business/:id" element={<BusinessDetails />} />
-          <Route path="/register" element={<Navigate to="/signup" replace />} />
+      <Routes>
+        {/* ---------------- Public Pages ---------------- */}
+        <Route path="/" element={<Home lang={lang} />} />
+        <Route path="/search" element={<Search lang={lang} />} />
+        <Route path="/signup" element={<Signup lang={lang} />} />
+        <Route path="/subscribe" element={<Subscribe lang={lang} />} />
+        <Route path="/business/:id" element={<BusinessDetails />} />
+        <Route path="/register" element={<Navigate to="/signup" replace />} />
 
-          {/* Login Page */}
-          <Route path="/login" element={<LoginPage lang={lang} />} />
+        {/* Login Page */}
+        <Route path="/login" element={<LoginPage lang={lang} />} />
 
-          {/* Forgot Password */}
-          <Route path="/forgot-password" element={<ForgotPassword />} />
+        {/* Forgot Password */}
+        <Route path="/forgot-password" element={<ForgotPassword />} />
 
-          {/* ---------------- Admin Pages ---------------- */}
-          <Route path="/admin/login" element={<AdminLogin />} />
-          <Route
-            path="/admin/*"
-            element={
-              <PrivateAdmin>
-                <AdminLayout />
-              </PrivateAdmin>
-            }
-          >
-            <Route index element={<AdminDashboard />} />
-            <Route path="businesses" element={<AdminBusinesses />} />
-            <Route path="subscriptions" element={<AdminSubscriptions />} />
-            <Route path="notifications" element={<AdminNotifications />} />
-            <Route path="insights" element={<AdminAISummary />} />
-            <Route path="settings" element={<AdminSettings />} />
-          </Route>
+        {/* ---------------- Admin Pages ---------------- */}
+        <Route path="/admin/login" element={<AdminLogin />} />
+        <Route
+          path="/admin/*"
+          element={
+            <PrivateAdmin>
+              <AdminLayout />
+            </PrivateAdmin>
+          }
+        >
+          <Route index element={<AdminDashboard />} />
+          <Route path="businesses" element={<AdminBusinesses />} />
+          <Route path="subscriptions" element={<AdminSubscriptions />} />
+          <Route path="notifications" element={<AdminNotifications />} />
+          <Route path="insights" element={<AdminAISummary />} />
+          <Route path="settings" element={<AdminSettings />} />
+        </Route>
 
-          {/* ---------------- User Private Pages ---------------- */}
-          <Route
-            path="/dashboard"
-            element={
-              <RequireAuth>
-                <Dashboard lang={lang} />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/manage"
-            element={
-              <RequireAuth>
-                <ManageLinks lang={lang} />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/reports"
-            element={
-              <RequireAuth>
-                <Reports lang={lang} />
-              </RequireAuth>
-            }
-          />
+        {/* ---------------- User Private Pages ---------------- */}
+        <Route
+          path="/dashboard"
+          element={
+            <RequireAuth>
+              <Dashboard lang={lang} />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/manage"
+          element={
+            <RequireAuth>
+              <ManageLinks lang={lang} />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/reports"
+          element={
+            <RequireAuth>
+              <Reports lang={lang} />
+            </RequireAuth>
+          }
+        />
 
-          {/* ---------------- Fallback ---------------- */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </AdminAuthProvider>
+        {/* ---------------- Fallback ---------------- */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
 
       {/* Footer */}
       <footer className="text-center mt-10 py-5 border-t border-gray-200 text-gray-500 text-sm">
