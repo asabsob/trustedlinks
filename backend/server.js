@@ -24,6 +24,17 @@ import { connectDB } from "./db.js";   // ✅ ADD THIS
 
 dotenv.config(); // ✅ ADD THIS
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+function nowISO() {
+  return new Date().toISOString();
+}
+
+function cleanDigits(v = "") {
+  return String(v).replace(/\D/g, "");
+}
+
 await connectDB(); // خليها بدون try/catch طالما بدك Mongo إلزامي
 
 // ---------------------------------------------------------------------------
