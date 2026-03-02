@@ -58,7 +58,7 @@ export default function AdminLayout() {
       <aside
         className={`${
           open ? "w-64" : "w-20"
-        } bg-white border-r border-gray-200 shadow-sm flex flex-col transition-all duration-300`}
+        } bg-white ${lang === "ar" ? "border-l" : "border-r"} border-gray-200 ...shadow-sm flex flex-col transition-all duration-300`}
       >
         {/* Header / Logo */}
         <div className="p-4 flex items-center justify-between border-b border-gray-200">
