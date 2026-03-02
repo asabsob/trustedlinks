@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { API_BASE } from "../config/api";
-
+import { useNavigate } from "react-router-dom";
 export default function LoginModal({
   isOpen,
   onClose,
@@ -14,7 +14,8 @@ export default function LoginModal({
   const [infoMessage, setInfoMessage] = useState("");
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
-
+  const navigate = useNavigate();
+  
   if (!isOpen) return null;
 
   const t = (en, ar) => (lang === "ar" ? ar : en);
@@ -66,7 +67,7 @@ export default function LoginModal({
 
       if (onLoginSuccess) onLoginSuccess();
       setTimeout(() => {
-        window.location.href = "/dashboard";
+      navigate("/dashboard");
       }, 900);
     } catch (err) {
       setError(
