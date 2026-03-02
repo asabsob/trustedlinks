@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 
 export default function Search({ t, lang }) {
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("all"); // stores meta key (or "all")
+  const [category, setCategory] = useState("all"); // meta key or "all"
   const [businesses, setBusinesses] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [location, setLocation] = useState(null);
@@ -11,30 +13,34 @@ export default function Search({ t, lang }) {
   const navigate = useNavigate();
 
   /* ----------------------------- Meta categories ---------------------------- */
-  const metaCategories = [
-    { key: "AUTOMOTIVE", nameEn: "Automotive", nameAr: "سيارات" },
-    { key: "BEAUTY_SPA_SALON", nameEn: "Beauty, Spa and Salon", nameAr: "تجميل وصالون" },
-    { key: "CLOTHING_APPAREL", nameEn: "Clothing and Apparel", nameAr: "ملابس وأزياء" },
-    { key: "EDUCATION", nameEn: "Education", nameAr: "تعليم" },
-    { key: "ENTERTAINMENT", nameEn: "Entertainment", nameAr: "ترفيه" },
-    { key: "EVENT_PLANNING", nameEn: "Event Planning and Service", nameAr: "تنظيم الفعاليات والخدمات" },
-    { key: "FINANCE_BANKING", nameEn: "Finance and Banking", nameAr: "تمويل وبنوك" },
-    { key: "FOOD_GROCERY", nameEn: "Food and Grocery", nameAr: "طعام وبقالة" },
-    { key: "ALCOHOLIC_BEVERAGES", nameEn: "Beverages", nameAr: "مشروبات" },
-    { key: "PUBLIC_SERVICE", nameEn: "Public Service", nameAr: "خدمات عامة" },
-    { key: "HOTEL_LODGING", nameEn: "Hotel and Lodging", nameAr: "فنادق وإقامة" },
-    { key: "MEDICAL_HEALTH", nameEn: "Medical and Health", nameAr: "صحة وطبية" },
-    { key: "OVER_THE_COUNTER_DRUGS", nameEn: "Over-the-Counter Drugs", nameAr: "أدوية بدون وصفة" },
-    { key: "NON_PROFIT", nameEn: "Non-profit", nameAr: "غير ربحي" },
-    { key: "PROFESSIONAL_SERVICES", nameEn: "Professional Services", nameAr: "خدمات مهنية" },
-    { key: "SHOPPING_RETAIL", nameEn: "Shopping and Retail", nameAr: "تسوق وتجزئة" },
-    { key: "TRAVEL_TRANSPORTATION", nameEn: "Travel and Transportation", nameAr: "سفر ومواصلات" },
-    { key: "RESTAURANT", nameEn: "Restaurant", nameAr: "مطعم / مقهى" },
-    { key: "OTHER", nameEn: "Other", nameAr: "أخرى" },
-  ];
+  const metaCategories = useMemo(
+    () => [
+      { key: "AUTOMOTIVE", nameEn: "Automotive", nameAr: "سيارات" },
+      { key: "BEAUTY_SPA_SALON", nameEn: "Beauty, Spa and Salon", nameAr: "تجميل وصالون" },
+      { key: "CLOTHING_APPAREL", nameEn: "Clothing and Apparel", nameAr: "ملابس وأزياء" },
+      { key: "EDUCATION", nameEn: "Education", nameAr: "تعليم" },
+      { key: "ENTERTAINMENT", nameEn: "Entertainment", nameAr: "ترفيه" },
+      { key: "EVENT_PLANNING", nameEn: "Event Planning and Service", nameAr: "تنظيم الفعاليات والخدمات" },
+      { key: "FINANCE_BANKING", nameEn: "Finance and Banking", nameAr: "تمويل وبنوك" },
+      { key: "FOOD_GROCERY", nameEn: "Food and Grocery", nameAr: "طعام وبقالة" },
+      { key: "ALCOHOLIC_BEVERAGES", nameEn: "Beverages", nameAr: "مشروبات" },
+      { key: "PUBLIC_SERVICE", nameEn: "Public Service", nameAr: "خدمات عامة" },
+      { key: "HOTEL_LODGING", nameEn: "Hotel and Lodging", nameAr: "فنادق وإقامة" },
+      { key: "MEDICAL_HEALTH", nameEn: "Medical and Health", nameAr: "صحة وطبية" },
+      { key: "OVER_THE_COUNTER_DRUGS", nameEn: "Over-the-Counter Drugs", nameAr: "أدوية بدون وصفة" },
+      { key: "NON_PROFIT", nameEn: "Non-profit", nameAr: "غير ربحي" },
+      { key: "PROFESSIONAL_SERVICES", nameEn: "Professional Services", nameAr: "خدمات مهنية" },
+      { key: "SHOPPING_RETAIL", nameEn: "Shopping and Retail", nameAr: "تسوق وتجزئة" },
+      { key: "TRAVEL_TRANSPORTATION", nameEn: "Travel and Transportation", nameAr: "سفر ومواصلات" },
+      { key: "RESTAURANT", nameEn: "Restaurant", nameAr: "مطعم / مقهى" },
+      { key: "OTHER", nameEn: "Other", nameAr: "أخرى" },
+    ],
+    []
+  );
 
-  const metaByKey = Object.fromEntries(
-    metaCategories.map((c) => [c.key, c])
+  const metaByKey = useMemo(
+    () => Object.fromEntries(metaCategories.map((c) => [c.key, c])),
+    [metaCategories]
   );
 
   const labelForKey = (key) => {
@@ -44,32 +50,26 @@ export default function Search({ t, lang }) {
   };
 
   /* -------------------------- normalize + helpers --------------------------- */
-  // Businesses might have category as:
-  // - a meta key string ("RESTAURANT")
-  // - a display string ("Restaurant" / "مطعم / مقهى")
-  // - an array of either
   const extractCategoryValues = (b) => {
     const raw = b.category ?? [];
     const arr = Array.isArray(raw) ? raw : [raw];
     return arr
       .filter(Boolean)
-      .map((v) => (typeof v === "string" ? v : (v.key || v.name || "")));
+      .map((v) => (typeof v === "string" ? v : v.key || v.name || ""));
   };
 
   const businessHasCategory = (b, selectedKey) => {
     if (selectedKey === "all") return true;
 
-    // 1) Exact key match
     const vals = extractCategoryValues(b).map((s) => s.toUpperCase().trim());
     if (vals.includes(selectedKey)) return true;
 
-    // 2) If business saved a display name, compare against localized label of selectedKey
     const selectedLabelEn = metaByKey[selectedKey]?.nameEn?.toLowerCase();
     const selectedLabelAr = metaByKey[selectedKey]?.nameAr?.toLowerCase();
 
     return extractCategoryValues(b).some((v) => {
       const s = (v || "").toString().toLowerCase();
-      return s.includes(selectedLabelEn || "") || s.includes(selectedLabelAr || "");
+      return (selectedLabelEn && s.includes(selectedLabelEn)) || (selectedLabelAr && s.includes(selectedLabelAr));
     });
   };
 
@@ -77,7 +77,6 @@ export default function Search({ t, lang }) {
     const vals = extractCategoryValues(b);
     if (vals.length === 0) return lang === "ar" ? "غير مصنّف" : "Uncategorized";
 
-    // Map any Meta keys to the localized label; otherwise keep as-is
     return vals
       .map((v) => {
         const upper = v.toUpperCase().trim();
@@ -88,52 +87,39 @@ export default function Search({ t, lang }) {
 
   /* -------------------------- FETCH ALL BUSINESSES -------------------------- */
   useEffect(() => {
-    fetch("http://localhost:5175/api/businesses")
-      .then((res) => res.json())
-      .then(async (data) => {
-        const enhanced = await Promise.all(
-          data.map(async (b) => {
-            // Try enrich Instagram profile pic if it's a profile (not post/reel)
-            if (
-              b.mediaLink?.includes("instagram.com") &&
-              !b.mediaLink.match(/(p|reel|tv)\//)
-            ) {
-              try {
-                const username = b.mediaLink.split("instagram.com/")[1].split("/")[0];
-                const res = await fetch(
-                  `http://localhost:5175/api/instagram-profile/${username}`
-                );
-                const profile = await res.json();
-                if (profile?.profilePic) b.mediaLink = profile.profilePic;
-              } catch {
-                console.warn("Instagram fetch failed for", b.name);
-              }
-            }
-            return b;
-          })
-        );
-        setBusinesses(enhanced);
-        setFiltered(enhanced);
+    let cancelled = false;
 
-        // optional: track card views
-        enhanced.forEach((b) => {
-          fetch("http://localhost:5175/api/track-view", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ businessId: b.id }),
-          }).catch(() => {});
-        });
-      })
-      .catch(() => setFiltered([]));
+    async function loadBusinesses() {
+      try {
+        const res = await fetch(`${API_BASE}/api/businesses`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || "Failed to load businesses");
+
+        if (cancelled) return;
+
+        setBusinesses(Array.isArray(data) ? data : []);
+        setFiltered(Array.isArray(data) ? data : []);
+
+        // ⚠️ لا تعمل track-view لكل بزنس دفعة واحدة (يقتل الأداء)
+        // إذا بدك tracking للعرض، اعمله عند فتح التفاصيل فقط.
+      } catch (e) {
+        if (cancelled) return;
+        setBusinesses([]);
+        setFiltered([]);
+      }
+    }
+
+    loadBusinesses();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   /* -------------------------- DETECT USER LOCATION -------------------------- */
   useEffect(() => {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        },
+        (pos) => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
         () => {},
         { enableHighAccuracy: true, timeout: 10000 }
       );
@@ -146,10 +132,11 @@ export default function Search({ t, lang }) {
 
     if (query) {
       const q = query.toLowerCase();
-      results = results.filter((b) =>
-        (b.name || "").toLowerCase().includes(q) ||
-        (b.name_ar || "").toLowerCase().includes(q) ||
-        (b.description || "").toLowerCase().includes(q)
+      results = results.filter(
+        (b) =>
+          (b.name || "").toLowerCase().includes(q) ||
+          (b.name_ar || "").toLowerCase().includes(q) ||
+          (b.description || "").toLowerCase().includes(q)
       );
     }
 
@@ -163,49 +150,44 @@ export default function Search({ t, lang }) {
   /* ---------------------------- TRACK ACTIONS ---------------------------- */
   const trackClick = async (businessId, type = "whatsapp") => {
     try {
-      await fetch("http://localhost:5175/api/track-click", {
+      await fetch(`${API_BASE}/api/track-click`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ businessId, kind: type }),
       });
-    } catch (err) {
-      console.error(`Tracking ${type} error:`, err);
-    }
+    } catch {}
   };
 
   const trackMessage = async (businessId) => {
     try {
-      await fetch("http://localhost:5175/api/track-message", {
+      await fetch(`${API_BASE}/api/track-message`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ businessId }),
       });
-    } catch (err) {
-      console.error("Tracking message error:", err);
-    }
+    } catch {}
   };
 
   const trackMedia = async (businessId) => {
     try {
-      await fetch("http://localhost:5175/api/track-media", {
+      await fetch(`${API_BASE}/api/track-media`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ businessId }),
       });
-    } catch (err) {
-      console.error("Tracking media error:", err);
-    }
+    } catch {}
   };
 
   /* ---------------------------- MAP LINK DETECTION ---------------------------- */
   const getMapUrl = (b) => {
     if (b.mapLink && b.mapLink.trim().startsWith("http")) return b.mapLink.trim();
-    const mapsRegex =
-      /(https?:\/\/)?(goo\.gl|maps\.app|google\.com\/maps|share\.google)/i;
+
+    const mapsRegex = /(https?:\/\/)?(goo\.gl|maps\.app|google\.com\/maps|share\.google)/i;
     const allFields = [b.address, b.address_en, b.address_ar];
+
     for (const field of allFields) {
       if (mapsRegex.test(field || "")) {
-        let link = field.trim();
+        let link = (field || "").trim();
         if (!link.startsWith("http")) link = "https://" + link;
         return link;
       }
@@ -213,9 +195,6 @@ export default function Search({ t, lang }) {
     return null;
   };
 
-  /* -------------------------------------------------------------------------- */
-  /*                                   RENDER                                  */
-  /* -------------------------------------------------------------------------- */
   return (
     <div
       className="section"
@@ -243,9 +222,7 @@ export default function Search({ t, lang }) {
           <input
             type="text"
             placeholder={
-              lang === "ar"
-                ? "أدخل اسم النشاط أو كلمة مفتاحية..."
-                : "Enter business name or keyword..."
+              lang === "ar" ? "أدخل اسم النشاط أو كلمة مفتاحية..." : "Enter business name or keyword..."
             }
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -258,7 +235,7 @@ export default function Search({ t, lang }) {
           />
         </div>
 
-        {/* 🏷️ Category Selector (Meta-aligned) */}
+        {/* 🏷️ Category Selector */}
         <div style={{ minWidth: 260 }}>
           <label style={{ display: "block", marginBottom: 4, color: "#555" }}>
             {lang === "ar" ? "تصفية حسب الفئة" : "Filter by Category"}
@@ -275,9 +252,7 @@ export default function Search({ t, lang }) {
               textAlign: lang === "ar" ? "right" : "left",
             }}
           >
-            <option value="all">
-              {lang === "ar" ? "كل الفئات" : "All Categories"}
-            </option>
+            <option value="all">{lang === "ar" ? "كل الفئات" : "All Categories"}</option>
             {metaCategories.map((c) => (
               <option key={c.key} value={c.key}>
                 {lang === "ar" ? c.nameAr : c.nameEn}
@@ -312,9 +287,7 @@ export default function Search({ t, lang }) {
 
         {filtered.length === 0 ? (
           <p style={{ textAlign: "center", color: "#666" }}>
-            {lang === "ar"
-              ? "لم يتم العثور على نتائج مطابقة."
-              : "No matching businesses found."}
+            {lang === "ar" ? "لم يتم العثور على نتائج مطابقة." : "No matching businesses found."}
           </p>
         ) : (
           <div
@@ -327,6 +300,7 @@ export default function Search({ t, lang }) {
             {filtered.map((b) => {
               const mapUrl = getMapUrl(b);
               const isActive = activeLocation === b.id;
+
               return (
                 <div
                   key={b.id}
@@ -381,7 +355,7 @@ export default function Search({ t, lang }) {
                               cursor: "pointer",
                             }}
                           >
-                            View on Instagram
+                            {lang === "ar" ? "عرض على إنستغرام" : "View on Instagram"}
                           </a>
                         </div>
                       ) : /\.(jpg|jpeg|png|gif|webp)$/i.test(b.mediaLink) ? (
@@ -410,7 +384,7 @@ export default function Search({ t, lang }) {
                         />
                       )
                     ) : (
-                      <div style={{ color: "#aaa" }}>No media</div>
+                      <div style={{ color: "#aaa" }}>{lang === "ar" ? "لا يوجد محتوى" : "No media"}</div>
                     )}
                   </div>
 
@@ -436,16 +410,8 @@ export default function Search({ t, lang }) {
                       {b.description}
                     </p>
 
-                    {/* 📍 Location Icon */}
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                        marginTop: 10,
-                        marginBottom: 12,
-                      }}
-                    >
+                    {/* 📍 Location */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: 10, marginBottom: 12 }}>
                       {mapUrl ? (
                         <button
                           onClick={(e) => {
@@ -478,13 +444,7 @@ export default function Search({ t, lang }) {
                     </div>
 
                     {/* Buttons */}
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "10px",
-                        justifyContent: "space-between",
-                      }}
-                    >
+                    <div style={{ display: "flex", gap: "10px", justifyContent: "space-between" }}>
                       <button
                         onClick={() => {
                           navigate(`/business/${b.id}`);
@@ -504,10 +464,7 @@ export default function Search({ t, lang }) {
                       </button>
 
                       <a
-                        href={
-                          b.whatsappLink ||
-                          `https://wa.me/${b.whatsapp?.replace(/\D/g, "")}`
-                        }
+                        href={b.whatsappLink || `https://wa.me/${(b.whatsapp || "").toString().replace(/\D/g, "")}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={() => {
