@@ -10,7 +10,6 @@
 import express from "express";
 import cors from "cors";
 import path from "path";
-import fs from "fs";
 import { fileURLToPath } from "url";
 import { nanoid } from "nanoid";
 import crypto from "crypto";
@@ -20,9 +19,12 @@ import bcrypt from "bcrypt";
 import geolib from "geolib";
 import Otp from "./models/Otp.js";
 import User from "./models/User.js";
+import Business from "./models/Business.js";
 import { connectDB } from "./db.js";   // ✅ ADD THIS
 
 dotenv.config(); // ✅ ADD THIS
+
+await connectDB(); // خليها بدون try/catch طالما بدك Mongo إلزامي
 
 // ---------------------------------------------------------------------------
 // Email (Resend) - single helper
@@ -103,7 +105,7 @@ const PORT = process.env.PORT || 5175;
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "http://localhost:5173";
 const FRONTEND_BASE_URL = (process.env.FRONTEND_BASE_URL || FRONTEND_ORIGIN).trim();
 const API_BASE_URL = (process.env.API_BASE_URL || "https://trustedlinks-backend-production.up.railway.app").trim();
-const DB_FILE = path.join(__dirname, "data.json");
+
 
 // ---------------------------------------------------------------------------
 // CORS + JSON
@@ -160,44 +162,6 @@ app.options(
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@trustedlinks.app";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "123456";
 const JWT_SECRET = process.env.JWT_SECRET || "trustedlinks_secret";
-
-
-// ---------------------------------------------------------------------------
-// DB Helpers (flat JSON)
-// ---------------------------------------------------------------------------
-function ensureDb() {
-  if (!fs.existsSync(DB_FILE)) {
-    fs.writeFileSync(
-      DB_FILE,
-      JSON.stringify(
-        { users: [], businesses: [], notifications: [], otpRequests: [] },
-        null,
-        2
-      )
-    );
-  }
-}
-function load() {
-  ensureDb();
-  const raw = fs.readFileSync(DB_FILE, "utf8").trim() || "{}";
-  const data = JSON.parse(raw);
-
-  data.users ||= [];
-  data.businesses ||= [];
-  data.notifications ||= [];
-  data.otpRequests ||= []; // [{ id, whatsapp, code, expiresAt, createdAt, purpose }]
-  return data;
-}
-function save(db) {
-  fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
-}
-function nowISO() {
-  return new Date().toISOString();
-}
-function cleanDigits(v = "") {
-  return String(v).replace(/\D/g, "");
-}
-
 
 
 // ---------------------------------------------------------------------------
@@ -304,90 +268,96 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
 // AUTH (Email signup/login) + Email Verification (Resend)
 // ============================================================================
 
-app.post("/api/auth/signup", async (req, res) => {
+app.post("/api/auth/login", async (req, res) => {
   try {
     const { email, password } = req.body || {};
-    if (!email || !password) {
-      return res.status(400).json({ error: "Email and password required" });
+    const emailNorm = String(email || "").toLowerCase().trim();
+
+    const user = await User.findOne({ email: emailNorm });
+    if (!user) return res.status(401).json({ error: "Invalid credentials" });
+
+    const ok = await bcrypt.compare(String(password), user.passwordHash);
+    if (!ok) return res.status(401).json({ error: "Invalid credentials" });
+
+    if (!user.emailVerified) {
+      return res.status(403).json({ error: "Email not verified", code: "EMAIL_NOT_VERIFIED" });
     }
 
-    const emailClean = String(email).toLowerCase().trim();
-
-    const exists = await User.findOne({ email: emailClean });
-    if (exists) {
-      return res.status(400).json({ error: "Email already registered" });
-    }
-
-    const verifyToken = nanoid(32);
-
-    // ✅ Hash password
-    const passwordHash = await bcrypt.hash(String(password), 10);
-
-    const user = await User.create({
-      email: emailClean,
-      passwordHash,
-      emailVerified: false,
-      verifyToken,
-      subscriptionPlan: null,
-      planActivatedAt: null,
-    });
-
-    // ✅ Send verification email (Resend)
-    try {
-      const FRONTEND_BASE_URL = (process.env.FRONTEND_BASE_URL || FRONTEND_ORIGIN).trim();
-      const API_BASE_URL = (process.env.API_BASE_URL || "").trim(); // لازم تحطه بالـ ENV
-
-      const verifyUrl =
-        `${API_BASE_URL}/api/auth/verify-email` +
-        `?email=${encodeURIComponent(emailClean)}` +
-        `&token=${encodeURIComponent(verifyToken)}`;
-
-      await sendEmail({
-        to: emailClean,
-        subject: "Verify your email",
-        text: `Verify your email using this link: ${verifyUrl}`,
-        html: `<p>Verify your email:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
-      });
-    } catch (err) {
-      console.error("send verification email error:", err);
-    }
-
+    const token = createToken(String(user._id));
     return res.json({
-      success: true,
-      user: { id: user._id, email: user.email, emailVerified: user.emailVerified },
+      ok: true,
+      token,
+      subscriptionPlan: user.subscriptionPlan,
+      planActivatedAt: user.planActivatedAt,
     });
   } catch (e) {
-    console.error("signup error", e);
+    console.error("login error", e);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
 
 app.get("/api/auth/verify-email", async (req, res) => {
-  const successRedirect = `${FRONTEND_BASE_URL}/login?verified=1`;
-  const failRedirect = `${FRONTEND_BASE_URL}/login?verified=0`;
-
   try {
     const { email, token } = req.query || {};
-    if (!email || !token) return res.redirect(failRedirect);
+    if (!email || !token) return res.status(400).send("Missing email/token");
 
-    const user = await User.findOne({ email: String(email).toLowerCase().trim() });
-    if (!user) return res.redirect(failRedirect);
+    const emailNorm = String(email).toLowerCase().trim();
 
-    if (user.emailVerified) return res.redirect(successRedirect);
+    const user = await User.findOne({ email: emailNorm });
+    if (!user) return res.status(404).send("User not found");
 
-    if (String(user.verifyToken) !== String(token)) return res.redirect(failRedirect);
+    if (user.emailVerified) return res.send("Already verified ✅");
+
+    if (String(user.verifyToken) !== String(token)) {
+      return res.status(401).send("Invalid token");
+    }
 
     user.emailVerified = true;
     user.verifyToken = null;
     await user.save();
 
-    return res.redirect(successRedirect);
+    // ✅ Redirect للـ frontend بعد التفعيل (اختياري)
+    const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL || "https://trustedlinks.net";
+    return res.redirect(`${FRONTEND_BASE_URL}/login?verified=1`);
   } catch (e) {
-    console.error("verify-email error:", e);
-    return res.redirect(failRedirect);
+    console.error("verify-email error", e);
+    return res.status(500).send("Verification failed");
   }
 });
 
+app.post("/api/auth/resend-verification", async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    if (!email) return res.status(400).json({ error: "Email required" });
+
+    const emailNorm = String(email).toLowerCase().trim();
+    const user = await User.findOne({ email: emailNorm });
+    if (!user) return res.status(404).json({ error: "Email not found" });
+
+    if (user.emailVerified) return res.json({ ok: true, message: "Email already verified" });
+
+    if (!user.verifyToken) user.verifyToken = nanoid(32);
+    await user.save();
+
+    const API_BASE_PUBLIC = process.env.API_BASE_PUBLIC || "https://trustedlinks-backend-production.up.railway.app";
+    const verifyUrl =
+      `${API_BASE_PUBLIC}/api/auth/verify-email` +
+      `?email=${encodeURIComponent(emailNorm)}` +
+      `&token=${encodeURIComponent(user.verifyToken)}`;
+
+    await sendEmail({
+      to: emailNorm,
+      subject: "Verify your email",
+      text: `Verify your email using this link: ${verifyUrl}`,
+      html: `<p>Verify your email:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
+    });
+
+    return res.json({ ok: true, message: "Verification email sent" });
+  } catch (e) {
+    console.error("resend-verification error:", e);
+    return res.status(500).json({ error: "Failed to send verification email" });
+  }
+});
 // ============================================================================
 // WhatsApp OTP (Javna) - for business signup  (fixed)
 // ============================================================================
