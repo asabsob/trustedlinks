@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   LineChart,
   Line,
@@ -13,46 +13,41 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useSpring, animated } from "@react-spring/web";
+import { useLang } from "../../context/LangContext.jsx";
+import { useAdminAuth } from "../../context/AdminAuthContext.jsx";
 
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 const COLORS = ["#22c55e", "#34d399", "#4ade80", "#86efac", "#a7f3d0"];
 
 export default function AdminDashboard() {
+  const { lang } = useLang();
+  const { token } = useAdminAuth();
+
+  const isAr = lang === "ar";
+
+  const t = useMemo(
+    () => ({
+      title: isAr ? "لوحة تحليلات الأدمن" : "Admin Analytics Dashboard",
+      subtitle: isAr
+        ? "نظرة عامة على أداء المنصّة والتفاعل"
+        : "Overview of platform performance and engagement",
+      kpiUsers: isAr ? "إجمالي المستخدمين" : "Total Users",
+      kpiBiz: isAr ? "إجمالي الأنشطة التجارية" : "Total Businesses",
+      kpiClicks: isAr ? "إجمالي النقرات" : "Total Clicks",
+      kpiAvg: isAr ? "متوسط النقرات لكل نشاط" : "Avg Clicks / Business",
+      trendsTitle: isAr ? "نشاط المنصّة" : "Platform Activity",
+      categoriesTitle: isAr ? "توزيع الأنشطة التجارية" : "Business Distribution",
+      loading: isAr ? "جاري تحميل إحصاءات الأدمن..." : "Loading admin stats...",
+      needLogin: isAr ? "أنت غير مسجل دخول كأدمن." : "You are not logged in as admin.",
+      noData: isAr ? "لا توجد بيانات بعد" : "No data yet",
+      failed: isAr ? "فشل تحميل الإحصاءات" : "Failed to load stats",
+    }),
+    [isAr]
+  );
+
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
-
-  // ✅ Always read language directly from localStorage
-  const lang = localStorage.getItem("lang") || "en";
-  const token = localStorage.getItem("admintoken") || "";
-
-  const t = {
-    en: {
-      title: "Admin Analytics Dashboard",
-      subtitle: "Overview of platform performance and engagement",
-      kpiUsers: "Total Users",
-      kpiBiz: "Total Businesses",
-      kpiClicks: "Total Clicks",
-      kpiAvg: "Avg Clicks / Business",
-      trendsTitle: "Platform Activity (coming soon)",
-      categoriesTitle: "Business Distribution (coming soon)",
-      loading: "Loading admin stats...",
-      needLogin: "You are not logged in as admin.",
-      noData: "No data yet",
-    },
-    ar: {
-      title: "لوحة تحليلات الأدمن",
-      subtitle: "نظرة عامة على أداء المنصّة والتفاعل",
-      kpiUsers: "إجمالي المستخدمين",
-      kpiBiz: "إجمالي الأنشطة التجارية",
-      kpiClicks: "إجمالي النقرات",
-      kpiAvg: "متوسط النقرات لكل نشاط",
-      trendsTitle: "نشاط المنصّة (قريبًا)",
-      categoriesTitle: "توزيع الأنشطة التجارية (قريبًا)",
-      loading: "جاري تحميل إحصاءات الأدمن...",
-      needLogin: "أنت غير مسجل دخول كأدمن.",
-      noData: "لا توجد بيانات بعد",
-    },
-  }[lang];
 
   const fadeIn = useSpring({
     from: { opacity: 0.3, transform: "translateY(6px)" },
@@ -61,41 +56,65 @@ export default function AdminDashboard() {
   });
 
   useEffect(() => {
-    if (!token) {
-      setErr(t.needLogin);
-      setLoading(false);
-      return;
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      setErr("");
+
+      if (!token) {
+        setErr(t.needLogin);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/stats`, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const txt = await res.text();
+        let data = {};
+        try {
+          data = JSON.parse(txt);
+        } catch {
+          data = {};
+        }
+
+        if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+
+        const normalized = {
+          users: data.users ?? data.totalUsers ?? 0,
+          businesses: data.businesses ?? data.totalBusinesses ?? 0,
+          clicks: data.clicks ?? data.totalClicks ?? 0,
+          activity: Array.isArray(data.activity) ? data.activity : [],
+          categories: Array.isArray(data.categories) ? data.categories : [],
+        };
+
+        if (!cancelled) setStats(normalized);
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) setErr(e.message || t.failed);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
 
-    fetch("http://localhost:5175/api/admin/stats", {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((data) => {
-        setStats({
-          users: data.users ?? 0,
-          businesses: data.businesses ?? 0,
-          clicks: data.clicks ?? 0,
-          activity: data.activity ?? [],
-          categories: data.categories ?? [],
-        });
-      })
-      .catch((e) => setErr(e.message || "Failed"))
-      .finally(() => setLoading(false));
-  }, [token, lang]);
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [token, t]);
 
   if (loading) {
     return (
       <div
         style={{
           fontFamily: "Tajawal, Inter, sans-serif",
-          direction: lang === "ar" ? "rtl" : "ltr",
+          direction: isAr ? "rtl" : "ltr",
           textAlign: "center",
           padding: 48,
           color: "#666",
@@ -111,7 +130,7 @@ export default function AdminDashboard() {
       <div
         style={{
           fontFamily: "Tajawal, Inter, sans-serif",
-          direction: lang === "ar" ? "rtl" : "ltr",
+          direction: isAr ? "rtl" : "ltr",
           textAlign: "center",
           padding: 48,
         }}
@@ -132,7 +151,7 @@ export default function AdminDashboard() {
         fontFamily: "Tajawal, Inter, sans-serif",
         background: "#f9fafb",
         minHeight: "100vh",
-        direction: lang === "ar" ? "rtl" : "ltr",
+        direction: isAr ? "rtl" : "ltr",
       }}
     >
       {/* Header */}
@@ -144,7 +163,7 @@ export default function AdminDashboard() {
           borderRadius: 14,
           margin: "20px auto",
           maxWidth: 1150,
-          textAlign: lang === "ar" ? "right" : "left",
+          textAlign: isAr ? "right" : "left",
         }}
       >
         <h2 style={{ margin: 0 }}>{t.title}</h2>
@@ -193,6 +212,7 @@ export default function AdminDashboard() {
             }}
           >
             <h3 style={{ marginBottom: 12, color: "#16a34a" }}>{t.trendsTitle}</h3>
+
             {Array.isArray(stats.activity) && stats.activity.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={stats.activity}>
@@ -221,9 +241,8 @@ export default function AdminDashboard() {
               minHeight: 360,
             }}
           >
-            <h3 style={{ marginBottom: 12, color: "#16a34a" }}>
-              {t.categoriesTitle}
-            </h3>
+            <h3 style={{ marginBottom: 12, color: "#16a34a" }}>{t.categoriesTitle}</h3>
+
             {Array.isArray(stats.categories) && stats.categories.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
