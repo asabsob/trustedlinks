@@ -3,28 +3,23 @@
 // ============================================================================
 
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useLang } from "../context/LangContext.jsx";
+
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 
 export default function Dashboard() {
-  // -------------------------------------------------------------------------
-  // Language detection
-  // -------------------------------------------------------------------------
-  const lang = localStorage.getItem("lang") || "en";
+  const navigate = useNavigate();
+  const { lang } = useLang();
   const isAr = lang === "ar";
-
   const t = (en, ar) => (isAr ? ar : en);
 
-  // -------------------------------------------------------------------------
-  // State
-  // -------------------------------------------------------------------------
   const [user, setUser] = useState(null);
   const [business, setBusiness] = useState(null);
   const [reports, setReports] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // -------------------------------------------------------------------------
-  // Initial Data Load
-  // -------------------------------------------------------------------------
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -33,65 +28,77 @@ export default function Dashboard() {
       return;
     }
 
-    // 1️⃣ Get user
-    fetch("http://localhost:5175/api/me", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Auth failed");
-        return res.json();
-      })
-      .then((data) => {
-        setUser(data);
+    let cancelled = false;
 
-        if (!data.subscriptionPlan) {
-          window.location.href = "/subscribe";
+    async function loadAll() {
+      try {
+        setLoading(true);
+        setError("");
+
+        // 1) Get user
+        const meRes = await fetch(`${API_BASE}/api/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const meData = await meRes.json();
+        if (!meRes.ok) throw new Error(meData?.error || "Auth failed");
+
+        if (cancelled) return;
+        setUser(meData);
+
+        // Subscription check
+        if (!meData.subscriptionPlan) {
+          navigate("/subscribe", { replace: true });
+          return;
         }
-      })
-      .catch(() => {
+
+        // 2) Get business + 3) reports in parallel
+        const [bizRes, repRes] = await Promise.all([
+          fetch(`${API_BASE}/api/business/me`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(`${API_BASE}/api/business/reports`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
+
+        const bizData = await bizRes.json().catch(() => null);
+        const repData = await repRes.json().catch(() => null);
+
+        if (cancelled) return;
+
+        if (bizRes.ok) setBusiness(bizData);
+        else setBusiness(null);
+
+        if (repRes.ok) setReports(repData);
+        else setReports(null);
+      } catch (e) {
+        if (cancelled) return;
         setError(
           t(
             "Authentication failed. Please log in again.",
             "فشل التحقق من الهوية. يرجى تسجيل الدخول مرة أخرى."
           )
         );
-      });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
 
-    // 2️⃣ Get business
-    fetch("http://localhost:5175/api/business/me", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
-      .then((data) => setBusiness(data))
-      .catch(() =>
-        setError(t("Failed to load business info.", "فشل تحميل بيانات النشاط."))
-      );
+    loadAll();
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate, lang]);
 
-    // 3️⃣ Get performance reports
-    fetch("http://localhost:5175/api/business/reports", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
-      .then((data) => setReports(data))
-      .catch(() =>
-        setError(t("Failed to load reports.", "فشل تحميل التقارير."))
-      )
-      .finally(() => setLoading(false));
-  }, []);
-
-  // -------------------------------------------------------------------------
-  // Logout
-  // -------------------------------------------------------------------------
   const handleLogout = () => {
     localStorage.removeItem("token");
-    window.location.href = "/";
+    navigate("/", { replace: true });
   };
 
-  // -------------------------------------------------------------------------
-  // Loading & Error UI
-  // -------------------------------------------------------------------------
   if (loading)
-    return <p style={{ textAlign: "center" }}>{t("Loading...", "جارٍ التحميل...")}</p>;
+    return (
+      <p style={{ textAlign: "center" }}>{t("Loading...", "جارٍ التحميل...")}</p>
+    );
 
   if (error)
     return (
@@ -101,17 +108,12 @@ export default function Dashboard() {
       </div>
     );
 
-  // -------------------------------------------------------------------------
-  // UI
-  // -------------------------------------------------------------------------
   return (
     <div
       className="section container"
       style={{ padding: "20px", direction: isAr ? "rtl" : "ltr" }}
     >
-      {/* ---------------------------------------------------------------------
-         Header bar
-      --------------------------------------------------------------------- */}
+      {/* Header bar */}
       <div
         style={{
           background: "#ffffff",
@@ -152,9 +154,7 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* ---------------------------------------------------------------------
-         Top banner
-      --------------------------------------------------------------------- */}
+      {/* Top banner */}
       <div
         style={{
           background: "linear-gradient(135deg,#22c55e,#34d399)",
@@ -168,9 +168,7 @@ export default function Dashboard() {
         <p>{t("Monitor your activity and insights", "تابع نشاطك وإحصاءاتك")}</p>
       </div>
 
-      {/* ---------------------------------------------------------------------
-         Business Info
-      --------------------------------------------------------------------- */}
+      {/* Business Info */}
       <div
         style={{
           background: "#fff",
@@ -197,19 +195,20 @@ export default function Dashboard() {
               <div style={{ fontWeight: "600" }}>{t("Name", "الاسم")}</div>
               <div>{business.nameAr || business.nameEn || business.name}</div>
             </div>
-<div>
-  <div style={{ fontWeight: "600" }}>{t("Category", "الفئة")}</div>
-  <div>
-    {typeof business.category === "object"
-      ? (isAr ? business.category.nameAr : business.category.nameEn)
-      : business.category || "N/A"}
-  </div>
-</div>
 
             <div>
-              <div style={{ fontWeight: "600" }}>
-                {t("Description", "الوصف")}
+              <div style={{ fontWeight: "600" }}>{t("Category", "الفئة")}</div>
+              <div>
+                {typeof business.category === "object"
+                  ? isAr
+                    ? business.category.nameAr
+                    : business.category.nameEn
+                  : business.category || "N/A"}
               </div>
+            </div>
+
+            <div>
+              <div style={{ fontWeight: "600" }}>{t("Description", "الوصف")}</div>
               <div>{business.description || t("N/A", "لا يوجد")}</div>
             </div>
 
@@ -228,9 +227,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* ---------------------------------------------------------------------
-         Reports
-      --------------------------------------------------------------------- */}
+      {/* Reports */}
       <div
         style={{
           background: "#fff",
@@ -252,15 +249,11 @@ export default function Dashboard() {
               textAlign: "center",
             }}
           >
-            {/* TOTAL CLICKS */}
             <div style={{ background: "#f0fdf4", padding: 16, borderRadius: 10 }}>
               <h4>{t("Total Clicks", "إجمالي النقرات")}</h4>
-              <p style={{ fontSize: 20, fontWeight: 600 }}>
-                {reports.totalClicks}
-              </p>
+              <p style={{ fontSize: 20, fontWeight: 600 }}>{reports.totalClicks}</p>
             </div>
 
-            {/* TOTAL MESSAGES */}
             <div style={{ background: "#f0fdf4", padding: 16, borderRadius: 10 }}>
               <h4>{t("Total Messages", "إجمالي الرسائل")}</h4>
               <p style={{ fontSize: 20, fontWeight: 600 }}>
@@ -268,7 +261,6 @@ export default function Dashboard() {
               </p>
             </div>
 
-            {/* WEEKLY GROWTH */}
             <div style={{ background: "#f0fdf4", padding: 16, borderRadius: 10 }}>
               <h4>{t("Weekly Growth", "نمو أسبوعي")}</h4>
               <p style={{ fontSize: 20, fontWeight: 600 }}>
