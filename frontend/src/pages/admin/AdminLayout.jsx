@@ -21,15 +21,13 @@ export default function AdminLayout() {
   const [open, setOpen] = useState(true);
   const { lang, setLang } = useLang();
 
-  // ✅ Helper for bilingual text
   const t = (en, ar) => (lang === "ar" ? ar : en);
 
   const handleLogout = () => {
     logout();
-    navigate("/admin/login");
+    navigate("/admin/login", { replace: true });
   };
 
-  // ✅ Toggle language and persist it
   const toggleLang = () => {
     const nextLang = lang === "en" ? "ar" : "en";
     setLang(nextLang);
@@ -58,17 +56,18 @@ export default function AdminLayout() {
       <aside
         className={`${
           open ? "w-64" : "w-20"
-        } bg-white ${lang === "ar" ? "border-l" : "border-r"} border-gray-200 ...shadow-sm flex flex-col transition-all duration-300`}
+        } bg-white ${lang === "ar" ? "border-l" : "border-r"} border-gray-200 shadow-sm flex flex-col transition-all duration-300`}
       >
         {/* Header / Logo */}
         <div className="p-4 flex items-center justify-between border-b border-gray-200">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 overflow-hidden">
             {open && (
-              <h1 className="font-semibold text-green-600 text-lg">
+              <h1 className="font-semibold text-green-600 text-lg whitespace-nowrap">
                 {t("Trusted Links", "الروابط الموثوقة")}
               </h1>
             )}
           </div>
+
           <button
             onClick={() => setOpen(!open)}
             className="md:hidden text-gray-600"
@@ -89,8 +88,9 @@ export default function AdminLayout() {
                   isActive
                     ? "bg-green-50 text-green-600 font-semibold"
                     : "text-gray-600 hover:bg-gray-100"
-                }`
+                } ${open ? "" : "justify-center"}`
               }
+              title={!open ? label : undefined}
             >
               <Icon size={18} />
               {open && label}
@@ -103,7 +103,9 @@ export default function AdminLayout() {
           {/* 🌐 Language Toggle */}
           <button
             onClick={toggleLang}
-            className="flex items-center gap-2 p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition"
+            className={`flex items-center gap-2 p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition ${
+              open ? "" : "justify-center"
+            }`}
             title={t("Switch Language", "تبديل اللغة")}
           >
             <Globe size={18} />
@@ -113,7 +115,10 @@ export default function AdminLayout() {
           {/* 🚪 Logout */}
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 p-2 rounded-lg text-red-600 hover:bg-red-50 transition"
+            className={`flex items-center gap-2 p-2 rounded-lg text-red-600 hover:bg-red-50 transition ${
+              open ? "" : "justify-center"
+            }`}
+            title={t("Logout", "تسجيل الخروج")}
           >
             <LogOut size={18} />
             {open && t("Logout", "تسجيل الخروج")}
