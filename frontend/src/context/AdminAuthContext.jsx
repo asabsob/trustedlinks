@@ -1,57 +1,112 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
-const AdminAuthContext = createContext();
+const AdminAuthContext = createContext(null);
+
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 
 export function AdminAuthProvider({ children }) {
   const [admin, setAdmin] = useState(null);
   const [token, setToken] = useState(localStorage.getItem("admintoken") || "");
+  const [loading, setLoading] = useState(true);
 
+  // Load admin profile when token changes
   useEffect(() => {
-    // Auto fetch admin profile if token exists
-    if (token) {
-      fetch("http://localhost:5175/api/admin/me", {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-        .then((r) => r.json())
-        .then((data) => {
-          if (!data.error) setAdmin(data);
-        })
-        .catch(() => setAdmin(null));
+    let cancelled = false;
+
+    async function loadMe() {
+      // No token → not logged in
+      if (!token) {
+        if (!cancelled) {
+          setAdmin(null);
+          setLoading(false);
+        }
+        return;
+      }
+
+      try {
+        setLoading(true);
+
+        const res = await fetch(`${API_BASE}/api/admin/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || data?.error) {
+          // Token invalid/expired
+          localStorage.removeItem("admintoken");
+          if (!cancelled) {
+            setToken("");
+            setAdmin(null);
+          }
+        } else {
+          if (!cancelled) setAdmin(data);
+        }
+      } catch (e) {
+        // Network / server error: treat as logged out
+        localStorage.removeItem("admintoken");
+        if (!cancelled) {
+          setToken("");
+          setAdmin(null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
+
+    loadMe();
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
   const login = async (email, password) => {
-    const res = await fetch("http://localhost:5175/api/admin/login", {
+    setLoading(true);
+
+    const res = await fetch(`${API_BASE}/api/admin/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
 
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Login failed");
+    if (!res.ok) {
+      setLoading(false);
+      throw new Error(data?.error || "Login failed");
+    }
 
-    // ✅ Save token and fetch admin info
     localStorage.setItem("admintoken", data.token);
     setToken(data.token);
 
-    const me = await fetch("http://localhost:5175/api/admin/me", {
-      headers: { Authorization: `Bearer ${data.token}` },
-    }).then((r) => r.json());
-
-    setAdmin(me);
+    // We can optimistically set admin if backend returns it,
+    // otherwise /me will fill it.
+    setLoading(false);
+    return data;
   };
 
   const logout = () => {
     localStorage.removeItem("admintoken");
     setAdmin(null);
     setToken("");
+    setLoading(false);
   };
 
+  const value = useMemo(
+    () => ({ admin, token, loading, login, logout }),
+    [admin, token, loading]
+  );
+
   return (
-    <AdminAuthContext.Provider value={{ admin, login, logout, token }}>
+    <AdminAuthContext.Provider value={value}>
       {children}
     </AdminAuthContext.Provider>
   );
 }
 
-export const useAdminAuth = () => useContext(AdminAuthContext);
+export function useAdminAuth() {
+  const ctx = useContext(AdminAuthContext);
+  if (!ctx) {
+    throw new Error("useAdminAuth must be used within AdminAuthProvider");
+  }
+  return ctx;
+}
