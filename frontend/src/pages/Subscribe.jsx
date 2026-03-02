@@ -1,13 +1,49 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 
 export default function Subscribe({ lang }) {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
 
-  const handleSubscribe = () => {
-    alert(lang === "ar" ? "تم تفعيل الاشتراك بنجاح!" : "Subscription activated successfully!");
-    localStorage.setItem("subscribed", "true");
-    navigate("/dashboard");
+  const t = (en, ar) => (lang === "ar" ? ar : en);
+
+  const handleSubscribe = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert(t("Please log in first.", "يرجى تسجيل الدخول أولاً."));
+      navigate("/login", { replace: true });
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // ✅ activate subscription on backend
+      const res = await fetch(`${API_BASE}/api/subscribe`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        // optional payload if you have plans
+        body: JSON.stringify({ plan: "monthly" }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data?.error || t("Subscription failed.", "فشل تفعيل الاشتراك."));
+        return;
+      }
+
+      alert(t("Subscription activated successfully!", "تم تفعيل الاشتراك بنجاح!"));
+      navigate("/dashboard", { replace: true });
+    } catch (e) {
+      alert(t("Network error. Try again.", "خطأ بالشبكة. حاول مرة أخرى."));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -61,14 +97,7 @@ export default function Subscribe({ lang }) {
         </p>
 
         {/* 💰 Price Box */}
-        <div
-          style={{
-            fontSize: "42px",
-            fontWeight: "700",
-            color: "#111",
-            marginBottom: "5px",
-          }}
-        >
+        <div style={{ fontSize: "42px", fontWeight: "700", color: "#111", marginBottom: "5px" }}>
           15 JOD
         </div>
 
@@ -95,6 +124,7 @@ export default function Subscribe({ lang }) {
         {/* 🌿 Subscribe Button */}
         <button
           onClick={handleSubscribe}
+          disabled={loading}
           style={{
             background: "#22c55e",
             color: "white",
@@ -103,13 +133,12 @@ export default function Subscribe({ lang }) {
             padding: "14px 40px",
             fontSize: "16px",
             fontWeight: "600",
-            cursor: "pointer",
+            cursor: loading ? "not-allowed" : "pointer",
+            opacity: loading ? 0.7 : 1,
             transition: "background 0.3s ease",
           }}
-          onMouseOver={(e) => (e.target.style.background = "#16a34a")}
-          onMouseOut={(e) => (e.target.style.background = "#22c55e")}
         >
-          {lang === "ar" ? "اشترك الآن" : "Subscribe Now"}
+          {loading ? t("Activating…", "جارٍ التفعيل...") : lang === "ar" ? "اشترك الآن" : "Subscribe Now"}
         </button>
 
         <p style={{ marginTop: "18px", color: "#888", fontSize: "13px" }}>
