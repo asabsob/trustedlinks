@@ -1,5 +1,5 @@
 // ============================================================================
-// TrustedLinks - Signup Page (Final Correct Version)
+// TrustedLinks - Signup Page (Production-safe version for paste)
 // ============================================================================
 
 import React, { useState } from "react";
@@ -77,6 +77,11 @@ export default function Signup({ lang }) {
       return;
     }
 
+    if ((password || "").length < 8) {
+      alert(lang === "ar" ? "كلمة المرور يجب أن تكون 8 أحرف على الأقل" : "Password must be at least 8 characters");
+      return;
+    }
+
     if (password !== confirmPassword) {
       alert(lang === "ar" ? "كلمة المرور غير متطابقة" : "Passwords do not match");
       return;
@@ -87,14 +92,18 @@ export default function Signup({ lang }) {
     // --------------------------------------------------------------
     // Save entire business object to localStorage (pendingBusiness)
     // --------------------------------------------------------------
+    const waDigits = verifiedWhatsApp.replace(/\D/g, "");
+
     localStorage.setItem(
       "pendingBusiness",
       JSON.stringify({
         nameAr: businessNameAr.trim(),
         nameEn: businessNameEn.trim(),
-        category: category.key,
-        whatsapp: verifiedWhatsApp.replace(/\D/g, ""),
-        whatsappLink: `https://wa.me/${verifiedWhatsApp.replace(/\D/g, "")}`,
+        categoryKey: category.key,
+        categoryNameAr: category.nameAr,
+        categoryNameEn: category.nameEn,
+        whatsapp: waDigits,
+        whatsappLink: `https://wa.me/${waDigits}`,
         mapLink,
         mediaLink,
         metaVerified,
@@ -109,24 +118,20 @@ export default function Signup({ lang }) {
       const res = await fetch(`${API_BASE}/api/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          password,
-        }),
+        body: JSON.stringify({ email, password }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.error || "Signup failed");
+        alert(data?.error || "Signup failed");
         return;
       }
 
       alert(lang === "ar" ? "تم إنشاء الحساب!" : "Signup complete!");
-
-      setTimeout(() => navigate("/login"), 1500);
+      navigate("/login", { replace: true });
     } catch (err) {
-      alert("Error: " + err.message);
+      alert("Error: " + (err?.message || "Unknown error"));
     } finally {
       setLoading(false);
     }
@@ -206,16 +211,31 @@ export default function Signup({ lang }) {
         <hr style={{ margin: "20px 0" }} />
 
         {/* Email */}
-        <label>Email</label>
-        <input value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
+        <label>{lang === "ar" ? "البريد الإلكتروني" : "Email"}</label>
+        <input
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={inputStyle}
+        />
 
         {/* Password */}
-        <label>Password</label>
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={inputStyle} />
-
-        <label>Confirm Password</label>
+        <label>{lang === "ar" ? "كلمة المرور" : "Password"}</label>
         <input
           type="password"
+          required
+          minLength={8}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          style={inputStyle}
+        />
+
+        <label>{lang === "ar" ? "تأكيد كلمة المرور" : "Confirm Password"}</label>
+        <input
+          type="password"
+          required
+          minLength={8}
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           style={inputStyle}
@@ -235,7 +255,7 @@ export default function Signup({ lang }) {
             opacity: verifiedWhatsApp ? 1 : 0.5,
           }}
         >
-          {lang === "ar" ? "متابعة" : "Continue"}
+          {loading ? (lang === "ar" ? "جارٍ المتابعة..." : "Processing...") : lang === "ar" ? "متابعة" : "Continue"}
         </button>
       </form>
     </div>
