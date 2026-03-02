@@ -1,46 +1,47 @@
 // ============================================================================
-// Trusted Links Backend API (Stable + Hardened) - JAVNA ONLY
-// WhatsApp: OTP for business signup + Chat search via WhatsApp webhook
-// Storage: flat JSON (data.json) - MVP friendly
+// Trusted Links Backend API (MongoDB ONLY) + Resend Email + JAVNA WhatsApp OTP
 // ============================================================================
 
-// ---------------------------------------------------------------------------
-// Imports
-// ---------------------------------------------------------------------------
 import express from "express";
 import cors from "cors";
-import path from "path";
-import { fileURLToPath } from "url";
-import { nanoid } from "nanoid";
-import crypto from "crypto";
 import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import geolib from "geolib";
-import Otp from "./models/Otp.js";
+import { nanoid } from "nanoid";
+
+import { connectDB } from "./db.js";
 import User from "./models/User.js";
 import Business from "./models/Business.js";
-import { connectDB } from "./db.js";   // ✅ ADD THIS
+import Otp from "./models/Otp.js";
 
-dotenv.config(); // ✅ ADD THIS
+dotenv.config();
+
+// ---------------------------------------------------------------------------
+// Mongo (required)
+// ---------------------------------------------------------------------------
+await connectDB();
+
+// ---------------------------------------------------------------------------
+// App
+// ---------------------------------------------------------------------------
+const app = express();
+const PORT = process.env.PORT || 5175;
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-function nowISO() {
-  return new Date().toISOString();
-}
-
 function cleanDigits(v = "") {
   return String(v).replace(/\D/g, "");
 }
 
-await connectDB(); // خليها بدون try/catch طالما بدك Mongo إلزامي
-
-const app = express();
+function createToken(userId) {
+  const JWT_SECRET = process.env.JWT_SECRET || "trustedlinks_secret";
+  return jwt.sign({ id: userId, role: "user" }, JWT_SECRET, { expiresIn: "7d" });
+}
 
 // ---------------------------------------------------------------------------
-// Email (Resend) - single helper
+// Email (Resend) - helper
 // ---------------------------------------------------------------------------
 async function sendEmail({ to, subject, html, text }) {
   const key = (process.env.RESEND_API_KEY || "").trim();
@@ -60,10 +61,74 @@ async function sendEmail({ to, subject, html, text }) {
 
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(`Resend failed (${r.status}): ${JSON.stringify(data)}`);
-
   return data;
 }
 
+// ---------------------------------------------------------------------------
+// Public/Base URLs
+// ---------------------------------------------------------------------------
+const FRONTEND_ORIGIN = (process.env.FRONTEND_ORIGIN || "http://localhost:5173").trim();
+const FRONTEND_BASE_URL = (process.env.FRONTEND_BASE_URL || FRONTEND_ORIGIN).trim();
+
+// هذا لازم يكون رابط الباكند العام (Railway)
+const API_BASE_URL = (
+  process.env.API_BASE_URL || "https://trustedlinks-backend-production.up.railway.app"
+).trim();
+
+// ---------------------------------------------------------------------------
+// CORS + JSON
+// ---------------------------------------------------------------------------
+const allowedOrigins = new Set([
+  FRONTEND_ORIGIN,
+  "https://trustedlinks.net",
+  "http://localhost:5173",
+]);
+
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true);
+      const ok =
+        allowedOrigins.has(origin) ||
+        /^http:\/\/localhost:\d+$/.test(origin) ||
+        /^http:\/\/127\.0\.0\.1:\d+$/.test(origin);
+      return cb(ok ? null : new Error("CORS blocked"), ok);
+    },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-API-Key"],
+    credentials: false,
+  })
+);
+
+app.use(express.json({ limit: "1mb" }));
+
+app.options(
+  "*",
+  cors({
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true);
+      const ok =
+        allowedOrigins.has(origin) ||
+        /^http:\/\/localhost:\d+$/.test(origin) ||
+        /^http:\/\/127\.0\.0\.1:\d+$/.test(origin);
+      return cb(ok ? null : new Error("CORS blocked"), ok);
+    },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-API-Key"],
+    credentials: false,
+  })
+);
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@trustedlinks.app";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "123456";
+const JWT_SECRET = process.env.JWT_SECRET || "trustedlinks_secret";
+
+// ---------------------------------------------------------------------------
+// Debug
+// ---------------------------------------------------------------------------
 app.get("/api/debug/resend", (_req, res) => {
   res.json({
     hasKey: Boolean(process.env.RESEND_API_KEY),
@@ -90,134 +155,36 @@ app.get("/api/debug/send-test-email", async (req, res) => {
   }
 });
 
-app.get("/api/debug/mongo", (req, res) => {
-  res.json({
-    hasMongo: Boolean(process.env.MONGODB_URI),
-    keys: Object.keys(process.env).filter((k) =>
-      k.toLowerCase().includes("mongo")
-    ),
-  });
+app.get("/api/debug/mongo", async (_req, res) => {
+  try {
+    const users = await User.countDocuments();
+    const businesses = await Business.countDocuments();
+    res.json({ ok: true, users, businesses, hasMongoUri: Boolean(process.env.MONGODB_URI) });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e) });
+  }
 });
 
-try {
-  await connectDB();
-} catch (e) {
-  console.log("❌ Mongo connect skipped:", e.message);
-}
-
 // ---------------------------------------------------------------------------
-// App + Paths
+// JAVNA Config
 // ---------------------------------------------------------------------------
-
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const PORT = process.env.PORT || 5175;
-const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "http://localhost:5173";
-const FRONTEND_BASE_URL = (process.env.FRONTEND_BASE_URL || FRONTEND_ORIGIN).trim();
-const API_BASE_URL = (process.env.API_BASE_URL || "https://trustedlinks-backend-production.up.railway.app").trim();
-
-
-// ---------------------------------------------------------------------------
-// CORS + JSON
-// ---------------------------------------------------------------------------
-const allowedOrigins = new Set([
-  FRONTEND_ORIGIN,
-  "https://trustedlinks.net",
-  "http://localhost:5173",
-]);
-
-app.use(
-  cors({
-    origin: (origin, cb) => {
-      // allow server-to-server / curl without Origin
-      if (!origin) return cb(null, true);
-
-      const ok =
-        allowedOrigins.has(origin) ||
-        /^http:\/\/localhost:\d+$/.test(origin) ||
-        /^http:\/\/127\.0\.0\.1:\d+$/.test(origin);
-
-      return cb(ok ? null : new Error("CORS blocked"), ok);
-    },
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-API-Key"],
-    credentials: false,
-  })
-);
-app.use(express.json({ limit: "1mb" }));
-// Preflight for all routes
-// Preflight for all routes (use SAME cors config)
-app.options(
-  "*",
-  cors({
-    origin: (origin, cb) => {
-      if (!origin) return cb(null, true);
-
-      const ok =
-        allowedOrigins.has(origin) ||
-        /^http:\/\/localhost:\d+$/.test(origin) ||
-        /^http:\/\/127\.0\.0\.1:\d+$/.test(origin);
-
-      return cb(ok ? null : new Error("CORS blocked"), ok);
-    },
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-API-Key"],
-    credentials: false,
-  })
-);
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@trustedlinks.app";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "123456";
-const JWT_SECRET = process.env.JWT_SECRET || "trustedlinks_secret";
-
-
-// ---------------------------------------------------------------------------
-// JAVNA Config (single place)
-// ---------------------------------------------------------------------------
-// ---------------------- JAVNA CONFIG ----------------------
-// ---------------------- JAVNA CONFIG ----------------------
 const JAVNA_API_KEY = process.env.JAVNA_API_KEY || "";
 const JAVNA_FROM = process.env.JAVNA_FROM || "";
-
-// 👇 يجب أن يكون أولاً
 const JAVNA_BASE_URL = "https://whatsapp.api.javna.com/whatsapp/v1.0";
-
-// 👇 بعده مباشرة
 const JAVNA_SEND_TEXT_URL = `${JAVNA_BASE_URL}/message/text`;
 const JAVNA_SEND_AUTH_TEMPLATE_URL = `${JAVNA_BASE_URL}/message/template/authentication`;
 
-console.log("JAVNA_SEND_TEXT_URL:", JAVNA_SEND_TEXT_URL);
-console.log("JAVNA_SEND_AUTH_TEMPLATE_URL:", JAVNA_SEND_AUTH_TEMPLATE_URL);
-
-// ---------------------------------------------------------------------------
-// JAVNA Client (single place)
-// ---------------------------------------------------------------------------
 async function javnaSendText({ to, body }) {
   if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
   if (!JAVNA_FROM) throw new Error("Missing JAVNA_FROM");
 
   const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
-
   const from = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
   const toNumber = to.startsWith("+") ? to : `+${to}`;
 
-  const payload = {
-    from,
-    to: toNumber,
-    content: { text: String(body || "") },
-  };
+  const payload = { from, to: toNumber, content: { text: String(body || "") } };
 
-  const r = await fetch(JAVNA_SEND_TEXT_URL, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(payload),
-  });
-
+  const r = await fetch(JAVNA_SEND_TEXT_URL, { method: "POST", headers, body: JSON.stringify(payload) });
   const txt = await r.text();
   if (!r.ok) throw new Error(`Javna send failed (${r.status}): ${txt}`);
 
@@ -228,39 +195,22 @@ async function javnaSendText({ to, body }) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// JAVNA: send template OTP
-// ---------------------------------------------------------------------------
 async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
   if (!JAVNA_FROM) throw new Error("Missing JAVNA_FROM");
 
-  const headers = {
-    "Content-Type": "application/json",
-    "X-API-Key": JAVNA_API_KEY,
-  };
-
+  const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
   const from = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
   const toNumber = to.startsWith("+") ? to : `+${to}`;
 
-  const templateName =
-    lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
-
-  const templateLanguage =
-    lang === "ar" ? "ar" : "en";
+  const templateName = lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
+  const templateLanguage = lang === "ar" ? "ar" : "en";
 
   const payload = {
     from,
     to: toNumber,
-    content: {
-      templateName,
-      templateLanguage,
-      otp: String(code),
-    },
+    content: { templateName, templateLanguage, otp: String(code) },
   };
-
-  console.log("JAVNA_AUTH_TEMPLATE_URL:", JAVNA_SEND_AUTH_TEMPLATE_URL);
-  console.log("JAVNA_AUTH_TEMPLATE_PAYLOAD:", JSON.stringify(payload));
 
   const r = await fetch(JAVNA_SEND_AUTH_TEMPLATE_URL, {
     method: "POST",
@@ -269,16 +219,58 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   });
 
   const txt = await r.text();
-  console.log("JAVNA_AUTH_TEMPLATE_RESPONSE_RAW:", txt);
-
   if (!r.ok) throw new Error(`Javna auth template failed (${r.status}): ${txt}`);
-
   return JSON.parse(txt);
 }
 
 // ============================================================================
-// AUTH (Email signup/login) + Email Verification (Resend)
+// AUTH (Signup/Login) + Email Verification (Resend)  - MongoDB
 // ============================================================================
+
+app.post("/api/auth/signup", async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+    if (!email || !password) return res.status(400).json({ error: "Email and password required" });
+
+    const emailNorm = String(email).toLowerCase().trim();
+
+    const exists = await User.findOne({ email: emailNorm });
+    if (exists) return res.status(400).json({ error: "Email already registered" });
+
+    const passwordHash = await bcrypt.hash(String(password), 10);
+    const verifyToken = nanoid(32);
+
+    await User.create({
+      email: emailNorm,
+      passwordHash,
+      emailVerified: false,
+      verifyToken,
+      subscriptionPlan: null,
+      planActivatedAt: null,
+    });
+
+    const verifyUrl =
+      `${API_BASE_URL}/api/auth/verify-email` +
+      `?email=${encodeURIComponent(emailNorm)}` +
+      `&token=${encodeURIComponent(verifyToken)}`;
+
+    try {
+      await sendEmail({
+        to: emailNorm,
+        subject: "Verify your email",
+        text: `Verify your email using this link: ${verifyUrl}`,
+        html: `<p>Verify your email:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
+      });
+    } catch (err) {
+      console.error("send verification email error:", err);
+    }
+
+    return res.json({ ok: true, message: "Signup ok. Check your email." });
+  } catch (e) {
+    console.error("signup error", e);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 app.post("/api/auth/login", async (req, res) => {
   try {
@@ -320,16 +312,12 @@ app.get("/api/auth/verify-email", async (req, res) => {
 
     if (user.emailVerified) return res.send("Already verified ✅");
 
-    if (String(user.verifyToken) !== String(token)) {
-      return res.status(401).send("Invalid token");
-    }
+    if (String(user.verifyToken) !== String(token)) return res.status(401).send("Invalid token");
 
     user.emailVerified = true;
     user.verifyToken = null;
     await user.save();
 
-    // ✅ Redirect للـ frontend بعد التفعيل (اختياري)
-    const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL || "https://trustedlinks.net";
     return res.redirect(`${FRONTEND_BASE_URL}/login?verified=1`);
   } catch (e) {
     console.error("verify-email error", e);
@@ -351,9 +339,8 @@ app.post("/api/auth/resend-verification", async (req, res) => {
     if (!user.verifyToken) user.verifyToken = nanoid(32);
     await user.save();
 
-    const API_BASE_PUBLIC = process.env.API_BASE_PUBLIC || "https://trustedlinks-backend-production.up.railway.app";
     const verifyUrl =
-      `${API_BASE_PUBLIC}/api/auth/verify-email` +
+      `${API_BASE_URL}/api/auth/verify-email` +
       `?email=${encodeURIComponent(emailNorm)}` +
       `&token=${encodeURIComponent(user.verifyToken)}`;
 
@@ -370,139 +357,77 @@ app.post("/api/auth/resend-verification", async (req, res) => {
     return res.status(500).json({ error: "Failed to send verification email" });
   }
 });
+
 // ============================================================================
-// WhatsApp OTP (Javna) - for business signup  (fixed)
+// WhatsApp OTP (Javna) - MongoDB
 // ============================================================================
+
 app.post("/api/whatsapp/request-otp", async (req, res) => {
   try {
     const { whatsapp } = req.body || {};
-
-    if (!whatsapp) {
-      return res.status(400).json({ error: "WhatsApp number missing" });
-    }
+    if (!whatsapp) return res.status(400).json({ error: "WhatsApp number missing" });
 
     const clean = cleanDigits(whatsapp);
+    if (!/^\d{10,15}$/.test(clean)) return res.status(400).json({ error: "Invalid WhatsApp number" });
 
-    // International validation: 10–15 digits (E.164 without +)
-    if (!/^\d{10,15}$/.test(clean)) {
-      return res.status(400).json({ error: "Invalid WhatsApp number" });
-    }
+    // duplication check in Mongo (businesses)
+    const already = await Business.findOne({ whatsapp: clean });
+    if (already) return res.status(409).json({ error: "This WhatsApp number is already registered." });
 
-   
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // duplication check: if already used in businesses
-    const already = db.businesses.find((b) => cleanDigits(b.whatsapp) === clean);
-    if (already) {
-      return res.status(409).json({ error: "This WhatsApp number is already registered." });
-    }
+    // delete old + create new OTP
+    await Otp.deleteMany({ whatsapp: clean, purpose: "business_signup" });
+    await Otp.create({
+      whatsapp: clean,
+      code: otp,
+      purpose: "business_signup",
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+    });
 
-const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-// ✅ MongoDB OTP: delete old + create new
-await Otp.deleteMany({ whatsapp: clean, purpose: "business_signup" });
-
-await Otp.create({
-  whatsapp: clean,
-  code: otp,
-  purpose: "business_signup",
-  expiresAt: new Date(Date.now() + 5 * 60 * 1000),
-});
-
-    // send via Javna (if key exists)
     if (!JAVNA_API_KEY) {
-      // dev mode
       console.log("🧪 JAVNA disabled (missing key). OTP:", otp, "to:", clean);
       return res.json({ success: true, message: "OTP generated (mock).", devOtp: otp });
     }
 
-    // --- call Javna and handle response ---
-    try {
-      // pass digits only — javnaSendOtpTemplate will normalise and add '+'
     const javnaResp = await javnaSendOtpTemplate({ to: `+${clean}`, code: otp, lang: "en" });
 
-if (javnaResp?.stats?.rejected === "1") {
-  return res.status(400).json({ success: false, error: "Javna rejected template", javna: javnaResp });
-}
-
-return res.json({ success: true, message: "OTP sent.", javna: javnaResp });
-
-      // log for Railway (very important to inspect payload/response)
-      console.log("JAVNA_RESP:", JSON.stringify(javnaResp));
-
-      // check common rejection signals from Javna
-      const rejectedCount =
-        javnaResp?.stats?.rejected ||
-        (Array.isArray(javnaResp?.rejectedMessages) ? String(javnaResp.rejectedMessages.length) : "0");
-
-      if (String(rejectedCount) !== "0") {
-        // return full javna object so client / logs can show the reason
-        return res.status(400).json({ success: false, error: "Javna rejected template", javna: javnaResp });
-      }
-
-      // success — include devOtp so you can test if message not delivered but OTP stored
-      return res.json({ success: true, message: "OTP sent.", javna: javnaResp, devOtp: otp });
-    } catch (err) {
-      console.error("javna send error:", err);
-      // return JS-friendly error to client and logs
-      return res.status(500).json({ success: false, error: "Javna send failed", details: String(err) });
+    if (javnaResp?.stats?.rejected === "1") {
+      return res.status(400).json({ success: false, error: "Javna rejected template", javna: javnaResp });
     }
+
+    return res.json({ success: true, message: "OTP sent.", javna: javnaResp });
   } catch (e) {
     console.error("request-otp error", e);
     return res.status(500).json({ error: "Failed to send OTP" });
   }
 });
 
-// ============================================================================
-// WhatsApp OTP Verify (Javna) - for business signup (Clean)
-// ============================================================================
 app.post("/api/whatsapp/verify-otp", async (req, res) => {
   try {
     const { whatsapp, code } = req.body || {};
-
     if (!whatsapp || !code) {
-      return res.status(400).json({
-        ok: false,
-        error: "WhatsApp number and code are required",
-      });
+      return res.status(400).json({ ok: false, error: "WhatsApp number and code are required" });
     }
 
     const clean = cleanDigits(whatsapp);
+    if (!/^\d{10,15}$/.test(clean)) return res.status(400).json({ ok: false, error: "Invalid WhatsApp number" });
 
-    if (!/^\d{10,15}$/.test(clean)) {
-      return res.status(400).json({ ok: false, error: "Invalid WhatsApp number" });
-    }
-
-    // ✅ MongoDB OTP verify
     const rec = await Otp.findOne({ whatsapp: clean, purpose: "business_signup" });
-
     if (!rec) {
-      return res.status(404).json({
-        ok: false,
-        error: "No OTP found. Request a new code.",
-        reason: "NO_OTP",
-      });
+      return res.status(404).json({ ok: false, error: "No OTP found. Request a new code.", reason: "NO_OTP" });
     }
 
     if (String(rec.code) !== String(code)) {
-      return res.status(401).json({
-        ok: false,
-        error: "Invalid OTP code.",
-        reason: "BAD_CODE",
-      });
+      return res.status(401).json({ ok: false, error: "Invalid OTP code.", reason: "BAD_CODE" });
     }
 
     if (rec.expiresAt.getTime() < Date.now()) {
-      return res.status(410).json({
-        ok: false,
-        error: "OTP expired. Request a new code.",
-        reason: "EXPIRED",
-      });
+      return res.status(410).json({ ok: false, error: "OTP expired. Request a new code.", reason: "EXPIRED" });
     }
 
-    // ✅ consume OTP
     await Otp.deleteOne({ _id: rec._id });
 
-    // ✅ Issue short-lived token for next step (optional)
     const token = jwt.sign(
       { whatsapp: clean, purpose: "business_signup", verified: true },
       JWT_SECRET,
@@ -521,36 +446,21 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
     return res.status(500).json({ ok: false, error: "Internal server error" });
   }
 });
+
 // ============================================================================
-// WhatsApp Chat Search (Webhook) - Javna -> TrustedLinks
+// WhatsApp Chat Search (Webhook) - MongoDB
 // ============================================================================
-/**
- * Webhook endpoint (Javna -> your server)
- * NOTE: payload structure depends on Javna. We'll handle common shapes safely.
- */
 app.post("/webhooks/javna/whatsapp", async (req, res) => {
   try {
-    // Always ACK fast
     res.json({ ok: true });
 
     const body = req.body || {};
-
-    // Try extract:
-    // - from: sender number
-    // - text: message content
-    const from =
-      cleanDigits(body.from || body.sender || body?.data?.from || body?.message?.from || "");
-    const text =
-      (body.text || body.message || body?.data?.text || body?.message?.text || "").toString().trim();
-
+    const from = cleanDigits(body.from || body.sender || body?.data?.from || body?.message?.from || "");
+    const text = (body.text || body.message || body?.data?.text || body?.message?.text || "").toString().trim();
     if (!from || !text) return;
 
-    // Command: "search pizza" or just "pizza"
     const q = text.replace(/^search\s+/i, "").trim();
-
-    // Search in directory
-    const db = load();
-    let results = db.businesses.filter((b) => (b.status || "") === "Active");
+    let results = await Business.find({ status: "Active" }).lean();
 
     if (q) {
       const qq = q.toLowerCase();
@@ -558,7 +468,9 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
         const name = (b.name || "").toLowerCase();
         const nameAr = (b.nameAr || b.name_ar || "").toLowerCase();
         const desc = (b.description || "").toLowerCase();
-        const cat = Array.isArray(b.category) ? b.category.join(" ").toLowerCase() : (b.category || "").toLowerCase();
+        const cat = Array.isArray(b.category)
+          ? b.category.join(" ").toLowerCase()
+          : (b.category || "").toLowerCase();
         return name.includes(qq) || nameAr.includes(qq) || desc.includes(qq) || cat.includes(qq);
       });
     }
@@ -580,7 +492,6 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
           .join("\n");
     }
 
-    // Send reply via Javna
     if (!JAVNA_API_KEY) {
       console.log("🧪 JAVNA disabled. Would reply to", from, "=>", reply);
       return;
@@ -593,24 +504,25 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
 });
 
 // ============================================================================
-// Public search API (frontend)
+// Public Search API (MongoDB)
 // ============================================================================
-app.get("/api/search", (req, res) => {
+app.get("/api/search", async (req, res) => {
   try {
-    const db = load();
     const { query = "", category = "all", lat, lng } = req.query;
 
-    let results = db.businesses.filter((b) => (b.status || "") === "Active");
+    let results = await Business.find({ status: "Active" }).lean();
 
     if (query) {
       const q = String(query).toLowerCase();
       results = results.filter((b) => {
-        return (
-          (b.name && b.name.toLowerCase().includes(q)) ||
-          (b.name_ar && b.name_ar.toLowerCase().includes(q)) ||
-          (b.description && b.description.toLowerCase().includes(q)) ||
-          (Array.isArray(b.category) && b.category.some((c) => String(c).toLowerCase().includes(q)))
-        );
+        const name = (b.name || "").toLowerCase();
+        const nameAr = (b.name_ar || b.nameAr || "").toLowerCase();
+        const desc = (b.description || "").toLowerCase();
+        const cat = Array.isArray(b.category)
+          ? b.category.some((c) => String(c).toLowerCase().includes(q))
+          : String(b.category || "").toLowerCase().includes(q);
+
+        return name.includes(q) || nameAr.includes(q) || desc.includes(q) || cat;
       });
     }
 
@@ -625,6 +537,7 @@ app.get("/api/search", (req, res) => {
 
     if (lat && lng) {
       const userLocation = { latitude: parseFloat(lat), longitude: parseFloat(lng) };
+
       results = results
         .map((b) => {
           if (b.latitude && b.longitude) {
@@ -636,7 +549,7 @@ app.get("/api/search", (req, res) => {
           }
           return { ...b, distance: null };
         })
-        .sort((a, b) => (a.distance || Infinity) - (b.distance || Infinity));
+        .sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
     }
 
     return res.json(results);
@@ -650,51 +563,47 @@ app.get("/api/search", (req, res) => {
 // Admin login (optional)
 // ============================================================================
 app.post("/api/admin/login", async (req, res) => {
-  const { email, password } = req.body || {};
-  if (email !== ADMIN_EMAIL) return res.status(401).json({ error: "Invalid credentials" });
+  try {
+    const { email, password } = req.body || {};
+    if (email !== ADMIN_EMAIL) return res.status(401).json({ error: "Invalid credentials" });
 
-  const ok = ADMIN_PASSWORD.startsWith("$2")
-    ? await bcrypt.compare(password, ADMIN_PASSWORD)
-    : password === ADMIN_PASSWORD;
-  if (!ok) return res.status(401).json({ error: "Invalid credentials" });
+    const ok = ADMIN_PASSWORD.startsWith("$2")
+      ? await bcrypt.compare(String(password), ADMIN_PASSWORD)
+      : String(password) === String(ADMIN_PASSWORD);
 
-  const token = jwt.sign({ email, role: "admin" }, JWT_SECRET, { expiresIn: "1d" });
-  return res.json({ token });
+    if (!ok) return res.status(401).json({ error: "Invalid credentials" });
+
+    const token = jwt.sign({ email, role: "admin" }, JWT_SECRET, { expiresIn: "1d" });
+    return res.json({ token });
+  } catch (e) {
+    return res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 // ============================================================================
-// Health check
+// Health
 // ============================================================================
 app.get("/", (_req, res) => res.status(200).send("OK"));
 app.get("/healthz", (_req, res) => res.status(200).json({ ok: true }));
-
 app.get("/api/test", (_req, res) => res.json({ ok: true, message: "✅ Backend is reachable" }));
-
 app.get("/api/health", (_req, res) => {
   res.json({
     ok: true,
     javnaKeyLoaded: Boolean(process.env.JAVNA_API_KEY),
-    javnaKeyLength: (process.env.JAVNA_API_KEY || "").length,
+    resendKeyLoaded: Boolean(process.env.RESEND_API_KEY),
+    mailFrom: process.env.MAIL_FROM || null,
   });
 });
 
-process.on("uncaughtException", (err) => {
-  console.error("UNCAUGHT_EXCEPTION:", err);
-});
+process.on("uncaughtException", (err) => console.error("UNCAUGHT_EXCEPTION:", err));
+process.on("unhandledRejection", (reason) => console.error("UNHANDLED_REJECTION:", reason));
 
-process.on("unhandledRejection", (reason) => {
-  console.error("UNHANDLED_REJECTION:", reason);
-});
 // ============================================================================
-// Start server
+// Start
 // ============================================================================
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`✅ Trusted Links API running on port ${PORT}`);
-console.log("ENV KEYS:", Object.keys(process.env));
-  console.log("ENV_HAS_JAVNA_API_KEY:", Object.prototype.hasOwnProperty.call(process.env, "JAVNA_API_KEY"));
-  console.log("JAVNA_API_KEY_RAW:", JSON.stringify(process.env.JAVNA_API_KEY));
-  console.log("JAVNA_KEYS:", Object.keys(process.env).filter(k => k.includes("JAVNA")));
-console.log("JAVNA_SEND_TEXT_URL:", JAVNA_SEND_TEXT_URL);
-console.log("JAVNA_SEND_AUTH_TEMPLATE_URL:", JAVNA_SEND_AUTH_TEMPLATE_URL);
+  console.log("FRONTEND_BASE_URL:", FRONTEND_BASE_URL);
+  console.log("API_BASE_URL:", API_BASE_URL);
   console.log(`JAVNA_API_KEY: ${JAVNA_API_KEY ? "Loaded ✅" : "Missing ❌"}`);
 });
