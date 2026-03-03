@@ -1,5 +1,6 @@
 // ============================================================================
 // Trusted Links Backend API (MongoDB ONLY) + Resend Email + JAVNA WhatsApp OTP
+// FULL server.js (Fixed routes for frontend + admin pages)
 // ============================================================================
 
 import express from "express";
@@ -35,8 +36,11 @@ function cleanDigits(v = "") {
   return String(v).replace(/\D/g, "");
 }
 
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@trustedlinks.app";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "123456";
+const JWT_SECRET = process.env.JWT_SECRET || "trustedlinks_secret";
+
 function createToken(userId) {
-  const JWT_SECRET = process.env.JWT_SECRET || "trustedlinks_secret";
   return jwt.sign({ id: userId, role: "user" }, JWT_SECRET, { expiresIn: "7d" });
 }
 
@@ -70,7 +74,6 @@ async function sendEmail({ to, subject, html, text }) {
 const FRONTEND_ORIGIN = (process.env.FRONTEND_ORIGIN || "http://localhost:5173").trim();
 const FRONTEND_BASE_URL = (process.env.FRONTEND_BASE_URL || FRONTEND_ORIGIN).trim();
 
-// هذا لازم يكون رابط الباكند العام (Railway)
 const API_BASE_URL = (
   process.env.API_BASE_URL || "https://trustedlinks-backend-production.up.railway.app"
 ).trim();
@@ -81,54 +84,70 @@ const API_BASE_URL = (
 const allowedOrigins = new Set([
   FRONTEND_ORIGIN,
   "https://trustedlinks.net",
+  "https://www.trustedlinks.net",
   "http://localhost:5173",
 ]);
 
+function corsOrigin(origin, cb) {
+  if (!origin) return cb(null, true);
+  const ok =
+    allowedOrigins.has(origin) ||
+    /^http:\/\/localhost:\d+$/.test(origin) ||
+    /^http:\/\/127\.0\.0\.1:\d+$/.test(origin);
+
+  return cb(ok ? null : new Error("CORS blocked"), ok);
+}
+
 app.use(
   cors({
-    origin: (origin, cb) => {
-      if (!origin) return cb(null, true);
-      const ok =
-        allowedOrigins.has(origin) ||
-        /^http:\/\/localhost:\d+$/.test(origin) ||
-        /^http:\/\/127\.0\.0\.1:\d+$/.test(origin);
-      return cb(ok ? null : new Error("CORS blocked"), ok);
-    },
+    origin: corsOrigin,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-API-Key"],
     credentials: false,
   })
 );
 
-app.use(express.json({ limit: "1mb" }));
-
-app.options(
-  "*",
-  cors({
-    origin: (origin, cb) => {
-      if (!origin) return cb(null, true);
-      const ok =
-        allowedOrigins.has(origin) ||
-        /^http:\/\/localhost:\d+$/.test(origin) ||
-        /^http:\/\/127\.0\.0\.1:\d+$/.test(origin);
-      return cb(ok ? null : new Error("CORS blocked"), ok);
-    },
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-API-Key"],
-    credentials: false,
-  })
-);
+app.use(express.json({ limit: "2mb" }));
+app.options("*", cors({ origin: corsOrigin }));
 
 // ---------------------------------------------------------------------------
-// Constants
+// Auth middlewares
 // ---------------------------------------------------------------------------
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@trustedlinks.app";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "123456";
-const JWT_SECRET = process.env.JWT_SECRET || "trustedlinks_secret";
+function requireUser(req, res, next) {
+  try {
+    const h = req.headers.authorization || "";
+    const token = h.startsWith("Bearer ") ? h.slice(7) : "";
+    if (!token) return res.status(401).json({ error: "Missing token" });
 
-// ---------------------------------------------------------------------------
+    const payload = jwt.verify(token, JWT_SECRET);
+    if (payload?.role !== "user") return res.status(403).json({ error: "Forbidden" });
+
+    req.user = payload; // {id, role}
+    next();
+  } catch {
+    return res.status(401).json({ error: "Invalid token" });
+  }
+}
+
+function requireAdmin(req, res, next) {
+  try {
+    const h = req.headers.authorization || "";
+    const token = h.startsWith("Bearer ") ? h.slice(7) : "";
+    if (!token) return res.status(401).json({ error: "Missing token" });
+
+    const payload = jwt.verify(token, JWT_SECRET);
+    if (payload?.role !== "admin") return res.status(403).json({ error: "Forbidden" });
+
+    req.admin = payload;
+    next();
+  } catch {
+    return res.status(401).json({ error: "Invalid token" });
+  }
+}
+
+// ============================================================================
 // Debug
-// ---------------------------------------------------------------------------
+// ============================================================================
 app.get("/api/debug/resend", (_req, res) => {
   res.json({
     hasKey: Boolean(process.env.RESEND_API_KEY),
@@ -165,64 +184,6 @@ app.get("/api/debug/mongo", async (_req, res) => {
   }
 });
 
-// ---------------------------------------------------------------------------
-// JAVNA Config
-// ---------------------------------------------------------------------------
-const JAVNA_API_KEY = process.env.JAVNA_API_KEY || "";
-const JAVNA_FROM = process.env.JAVNA_FROM || "";
-const JAVNA_BASE_URL = "https://whatsapp.api.javna.com/whatsapp/v1.0";
-const JAVNA_SEND_TEXT_URL = `${JAVNA_BASE_URL}/message/text`;
-const JAVNA_SEND_AUTH_TEMPLATE_URL = `${JAVNA_BASE_URL}/message/template/authentication`;
-
-async function javnaSendText({ to, body }) {
-  if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
-  if (!JAVNA_FROM) throw new Error("Missing JAVNA_FROM");
-
-  const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
-  const from = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
-  const toNumber = to.startsWith("+") ? to : `+${to}`;
-
-  const payload = { from, to: toNumber, content: { text: String(body || "") } };
-
-  const r = await fetch(JAVNA_SEND_TEXT_URL, { method: "POST", headers, body: JSON.stringify(payload) });
-  const txt = await r.text();
-  if (!r.ok) throw new Error(`Javna send failed (${r.status}): ${txt}`);
-
-  try {
-    return JSON.parse(txt);
-  } catch {
-    return { ok: true, raw: txt };
-  }
-}
-
-async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
-  if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
-  if (!JAVNA_FROM) throw new Error("Missing JAVNA_FROM");
-
-  const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
-  const from = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
-  const toNumber = to.startsWith("+") ? to : `+${to}`;
-
-  const templateName = lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
-  const templateLanguage = lang === "ar" ? "ar" : "en";
-
-  const payload = {
-    from,
-    to: toNumber,
-    content: { templateName, templateLanguage, otp: String(code) },
-  };
-
-  const r = await fetch(JAVNA_SEND_AUTH_TEMPLATE_URL, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(payload),
-  });
-
-  const txt = await r.text();
-  if (!r.ok) throw new Error(`Javna auth template failed (${r.status}): ${txt}`);
-  return JSON.parse(txt);
-}
-
 // ============================================================================
 // AUTH (Signup/Login) + Email Verification (Resend)  - MongoDB
 // ============================================================================
@@ -247,6 +208,10 @@ app.post("/api/auth/signup", async (req, res) => {
       verifyToken,
       subscriptionPlan: null,
       planActivatedAt: null,
+
+      // Forgot password (optional fields)
+      resetToken: null,
+      resetExpiresAt: null,
     });
 
     const verifyUrl =
@@ -311,7 +276,6 @@ app.get("/api/auth/verify-email", async (req, res) => {
     if (!user) return res.status(404).send("User not found");
 
     if (user.emailVerified) return res.send("Already verified ✅");
-
     if (String(user.verifyToken) !== String(token)) return res.status(401).send("Invalid token");
 
     user.emailVerified = true;
@@ -358,6 +322,155 @@ app.post("/api/auth/resend-verification", async (req, res) => {
   }
 });
 
+// ✅ Forgot Password (needed by your ForgotPassword.jsx)
+app.post("/api/auth/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    const emailNorm = String(email || "").toLowerCase().trim();
+
+    // Always return ok to avoid leaking which emails exist
+    const user = await User.findOne({ email: emailNorm });
+
+    if (user) {
+      user.resetToken = nanoid(48);
+      user.resetExpiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+      await user.save();
+
+      const resetUrl =
+        `${FRONTEND_BASE_URL}/reset-password` +
+        `?email=${encodeURIComponent(emailNorm)}` +
+        `&token=${encodeURIComponent(user.resetToken)}`;
+
+      try {
+        await sendEmail({
+          to: emailNorm,
+          subject: "Reset your password",
+          text: `Reset your password using this link: ${resetUrl}`,
+          html: `<p>Reset your password:</p><p><a href="${resetUrl}">${resetUrl}</a></p>`,
+        });
+      } catch (e) {
+        console.error("send reset email error:", e);
+      }
+    }
+
+    return res.json({ ok: true, message: "If this email exists, a reset link has been sent." });
+  } catch (e) {
+    console.error("forgot-password error:", e);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// (Optional) Reset password endpoint if you build ResetPassword page later
+app.post("/api/auth/reset-password", async (req, res) => {
+  try {
+    const { email, token, newPassword } = req.body || {};
+    if (!email || !token || !newPassword) {
+      return res.status(400).json({ error: "Missing fields" });
+    }
+
+    const emailNorm = String(email).toLowerCase().trim();
+    const user = await User.findOne({ email: emailNorm });
+    if (!user) return res.status(400).json({ error: "Invalid request" });
+
+    if (!user.resetToken || String(user.resetToken) !== String(token)) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+
+    if (!user.resetExpiresAt || new Date(user.resetExpiresAt).getTime() < Date.now()) {
+      return res.status(410).json({ error: "Token expired" });
+    }
+
+    user.passwordHash = await bcrypt.hash(String(newPassword), 10);
+    user.resetToken = null;
+    user.resetExpiresAt = null;
+    await user.save();
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("reset-password error:", e);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ✅ /api/me (needed — your frontend calls it)
+app.get("/api/me", requireUser, async (req, res) => {
+  const user = await User.findById(req.user.id).lean();
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  res.json({
+    ok: true,
+    user: {
+      id: String(user._id),
+      email: user.email,
+      emailVerified: !!user.emailVerified,
+      subscriptionPlan: user.subscriptionPlan || null,
+      planActivatedAt: user.planActivatedAt || null,
+    },
+  });
+});
+
+// ============================================================================
+// JAVNA Config
+// ============================================================================
+const JAVNA_API_KEY = process.env.JAVNA_API_KEY || "";
+const JAVNA_FROM = process.env.JAVNA_FROM || "";
+const JAVNA_BASE_URL = "https://whatsapp.api.javna.com/whatsapp/v1.0";
+const JAVNA_SEND_TEXT_URL = `${JAVNA_BASE_URL}/message/text`;
+const JAVNA_SEND_AUTH_TEMPLATE_URL = `${JAVNA_BASE_URL}/message/template/authentication`;
+
+async function javnaSendText({ to, body }) {
+  if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
+  if (!JAVNA_FROM) throw new Error("Missing JAVNA_FROM");
+
+  const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
+  const from = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
+  const toNumber = to.startsWith("+") ? to : `+${to}`;
+
+  const payload = { from, to: toNumber, content: { text: String(body || "") } };
+
+  const r = await fetch(JAVNA_SEND_TEXT_URL, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+  const txt = await r.text();
+  if (!r.ok) throw new Error(`Javna send failed (${r.status}): ${txt}`);
+
+  try {
+    return JSON.parse(txt);
+  } catch {
+    return { ok: true, raw: txt };
+  }
+}
+
+async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
+  if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
+  if (!JAVNA_FROM) throw new Error("Missing JAVNA_FROM");
+
+  const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
+  const from = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
+  const toNumber = to.startsWith("+") ? to : `+${to}`;
+
+  const templateName = lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
+  const templateLanguage = lang === "ar" ? "ar" : "en";
+
+  const payload = {
+    from,
+    to: toNumber,
+    content: { templateName, templateLanguage, otp: String(code) },
+  };
+
+  const r = await fetch(JAVNA_SEND_AUTH_TEMPLATE_URL, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  const txt = await r.text();
+  if (!r.ok) throw new Error(`Javna auth template failed (${r.status}): ${txt}`);
+  return JSON.parse(txt);
+}
+
 // ============================================================================
 // WhatsApp OTP (Javna) - MongoDB
 // ============================================================================
@@ -370,13 +483,11 @@ app.post("/api/whatsapp/request-otp", async (req, res) => {
     const clean = cleanDigits(whatsapp);
     if (!/^\d{10,15}$/.test(clean)) return res.status(400).json({ error: "Invalid WhatsApp number" });
 
-    // duplication check in Mongo (businesses)
     const already = await Business.findOne({ whatsapp: clean });
     if (already) return res.status(409).json({ error: "This WhatsApp number is already registered." });
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // delete old + create new OTP
     await Otp.deleteMany({ whatsapp: clean, purpose: "business_signup" });
     await Otp.create({
       whatsapp: clean,
@@ -448,63 +559,209 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
 });
 
 // ============================================================================
-// WhatsApp Chat Search (Webhook) - MongoDB
+// Business APIs (Public)
 // ============================================================================
-app.post("/webhooks/javna/whatsapp", async (req, res) => {
-  try {
-    res.json({ ok: true });
 
-    const body = req.body || {};
-    const from = cleanDigits(body.from || body.sender || body?.data?.from || body?.message?.from || "");
-    const text = (body.text || body.message || body?.data?.text || body?.message?.text || "").toString().trim();
-    if (!from || !text) return;
+app.get("/api/businesses", async (_req, res) => {
+  const list = await Business.find({ status: "Active" }).lean();
+  res.json(list || []);
+});
 
-    const q = text.replace(/^search\s+/i, "").trim();
-    let results = await Business.find({ status: "Active" }).lean();
+app.get("/api/business/:id", async (req, res) => {
+  const b = await Business.findById(req.params.id).lean();
+  if (!b) return res.status(404).json({ error: "Business not found" });
+  res.json(b);
+});
 
-    if (q) {
-      const qq = q.toLowerCase();
-      results = results.filter((b) => {
-        const name = (b.name || "").toLowerCase();
-        const nameAr = (b.nameAr || b.name_ar || "").toLowerCase();
-        const desc = (b.description || "").toLowerCase();
-        const cat = Array.isArray(b.category)
-          ? b.category.join(" ").toLowerCase()
-          : (b.category || "").toLowerCase();
-        return name.includes(qq) || nameAr.includes(qq) || desc.includes(qq) || cat.includes(qq);
-      });
-    }
-
-    const top = results.slice(0, 5);
-
-    let reply = "";
-    if (!top.length) {
-      reply = `No results found for: "${q}".\nTry another keyword or category.`;
-    } else {
-      reply =
-        `Top results for "${q}":\n\n` +
-        top
-          .map((b, i) => {
-            const wa = b.whatsapp ? `https://wa.me/${cleanDigits(b.whatsapp)}` : "";
-            const map = b.mapLink || "";
-            return `${i + 1}) ${b.name || "Business"}\n${wa ? `WhatsApp: ${wa}\n` : ""}${map ? `Map: ${map}\n` : ""}`;
-          })
-          .join("\n");
-    }
-
-    if (!JAVNA_API_KEY) {
-      console.log("🧪 JAVNA disabled. Would reply to", from, "=>", reply);
-      return;
-    }
-
-    await javnaSendText({ to: from, body: reply });
-  } catch (e) {
-    console.error("webhook error", e);
-  }
+// Instagram profile helper endpoint (to avoid frontend crash)
+// Return {profilePic:null} if not implemented.
+app.get("/api/instagram-profile/:username", async (_req, res) => {
+  return res.json({ profilePic: null });
 });
 
 // ============================================================================
-// Public Search API (MongoDB)
+// Business APIs (User / Owner)
+// ============================================================================
+
+async function getMyBusiness(userId) {
+  return Business.findOne({ userId }).lean();
+}
+
+app.get("/api/business/me", requireUser, async (req, res) => {
+  const b = await getMyBusiness(req.user.id);
+  if (!b) return res.status(404).json({ error: "Business not found for this user" });
+  res.json(b);
+});
+
+// If you need a create route later:
+app.post("/api/business/create", requireUser, async (req, res) => {
+  const body = req.body || {};
+  const existing = await Business.findOne({ userId: req.user.id });
+  if (existing) return res.status(409).json({ error: "Business already exists for this user" });
+
+  const b = await Business.create({
+    ...body,
+    userId: req.user.id,
+    status: body.status || "Active",
+  });
+
+  res.json(b);
+});
+
+app.put("/api/business/update", requireUser, async (req, res) => {
+  const updates = req.body || {};
+
+  delete updates._id;
+  delete updates.userId;
+  delete updates.clicks;
+  delete updates.views;
+  delete updates.messages;
+  delete updates.mediaViews;
+
+  const b = await Business.findOneAndUpdate(
+    { userId: req.user.id },
+    { $set: updates },
+    { new: true }
+  ).lean();
+
+  if (!b) return res.status(404).json({ error: "Business not found" });
+  res.json(b);
+});
+
+app.delete("/api/business/delete", requireUser, async (req, res) => {
+  await Business.deleteOne({ userId: req.user.id });
+  res.json({ ok: true });
+});
+
+app.put("/api/business/toggle-status", requireUser, async (req, res) => {
+  const b = await Business.findOne({ userId: req.user.id });
+  if (!b) return res.status(404).json({ error: "Business not found" });
+
+  b.status = b.status === "Suspended" ? "Active" : "Suspended";
+  await b.save();
+
+  res.json({ ok: true, status: b.status });
+});
+
+// ============================================================================
+// Tracking APIs (needed by BusinessDetails + Reports)
+// ============================================================================
+
+app.post("/api/track-view", async (req, res) => {
+  const { businessId } = req.body || {};
+  if (!businessId) return res.status(400).json({ error: "businessId required" });
+
+  await Business.updateOne({ _id: businessId }, { $push: { views: { at: new Date() } } });
+  res.json({ ok: true });
+});
+
+app.post("/api/track-click", async (req, res) => {
+  const { businessId, kind = "whatsapp" } = req.body || {};
+  if (!businessId) return res.status(400).json({ error: "businessId required" });
+
+  await Business.updateOne(
+    { _id: businessId },
+    { $push: { clicks: { kind: String(kind), at: new Date() } } }
+  );
+
+  res.json({ ok: true });
+});
+
+app.post("/api/track-message", async (req, res) => {
+  const { businessId } = req.body || {};
+  if (!businessId) return res.status(400).json({ error: "businessId required" });
+
+  await Business.updateOne({ _id: businessId }, { $push: { messages: { at: new Date() } } });
+  res.json({ ok: true });
+});
+
+app.post("/api/track-media", async (req, res) => {
+  const { businessId } = req.body || {};
+  if (!businessId) return res.status(400).json({ error: "businessId required" });
+
+  await Business.updateOne({ _id: businessId }, { $push: { mediaViews: { at: new Date() } } });
+  res.json({ ok: true });
+});
+
+// ============================================================================
+// Reports API (User)
+// ============================================================================
+
+app.get("/api/business/reports", requireUser, async (req, res) => {
+  const b = await Business.findOne({ userId: req.user.id }).lean();
+  if (!b) return res.status(404).json({ error: "Business not found" });
+
+  const clicksArr = Array.isArray(b.clicks) ? b.clicks : [];
+  const messagesArr = Array.isArray(b.messages) ? b.messages : [];
+  const mediaArr = Array.isArray(b.mediaViews) ? b.mediaViews : [];
+  const viewsArr = Array.isArray(b.views) ? b.views : [];
+
+  const totalClicks = clicksArr.length;
+  const totalMessages = messagesArr.length;
+
+  // Sources pie
+  const sourcesMap = {};
+  for (const c of clicksArr) {
+    const k = (c?.kind || "other").toLowerCase();
+    sourcesMap[k] = (sourcesMap[k] || 0) + 1;
+  }
+
+  const sources = Object.entries(sourcesMap).map(([name, value]) => ({
+    name,
+    name_en: name,
+    name_ar:
+      name === "whatsapp" ? "واتساب" :
+      name === "map" ? "الخريطة" :
+      name === "media" ? "وسائط" :
+      name === "details" ? "التفاصيل" : "أخرى",
+    value,
+  }));
+
+  // Activity line (last 7 days)
+  const days = 7;
+  const mkKey = (d) => d.toISOString().slice(0, 10);
+  const now = new Date();
+  const buckets = {};
+
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(now.getDate() - i);
+    buckets[mkKey(d)] = { date: mkKey(d), total: 0, whatsapp: 0, media: 0, messages: 0 };
+  }
+
+  for (const c of clicksArr) {
+    const k = mkKey(new Date(c.at || Date.now()));
+    if (!buckets[k]) continue;
+    buckets[k].total += 1;
+
+    const kind = (c.kind || "").toLowerCase();
+    if (kind === "whatsapp") buckets[k].whatsapp += 1;
+    if (kind === "media") buckets[k].media += 1;
+  }
+
+  for (const m of messagesArr) {
+    const k = mkKey(new Date(m.at || Date.now()));
+    if (!buckets[k]) continue;
+    buckets[k].messages += 1;
+  }
+
+  const activity = Object.values(buckets);
+
+  res.json({
+    business: b.name || "Business",
+    category: b.category?.name || b.category || "Category",
+    totalClicks,
+    totalMessages,
+    mediaViews: mediaArr.length,
+    views: viewsArr.length,
+    weeklyGrowth: 0,
+    sources,
+    activity,
+  });
+});
+
+// ============================================================================
+// Public Search API (MongoDB) - existing style kept
 // ============================================================================
 app.get("/api/search", async (req, res) => {
   try {
@@ -560,7 +817,7 @@ app.get("/api/search", async (req, res) => {
 });
 
 // ============================================================================
-// Admin login (optional)
+// Admin login + Admin APIs (needed by Admin pages)
 // ============================================================================
 app.post("/api/admin/login", async (req, res) => {
   try {
@@ -578,6 +835,94 @@ app.post("/api/admin/login", async (req, res) => {
   } catch (e) {
     return res.status(500).json({ error: "Internal server error" });
   }
+});
+
+// Admin "stats" for AdminDashboard.jsx
+app.get("/api/admin/stats", requireAdmin, async (_req, res) => {
+  const users = await User.countDocuments();
+  const businesses = await Business.countDocuments();
+
+  // total clicks across businesses
+  const all = await Business.find({}, { clicks: 1, category: 1 }).lean();
+  let clicks = 0;
+
+  const catMap = {};
+  for (const b of all) {
+    const c = b.category?.name || b.category?.key || b.category || "Other";
+    catMap[c] = (catMap[c] || 0) + 1;
+
+    clicks += Array.isArray(b.clicks) ? b.clicks.length : 0;
+  }
+
+  const categories = Object.entries(catMap).map(([name, value]) => ({ name, value }));
+
+  // activity placeholder
+  const activity = [];
+
+  res.json({ users, businesses, clicks, categories, activity });
+});
+
+// Admin AI summary (used by AdminAISummary.jsx)
+app.post("/api/admin/ai-summary", requireAdmin, async (_req, res) => {
+  // Placeholder summary (later we connect to OpenAI)
+  const users = await User.countDocuments();
+  const businesses = await Business.countDocuments();
+  res.json({
+    summary:
+      `Platform Summary:\n` +
+      `- Total users: ${users}\n` +
+      `- Total businesses: ${businesses}\n` +
+      `- Next: connect real insights + trends.\n`,
+  });
+});
+
+// Admin insights endpoint (for AdminInsights.jsx via api.insights())
+app.get("/api/admin/insights", requireAdmin, async (_req, res) => {
+  res.json({
+    insight:
+      "No AI insights yet. Once tracking grows, we will generate weekly recommendations automatically.",
+  });
+});
+
+// Admin list businesses (for AdminBusinesses.jsx via api.listBusinesses())
+app.get("/api/admin/businesses", requireAdmin, async (_req, res) => {
+  const list = await Business.find({}, { name: 1, status: 1, clicks: 1 }).lean();
+  res.json(
+    (list || []).map((b) => ({
+      id: String(b._id),
+      name: b.name || "",
+      status: (b.status || "inactive").toLowerCase(), // active/trial/inactive (frontend expects)
+      clicks: Array.isArray(b.clicks) ? b.clicks : [],
+    }))
+  );
+});
+
+// Admin subscriptions (simple mock to avoid 404 until you build real billing)
+app.get("/api/admin/plans", requireAdmin, async (_req, res) => {
+  res.json([
+    { id: "plan_trial", name: "Trial", price: 0, period: "mo" },
+    { id: "plan_basic", name: "Basic", price: 15, period: "mo" },
+  ]);
+});
+
+app.get("/api/admin/subscriptions", requireAdmin, async (_req, res) => {
+  // Later: compute from User.subscriptionPlan / Business fields
+  res.json([]);
+});
+
+// Admin notifications (for AdminNotifications.jsx)
+app.post("/api/admin/notifications", requireAdmin, async (req, res) => {
+  const { message } = req.body || {};
+  if (!message || !String(message).trim()) return res.status(400).json({ error: "Message required" });
+
+  // placeholder: store later in DB or push notifications
+  res.json({ ok: true });
+});
+
+// Admin settings (for AdminSettings.jsx)
+app.post("/api/admin/settings", requireAdmin, async (_req, res) => {
+  // placeholder
+  res.json({ ok: true });
 });
 
 // ============================================================================
