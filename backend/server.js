@@ -395,6 +395,40 @@ app.get("/api/me", requireUser, async (req, res) => {
 });
 
 // ============================================================================
+// SUBSCRIBE (Frontend calls POST /api/subscribe)
+// Updates user.subscriptionPlan + planActivatedAt
+// ============================================================================
+app.post("/api/subscribe", requireUser, async (req, res) => {
+  try {
+    // frontend may send: { plan }, { planId }, { subscriptionPlan }
+    const plan =
+      req.body?.plan ||
+      req.body?.planId ||
+      req.body?.subscriptionPlan ||
+      "Pro";
+
+    const planNorm = String(plan).trim();
+    if (!planNorm) return res.status(400).json({ error: "Plan is required" });
+
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    user.subscriptionPlan = planNorm;
+    user.planActivatedAt = new Date();
+    await user.save();
+
+    return res.json({
+      ok: true,
+      subscriptionPlan: user.subscriptionPlan,
+      planActivatedAt: user.planActivatedAt,
+      message: "Subscription activated",
+    });
+  } catch (e) {
+    console.error("subscribe error:", e);
+    return res.status(500).json({ error: "Subscription failed" });
+  }
+});
+// ============================================================================
 // WhatsApp OTP (Javna)
 // ============================================================================
 app.post("/api/whatsapp/request-otp", async (req, res) => {
