@@ -93,7 +93,7 @@ export default function Signup({ lang }) {
     // Save entire business object to localStorage (pendingBusiness)
     // --------------------------------------------------------------
     const waDigits = verifiedWhatsApp.replace(/\D/g, "");
-
+    const otpToken = localStorage.getItem("otpToken") || "";
     localStorage.setItem(
       "pendingBusiness",
       JSON.stringify({
@@ -108,6 +108,7 @@ export default function Signup({ lang }) {
         mediaLink,
         metaVerified,
         otpVerified: true,
+        otpToken,
       })
     );
 
@@ -192,13 +193,15 @@ export default function Signup({ lang }) {
 
         {/* WhatsApp Verification */}
         <WhatsAppVerify
-          lang={lang}
-          businessName={businessNameAr}
-          onVerified={(result) => {
-            setVerifiedWhatsApp(result.whatsapp);
-            setMetaVerified(result.metaVerified);
-          }}
-        />
+  lang={lang}
+  businessName={businessNameAr}
+  onVerified={(result) => {
+    setVerifiedWhatsApp(result.whatsapp);
+    setMetaVerified(result.metaVerified);
+    // ✅ store otpToken
+    localStorage.setItem("otpToken", result.otpToken || "");
+  }}
+/>
 
         {/* MAP */}
         <label>{lang === "ar" ? "رابط الخريطة" : "Google Map Link"}</label>
