@@ -143,7 +143,7 @@ export default function AdminBusinesses() {
                           s === "active" ? "نشط" : s === "trial" ? "تجريبي" : "غير نشط"
                         )}
                       </td>
-
+                      <td className="p-3">{Array.isArray(b.clicks) ? b.clicks.length : 0}</td>
                       <td className="p-3">{clicksCount}</td>
                     </tr>
                   );
