@@ -21,10 +21,10 @@ export default function LoginPage({ lang }) {
         setOpen(false);
         navigate("/", { replace: true });
       }}
-      onLoginSuccess={() => {
-        setOpen(false);
-        navigate(from, { replace: true });
-      }}
+      onLoginSuccess={(token) => {
+  setOpen(false);
+  navigate(from, { replace: true });
+}}
       lang={lang}
     />
   );
