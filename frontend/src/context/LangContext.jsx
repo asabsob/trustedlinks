@@ -1,20 +1,17 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 
 const LangContext = createContext(null);
 
 export function LangProvider({ children }) {
   const [lang, setLang] = useState(localStorage.getItem("lang") || "en");
 
-  // ✅ ثبت اللغة + الاتجاه في document
   useEffect(() => {
     localStorage.setItem("lang", lang);
     document.documentElement.lang = lang;
     document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
   }, [lang]);
 
-  const toggleLang = () => {
-    setLang((prev) => (prev === "en" ? "ar" : "en"));
-  };
+  const toggleLang = () => setLang((p) => (p === "en" ? "ar" : "en"));
 
   return (
     <LangContext.Provider value={{ lang, setLang, toggleLang }}>
