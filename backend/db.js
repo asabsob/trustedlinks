@@ -1,23 +1,23 @@
-// backend/db.js
+// db.js
 import mongoose from "mongoose";
 
-console.log("DEBUG_MONGO_URI:", process.env.MONGODB_URI);
+let isConnected = false;
 
 export async function connectDB() {
-  const uri = process.env.MONGODB_URI;
-  if (!uri) {
-    throw new Error("Missing MONGODB_URI in environment variables");
-  }
+  const uri = (process.env.MONGODB_URI || "").trim();
+  if (!uri) throw new Error("Missing MONGODB_URI");
 
-  if (mongoose.connection.readyState === 1) {
-    console.log("✅ MongoDB already connected");
-    return mongoose.connection;
-  }
+  if (isConnected) return mongoose.connection;
+
+  // لمنع تحذيرات strictQuery
+  mongoose.set("strictQuery", true);
 
   await mongoose.connect(uri, {
-    dbName: process.env.MONGODB_DB || "trustedlinks",
+    // خيارات آمنة (mongoose 7+ ما بتحتاج كثير options)
+    serverSelectionTimeoutMS: 15000,
   });
 
+  isConnected = true;
   console.log("✅ MongoDB connected");
   return mongoose.connection;
 }
