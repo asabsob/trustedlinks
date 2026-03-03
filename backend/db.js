@@ -1,4 +1,4 @@
-// db.js
+// backend/db.js
 import mongoose from "mongoose";
 
 let isConnected = false;
@@ -9,11 +9,9 @@ export async function connectDB() {
 
   if (isConnected) return mongoose.connection;
 
-  // لمنع تحذيرات strictQuery
   mongoose.set("strictQuery", true);
 
   await mongoose.connect(uri, {
-    // خيارات آمنة (mongoose 7+ ما بتحتاج كثير options)
     serverSelectionTimeoutMS: 15000,
   });
 
