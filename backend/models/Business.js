@@ -10,26 +10,25 @@ const EventSchema = new mongoose.Schema(
 
 const BusinessSchema = new mongoose.Schema(
   {
-    ownerUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    // ✅ owner link to user
+    ownerUserId: { type: String, default: null, index: true },
 
     name: { type: String, required: true },
     name_ar: { type: String, default: "" },
     description: { type: String, default: "" },
-
-    // ✅ keep as array of strings for search/filter
     category: { type: [String], default: [] },
 
     whatsapp: { type: String, required: true, unique: true }, // digits only
-
-    // Active/Pending/Blocked/Suspended
-    status: { type: String, default: "Pending" },
+    status: { type: String, default: "Pending" }, // Active/Pending/Blocked/Suspended
 
     latitude: { type: Number, default: null },
     longitude: { type: Number, default: null },
     mapLink: { type: String, default: "" },
+
+    // ✅ optional media link for BusinessDetails
     mediaLink: { type: String, default: "" },
 
-    // ✅ Tracking
+    // ✅ tracking arrays
     views: { type: [EventSchema], default: [] },
     clicks: { type: [EventSchema], default: [] },
     messages: { type: [EventSchema], default: [] },
