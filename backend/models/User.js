@@ -11,7 +11,6 @@ const UserSchema = new mongoose.Schema(
     subscriptionPlan: { type: String, default: null },
     planActivatedAt: { type: Date, default: null },
 
-    // ✅ Forgot password
     resetToken: { type: String, default: null },
     resetTokenExpiresAt: { type: Date, default: null },
   },
