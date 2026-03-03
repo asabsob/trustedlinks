@@ -1,8 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 
-import AdminGuard from "./components/AdminGuard.jsx";
-
 /* 🌍 Public + User Pages */
 import Home from "./pages/Home.jsx";
 import Search from "./pages/Search.jsx";
@@ -36,12 +34,12 @@ import Navbar from "./components/Navbar.jsx";
 // -------------------------
 function RequireAuth({ children }) {
   const token = localStorage.getItem("token");
-  if (!token) return <Navigate to="/" replace />;
+  if (!token) return <Navigate to="/login" replace />;
   return children;
 }
 
 // -------------------------
-// Admin Protected Route
+// Admin Protected Route (Context-based)
 // -------------------------
 function PrivateAdmin({ children }) {
   const { admin, loading } = useAdminAuth();
@@ -96,6 +94,8 @@ export default function App() {
     const newLang = lang === "en" ? "ar" : "en";
     setLang(newLang);
     localStorage.setItem("lang", newLang);
+    document.documentElement.lang = newLang;
+    document.documentElement.dir = newLang === "ar" ? "rtl" : "ltr";
   };
 
   const handleLogout = () => {
@@ -105,10 +105,7 @@ export default function App() {
   };
 
   return (
-    <div
-      className={lang === "ar" ? "rtl" : ""}
-      dir={lang === "ar" ? "rtl" : "ltr"}
-    >
+    <div className={lang === "ar" ? "rtl" : ""} dir={lang === "ar" ? "rtl" : "ltr"}>
       {/* 🌟 Navbar */}
       <Navbar
         lang={lang}
@@ -126,31 +123,8 @@ export default function App() {
         <Route path="/subscribe" element={<Subscribe lang={lang} />} />
         <Route path="/business/:id" element={<BusinessDetails />} />
         <Route path="/register" element={<Navigate to="/signup" replace />} />
-
-        {/* Login Page */}
         <Route path="/login" element={<LoginPage lang={lang} />} />
-
-        {/* Forgot Password */}
         <Route path="/forgot-password" element={<ForgotPassword />} />
-
-        {/* ---------------- Admin Pages ---------------- */}
-        <Route path="/admin/login" element={<AdminLogin />} />
-        <Route
-          path="/admin/*"
-          element={
-            <PrivateAdmin>
-              <AdminLayout />
-            </PrivateAdmin>
-          }
-        >
-          <Route index element={<AdminDashboard />} />
-          <Route path="businesses" element={<AdminBusinesses />} />
-          <Route path="subscriptions" element={<AdminSubscriptions />} />
-          <Route path="notifications" element={<AdminNotifications />} />
-          <Route path="insights" element={<AdminAISummary />} />
-          <Route path="settings" element={<AdminSettings />} />
-           <Route element={<AdminGuard />}>
-        </Route>
 
         {/* ---------------- User Private Pages ---------------- */}
         <Route
@@ -177,16 +151,26 @@ export default function App() {
             </RequireAuth>
           }
         />
-<Route
-  path="/admin"
-  element={
-    <AdminGuard>
-      <AdminLayout />
-    </AdminGuard>
-  }
->
-  ...
-</Route>
+
+        {/* ---------------- Admin Pages ---------------- */}
+        <Route path="/admin/login" element={<AdminLogin />} />
+
+        <Route
+          path="/admin"
+          element={
+            <PrivateAdmin>
+              <AdminLayout />
+            </PrivateAdmin>
+          }
+        >
+          <Route index element={<AdminDashboard />} />
+          <Route path="businesses" element={<AdminBusinesses />} />
+          <Route path="subscriptions" element={<AdminSubscriptions />} />
+          <Route path="notifications" element={<AdminNotifications />} />
+          <Route path="insights" element={<AdminAISummary />} />
+          <Route path="settings" element={<AdminSettings />} />
+        </Route>
+
         {/* ---------------- Fallback ---------------- */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
