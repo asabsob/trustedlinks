@@ -174,7 +174,16 @@ export default function App() {
             </RequireAuth>
           }
         />
-
+<Route
+  path="/admin"
+  element={
+    <AdminGuard>
+      <AdminLayout />
+    </AdminGuard>
+  }
+>
+  ...
+</Route>
         {/* ---------------- Fallback ---------------- */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
