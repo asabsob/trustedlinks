@@ -238,7 +238,15 @@ export default function WhatsAppVerify({
           >
             {loading ? (lang === "ar" ? "جاري التحقق..." : "Verifying...") : lang === "ar" ? "تحقق" : "Verify"}
           </button>
+// ✅ Save OTP token and return it to parent
+const otpToken = data.token;
+localStorage.setItem("otpToken", otpToken);
 
+onVerified?.({
+  whatsapp: data.whatsapp,           // digits
+  metaVerified: true,                // أو حسب منطقك
+  otpToken,                          // ✅ important
+});
           <button
             type="button"
             onClick={resendOtp}
