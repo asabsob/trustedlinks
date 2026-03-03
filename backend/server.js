@@ -74,9 +74,9 @@ function requireAdmin(req, res, next) {
 }
 
 function toSafeCategoryValue(cat) {
-  // normalize category for front usage
   if (!cat) return null;
   if (typeof cat === "string") return cat;
+  if (Array.isArray(cat)) return cat.join(", ");
   if (typeof cat === "object") return cat?.name || cat?.key || null;
   return String(cat);
 }
@@ -154,7 +154,6 @@ async function javnaSendText({ to, body }) {
   const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
   const from = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
   const toNumber = to.startsWith("+") ? to : `+${to}`;
-
   const payload = { from, to: toNumber, content: { text: String(body || "") } };
 
   const r = await fetch(JAVNA_SEND_TEXT_URL, { method: "POST", headers, body: JSON.stringify(payload) });
@@ -176,7 +175,7 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   const from = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
   const toNumber = to.startsWith("+") ? to : `+${to}`;
 
-  // NOTE: you had typo "turstedlinks_otp_ar" - keeping as-is if that is the real template name
+  // NOTE: keep your actual template names
   const templateName = lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
   const templateLanguage = lang === "ar" ? "ar" : "en";
 
@@ -209,7 +208,7 @@ app.get("/api/health", (_req, res) => {
 });
 
 // ============================================================================
-// AUTH (Signup/Login) + Email Verification
+// AUTH (Signup/Login) + Email Verification + Forgot Password
 // ============================================================================
 app.post("/api/auth/signup", async (req, res) => {
   try {
@@ -239,7 +238,6 @@ app.post("/api/auth/signup", async (req, res) => {
       `?email=${encodeURIComponent(emailNorm)}` +
       `&token=${encodeURIComponent(verifyToken)}`;
 
-    // Send email (best effort)
     try {
       await sendEmail({
         to: emailNorm,
@@ -340,22 +338,23 @@ app.post("/api/auth/resend-verification", async (req, res) => {
   }
 });
 
-// Forgot password (used by frontend)
+// Forgot password
 app.post("/api/auth/forgot-password", async (req, res) => {
   try {
     const { email } = req.body || {};
     const emailNorm = String(email || "").toLowerCase().trim();
 
     const user = await User.findOne({ email: emailNorm });
-    // Always return ok (avoid email enumeration)
-    if (!user) return res.json({ ok: true });
+    if (!user) return res.json({ ok: true }); // don't reveal
 
     const resetToken = nanoid(40);
     user.resetToken = resetToken;
     user.resetTokenExpiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     await user.save();
 
-    const resetUrl = `${FRONTEND_BASE_URL}/reset-password?email=${encodeURIComponent(emailNorm)}&token=${encodeURIComponent(resetToken)}`;
+    const resetUrl = `${FRONTEND_BASE_URL}/reset-password?email=${encodeURIComponent(
+      emailNorm
+    )}&token=${encodeURIComponent(resetToken)}`;
 
     try {
       await sendEmail({
@@ -376,7 +375,7 @@ app.post("/api/auth/forgot-password", async (req, res) => {
 });
 
 // ============================================================================
-// USER: /api/me  (frontend errors show it's requested)
+// USER: /api/me
 // ============================================================================
 app.get("/api/me", requireUser, async (req, res) => {
   try {
@@ -390,13 +389,13 @@ app.get("/api/me", requireUser, async (req, res) => {
       subscriptionPlan: user.subscriptionPlan || null,
       planActivatedAt: user.planActivatedAt || null,
     });
-  } catch (e) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 });
 
 // ============================================================================
-// WhatsApp OTP (Javna) - used by WhatsAppVerify component
+// WhatsApp OTP (Javna)
 // ============================================================================
 app.post("/api/whatsapp/request-otp", async (req, res) => {
   try {
@@ -469,10 +468,8 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
 });
 
 // ============================================================================
-// BUSINESS SIGNUP (Create business) - requires USER token + verified WhatsApp OTP token
-// Frontend should call after OTP verification
+// BUSINESS SIGNUP - requires USER token + OTP token
 // ============================================================================
-
 function requireOtpToken(req, res, next) {
   try {
     const token = readBearer(req);
@@ -493,11 +490,9 @@ app.post("/api/business/signup", requireUser, requireOtpToken, async (req, res) 
     const ownerUserId = req.user.id;
     const whatsapp = String(req.otp.whatsapp);
 
-    // prevent duplicates
     const existing = await Business.findOne({ whatsapp });
     if (existing) return res.status(409).json({ error: "WhatsApp already registered" });
 
-    // if user already has a business, block or update (choose block)
     const alreadyOwned = await Business.findOne({ ownerUserId });
     if (alreadyOwned) return res.status(409).json({ error: "User already has a business" });
 
@@ -526,6 +521,7 @@ app.post("/api/business/signup", requireUser, requireOtpToken, async (req, res) 
       longitude,
       mapLink,
       mediaLink,
+      // tracking arrays auto default
     });
 
     return res.json({ ok: true, business: b });
@@ -534,6 +530,7 @@ app.post("/api/business/signup", requireUser, requireOtpToken, async (req, res) 
     return res.status(500).json({ error: "Failed to create business" });
   }
 });
+
 // ============================================================================
 // PUBLIC SEARCH API
 // ============================================================================
@@ -560,7 +557,7 @@ app.get("/api/search", async (req, res) => {
     if (category && category !== "all") {
       const c = String(category).toLowerCase();
       results = results.filter((b) => {
-        const cc = String(toSafeCategoryValue(b.category) || "").toLowerCase();
+        const cc = Array.isArray(b.category) ? b.category.join(" ").toLowerCase() : String(toSafeCategoryValue(b.category) || "").toLowerCase();
         return cc.includes(c);
       });
     }
@@ -589,7 +586,7 @@ app.get("/api/search", async (req, res) => {
 });
 
 // ============================================================================
-// PUBLIC: list all businesses (some pages request /api/businesses)
+// PUBLIC: list all businesses
 // ============================================================================
 app.get("/api/businesses", async (_req, res) => {
   try {
@@ -601,7 +598,7 @@ app.get("/api/businesses", async (_req, res) => {
 });
 
 // ============================================================================
-// PUBLIC: business by id (used by BusinessDetails.jsx)
+// PUBLIC: business by id
 // ============================================================================
 app.get("/api/business/:id", async (req, res) => {
   try {
@@ -614,15 +611,14 @@ app.get("/api/business/:id", async (req, res) => {
 });
 
 // ============================================================================
-// USER BUSINESS: /api/business/me, update, toggle-status, delete, reports
+// USER BUSINESS: /api/business/me + update + toggle-status + delete + reports
 // ============================================================================
 app.get("/api/business/me", requireUser, async (req, res) => {
   try {
-    // Assumption: Business has ownerUserId
     const b = await Business.findOne({ ownerUserId: req.user.id }).lean();
     if (!b) return res.status(404).json({ error: "Business not found" });
     return res.json(b);
-  } catch (e) {
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 });
@@ -632,10 +628,11 @@ app.put("/api/business/update", requireUser, async (req, res) => {
     const b = await Business.findOne({ ownerUserId: req.user.id });
     if (!b) return res.status(404).json({ error: "Business not found" });
 
-    // allow a safe subset
-    const { name, category, mediaLink, mapLink } = req.body || {};
+    const { name, category, mediaLink, mapLink, description, name_ar } = req.body || {};
     if (name !== undefined) b.name = name;
-    if (category !== undefined) b.category = category;
+    if (name_ar !== undefined) b.name_ar = name_ar;
+    if (description !== undefined) b.description = description;
+    if (category !== undefined) b.category = Array.isArray(category) ? category : b.category;
     if (mediaLink !== undefined) b.mediaLink = mediaLink;
     if (mapLink !== undefined) b.mapLink = mapLink;
 
@@ -674,22 +671,20 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
     const b = await Business.findOne({ ownerUserId: req.user.id }).lean();
     if (!b) return res.status(404).json({ error: "Business not found" });
 
-    // We keep shape expected by Reports.jsx
     const clicksArr = Array.isArray(b.clicks) ? b.clicks : [];
     const messagesArr = Array.isArray(b.messages) ? b.messages : [];
     const mediaArr = Array.isArray(b.mediaViews) ? b.mediaViews : [];
     const viewsArr = Array.isArray(b.views) ? b.views : [];
 
-    // activity + sources can be computed later; return safe defaults
     return res.json({
       business: b.name || "Business",
-      category: toSafeCategoryValue(b.category) || "Category",
+      category: Array.isArray(b.category) ? (b.category[0] || "Category") : (toSafeCategoryValue(b.category) || "Category"),
       totalClicks: clicksArr.length,
       totalMessages: messagesArr.length,
       mediaViews: mediaArr.length,
       views: viewsArr.length,
       weeklyGrowth: 0,
-      activity: [], // later: aggregate per day/week
+      activity: [],
       sources: [
         { name: "WhatsApp", name_en: "WhatsApp", name_ar: "واتساب", value: messagesArr.length },
         { name: "Clicks", name_en: "Clicks", name_ar: "نقرات", value: clicksArr.length },
@@ -711,9 +706,8 @@ async function pushEvent(businessId, field, payload = {}) {
   const b = await Business.findById(businessId);
   if (!b) return null;
 
-  // Store arrays if exist; if not, initialize as arrays (Mongo will accept)
   if (!Array.isArray(b[field])) b[field] = [];
-  b[field].push({ at: new Date(), ...payload });
+  b[field].push({ at: new Date(), meta: payload || {} });
 
   await b.save();
   return b;
@@ -768,26 +762,22 @@ app.post("/api/track-whatsapp", async (req, res) => {
     const { businessId } = req.body || {};
     if (!businessId) return res.status(400).json({ error: "businessId required" });
     await pushEvent(businessId, "whatsappClicks");
-    await pushEvent(businessId, "messages"); // treat WhatsApp click as “message intent”
+    await pushEvent(businessId, "messages");
     return res.json({ ok: true });
   } catch {
     return res.status(500).json({ error: "Failed" });
   }
 });
 
-// optional endpoint referenced in your BusinessDetails (map tracking uses "map" type there)
-app.post("/api/track-media-or-click", async (req, res) => res.json({ ok: true }));
-
 // ============================================================================
-// Instagram profile proxy (frontend calls /api/instagram-profile/:username)
-// We'll return safe null to avoid crashes.
+// Instagram profile proxy (safe fallback)
 // ============================================================================
 app.get("/api/instagram-profile/:username", async (_req, res) => {
   return res.json({ profilePic: null });
 });
 
 // ============================================================================
-// Admin Auth + Admin endpoints used by frontend/src/utils/api.js
+// ADMIN Auth + Endpoints
 // ============================================================================
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@trustedlinks.app";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "123456";
@@ -807,17 +797,13 @@ app.post("/api/admin/login", async (req, res) => {
 
     const token = signAdminToken(email);
     return res.json({ token });
-  } catch (e) {
+  } catch {
     return res.status(500).json({ error: "Internal server error" });
   }
 });
 
 app.get("/api/admin/me", requireAdmin, async (req, res) => {
-  return res.json({
-    ok: true,
-    email: req.admin.email,
-    role: "admin",
-  });
+  return res.json({ ok: true, email: req.admin.email, role: "admin" });
 });
 
 app.get("/api/admin/stats", requireAdmin, async (_req, res) => {
@@ -825,18 +811,11 @@ app.get("/api/admin/stats", requireAdmin, async (_req, res) => {
     const users = await User.countDocuments();
     const businesses = await Business.countDocuments();
 
-    // total clicks = sum of clicks array lengths
     const all = await Business.find({}, { clicks: 1 }).lean();
     const clicks = all.reduce((acc, b) => acc + (Array.isArray(b.clicks) ? b.clicks.length : 0), 0);
 
-    return res.json({
-      users,
-      businesses,
-      clicks,
-      activity: [],     // can be added later
-      categories: [],   // can be added later
-    });
-  } catch (e) {
+    return res.json({ users, businesses, clicks, activity: [], categories: [] });
+  } catch {
     return res.status(500).json({ error: "Failed" });
   }
 });
@@ -844,16 +823,13 @@ app.get("/api/admin/stats", requireAdmin, async (_req, res) => {
 app.get("/api/admin/businesses", requireAdmin, async (_req, res) => {
   try {
     const list = await Business.find({}).lean();
-    // keep shape used by AdminBusinesses.jsx (it checks b.clicks.length)
     return res.json(list);
   } catch {
     return res.status(500).json({ error: "Failed" });
   }
 });
 
-// Plans + Subscriptions (simple mockable DB-less defaults if you don't have models)
 app.get("/api/admin/plans", requireAdmin, async (_req, res) => {
-  // you can move these to DB later
   return res.json([
     { id: "p1", name: "Free", price: 0, period: "mo" },
     { id: "p2", name: "Pro", price: 15, period: "mo" },
@@ -863,11 +839,9 @@ app.get("/api/admin/plans", requireAdmin, async (_req, res) => {
 
 app.get("/api/admin/subscriptions", requireAdmin, async (_req, res) => {
   try {
-    // basic: derive from users who have subscriptionPlan set
     const users = await User.find({ subscriptionPlan: { $ne: null } }).lean();
     const rows = await Promise.all(
       users.map(async (u) => {
-        // find business for the user if exists
         const b = await Business.findOne({ ownerUserId: String(u._id) }).lean();
         return {
           id: String(u._id),
@@ -877,19 +851,15 @@ app.get("/api/admin/subscriptions", requireAdmin, async (_req, res) => {
         };
       })
     );
-
     return res.json(rows);
   } catch {
     return res.json([]);
   }
 });
 
-// Notifications (in-memory fallback; replace with DB later)
 let NOTIFS = [];
 
-app.get("/api/admin/notifications", requireAdmin, async (_req, res) => {
-  return res.json(NOTIFS);
-});
+app.get("/api/admin/notifications", requireAdmin, async (_req, res) => res.json(NOTIFS));
 
 app.post("/api/admin/notifications", requireAdmin, async (req, res) => {
   const { message } = req.body || {};
@@ -900,39 +870,29 @@ app.post("/api/admin/notifications", requireAdmin, async (req, res) => {
   return res.json({ ok: true, notification: n });
 });
 
-// Insights endpoint (used by AdminInsights.jsx)
 app.get("/api/admin/insights", requireAdmin, async (_req, res) => {
-  // simple insight for now
   return res.json({
-    insight:
-      "No AI insights yet. Once tracking grows, this will show top categories, growth, and recommendations.",
+    insight: "No AI insights yet. Once tracking grows, this will show top categories, growth, and recommendations.",
   });
 });
 
-// AI summary endpoint (used by AdminAISummary.jsx which POSTs /api/admin/ai-summary)
 app.post("/api/admin/ai-summary", requireAdmin, async (_req, res) => {
-  // placeholder - plug GPT later
   return res.json({
-    summary:
-      "AI Summary: System is running. Next step is enabling activity aggregation + insights generation based on clicks/messages/media/views.",
+    summary: "AI Summary: System is running. Next step is enabling activity aggregation + insights generation.",
   });
 });
 
-// Settings (in-memory fallback)
 let ADMIN_SETTINGS = { theme: "light", email: ADMIN_EMAIL };
 
-app.get("/api/admin/settings", requireAdmin, async (_req, res) => {
-  return res.json(ADMIN_SETTINGS);
-});
+app.get("/api/admin/settings", requireAdmin, async (_req, res) => res.json(ADMIN_SETTINGS));
 
 app.post("/api/admin/settings", requireAdmin, async (req, res) => {
-  const payload = req.body || {};
-  ADMIN_SETTINGS = { ...ADMIN_SETTINGS, ...payload };
+  ADMIN_SETTINGS = { ...ADMIN_SETTINGS, ...(req.body || {}) };
   return res.json({ ok: true, settings: ADMIN_SETTINGS });
 });
 
 // ============================================================================
-// WhatsApp Chat Search (Webhook) - optional
+// Webhook (optional)
 // ============================================================================
 app.post("/webhooks/javna/whatsapp", async (req, res) => {
   try {
