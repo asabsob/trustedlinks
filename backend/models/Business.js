@@ -10,8 +10,7 @@ const EventSchema = new mongoose.Schema(
 
 const BusinessSchema = new mongoose.Schema(
   {
-    // ✅ owner link to user
-    ownerUserId: { type: String, default: null, index: true },
+    ownerUserId: { type: String, index: true, default: null }, // ✅ link to user
 
     name: { type: String, required: true },
     name_ar: { type: String, default: "" },
@@ -24,17 +23,15 @@ const BusinessSchema = new mongoose.Schema(
     latitude: { type: Number, default: null },
     longitude: { type: Number, default: null },
     mapLink: { type: String, default: "" },
-
-    // ✅ optional media link for BusinessDetails
     mediaLink: { type: String, default: "" },
 
-    // ✅ tracking arrays
+    // ✅ Tracking arrays (used in /reports)
     views: { type: [EventSchema], default: [] },
     clicks: { type: [EventSchema], default: [] },
-    messages: { type: [EventSchema], default: [] },
     mediaViews: { type: [EventSchema], default: [] },
     mapClicks: { type: [EventSchema], default: [] },
     whatsappClicks: { type: [EventSchema], default: [] },
+    messages: { type: [EventSchema], default: [] },
   },
   { timestamps: true }
 );
