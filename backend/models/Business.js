@@ -10,7 +10,8 @@ const EventSchema = new mongoose.Schema(
 
 const BusinessSchema = new mongoose.Schema(
   {
-    ownerUserId: { type: String, index: true, default: null }, // ✅ link to user
+    // ✅ ربط النشاط بالمستخدم
+    ownerUserId: { type: String, index: true, default: null },
 
     name: { type: String, required: true },
     name_ar: { type: String, default: "" },
@@ -25,13 +26,13 @@ const BusinessSchema = new mongoose.Schema(
     mapLink: { type: String, default: "" },
     mediaLink: { type: String, default: "" },
 
-    // ✅ Tracking arrays (used in /reports)
+    // ✅ Tracking arrays (حتى ما يرجع reports فاضي أو ينهار)
     views: { type: [EventSchema], default: [] },
     clicks: { type: [EventSchema], default: [] },
+    messages: { type: [EventSchema], default: [] },
     mediaViews: { type: [EventSchema], default: [] },
     mapClicks: { type: [EventSchema], default: [] },
     whatsappClicks: { type: [EventSchema], default: [] },
-    messages: { type: [EventSchema], default: [] },
   },
   { timestamps: true }
 );
