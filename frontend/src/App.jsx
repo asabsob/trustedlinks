@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 
+import AdminGuard from "./components/AdminGuard.jsx";
+
 /* 🌍 Public + User Pages */
 import Home from "./pages/Home.jsx";
 import Search from "./pages/Search.jsx";
@@ -147,6 +149,7 @@ export default function App() {
           <Route path="notifications" element={<AdminNotifications />} />
           <Route path="insights" element={<AdminAISummary />} />
           <Route path="settings" element={<AdminSettings />} />
+           <Route element={<AdminGuard />}>
         </Route>
 
         {/* ---------------- User Private Pages ---------------- */}
