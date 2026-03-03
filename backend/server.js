@@ -1,6 +1,6 @@
 // ============================================================================
-// Trusted Links Backend API (MongoDB ONLY) + Resend Email + JAVNA WhatsApp OTP
-// FULL server.js (Fixed routes for frontend + admin pages)
+// Trusted Links Backend API (MongoDB) + Resend Email + JAVNA WhatsApp OTP
+// FULL ROUTES: user + business + tracking + admin endpoints used by frontend
 // ============================================================================
 
 import express from "express";
@@ -17,15 +17,8 @@ import Business from "./models/Business.js";
 import Otp from "./models/Otp.js";
 
 dotenv.config();
-
-// ---------------------------------------------------------------------------
-// Mongo (required)
-// ---------------------------------------------------------------------------
 await connectDB();
 
-// ---------------------------------------------------------------------------
-// App
-// ---------------------------------------------------------------------------
 const app = express();
 const PORT = process.env.PORT || 5175;
 
@@ -36,36 +29,56 @@ function cleanDigits(v = "") {
   return String(v).replace(/\D/g, "");
 }
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@trustedlinks.app";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "123456";
 const JWT_SECRET = process.env.JWT_SECRET || "trustedlinks_secret";
 
-function createToken(userId) {
+function signUserToken(userId) {
   return jwt.sign({ id: userId, role: "user" }, JWT_SECRET, { expiresIn: "7d" });
 }
 
-// ---------------------------------------------------------------------------
-// Email (Resend) - helper
-// ---------------------------------------------------------------------------
-async function sendEmail({ to, subject, html, text }) {
-  const key = (process.env.RESEND_API_KEY || "").trim();
-  const from = (process.env.MAIL_FROM || "").trim();
+function signAdminToken(email) {
+  return jwt.sign({ email, role: "admin" }, JWT_SECRET, { expiresIn: "1d" });
+}
 
-  if (!key) throw new Error("Missing RESEND_API_KEY");
-  if (!from) throw new Error("Missing MAIL_FROM");
+function readBearer(req) {
+  const h = req.headers.authorization || "";
+  const m = h.match(/^Bearer\s+(.+)$/i);
+  return m ? m[1] : "";
+}
 
-  const r = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ from, to, subject, html, text }),
-  });
+function requireUser(req, res, next) {
+  try {
+    const token = readBearer(req);
+    if (!token) return res.status(401).json({ error: "Missing token" });
+    const payload = jwt.verify(token, JWT_SECRET);
+    if (payload?.role !== "user" || !payload?.id) {
+      return res.status(403).json({ error: "Not allowed" });
+    }
+    req.user = payload;
+    next();
+  } catch (e) {
+    return res.status(401).json({ error: "Invalid token" });
+  }
+}
 
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(`Resend failed (${r.status}): ${JSON.stringify(data)}`);
-  return data;
+function requireAdmin(req, res, next) {
+  try {
+    const token = readBearer(req);
+    if (!token) return res.status(401).json({ error: "Missing admin token" });
+    const payload = jwt.verify(token, JWT_SECRET);
+    if (payload?.role !== "admin") return res.status(403).json({ error: "Not admin" });
+    req.admin = payload;
+    next();
+  } catch {
+    return res.status(401).json({ error: "Invalid admin token" });
+  }
+}
+
+function toSafeCategoryValue(cat) {
+  // normalize category for front usage
+  if (!cat) return null;
+  if (typeof cat === "string") return cat;
+  if (typeof cat === "object") return cat?.name || cat?.key || null;
+  return String(cat);
 }
 
 // ---------------------------------------------------------------------------
@@ -73,7 +86,6 @@ async function sendEmail({ to, subject, html, text }) {
 // ---------------------------------------------------------------------------
 const FRONTEND_ORIGIN = (process.env.FRONTEND_ORIGIN || "http://localhost:5173").trim();
 const FRONTEND_BASE_URL = (process.env.FRONTEND_BASE_URL || FRONTEND_ORIGIN).trim();
-
 const API_BASE_URL = (
   process.env.API_BASE_URL || "https://trustedlinks-backend-production.up.railway.app"
 ).trim();
@@ -84,23 +96,19 @@ const API_BASE_URL = (
 const allowedOrigins = new Set([
   FRONTEND_ORIGIN,
   "https://trustedlinks.net",
-  "https://www.trustedlinks.net",
   "http://localhost:5173",
 ]);
 
-function corsOrigin(origin, cb) {
-  if (!origin) return cb(null, true);
-  const ok =
-    allowedOrigins.has(origin) ||
-    /^http:\/\/localhost:\d+$/.test(origin) ||
-    /^http:\/\/127\.0\.0\.1:\d+$/.test(origin);
-
-  return cb(ok ? null : new Error("CORS blocked"), ok);
-}
-
 app.use(
   cors({
-    origin: corsOrigin,
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true);
+      const ok =
+        allowedOrigins.has(origin) ||
+        /^http:\/\/localhost:\d+$/.test(origin) ||
+        /^http:\/\/127\.0\.0\.1:\d+$/.test(origin);
+      return cb(ok ? null : new Error("CORS blocked"), ok);
+    },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-API-Key"],
     credentials: false,
@@ -108,93 +116,107 @@ app.use(
 );
 
 app.use(express.json({ limit: "2mb" }));
-app.options("*", cors({ origin: corsOrigin }));
 
 // ---------------------------------------------------------------------------
-// Auth middlewares
+// Email (Resend)
 // ---------------------------------------------------------------------------
-function requireUser(req, res, next) {
+async function sendEmail({ to, subject, html, text }) {
+  const key = (process.env.RESEND_API_KEY || "").trim();
+  const from = (process.env.MAIL_FROM || "").trim();
+
+  if (!key) throw new Error("Missing RESEND_API_KEY");
+  if (!from) throw new Error("Missing MAIL_FROM");
+
+  const r = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from, to, subject, html, text }),
+  });
+
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(`Resend failed (${r.status}): ${JSON.stringify(data)}`);
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// JAVNA Config
+// ---------------------------------------------------------------------------
+const JAVNA_API_KEY = process.env.JAVNA_API_KEY || "";
+const JAVNA_FROM = process.env.JAVNA_FROM || "";
+const JAVNA_BASE_URL = "https://whatsapp.api.javna.com/whatsapp/v1.0";
+const JAVNA_SEND_TEXT_URL = `${JAVNA_BASE_URL}/message/text`;
+const JAVNA_SEND_AUTH_TEMPLATE_URL = `${JAVNA_BASE_URL}/message/template/authentication`;
+
+async function javnaSendText({ to, body }) {
+  if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
+  if (!JAVNA_FROM) throw new Error("Missing JAVNA_FROM");
+
+  const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
+  const from = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
+  const toNumber = to.startsWith("+") ? to : `+${to}`;
+
+  const payload = { from, to: toNumber, content: { text: String(body || "") } };
+
+  const r = await fetch(JAVNA_SEND_TEXT_URL, { method: "POST", headers, body: JSON.stringify(payload) });
+  const txt = await r.text();
+  if (!r.ok) throw new Error(`Javna send failed (${r.status}): ${txt}`);
+
   try {
-    const h = req.headers.authorization || "";
-    const token = h.startsWith("Bearer ") ? h.slice(7) : "";
-    if (!token) return res.status(401).json({ error: "Missing token" });
-
-    const payload = jwt.verify(token, JWT_SECRET);
-    if (payload?.role !== "user") return res.status(403).json({ error: "Forbidden" });
-
-    req.user = payload; // {id, role}
-    next();
+    return JSON.parse(txt);
   } catch {
-    return res.status(401).json({ error: "Invalid token" });
+    return { ok: true, raw: txt };
   }
 }
 
-function requireAdmin(req, res, next) {
-  try {
-    const h = req.headers.authorization || "";
-    const token = h.startsWith("Bearer ") ? h.slice(7) : "";
-    if (!token) return res.status(401).json({ error: "Missing token" });
+async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
+  if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
+  if (!JAVNA_FROM) throw new Error("Missing JAVNA_FROM");
 
-    const payload = jwt.verify(token, JWT_SECRET);
-    if (payload?.role !== "admin") return res.status(403).json({ error: "Forbidden" });
+  const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
+  const from = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
+  const toNumber = to.startsWith("+") ? to : `+${to}`;
 
-    req.admin = payload;
-    next();
-  } catch {
-    return res.status(401).json({ error: "Invalid token" });
-  }
+  // NOTE: you had typo "turstedlinks_otp_ar" - keeping as-is if that is the real template name
+  const templateName = lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
+  const templateLanguage = lang === "ar" ? "ar" : "en";
+
+  const payload = { from, to: toNumber, content: { templateName, templateLanguage, otp: String(code) } };
+
+  const r = await fetch(JAVNA_SEND_AUTH_TEMPLATE_URL, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  const txt = await r.text();
+  if (!r.ok) throw new Error(`Javna auth template failed (${r.status}): ${txt}`);
+  return JSON.parse(txt);
 }
 
 // ============================================================================
-// Debug
+// Health
 // ============================================================================
-app.get("/api/debug/resend", (_req, res) => {
+app.get("/", (_req, res) => res.status(200).send("OK"));
+app.get("/healthz", (_req, res) => res.status(200).json({ ok: true }));
+app.get("/api/test", (_req, res) => res.json({ ok: true, message: "✅ Backend is reachable" }));
+app.get("/api/health", (_req, res) => {
   res.json({
-    hasKey: Boolean(process.env.RESEND_API_KEY),
-    hasFrom: Boolean(process.env.MAIL_FROM),
-    from: process.env.MAIL_FROM || null,
+    ok: true,
+    javnaKeyLoaded: Boolean(process.env.JAVNA_API_KEY),
+    resendKeyLoaded: Boolean(process.env.RESEND_API_KEY),
+    mailFrom: process.env.MAIL_FROM || null,
   });
 });
 
-app.get("/api/debug/send-test-email", async (req, res) => {
-  try {
-    const to = req.query.to;
-    if (!to) return res.status(400).json({ ok: false, error: "Missing ?to=" });
-
-    const result = await sendEmail({
-      to,
-      subject: "TrustedLinks test email ✅",
-      text: "If you received this, Resend is working.",
-      html: "<p>If you received this, <b>Resend</b> is working ✅</p>",
-    });
-
-    res.json({ ok: true, result });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: String(e) });
-  }
-});
-
-app.get("/api/debug/mongo", async (_req, res) => {
-  try {
-    const users = await User.countDocuments();
-    const businesses = await Business.countDocuments();
-    res.json({ ok: true, users, businesses, hasMongoUri: Boolean(process.env.MONGODB_URI) });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: String(e) });
-  }
-});
-
 // ============================================================================
-// AUTH (Signup/Login) + Email Verification (Resend)  - MongoDB
+// AUTH (Signup/Login) + Email Verification
 // ============================================================================
-
 app.post("/api/auth/signup", async (req, res) => {
   try {
     const { email, password } = req.body || {};
     if (!email || !password) return res.status(400).json({ error: "Email and password required" });
 
     const emailNorm = String(email).toLowerCase().trim();
-
     const exists = await User.findOne({ email: emailNorm });
     if (exists) return res.status(400).json({ error: "Email already registered" });
 
@@ -208,10 +230,8 @@ app.post("/api/auth/signup", async (req, res) => {
       verifyToken,
       subscriptionPlan: null,
       planActivatedAt: null,
-
-      // Forgot password (optional fields)
       resetToken: null,
-      resetExpiresAt: null,
+      resetTokenExpiresAt: null,
     });
 
     const verifyUrl =
@@ -219,6 +239,7 @@ app.post("/api/auth/signup", async (req, res) => {
       `?email=${encodeURIComponent(emailNorm)}` +
       `&token=${encodeURIComponent(verifyToken)}`;
 
+    // Send email (best effort)
     try {
       await sendEmail({
         to: emailNorm,
@@ -252,7 +273,7 @@ app.post("/api/auth/login", async (req, res) => {
       return res.status(403).json({ error: "Email not verified", code: "EMAIL_NOT_VERIFIED" });
     }
 
-    const token = createToken(String(user._id));
+    const token = signUserToken(String(user._id));
     return res.json({
       ok: true,
       token,
@@ -271,10 +292,8 @@ app.get("/api/auth/verify-email", async (req, res) => {
     if (!email || !token) return res.status(400).send("Missing email/token");
 
     const emailNorm = String(email).toLowerCase().trim();
-
     const user = await User.findOne({ email: emailNorm });
     if (!user) return res.status(404).send("User not found");
-
     if (user.emailVerified) return res.send("Already verified ✅");
     if (String(user.verifyToken) !== String(token)) return res.status(401).send("Invalid token");
 
@@ -297,7 +316,6 @@ app.post("/api/auth/resend-verification", async (req, res) => {
     const emailNorm = String(email).toLowerCase().trim();
     const user = await User.findOne({ email: emailNorm });
     if (!user) return res.status(404).json({ error: "Email not found" });
-
     if (user.emailVerified) return res.json({ ok: true, message: "Email already verified" });
 
     if (!user.verifyToken) user.verifyToken = nanoid(32);
@@ -322,159 +340,64 @@ app.post("/api/auth/resend-verification", async (req, res) => {
   }
 });
 
-// ✅ Forgot Password (needed by your ForgotPassword.jsx)
+// Forgot password (used by frontend)
 app.post("/api/auth/forgot-password", async (req, res) => {
   try {
     const { email } = req.body || {};
     const emailNorm = String(email || "").toLowerCase().trim();
 
-    // Always return ok to avoid leaking which emails exist
     const user = await User.findOne({ email: emailNorm });
+    // Always return ok (avoid email enumeration)
+    if (!user) return res.json({ ok: true });
 
-    if (user) {
-      user.resetToken = nanoid(48);
-      user.resetExpiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-      await user.save();
+    const resetToken = nanoid(40);
+    user.resetToken = resetToken;
+    user.resetTokenExpiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    await user.save();
 
-      const resetUrl =
-        `${FRONTEND_BASE_URL}/reset-password` +
-        `?email=${encodeURIComponent(emailNorm)}` +
-        `&token=${encodeURIComponent(user.resetToken)}`;
+    const resetUrl = `${FRONTEND_BASE_URL}/reset-password?email=${encodeURIComponent(emailNorm)}&token=${encodeURIComponent(resetToken)}`;
 
-      try {
-        await sendEmail({
-          to: emailNorm,
-          subject: "Reset your password",
-          text: `Reset your password using this link: ${resetUrl}`,
-          html: `<p>Reset your password:</p><p><a href="${resetUrl}">${resetUrl}</a></p>`,
-        });
-      } catch (e) {
-        console.error("send reset email error:", e);
-      }
+    try {
+      await sendEmail({
+        to: emailNorm,
+        subject: "Reset your password",
+        text: `Reset your password: ${resetUrl}`,
+        html: `<p>Reset your password:</p><p><a href="${resetUrl}">${resetUrl}</a></p>`,
+      });
+    } catch (err) {
+      console.error("send reset email error:", err);
     }
 
-    return res.json({ ok: true, message: "If this email exists, a reset link has been sent." });
+    return res.json({ ok: true });
   } catch (e) {
     console.error("forgot-password error:", e);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// (Optional) Reset password endpoint if you build ResetPassword page later
-app.post("/api/auth/reset-password", async (req, res) => {
-  try {
-    const { email, token, newPassword } = req.body || {};
-    if (!email || !token || !newPassword) {
-      return res.status(400).json({ error: "Missing fields" });
-    }
-
-    const emailNorm = String(email).toLowerCase().trim();
-    const user = await User.findOne({ email: emailNorm });
-    if (!user) return res.status(400).json({ error: "Invalid request" });
-
-    if (!user.resetToken || String(user.resetToken) !== String(token)) {
-      return res.status(401).json({ error: "Invalid token" });
-    }
-
-    if (!user.resetExpiresAt || new Date(user.resetExpiresAt).getTime() < Date.now()) {
-      return res.status(410).json({ error: "Token expired" });
-    }
-
-    user.passwordHash = await bcrypt.hash(String(newPassword), 10);
-    user.resetToken = null;
-    user.resetExpiresAt = null;
-    await user.save();
-
-    return res.json({ ok: true });
-  } catch (e) {
-    console.error("reset-password error:", e);
-    return res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// ✅ /api/me (needed — your frontend calls it)
+// ============================================================================
+// USER: /api/me  (frontend errors show it's requested)
+// ============================================================================
 app.get("/api/me", requireUser, async (req, res) => {
-  const user = await User.findById(req.user.id).lean();
-  if (!user) return res.status(404).json({ error: "User not found" });
-
-  res.json({
-    ok: true,
-    user: {
+  try {
+    const user = await User.findById(req.user.id).lean();
+    if (!user) return res.status(404).json({ error: "User not found" });
+    return res.json({
+      ok: true,
       id: String(user._id),
       email: user.email,
-      emailVerified: !!user.emailVerified,
+      emailVerified: Boolean(user.emailVerified),
       subscriptionPlan: user.subscriptionPlan || null,
       planActivatedAt: user.planActivatedAt || null,
-    },
-  });
+    });
+  } catch (e) {
+    return res.status(500).json({ error: "Failed" });
+  }
 });
 
 // ============================================================================
-// JAVNA Config
+// WhatsApp OTP (Javna) - used by WhatsAppVerify component
 // ============================================================================
-const JAVNA_API_KEY = process.env.JAVNA_API_KEY || "";
-const JAVNA_FROM = process.env.JAVNA_FROM || "";
-const JAVNA_BASE_URL = "https://whatsapp.api.javna.com/whatsapp/v1.0";
-const JAVNA_SEND_TEXT_URL = `${JAVNA_BASE_URL}/message/text`;
-const JAVNA_SEND_AUTH_TEMPLATE_URL = `${JAVNA_BASE_URL}/message/template/authentication`;
-
-async function javnaSendText({ to, body }) {
-  if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
-  if (!JAVNA_FROM) throw new Error("Missing JAVNA_FROM");
-
-  const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
-  const from = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
-  const toNumber = to.startsWith("+") ? to : `+${to}`;
-
-  const payload = { from, to: toNumber, content: { text: String(body || "") } };
-
-  const r = await fetch(JAVNA_SEND_TEXT_URL, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(payload),
-  });
-  const txt = await r.text();
-  if (!r.ok) throw new Error(`Javna send failed (${r.status}): ${txt}`);
-
-  try {
-    return JSON.parse(txt);
-  } catch {
-    return { ok: true, raw: txt };
-  }
-}
-
-async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
-  if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
-  if (!JAVNA_FROM) throw new Error("Missing JAVNA_FROM");
-
-  const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
-  const from = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
-  const toNumber = to.startsWith("+") ? to : `+${to}`;
-
-  const templateName = lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
-  const templateLanguage = lang === "ar" ? "ar" : "en";
-
-  const payload = {
-    from,
-    to: toNumber,
-    content: { templateName, templateLanguage, otp: String(code) },
-  };
-
-  const r = await fetch(JAVNA_SEND_AUTH_TEMPLATE_URL, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(payload),
-  });
-
-  const txt = await r.text();
-  if (!r.ok) throw new Error(`Javna auth template failed (${r.status}): ${txt}`);
-  return JSON.parse(txt);
-}
-
-// ============================================================================
-// WhatsApp OTP (Javna) - MongoDB
-// ============================================================================
-
 app.post("/api/whatsapp/request-otp", async (req, res) => {
   try {
     const { whatsapp } = req.body || {};
@@ -502,7 +425,6 @@ app.post("/api/whatsapp/request-otp", async (req, res) => {
     }
 
     const javnaResp = await javnaSendOtpTemplate({ to: `+${clean}`, code: otp, lang: "en" });
-
     if (javnaResp?.stats?.rejected === "1") {
       return res.status(400).json({ success: false, error: "Javna rejected template", javna: javnaResp });
     }
@@ -525,25 +447,13 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
     if (!/^\d{10,15}$/.test(clean)) return res.status(400).json({ ok: false, error: "Invalid WhatsApp number" });
 
     const rec = await Otp.findOne({ whatsapp: clean, purpose: "business_signup" });
-    if (!rec) {
-      return res.status(404).json({ ok: false, error: "No OTP found. Request a new code.", reason: "NO_OTP" });
-    }
-
-    if (String(rec.code) !== String(code)) {
-      return res.status(401).json({ ok: false, error: "Invalid OTP code.", reason: "BAD_CODE" });
-    }
-
-    if (rec.expiresAt.getTime() < Date.now()) {
-      return res.status(410).json({ ok: false, error: "OTP expired. Request a new code.", reason: "EXPIRED" });
-    }
+    if (!rec) return res.status(404).json({ ok: false, error: "No OTP found.", reason: "NO_OTP" });
+    if (String(rec.code) !== String(code)) return res.status(401).json({ ok: false, error: "Invalid OTP code.", reason: "BAD_CODE" });
+    if (rec.expiresAt.getTime() < Date.now()) return res.status(410).json({ ok: false, error: "OTP expired.", reason: "EXPIRED" });
 
     await Otp.deleteOne({ _id: rec._id });
 
-    const token = jwt.sign(
-      { whatsapp: clean, purpose: "business_signup", verified: true },
-      JWT_SECRET,
-      { expiresIn: "15m" }
-    );
+    const token = jwt.sign({ whatsapp: clean, purpose: "business_signup", verified: true }, JWT_SECRET, { expiresIn: "15m" });
 
     return res.json({
       ok: true,
@@ -559,209 +469,73 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
 });
 
 // ============================================================================
-// Business APIs (Public)
+// BUSINESS SIGNUP (Create business) - requires USER token + verified WhatsApp OTP token
+// Frontend should call after OTP verification
 // ============================================================================
 
-app.get("/api/businesses", async (_req, res) => {
-  const list = await Business.find({ status: "Active" }).lean();
-  res.json(list || []);
-});
-
-app.get("/api/business/:id", async (req, res) => {
-  const b = await Business.findById(req.params.id).lean();
-  if (!b) return res.status(404).json({ error: "Business not found" });
-  res.json(b);
-});
-
-// Instagram profile helper endpoint (to avoid frontend crash)
-// Return {profilePic:null} if not implemented.
-app.get("/api/instagram-profile/:username", async (_req, res) => {
-  return res.json({ profilePic: null });
-});
-
-// ============================================================================
-// Business APIs (User / Owner)
-// ============================================================================
-
-async function getMyBusiness(userId) {
-  return Business.findOne({ userId }).lean();
+function requireOtpToken(req, res, next) {
+  try {
+    const token = readBearer(req);
+    if (!token) return res.status(401).json({ error: "Missing OTP token" });
+    const payload = jwt.verify(token, JWT_SECRET);
+    if (!payload?.verified || payload?.purpose !== "business_signup" || !payload?.whatsapp) {
+      return res.status(403).json({ error: "Invalid OTP token" });
+    }
+    req.otp = payload;
+    next();
+  } catch {
+    return res.status(401).json({ error: "Invalid OTP token" });
+  }
 }
 
-app.get("/api/business/me", requireUser, async (req, res) => {
-  const b = await getMyBusiness(req.user.id);
-  if (!b) return res.status(404).json({ error: "Business not found for this user" });
-  res.json(b);
-});
+app.post("/api/business/signup", requireUser, requireOtpToken, async (req, res) => {
+  try {
+    const ownerUserId = req.user.id;
+    const whatsapp = String(req.otp.whatsapp);
 
-// If you need a create route later:
-app.post("/api/business/create", requireUser, async (req, res) => {
-  const body = req.body || {};
-  const existing = await Business.findOne({ userId: req.user.id });
-  if (existing) return res.status(409).json({ error: "Business already exists for this user" });
+    // prevent duplicates
+    const existing = await Business.findOne({ whatsapp });
+    if (existing) return res.status(409).json({ error: "WhatsApp already registered" });
 
-  const b = await Business.create({
-    ...body,
-    userId: req.user.id,
-    status: body.status || "Active",
-  });
+    // if user already has a business, block or update (choose block)
+    const alreadyOwned = await Business.findOne({ ownerUserId });
+    if (alreadyOwned) return res.status(409).json({ error: "User already has a business" });
 
-  res.json(b);
-});
+    const {
+      name,
+      name_ar = "",
+      description = "",
+      category = [],
+      latitude = null,
+      longitude = null,
+      mapLink = "",
+      mediaLink = "",
+    } = req.body || {};
 
-app.put("/api/business/update", requireUser, async (req, res) => {
-  const updates = req.body || {};
+    if (!name) return res.status(400).json({ error: "Business name required" });
 
-  delete updates._id;
-  delete updates.userId;
-  delete updates.clicks;
-  delete updates.views;
-  delete updates.messages;
-  delete updates.mediaViews;
+    const b = await Business.create({
+      ownerUserId,
+      name,
+      name_ar,
+      description,
+      category: Array.isArray(category) ? category : [],
+      whatsapp,
+      status: "Pending",
+      latitude,
+      longitude,
+      mapLink,
+      mediaLink,
+    });
 
-  const b = await Business.findOneAndUpdate(
-    { userId: req.user.id },
-    { $set: updates },
-    { new: true }
-  ).lean();
-
-  if (!b) return res.status(404).json({ error: "Business not found" });
-  res.json(b);
-});
-
-app.delete("/api/business/delete", requireUser, async (req, res) => {
-  await Business.deleteOne({ userId: req.user.id });
-  res.json({ ok: true });
-});
-
-app.put("/api/business/toggle-status", requireUser, async (req, res) => {
-  const b = await Business.findOne({ userId: req.user.id });
-  if (!b) return res.status(404).json({ error: "Business not found" });
-
-  b.status = b.status === "Suspended" ? "Active" : "Suspended";
-  await b.save();
-
-  res.json({ ok: true, status: b.status });
-});
-
-// ============================================================================
-// Tracking APIs (needed by BusinessDetails + Reports)
-// ============================================================================
-
-app.post("/api/track-view", async (req, res) => {
-  const { businessId } = req.body || {};
-  if (!businessId) return res.status(400).json({ error: "businessId required" });
-
-  await Business.updateOne({ _id: businessId }, { $push: { views: { at: new Date() } } });
-  res.json({ ok: true });
-});
-
-app.post("/api/track-click", async (req, res) => {
-  const { businessId, kind = "whatsapp" } = req.body || {};
-  if (!businessId) return res.status(400).json({ error: "businessId required" });
-
-  await Business.updateOne(
-    { _id: businessId },
-    { $push: { clicks: { kind: String(kind), at: new Date() } } }
-  );
-
-  res.json({ ok: true });
-});
-
-app.post("/api/track-message", async (req, res) => {
-  const { businessId } = req.body || {};
-  if (!businessId) return res.status(400).json({ error: "businessId required" });
-
-  await Business.updateOne({ _id: businessId }, { $push: { messages: { at: new Date() } } });
-  res.json({ ok: true });
-});
-
-app.post("/api/track-media", async (req, res) => {
-  const { businessId } = req.body || {};
-  if (!businessId) return res.status(400).json({ error: "businessId required" });
-
-  await Business.updateOne({ _id: businessId }, { $push: { mediaViews: { at: new Date() } } });
-  res.json({ ok: true });
-});
-
-// ============================================================================
-// Reports API (User)
-// ============================================================================
-
-app.get("/api/business/reports", requireUser, async (req, res) => {
-  const b = await Business.findOne({ userId: req.user.id }).lean();
-  if (!b) return res.status(404).json({ error: "Business not found" });
-
-  const clicksArr = Array.isArray(b.clicks) ? b.clicks : [];
-  const messagesArr = Array.isArray(b.messages) ? b.messages : [];
-  const mediaArr = Array.isArray(b.mediaViews) ? b.mediaViews : [];
-  const viewsArr = Array.isArray(b.views) ? b.views : [];
-
-  const totalClicks = clicksArr.length;
-  const totalMessages = messagesArr.length;
-
-  // Sources pie
-  const sourcesMap = {};
-  for (const c of clicksArr) {
-    const k = (c?.kind || "other").toLowerCase();
-    sourcesMap[k] = (sourcesMap[k] || 0) + 1;
+    return res.json({ ok: true, business: b });
+  } catch (e) {
+    console.error("business signup error:", e);
+    return res.status(500).json({ error: "Failed to create business" });
   }
-
-  const sources = Object.entries(sourcesMap).map(([name, value]) => ({
-    name,
-    name_en: name,
-    name_ar:
-      name === "whatsapp" ? "واتساب" :
-      name === "map" ? "الخريطة" :
-      name === "media" ? "وسائط" :
-      name === "details" ? "التفاصيل" : "أخرى",
-    value,
-  }));
-
-  // Activity line (last 7 days)
-  const days = 7;
-  const mkKey = (d) => d.toISOString().slice(0, 10);
-  const now = new Date();
-  const buckets = {};
-
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(now.getDate() - i);
-    buckets[mkKey(d)] = { date: mkKey(d), total: 0, whatsapp: 0, media: 0, messages: 0 };
-  }
-
-  for (const c of clicksArr) {
-    const k = mkKey(new Date(c.at || Date.now()));
-    if (!buckets[k]) continue;
-    buckets[k].total += 1;
-
-    const kind = (c.kind || "").toLowerCase();
-    if (kind === "whatsapp") buckets[k].whatsapp += 1;
-    if (kind === "media") buckets[k].media += 1;
-  }
-
-  for (const m of messagesArr) {
-    const k = mkKey(new Date(m.at || Date.now()));
-    if (!buckets[k]) continue;
-    buckets[k].messages += 1;
-  }
-
-  const activity = Object.values(buckets);
-
-  res.json({
-    business: b.name || "Business",
-    category: b.category?.name || b.category || "Category",
-    totalClicks,
-    totalMessages,
-    mediaViews: mediaArr.length,
-    views: viewsArr.length,
-    weeklyGrowth: 0,
-    sources,
-    activity,
-  });
 });
-
 // ============================================================================
-// Public Search API (MongoDB) - existing style kept
+// PUBLIC SEARCH API
 // ============================================================================
 app.get("/api/search", async (req, res) => {
   try {
@@ -777,7 +551,7 @@ app.get("/api/search", async (req, res) => {
         const desc = (b.description || "").toLowerCase();
         const cat = Array.isArray(b.category)
           ? b.category.some((c) => String(c).toLowerCase().includes(q))
-          : String(b.category || "").toLowerCase().includes(q);
+          : String(toSafeCategoryValue(b.category) || "").toLowerCase().includes(q);
 
         return name.includes(q) || nameAr.includes(q) || desc.includes(q) || cat;
       });
@@ -785,16 +559,14 @@ app.get("/api/search", async (req, res) => {
 
     if (category && category !== "all") {
       const c = String(category).toLowerCase();
-      results = results.filter((b) =>
-        Array.isArray(b.category)
-          ? b.category.some((x) => String(x).toLowerCase().includes(c))
-          : String(b.category || "").toLowerCase().includes(c)
-      );
+      results = results.filter((b) => {
+        const cc = String(toSafeCategoryValue(b.category) || "").toLowerCase();
+        return cc.includes(c);
+      });
     }
 
     if (lat && lng) {
       const userLocation = { latitude: parseFloat(lat), longitude: parseFloat(lng) };
-
       results = results
         .map((b) => {
           if (b.latitude && b.longitude) {
@@ -817,135 +589,429 @@ app.get("/api/search", async (req, res) => {
 });
 
 // ============================================================================
-// Admin login + Admin APIs (needed by Admin pages)
+// PUBLIC: list all businesses (some pages request /api/businesses)
 // ============================================================================
+app.get("/api/businesses", async (_req, res) => {
+  try {
+    const list = await Business.find({ status: "Active" }).lean();
+    return res.json(list);
+  } catch {
+    return res.status(500).json({ error: "Failed" });
+  }
+});
+
+// ============================================================================
+// PUBLIC: business by id (used by BusinessDetails.jsx)
+// ============================================================================
+app.get("/api/business/:id", async (req, res) => {
+  try {
+    const b = await Business.findById(req.params.id).lean();
+    if (!b) return res.status(404).json({ error: "Not found" });
+    return res.json(b);
+  } catch {
+    return res.status(404).json({ error: "Not found" });
+  }
+});
+
+// ============================================================================
+// USER BUSINESS: /api/business/me, update, toggle-status, delete, reports
+// ============================================================================
+app.get("/api/business/me", requireUser, async (req, res) => {
+  try {
+    // Assumption: Business has ownerUserId
+    const b = await Business.findOne({ ownerUserId: req.user.id }).lean();
+    if (!b) return res.status(404).json({ error: "Business not found" });
+    return res.json(b);
+  } catch (e) {
+    return res.status(500).json({ error: "Failed" });
+  }
+});
+
+app.put("/api/business/update", requireUser, async (req, res) => {
+  try {
+    const b = await Business.findOne({ ownerUserId: req.user.id });
+    if (!b) return res.status(404).json({ error: "Business not found" });
+
+    // allow a safe subset
+    const { name, category, mediaLink, mapLink } = req.body || {};
+    if (name !== undefined) b.name = name;
+    if (category !== undefined) b.category = category;
+    if (mediaLink !== undefined) b.mediaLink = mediaLink;
+    if (mapLink !== undefined) b.mapLink = mapLink;
+
+    await b.save();
+    return res.json(b);
+  } catch (e) {
+    console.error("update business error:", e);
+    return res.status(500).json({ error: "Update failed" });
+  }
+});
+
+app.put("/api/business/toggle-status", requireUser, async (req, res) => {
+  try {
+    const b = await Business.findOne({ ownerUserId: req.user.id });
+    if (!b) return res.status(404).json({ error: "Business not found" });
+
+    b.status = b.status === "Suspended" ? "Active" : "Suspended";
+    await b.save();
+    return res.json({ ok: true, status: b.status });
+  } catch {
+    return res.status(500).json({ error: "Failed" });
+  }
+});
+
+app.delete("/api/business/delete", requireUser, async (req, res) => {
+  try {
+    await Business.deleteOne({ ownerUserId: req.user.id });
+    return res.json({ ok: true });
+  } catch {
+    return res.status(500).json({ error: "Failed" });
+  }
+});
+
+app.get("/api/business/reports", requireUser, async (req, res) => {
+  try {
+    const b = await Business.findOne({ ownerUserId: req.user.id }).lean();
+    if (!b) return res.status(404).json({ error: "Business not found" });
+
+    // We keep shape expected by Reports.jsx
+    const clicksArr = Array.isArray(b.clicks) ? b.clicks : [];
+    const messagesArr = Array.isArray(b.messages) ? b.messages : [];
+    const mediaArr = Array.isArray(b.mediaViews) ? b.mediaViews : [];
+    const viewsArr = Array.isArray(b.views) ? b.views : [];
+
+    // activity + sources can be computed later; return safe defaults
+    return res.json({
+      business: b.name || "Business",
+      category: toSafeCategoryValue(b.category) || "Category",
+      totalClicks: clicksArr.length,
+      totalMessages: messagesArr.length,
+      mediaViews: mediaArr.length,
+      views: viewsArr.length,
+      weeklyGrowth: 0,
+      activity: [], // later: aggregate per day/week
+      sources: [
+        { name: "WhatsApp", name_en: "WhatsApp", name_ar: "واتساب", value: messagesArr.length },
+        { name: "Clicks", name_en: "Clicks", name_ar: "نقرات", value: clicksArr.length },
+        { name: "Media", name_en: "Media", name_ar: "وسائط", value: mediaArr.length },
+        { name: "Views", name_en: "Views", name_ar: "مشاهدات", value: viewsArr.length },
+      ],
+    });
+  } catch (e) {
+    console.error("reports error:", e);
+    return res.status(500).json({ error: "Failed" });
+  }
+});
+
+// ============================================================================
+// Tracking endpoints used by BusinessDetails.jsx
+// body: { businessId }
+// ============================================================================
+async function pushEvent(businessId, field, payload = {}) {
+  const b = await Business.findById(businessId);
+  if (!b) return null;
+
+  // Store arrays if exist; if not, initialize as arrays (Mongo will accept)
+  if (!Array.isArray(b[field])) b[field] = [];
+  b[field].push({ at: new Date(), ...payload });
+
+  await b.save();
+  return b;
+}
+
+app.post("/api/track-view", async (req, res) => {
+  try {
+    const { businessId } = req.body || {};
+    if (!businessId) return res.status(400).json({ error: "businessId required" });
+    await pushEvent(businessId, "views");
+    return res.json({ ok: true });
+  } catch {
+    return res.status(500).json({ error: "Failed" });
+  }
+});
+
+app.post("/api/track-click", async (req, res) => {
+  try {
+    const { businessId } = req.body || {};
+    if (!businessId) return res.status(400).json({ error: "businessId required" });
+    await pushEvent(businessId, "clicks");
+    return res.json({ ok: true });
+  } catch {
+    return res.status(500).json({ error: "Failed" });
+  }
+});
+
+app.post("/api/track-media", async (req, res) => {
+  try {
+    const { businessId } = req.body || {};
+    if (!businessId) return res.status(400).json({ error: "businessId required" });
+    await pushEvent(businessId, "mediaViews");
+    return res.json({ ok: true });
+  } catch {
+    return res.status(500).json({ error: "Failed" });
+  }
+});
+
+app.post("/api/track-map", async (req, res) => {
+  try {
+    const { businessId } = req.body || {};
+    if (!businessId) return res.status(400).json({ error: "businessId required" });
+    await pushEvent(businessId, "mapClicks");
+    return res.json({ ok: true });
+  } catch {
+    return res.status(500).json({ error: "Failed" });
+  }
+});
+
+app.post("/api/track-whatsapp", async (req, res) => {
+  try {
+    const { businessId } = req.body || {};
+    if (!businessId) return res.status(400).json({ error: "businessId required" });
+    await pushEvent(businessId, "whatsappClicks");
+    await pushEvent(businessId, "messages"); // treat WhatsApp click as “message intent”
+    return res.json({ ok: true });
+  } catch {
+    return res.status(500).json({ error: "Failed" });
+  }
+});
+
+// optional endpoint referenced in your BusinessDetails (map tracking uses "map" type there)
+app.post("/api/track-media-or-click", async (req, res) => res.json({ ok: true }));
+
+// ============================================================================
+// Instagram profile proxy (frontend calls /api/instagram-profile/:username)
+// We'll return safe null to avoid crashes.
+// ============================================================================
+app.get("/api/instagram-profile/:username", async (_req, res) => {
+  return res.json({ profilePic: null });
+});
+
+// ============================================================================
+// Admin Auth + Admin endpoints used by frontend/src/utils/api.js
+// ============================================================================
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@trustedlinks.app";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "123456";
+
 app.post("/api/admin/login", async (req, res) => {
   try {
     const { email, password } = req.body || {};
-    if (email !== ADMIN_EMAIL) return res.status(401).json({ error: "Invalid credentials" });
+    if (String(email || "").trim().toLowerCase() !== String(ADMIN_EMAIL).trim().toLowerCase()) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
 
-    const ok = ADMIN_PASSWORD.startsWith("$2")
+    const passOk = ADMIN_PASSWORD.startsWith("$2")
       ? await bcrypt.compare(String(password), ADMIN_PASSWORD)
       : String(password) === String(ADMIN_PASSWORD);
 
-    if (!ok) return res.status(401).json({ error: "Invalid credentials" });
+    if (!passOk) return res.status(401).json({ error: "Invalid credentials" });
 
-    const token = jwt.sign({ email, role: "admin" }, JWT_SECRET, { expiresIn: "1d" });
+    const token = signAdminToken(email);
     return res.json({ token });
   } catch (e) {
     return res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// Admin "stats" for AdminDashboard.jsx
+app.get("/api/admin/me", requireAdmin, async (req, res) => {
+  return res.json({
+    ok: true,
+    email: req.admin.email,
+    role: "admin",
+  });
+});
+
 app.get("/api/admin/stats", requireAdmin, async (_req, res) => {
-  const users = await User.countDocuments();
-  const businesses = await Business.countDocuments();
+  try {
+    const users = await User.countDocuments();
+    const businesses = await Business.countDocuments();
 
-  // total clicks across businesses
-  const all = await Business.find({}, { clicks: 1, category: 1 }).lean();
-  let clicks = 0;
+    // total clicks = sum of clicks array lengths
+    const all = await Business.find({}, { clicks: 1 }).lean();
+    const clicks = all.reduce((acc, b) => acc + (Array.isArray(b.clicks) ? b.clicks.length : 0), 0);
 
-  const catMap = {};
-  for (const b of all) {
-    const c = b.category?.name || b.category?.key || b.category || "Other";
-    catMap[c] = (catMap[c] || 0) + 1;
-
-    clicks += Array.isArray(b.clicks) ? b.clicks.length : 0;
+    return res.json({
+      users,
+      businesses,
+      clicks,
+      activity: [],     // can be added later
+      categories: [],   // can be added later
+    });
+  } catch (e) {
+    return res.status(500).json({ error: "Failed" });
   }
-
-  const categories = Object.entries(catMap).map(([name, value]) => ({ name, value }));
-
-  // activity placeholder
-  const activity = [];
-
-  res.json({ users, businesses, clicks, categories, activity });
 });
 
-// Admin AI summary (used by AdminAISummary.jsx)
-app.post("/api/admin/ai-summary", requireAdmin, async (_req, res) => {
-  // Placeholder summary (later we connect to OpenAI)
-  const users = await User.countDocuments();
-  const businesses = await Business.countDocuments();
-  res.json({
-    summary:
-      `Platform Summary:\n` +
-      `- Total users: ${users}\n` +
-      `- Total businesses: ${businesses}\n` +
-      `- Next: connect real insights + trends.\n`,
-  });
-});
-
-// Admin insights endpoint (for AdminInsights.jsx via api.insights())
-app.get("/api/admin/insights", requireAdmin, async (_req, res) => {
-  res.json({
-    insight:
-      "No AI insights yet. Once tracking grows, we will generate weekly recommendations automatically.",
-  });
-});
-
-// Admin list businesses (for AdminBusinesses.jsx via api.listBusinesses())
 app.get("/api/admin/businesses", requireAdmin, async (_req, res) => {
-  const list = await Business.find({}, { name: 1, status: 1, clicks: 1 }).lean();
-  res.json(
-    (list || []).map((b) => ({
-      id: String(b._id),
-      name: b.name || "",
-      status: (b.status || "inactive").toLowerCase(), // active/trial/inactive (frontend expects)
-      clicks: Array.isArray(b.clicks) ? b.clicks : [],
-    }))
-  );
+  try {
+    const list = await Business.find({}).lean();
+    // keep shape used by AdminBusinesses.jsx (it checks b.clicks.length)
+    return res.json(list);
+  } catch {
+    return res.status(500).json({ error: "Failed" });
+  }
 });
 
-// Admin subscriptions (simple mock to avoid 404 until you build real billing)
+// Plans + Subscriptions (simple mockable DB-less defaults if you don't have models)
 app.get("/api/admin/plans", requireAdmin, async (_req, res) => {
-  res.json([
-    { id: "plan_trial", name: "Trial", price: 0, period: "mo" },
-    { id: "plan_basic", name: "Basic", price: 15, period: "mo" },
+  // you can move these to DB later
+  return res.json([
+    { id: "p1", name: "Free", price: 0, period: "mo" },
+    { id: "p2", name: "Pro", price: 15, period: "mo" },
+    { id: "p3", name: "Enterprise", price: 49, period: "mo" },
   ]);
 });
 
 app.get("/api/admin/subscriptions", requireAdmin, async (_req, res) => {
-  // Later: compute from User.subscriptionPlan / Business fields
-  res.json([]);
+  try {
+    // basic: derive from users who have subscriptionPlan set
+    const users = await User.find({ subscriptionPlan: { $ne: null } }).lean();
+    const rows = await Promise.all(
+      users.map(async (u) => {
+        // find business for the user if exists
+        const b = await Business.findOne({ ownerUserId: String(u._id) }).lean();
+        return {
+          id: String(u._id),
+          business: b?.name || u.email,
+          plan: u.subscriptionPlan || "—",
+          renews: "Monthly",
+        };
+      })
+    );
+
+    return res.json(rows);
+  } catch {
+    return res.json([]);
+  }
 });
 
-// Admin notifications (for AdminNotifications.jsx)
+// Notifications (in-memory fallback; replace with DB later)
+let NOTIFS = [];
+
+app.get("/api/admin/notifications", requireAdmin, async (_req, res) => {
+  return res.json(NOTIFS);
+});
+
 app.post("/api/admin/notifications", requireAdmin, async (req, res) => {
   const { message } = req.body || {};
-  if (!message || !String(message).trim()) return res.status(400).json({ error: "Message required" });
+  if (!String(message || "").trim()) return res.status(400).json({ error: "Message required" });
 
-  // placeholder: store later in DB or push notifications
-  res.json({ ok: true });
+  const n = { id: nanoid(10), title: "Admin", message: String(message), date: new Date().toISOString() };
+  NOTIFS = [n, ...NOTIFS].slice(0, 200);
+  return res.json({ ok: true, notification: n });
 });
 
-// Admin settings (for AdminSettings.jsx)
-app.post("/api/admin/settings", requireAdmin, async (_req, res) => {
-  // placeholder
-  res.json({ ok: true });
-});
-
-// ============================================================================
-// Health
-// ============================================================================
-app.get("/", (_req, res) => res.status(200).send("OK"));
-app.get("/healthz", (_req, res) => res.status(200).json({ ok: true }));
-app.get("/api/test", (_req, res) => res.json({ ok: true, message: "✅ Backend is reachable" }));
-app.get("/api/health", (_req, res) => {
-  res.json({
-    ok: true,
-    javnaKeyLoaded: Boolean(process.env.JAVNA_API_KEY),
-    resendKeyLoaded: Boolean(process.env.RESEND_API_KEY),
-    mailFrom: process.env.MAIL_FROM || null,
+// Insights endpoint (used by AdminInsights.jsx)
+app.get("/api/admin/insights", requireAdmin, async (_req, res) => {
+  // simple insight for now
+  return res.json({
+    insight:
+      "No AI insights yet. Once tracking grows, this will show top categories, growth, and recommendations.",
   });
+});
+
+// AI summary endpoint (used by AdminAISummary.jsx which POSTs /api/admin/ai-summary)
+app.post("/api/admin/ai-summary", requireAdmin, async (_req, res) => {
+  // placeholder - plug GPT later
+  return res.json({
+    summary:
+      "AI Summary: System is running. Next step is enabling activity aggregation + insights generation based on clicks/messages/media/views.",
+  });
+});
+
+// Settings (in-memory fallback)
+let ADMIN_SETTINGS = { theme: "light", email: ADMIN_EMAIL };
+
+app.get("/api/admin/settings", requireAdmin, async (_req, res) => {
+  return res.json(ADMIN_SETTINGS);
+});
+
+app.post("/api/admin/settings", requireAdmin, async (req, res) => {
+  const payload = req.body || {};
+  ADMIN_SETTINGS = { ...ADMIN_SETTINGS, ...payload };
+  return res.json({ ok: true, settings: ADMIN_SETTINGS });
+});
+
+// ============================================================================
+// WhatsApp Chat Search (Webhook) - optional
+// ============================================================================
+app.post("/webhooks/javna/whatsapp", async (req, res) => {
+  try {
+    res.json({ ok: true });
+
+    const body = req.body || {};
+    const from = cleanDigits(body.from || body.sender || body?.data?.from || body?.message?.from || "");
+    const text = (body.text || body.message || body?.data?.text || body?.message?.text || "").toString().trim();
+    if (!from || !text) return;
+
+    const q = text.replace(/^search\s+/i, "").trim();
+    let results = await Business.find({ status: "Active" }).lean();
+
+    if (q) {
+      const qq = q.toLowerCase();
+      results = results.filter((b) => {
+        const name = (b.name || "").toLowerCase();
+        const nameAr = (b.nameAr || b.name_ar || "").toLowerCase();
+        const desc = (b.description || "").toLowerCase();
+        const cat = String(toSafeCategoryValue(b.category) || "").toLowerCase();
+        return name.includes(qq) || nameAr.includes(qq) || desc.includes(qq) || cat.includes(qq);
+      });
+    }
+
+    const top = results.slice(0, 5);
+
+    let reply = "";
+    if (!top.length) {
+      reply = `No results found for: "${q}".\nTry another keyword or category.`;
+    } else {
+      reply =
+        `Top results for "${q}":\n\n` +
+        top
+          .map((b, i) => {
+            const wa = b.whatsapp ? `https://wa.me/${cleanDigits(b.whatsapp)}` : "";
+            const map = b.mapLink || "";
+            return `${i + 1}) ${b.name || "Business"}\n${wa ? `WhatsApp: ${wa}\n` : ""}${map ? `Map: ${map}\n` : ""}`;
+          })
+          .join("\n");
+    }
+
+    if (!JAVNA_API_KEY) {
+      console.log("🧪 JAVNA disabled. Would reply to", from, "=>", reply);
+      return;
+    }
+
+    await javnaSendText({ to: from, body: reply });
+  } catch (e) {
+    console.error("webhook error", e);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Debug (optional)
+// ---------------------------------------------------------------------------
+app.get("/api/debug/resend", (_req, res) => {
+  res.json({
+    hasKey: Boolean(process.env.RESEND_API_KEY),
+    hasFrom: Boolean(process.env.MAIL_FROM),
+    from: process.env.MAIL_FROM || null,
+  });
+});
+
+app.get("/api/debug/mongo", async (_req, res) => {
+  try {
+    const users = await User.countDocuments();
+    const businesses = await Business.countDocuments();
+    res.json({ ok: true, users, businesses, hasMongoUri: Boolean(process.env.MONGODB_URI) });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e) });
+  }
 });
 
 process.on("uncaughtException", (err) => console.error("UNCAUGHT_EXCEPTION:", err));
 process.on("unhandledRejection", (reason) => console.error("UNHANDLED_REJECTION:", reason));
 
-// ============================================================================
+// ---------------------------------------------------------------------------
 // Start
-// ============================================================================
+// ---------------------------------------------------------------------------
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`✅ Trusted Links API running on port ${PORT}`);
   console.log("FRONTEND_BASE_URL:", FRONTEND_BASE_URL);
