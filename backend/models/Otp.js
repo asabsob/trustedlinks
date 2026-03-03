@@ -10,7 +10,7 @@ const OtpSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ⏳ TTL index — يحذف تلقائيًا بعد انتهاء الوقت
+// ⏳ TTL index — delete after expiresAt
 OtpSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export default mongoose.models.Otp || mongoose.model("Otp", OtpSchema);
