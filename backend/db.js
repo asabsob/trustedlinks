@@ -1,21 +1,10 @@
-// backend/db.js
 import mongoose from "mongoose";
 
-let isConnected = false;
-
 export async function connectDB() {
-  const uri = (process.env.MONGODB_URI || "").trim();
+  const uri = process.env.MONGODB_URI;
   if (!uri) throw new Error("Missing MONGODB_URI");
 
-  if (isConnected) return mongoose.connection;
-
   mongoose.set("strictQuery", true);
-
-  await mongoose.connect(uri, {
-    serverSelectionTimeoutMS: 15000,
-  });
-
-  isConnected = true;
+  await mongoose.connect(uri);
   console.log("✅ MongoDB connected");
-  return mongoose.connection;
 }
