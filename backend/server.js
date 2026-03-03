@@ -404,20 +404,16 @@ app.get("/api/me", requireUser, async (req, res) => {
 app.post("/api/subscribe", requireUser, async (req, res) => {
   try {
     const { plan } = req.body || {};
-    const planNorm = String(plan || "").trim() || "monthly";
+    const p = String(plan || "monthly").trim();
 
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    user.subscriptionPlan = planNorm;
+    user.subscriptionPlan = p;
     user.planActivatedAt = new Date();
     await user.save();
 
-    return res.json({
-      ok: true,
-      subscriptionPlan: user.subscriptionPlan,
-      planActivatedAt: user.planActivatedAt,
-    });
+    return res.json({ ok: true, subscriptionPlan: user.subscriptionPlan, planActivatedAt: user.planActivatedAt });
   } catch (e) {
     console.error("subscribe error:", e);
     return res.status(500).json({ error: "Subscription failed" });
