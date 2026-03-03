@@ -1,6 +1,7 @@
+// backend/server.js
 // ============================================================================
 // Trusted Links Backend API (MongoDB) + Resend Email + JAVNA WhatsApp OTP
-// FULL ROUTES: user + business + tracking + admin endpoints used by frontend
+// FULL ROUTES: user + business + tracking + subscribe + admin endpoints
 // ============================================================================
 
 import express from "express";
@@ -29,7 +30,7 @@ function cleanDigits(v = "") {
   return String(v).replace(/\D/g, "");
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || "trustedlinks_secret";
+const JWT_SECRET = (process.env.JWT_SECRET || "trustedlinks_secret").trim();
 
 function signUserToken(userId) {
   return jwt.sign({ id: userId, role: "user" }, JWT_SECRET, { expiresIn: "7d" });
@@ -50,12 +51,10 @@ function requireUser(req, res, next) {
     const token = readBearer(req);
     if (!token) return res.status(401).json({ error: "Missing token" });
     const payload = jwt.verify(token, JWT_SECRET);
-    if (payload?.role !== "user" || !payload?.id) {
-      return res.status(403).json({ error: "Not allowed" });
-    }
+    if (payload?.role !== "user" || !payload?.id) return res.status(403).json({ error: "Not allowed" });
     req.user = payload;
     next();
-  } catch (e) {
+  } catch {
     return res.status(401).json({ error: "Invalid token" });
   }
 }
@@ -74,18 +73,19 @@ function requireAdmin(req, res, next) {
 }
 
 function toSafeCategoryValue(cat) {
-  if (!cat) return null;
-  if (typeof cat === "string") return cat;
+  if (!cat) return "";
   if (Array.isArray(cat)) return cat.join(", ");
-  if (typeof cat === "object") return cat?.name || cat?.key || null;
+  if (typeof cat === "string") return cat;
+  if (typeof cat === "object") return cat?.name || cat?.key || "";
   return String(cat);
 }
 
 // ---------------------------------------------------------------------------
-// Public/Base URLs
+// URLs
 // ---------------------------------------------------------------------------
 const FRONTEND_ORIGIN = (process.env.FRONTEND_ORIGIN || "http://localhost:5173").trim();
 const FRONTEND_BASE_URL = (process.env.FRONTEND_BASE_URL || FRONTEND_ORIGIN).trim();
+
 const API_BASE_URL = (
   process.env.API_BASE_URL || "https://trustedlinks-backend-production.up.railway.app"
 ).trim();
@@ -154,6 +154,7 @@ async function javnaSendText({ to, body }) {
   const headers = { "Content-Type": "application/json", "X-API-Key": JAVNA_API_KEY };
   const from = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
   const toNumber = to.startsWith("+") ? to : `+${to}`;
+
   const payload = { from, to: toNumber, content: { text: String(body || "") } };
 
   const r = await fetch(JAVNA_SEND_TEXT_URL, { method: "POST", headers, body: JSON.stringify(payload) });
@@ -175,7 +176,7 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   const from = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
   const toNumber = to.startsWith("+") ? to : `+${to}`;
 
-  // NOTE: keep your actual template names
+  // إذا قالبك فعلاً اسمه (turstedlinks_otp_ar) خليه مثل ما هو
   const templateName = lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
   const templateLanguage = lang === "ar" ? "ar" : "en";
 
@@ -277,6 +278,7 @@ app.post("/api/auth/login", async (req, res) => {
       token,
       subscriptionPlan: user.subscriptionPlan,
       planActivatedAt: user.planActivatedAt,
+      email: user.email,
     });
   } catch (e) {
     console.error("login error", e);
@@ -338,23 +340,23 @@ app.post("/api/auth/resend-verification", async (req, res) => {
   }
 });
 
-// Forgot password
 app.post("/api/auth/forgot-password", async (req, res) => {
   try {
     const { email } = req.body || {};
     const emailNorm = String(email || "").toLowerCase().trim();
 
     const user = await User.findOne({ email: emailNorm });
-    if (!user) return res.json({ ok: true }); // don't reveal
+    if (!user) return res.json({ ok: true });
 
     const resetToken = nanoid(40);
     user.resetToken = resetToken;
-    user.resetTokenExpiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    user.resetTokenExpiresAt = new Date(Date.now() + 60 * 60 * 1000);
     await user.save();
 
-    const resetUrl = `${FRONTEND_BASE_URL}/reset-password?email=${encodeURIComponent(
-      emailNorm
-    )}&token=${encodeURIComponent(resetToken)}`;
+    const resetUrl =
+      `${FRONTEND_BASE_URL}/reset-password` +
+      `?email=${encodeURIComponent(emailNorm)}` +
+      `&token=${encodeURIComponent(resetToken)}`;
 
     try {
       await sendEmail({
@@ -375,12 +377,13 @@ app.post("/api/auth/forgot-password", async (req, res) => {
 });
 
 // ============================================================================
-// USER: /api/me
+// USER: /api/me  (الفرونت بيطلبه)
 // ============================================================================
 app.get("/api/me", requireUser, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).lean();
     if (!user) return res.status(404).json({ error: "User not found" });
+
     return res.json({
       ok: true,
       id: String(user._id),
@@ -395,20 +398,13 @@ app.get("/api/me", requireUser, async (req, res) => {
 });
 
 // ============================================================================
-// SUBSCRIBE (Frontend calls POST /api/subscribe)
-// Updates user.subscriptionPlan + planActivatedAt
+// SUBSCRIBE: /api/subscribe  (عندك 404 بالصورة)
+// body: { plan: "monthly" } مثلاً
 // ============================================================================
 app.post("/api/subscribe", requireUser, async (req, res) => {
   try {
-    // frontend may send: { plan }, { planId }, { subscriptionPlan }
-    const plan =
-      req.body?.plan ||
-      req.body?.planId ||
-      req.body?.subscriptionPlan ||
-      "Pro";
-
-    const planNorm = String(plan).trim();
-    if (!planNorm) return res.status(400).json({ error: "Plan is required" });
+    const { plan } = req.body || {};
+    const planNorm = String(plan || "").trim() || "monthly";
 
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ error: "User not found" });
@@ -421,15 +417,15 @@ app.post("/api/subscribe", requireUser, async (req, res) => {
       ok: true,
       subscriptionPlan: user.subscriptionPlan,
       planActivatedAt: user.planActivatedAt,
-      message: "Subscription activated",
     });
   } catch (e) {
     console.error("subscribe error:", e);
     return res.status(500).json({ error: "Subscription failed" });
   }
 });
+
 // ============================================================================
-// WhatsApp OTP (Javna)
+// WhatsApp OTP (Javna) - used by WhatsAppVerify component
 // ============================================================================
 app.post("/api/whatsapp/request-otp", async (req, res) => {
   try {
@@ -472,9 +468,7 @@ app.post("/api/whatsapp/request-otp", async (req, res) => {
 app.post("/api/whatsapp/verify-otp", async (req, res) => {
   try {
     const { whatsapp, code } = req.body || {};
-    if (!whatsapp || !code) {
-      return res.status(400).json({ ok: false, error: "WhatsApp number and code are required" });
-    }
+    if (!whatsapp || !code) return res.status(400).json({ ok: false, error: "WhatsApp number and code are required" });
 
     const clean = cleanDigits(whatsapp);
     if (!/^\d{10,15}$/.test(clean)) return res.status(400).json({ ok: false, error: "Invalid WhatsApp number" });
@@ -486,7 +480,11 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
 
     await Otp.deleteOne({ _id: rec._id });
 
-    const token = jwt.sign({ whatsapp: clean, purpose: "business_signup", verified: true }, JWT_SECRET, { expiresIn: "15m" });
+    const token = jwt.sign(
+      { whatsapp: clean, purpose: "business_signup", verified: true },
+      JWT_SECRET,
+      { expiresIn: "15m" }
+    );
 
     return res.json({
       ok: true,
@@ -502,7 +500,7 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
 });
 
 // ============================================================================
-// BUSINESS SIGNUP - requires USER token + OTP token
+// BUSINESS SIGNUP (Create business) - requires USER token + OTP token
 // ============================================================================
 function requireOtpToken(req, res, next) {
   try {
@@ -519,9 +517,11 @@ function requireOtpToken(req, res, next) {
   }
 }
 
+// ملاحظة: الفرونت لازم يرسل OTP token في Authorization: Bearer <otpToken>
+// لو عندك نفس هيدر المستخدم، اعمل هالنداء مباشرة بعد verify-otp.
 app.post("/api/business/signup", requireUser, requireOtpToken, async (req, res) => {
   try {
-    const ownerUserId = req.user.id;
+    const ownerUserId = String(req.user.id);
     const whatsapp = String(req.otp.whatsapp);
 
     const existing = await Business.findOne({ whatsapp });
@@ -555,7 +555,7 @@ app.post("/api/business/signup", requireUser, requireOtpToken, async (req, res) 
       longitude,
       mapLink,
       mediaLink,
-      // tracking arrays auto default
+      // tracking arrays default in schema
     });
 
     return res.json({ ok: true, business: b });
@@ -566,7 +566,7 @@ app.post("/api/business/signup", requireUser, requireOtpToken, async (req, res) 
 });
 
 // ============================================================================
-// PUBLIC SEARCH API
+// PUBLIC SEARCH + PUBLIC business endpoints
 // ============================================================================
 app.get("/api/search", async (req, res) => {
   try {
@@ -580,19 +580,16 @@ app.get("/api/search", async (req, res) => {
         const name = (b.name || "").toLowerCase();
         const nameAr = (b.name_ar || b.nameAr || "").toLowerCase();
         const desc = (b.description || "").toLowerCase();
-        const cat = Array.isArray(b.category)
-          ? b.category.some((c) => String(c).toLowerCase().includes(q))
-          : String(toSafeCategoryValue(b.category) || "").toLowerCase().includes(q);
-
-        return name.includes(q) || nameAr.includes(q) || desc.includes(q) || cat;
+        const catStr = Array.isArray(b.category) ? b.category.join(" ").toLowerCase() : toSafeCategoryValue(b.category).toLowerCase();
+        return name.includes(q) || nameAr.includes(q) || desc.includes(q) || catStr.includes(q);
       });
     }
 
     if (category && category !== "all") {
       const c = String(category).toLowerCase();
       results = results.filter((b) => {
-        const cc = Array.isArray(b.category) ? b.category.join(" ").toLowerCase() : String(toSafeCategoryValue(b.category) || "").toLowerCase();
-        return cc.includes(c);
+        const catStr = Array.isArray(b.category) ? b.category.join(" ").toLowerCase() : toSafeCategoryValue(b.category).toLowerCase();
+        return catStr.includes(c);
       });
     }
 
@@ -601,10 +598,7 @@ app.get("/api/search", async (req, res) => {
       results = results
         .map((b) => {
           if (b.latitude && b.longitude) {
-            const distance = geolib.getDistance(userLocation, {
-              latitude: parseFloat(b.latitude),
-              longitude: parseFloat(b.longitude),
-            });
+            const distance = geolib.getDistance(userLocation, { latitude: b.latitude, longitude: b.longitude });
             return { ...b, distance };
           }
           return { ...b, distance: null };
@@ -619,9 +613,6 @@ app.get("/api/search", async (req, res) => {
   }
 });
 
-// ============================================================================
-// PUBLIC: list all businesses
-// ============================================================================
 app.get("/api/businesses", async (_req, res) => {
   try {
     const list = await Business.find({ status: "Active" }).lean();
@@ -631,9 +622,6 @@ app.get("/api/businesses", async (_req, res) => {
   }
 });
 
-// ============================================================================
-// PUBLIC: business by id
-// ============================================================================
 app.get("/api/business/:id", async (req, res) => {
   try {
     const b = await Business.findById(req.params.id).lean();
@@ -645,11 +633,11 @@ app.get("/api/business/:id", async (req, res) => {
 });
 
 // ============================================================================
-// USER BUSINESS: /api/business/me + update + toggle-status + delete + reports
+// USER BUSINESS: /api/business/me, update, reports
 // ============================================================================
 app.get("/api/business/me", requireUser, async (req, res) => {
   try {
-    const b = await Business.findOne({ ownerUserId: req.user.id }).lean();
+    const b = await Business.findOne({ ownerUserId: String(req.user.id) }).lean();
     if (!b) return res.status(404).json({ error: "Business not found" });
     return res.json(b);
   } catch {
@@ -659,7 +647,7 @@ app.get("/api/business/me", requireUser, async (req, res) => {
 
 app.put("/api/business/update", requireUser, async (req, res) => {
   try {
-    const b = await Business.findOne({ ownerUserId: req.user.id });
+    const b = await Business.findOne({ ownerUserId: String(req.user.id) });
     if (!b) return res.status(404).json({ error: "Business not found" });
 
     const { name, category, mediaLink, mapLink, description, name_ar } = req.body || {};
@@ -671,38 +659,16 @@ app.put("/api/business/update", requireUser, async (req, res) => {
     if (mapLink !== undefined) b.mapLink = mapLink;
 
     await b.save();
-    return res.json(b);
+    return res.json({ ok: true, business: b });
   } catch (e) {
     console.error("update business error:", e);
     return res.status(500).json({ error: "Update failed" });
   }
 });
 
-app.put("/api/business/toggle-status", requireUser, async (req, res) => {
-  try {
-    const b = await Business.findOne({ ownerUserId: req.user.id });
-    if (!b) return res.status(404).json({ error: "Business not found" });
-
-    b.status = b.status === "Suspended" ? "Active" : "Suspended";
-    await b.save();
-    return res.json({ ok: true, status: b.status });
-  } catch {
-    return res.status(500).json({ error: "Failed" });
-  }
-});
-
-app.delete("/api/business/delete", requireUser, async (req, res) => {
-  try {
-    await Business.deleteOne({ ownerUserId: req.user.id });
-    return res.json({ ok: true });
-  } catch {
-    return res.status(500).json({ error: "Failed" });
-  }
-});
-
 app.get("/api/business/reports", requireUser, async (req, res) => {
   try {
-    const b = await Business.findOne({ ownerUserId: req.user.id }).lean();
+    const b = await Business.findOne({ ownerUserId: String(req.user.id) }).lean();
     if (!b) return res.status(404).json({ error: "Business not found" });
 
     const clicksArr = Array.isArray(b.clicks) ? b.clicks : [];
@@ -712,7 +678,7 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
 
     return res.json({
       business: b.name || "Business",
-      category: Array.isArray(b.category) ? (b.category[0] || "Category") : (toSafeCategoryValue(b.category) || "Category"),
+      category: Array.isArray(b.category) ? b.category.join(", ") : toSafeCategoryValue(b.category) || "Category",
       totalClicks: clicksArr.length,
       totalMessages: messagesArr.length,
       mediaViews: mediaArr.length,
@@ -720,10 +686,10 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
       weeklyGrowth: 0,
       activity: [],
       sources: [
-        { name: "WhatsApp", name_en: "WhatsApp", name_ar: "واتساب", value: messagesArr.length },
-        { name: "Clicks", name_en: "Clicks", name_ar: "نقرات", value: clicksArr.length },
-        { name: "Media", name_en: "Media", name_ar: "وسائط", value: mediaArr.length },
-        { name: "Views", name_en: "Views", name_ar: "مشاهدات", value: viewsArr.length },
+        { name_en: "WhatsApp", name_ar: "واتساب", value: messagesArr.length },
+        { name_en: "Clicks", name_ar: "نقرات", value: clicksArr.length },
+        { name_en: "Media", name_ar: "وسائط", value: mediaArr.length },
+        { name_en: "Views", name_ar: "مشاهدات", value: viewsArr.length },
       ],
     });
   } catch (e) {
@@ -741,7 +707,7 @@ async function pushEvent(businessId, field, payload = {}) {
   if (!b) return null;
 
   if (!Array.isArray(b[field])) b[field] = [];
-  b[field].push({ at: new Date(), meta: payload || {} });
+  b[field].push({ at: new Date(), ...payload });
 
   await b.save();
   return b;
@@ -803,15 +769,12 @@ app.post("/api/track-whatsapp", async (req, res) => {
   }
 });
 
-// ============================================================================
-// Instagram profile proxy (safe fallback)
-// ============================================================================
 app.get("/api/instagram-profile/:username", async (_req, res) => {
   return res.json({ profilePic: null });
 });
 
 // ============================================================================
-// ADMIN Auth + Endpoints
+// Admin Auth + Admin endpoints used by frontend/src/utils/api.js
 // ============================================================================
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@trustedlinks.app";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "123456";
@@ -858,6 +821,16 @@ app.get("/api/admin/businesses", requireAdmin, async (_req, res) => {
   try {
     const list = await Business.find({}).lean();
     return res.json(list);
+  } catch {
+    return res.status(500).json({ error: "Failed" });
+  }
+});
+
+// ✅ Admin Users (حتى تضيف AdminUsers.jsx)
+app.get("/api/admin/users", requireAdmin, async (_req, res) => {
+  try {
+    const users = await User.find({}, { passwordHash: 0, verifyToken: 0, resetToken: 0 }).sort({ createdAt: -1 }).lean();
+    return res.json(users);
   } catch {
     return res.status(500).json({ error: "Failed" });
   }
@@ -926,7 +899,7 @@ app.post("/api/admin/settings", requireAdmin, async (req, res) => {
 });
 
 // ============================================================================
-// Webhook (optional)
+// WhatsApp Chat Search (Webhook) - optional
 // ============================================================================
 app.post("/webhooks/javna/whatsapp", async (req, res) => {
   try {
@@ -937,28 +910,23 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
     const text = (body.text || body.message || body?.data?.text || body?.message?.text || "").toString().trim();
     if (!from || !text) return;
 
-    const q = text.replace(/^search\s+/i, "").trim();
+    const q = text.replace(/^search\s+/i, "").trim().toLowerCase();
     let results = await Business.find({ status: "Active" }).lean();
 
     if (q) {
-      const qq = q.toLowerCase();
       results = results.filter((b) => {
         const name = (b.name || "").toLowerCase();
-        const nameAr = (b.nameAr || b.name_ar || "").toLowerCase();
+        const nameAr = (b.name_ar || "").toLowerCase();
         const desc = (b.description || "").toLowerCase();
-        const cat = String(toSafeCategoryValue(b.category) || "").toLowerCase();
-        return name.includes(qq) || nameAr.includes(qq) || desc.includes(qq) || cat.includes(qq);
+        const cat = Array.isArray(b.category) ? b.category.join(" ").toLowerCase() : "";
+        return name.includes(q) || nameAr.includes(q) || desc.includes(q) || cat.includes(q);
       });
     }
 
     const top = results.slice(0, 5);
-
-    let reply = "";
-    if (!top.length) {
-      reply = `No results found for: "${q}".\nTry another keyword or category.`;
-    } else {
-      reply =
-        `Top results for "${q}":\n\n` +
+    const reply = !top.length
+      ? `No results found for: "${q}".\nTry another keyword or category.`
+      : `Top results for "${q}":\n\n` +
         top
           .map((b, i) => {
             const wa = b.whatsapp ? `https://wa.me/${cleanDigits(b.whatsapp)}` : "";
@@ -966,7 +934,6 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
             return `${i + 1}) ${b.name || "Business"}\n${wa ? `WhatsApp: ${wa}\n` : ""}${map ? `Map: ${map}\n` : ""}`;
           })
           .join("\n");
-    }
 
     if (!JAVNA_API_KEY) {
       console.log("🧪 JAVNA disabled. Would reply to", from, "=>", reply);
@@ -980,7 +947,7 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// Debug (optional)
+// Debug
 // ---------------------------------------------------------------------------
 app.get("/api/debug/resend", (_req, res) => {
   res.json({
