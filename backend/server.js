@@ -500,12 +500,15 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
 // ============================================================================
 function requireOtpToken(req, res, next) {
   try {
-    const token = readBearer(req);
+    const token = String(req.headers["x-otp-token"] || "").trim();
     if (!token) return res.status(401).json({ error: "Missing OTP token" });
+
     const payload = jwt.verify(token, JWT_SECRET);
+
     if (!payload?.verified || payload?.purpose !== "business_signup" || !payload?.whatsapp) {
       return res.status(403).json({ error: "Invalid OTP token" });
     }
+
     req.otp = payload;
     next();
   } catch {
