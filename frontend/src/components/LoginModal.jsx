@@ -1,6 +1,83 @@
 import React, { useState } from "react";
 import { API_BASE } from "../config/api";
 import { useNavigate } from "react-router-dom";
+
+// ============================================================================
+// ✅ NEW: helper to safely parse JSON
+// ============================================================================
+function safeJsonParse(str) {
+  try {
+    return JSON.parse(str);
+  } catch {
+    return null;
+  }
+}
+
+// ============================================================================
+// ✅ NEW: after login, create business automatically if pendingBusiness exists
+// Requires backend endpoint: POST /api/business/signup
+// Headers:
+//   Authorization: Bearer <USER_TOKEN>
+//   X-OTP-Token: <OTP_TOKEN>
+// ============================================================================
+async function tryCreateBusinessAfterLogin(userToken) {
+  const pendingRaw = localStorage.getItem("pendingBusiness");
+  if (!pendingRaw) return { ok: true, skipped: true };
+
+  const pending = safeJsonParse(pendingRaw);
+  if (!pending) {
+    localStorage.removeItem("pendingBusiness");
+    return { ok: true, skipped: true };
+  }
+
+  // We support both: pending.otpToken OR localStorage("otpToken")
+  const otpToken = pending.otpToken || localStorage.getItem("otpToken");
+  if (!otpToken) {
+    console.warn("pendingBusiness exists but otpToken is missing");
+    return { ok: false, error: "Missing OTP token" };
+  }
+
+  const payload = {
+    name: pending.nameAr || pending.nameEn || "Business",
+    name_ar: pending.nameAr || "",
+    description: pending.description || "",
+    category: pending.categoryKey ? [pending.categoryKey] : [],
+    latitude: pending.latitude ?? null,
+    longitude: pending.longitude ?? null,
+    mapLink: pending.mapLink || "",
+    mediaLink: pending.mediaLink || "",
+  };
+
+  const res = await fetch(`${API_BASE}/api/business/signup`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${userToken}`,
+      "X-OTP-Token": otpToken,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    const msg = data?.error || `Business signup failed (${res.status})`;
+    // If already created, consider it success
+    const low = String(msg).toLowerCase();
+    if (low.includes("already has a business") || low.includes("already registered")) {
+      localStorage.removeItem("pendingBusiness");
+      localStorage.removeItem("otpToken");
+      return { ok: true, already: true };
+    }
+    return { ok: false, error: msg };
+  }
+
+  // ✅ Success: clean pending
+  localStorage.removeItem("pendingBusiness");
+  localStorage.removeItem("otpToken");
+  return { ok: true, business: data?.business || data };
+}
+
 export default function LoginModal({
   isOpen,
   onClose,
@@ -15,7 +92,7 @@ export default function LoginModal({
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const navigate = useNavigate();
-  
+
   if (!isOpen) return null;
 
   const t = (en, ar) => (lang === "ar" ? ar : en);
@@ -62,13 +139,30 @@ export default function LoginModal({
         return;
       }
 
+      // ✅ Save user token
       localStorage.setItem("token", data.token);
+
+      // ✅ NEW: if pendingBusiness exists, create it now
+      const created = await tryCreateBusinessAfterLogin(data.token);
+      if (!created.ok) {
+        // لا نوقف الدخول، بس نوضح سبب فاضي الداشبورد
+        setError(
+          t(
+            `Logged in, but business setup failed: ${created.error}`,
+            `تم تسجيل الدخول، لكن إنشاء النشاط فشل: ${created.error}`
+          )
+        );
+      }
+
       setInfoMessage(t("Login successful!", "تم تسجيل الدخول بنجاح!"));
 
-      if (onLoginSuccess) onLoginSuccess();
+      // ✅ Keep existing flow
+      if (onLoginSuccess) onLoginSuccess(data.token);
+
+      // ✅ Navigate (no need timeout but keep your UX)
       setTimeout(() => {
-      navigate("/dashboard");
-      }, 900);
+        navigate("/dashboard", { replace: true });
+      }, 600);
     } catch (err) {
       setError(
         t(
