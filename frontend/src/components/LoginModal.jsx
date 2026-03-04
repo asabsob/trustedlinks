@@ -48,15 +48,15 @@ async function tryCreateBusinessAfterLogin(userToken) {
     mediaLink: pending.mediaLink || "",
   };
 
-  const res = await fetch(`${API_BASE}/api/business/signup`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${userToken}`,
-      "X-OTP-Token": otpToken,
-    },
-    body: JSON.stringify(payload),
-  });
+ fetch(`${API_BASE}/api/business/signup`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${userToken}`,
+    "X-OTP-Token": otpToken,
+  },
+  body: JSON.stringify(businessData),
+});
 
   const data = await res.json().catch(() => ({}));
 
