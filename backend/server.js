@@ -101,17 +101,16 @@ const allowedOrigins = new Set([
 
 app.use(
   cors({
-    origin: (origin, cb) => {
-      if (!origin) return cb(null, true);
-      const ok =
-        allowedOrigins.has(origin) ||
-        /^http:\/\/localhost:\d+$/.test(origin) ||
-        /^http:\/\/127\.0\.0\.1:\d+$/.test(origin);
-      return cb(ok ? null : new Error("CORS blocked"), ok);
-    },
+    origin: ["https://trustedlinks.net", "http://localhost:5173"],
+    credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-API-Key"],
-    credentials: false,
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-API-Key",
+      "X-OTP-Token",
+      "x-otp-token",
+    ],
   })
 );
 
@@ -499,19 +498,25 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
 // BUSINESS SIGNUP (Create business) - requires USER token + OTP token
 // ============================================================================
 function requireOtpToken(req, res, next) {
+  const token =
+    req.headers["x-otp-token"] ||
+    req.headers["X-OTP-Token"] ||
+    readBearer(req.headers.authorization);
+
+  if (!token) {
+    return res.status(401).json({ error: "OTP token required" });
+  }
+
   try {
-    const token = String(req.headers["x-otp-token"] || "").trim();
-    if (!token) return res.status(401).json({ error: "Missing OTP token" });
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
 
-    const payload = jwt.verify(token, JWT_SECRET);
-
-    if (!payload?.verified || payload?.purpose !== "business_signup" || !payload?.whatsapp) {
-      return res.status(403).json({ error: "Invalid OTP token" });
+    if (payload.type !== "otp") {
+      return res.status(401).json({ error: "Invalid OTP token type" });
     }
 
     req.otp = payload;
     next();
-  } catch {
+  } catch (e) {
     return res.status(401).json({ error: "Invalid OTP token" });
   }
 }
