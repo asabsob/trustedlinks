@@ -498,25 +498,26 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
 // BUSINESS SIGNUP (Create business) - requires USER token + OTP token
 // ============================================================================
 function requireOtpToken(req, res, next) {
-  const token =
-    req.headers["x-otp-token"] ||
-    req.headers["X-OTP-Token"] ||
-    readBearer(req.headers.authorization);
-
-  if (!token) {
-    return res.status(401).json({ error: "OTP token required" });
-  }
-
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    // ✅ OTP token comes from header X-OTP-Token (or x-otp-token)
+    const otpToken =
+      req.headers["x-otp-token"] ||
+      req.headers["x-otp-token".toLowerCase()] ||
+      req.headers["x-otp-token"] ||
+      req.headers["x-otp-token"];
 
-    if (payload.type !== "otp") {
-      return res.status(401).json({ error: "Invalid OTP token type" });
+    const token = String(otpToken || "").trim();
+    if (!token) return res.status(401).json({ error: "Missing OTP token" });
+
+    const payload = jwt.verify(token, JWT_SECRET);
+
+    if (!payload?.verified || payload?.purpose !== "business_signup" || !payload?.whatsapp) {
+      return res.status(403).json({ error: "Invalid OTP token" });
     }
 
     req.otp = payload;
     next();
-  } catch (e) {
+  } catch {
     return res.status(401).json({ error: "Invalid OTP token" });
   }
 }
