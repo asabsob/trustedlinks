@@ -33,6 +33,8 @@ export default function Signup({ lang }) {
 
   const navigate = useNavigate();
 
+  const [otpToken, setOtpToken] = useState(null);
+  
   // Meta categories
   const metaCategories = [
     { key: "AUTOMOTIVE", nameEn: "Automotive", nameAr: "سيارات" },
@@ -196,8 +198,10 @@ export default function Signup({ lang }) {
   lang={lang}
   businessName={businessNameAr}
   onVerified={(result) => {
-    setVerifiedWhatsApp(result.whatsapp);
-    setMetaVerified(result.metaVerified);
+  setVerifiedWhatsApp(result.whatsapp);
+  setMetaVerified(result.metaVerified);
+  setOtpToken(result.otpToken || null);
+}}
     // ✅ store otpToken
     localStorage.setItem("otpToken", result.otpToken || "");
   }}
