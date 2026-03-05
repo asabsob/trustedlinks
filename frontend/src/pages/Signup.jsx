@@ -201,6 +201,8 @@ export default function Signup({ lang }) {
   setVerifiedWhatsApp(result.whatsapp);
   setMetaVerified(result.metaVerified);
   setOtpToken(result.otpToken || null);
+   }}
+    
     // ✅ store otpToken
     localStorage.setItem("otpToken", result.otpToken || "");
   }}
