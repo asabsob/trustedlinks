@@ -15,21 +15,14 @@ async function post(path, body) {
 
   const txt = await r.text();
   let data = {};
-
- try {
-  const data = await post("/api/whatsapp/verify-otp", {
-    whatsapp: fullNumber,
-    code: otp.trim(),
-  });
-
-  setOtpVerified(true);
-
-  
+  try {
+    data = JSON.parse(txt);
+  } catch {
+    throw new Error(`Non-JSON response (${r.status}). Check API_BASE / routes.`);
   }
 
-  alert(lang === "ar" ? "تم التحقق بنجاح ✅" : "Verified ✅");
-} catch (e) {
-  ...
+  if (!r.ok) throw new Error(data?.error || `Request failed (${r.status})`);
+  return data;
 }
 
 function digitsOnly(v = "") {
@@ -144,7 +137,8 @@ export default function WhatsAppVerify({
       });
 
       const digits = fullNumber.replace(/\D/g, "");
-      const otpToken = data.token;
+   const otpToken = data?.token || data?.otpToken || "";
+      localStorage.setItem("otpToken", otpToken);
 
       setOtpVerified(true);
 
