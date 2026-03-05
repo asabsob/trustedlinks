@@ -9,42 +9,101 @@ export default function Subscribe({ lang }) {
 
   const t = (en, ar) => (lang === "ar" ? ar : en);
 
-  const handleSubscribe = async () => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      alert(t("Please log in first.", "يرجى تسجيل الدخول أولاً."));
-      navigate("/login", { replace: true });
+ const handleSubscribe = async () => {
+  const token = localStorage.getItem("token");
+  if (!token) {
+    alert(t("Please log in first.", "يرجى تسجيل الدخول أولاً."));
+    navigate("/login", { replace: true });
+    return;
+  }
+
+  // ✅ read pending business from localStorage (saved in Signup.jsx)
+  const pendingRaw = localStorage.getItem("pendingBusiness");
+  const pending = pendingRaw ? JSON.parse(pendingRaw) : null;
+
+  if (!pending) {
+    alert(
+      t(
+        "Missing business info. Please register your business first.",
+        "بيانات النشاط غير موجودة. يرجى تسجيل النشاط أولاً."
+      )
+    );
+    navigate("/signup", { replace: true });
+    return;
+  }
+
+  // ✅ OTP token (either inside pendingBusiness or stored separately)
+  const otpToken = pending.otpToken || localStorage.getItem("otpToken");
+  if (!otpToken) {
+    alert(t("Missing OTP token. Verify WhatsApp again.", "رمز OTP غير موجود. أعد توثيق واتساب."));
+    navigate("/signup", { replace: true });
+    return;
+  }
+
+  try {
+    setLoading(true);
+
+    // ------------------------------------------------------------------
+    // 1) Activate subscription
+    // ------------------------------------------------------------------
+    const subRes = await fetch(`${API_BASE}/api/subscribe`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ plan: "monthly" }),
+    });
+
+    const subData = await subRes.json().catch(() => ({}));
+    if (!subRes.ok) {
+      alert(subData?.error || t("Subscription failed.", "فشل تفعيل الاشتراك."));
       return;
     }
 
-    try {
-      setLoading(true);
+    // ------------------------------------------------------------------
+    // 2) Create business (MongoDB) — IMPORTANT
+    //    Requires X-OTP-Token + Authorization
+    // ------------------------------------------------------------------
+    const businessPayload = {
+      name: pending.nameEn?.trim() || pending.nameAr?.trim(), // fallback
+      name_ar: pending.nameAr?.trim() || "",
+      category: pending.categoryKey ? [pending.categoryKey] : [],
+      whatsapp: pending.whatsapp, // digits only
+      mapLink: pending.mapLink || "",
+      mediaLink: pending.mediaLink || "",
+      whatsappLink: pending.whatsappLink || "",
+      metaVerified: pending.metaVerified ?? null,
+    };
 
-      // ✅ activate subscription on backend
-      const res = await fetch(`${API_BASE}/api/subscribe`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        // optional payload if you have plans
-        body: JSON.stringify({ plan: "monthly" }),
-      });
+    const bRes = await fetch(`${API_BASE}/api/business/signup`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        "X-OTP-Token": otpToken, // ✅ this is why we fixed CORS
+      },
+      body: JSON.stringify(businessPayload),
+    });
 
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        alert(data?.error || t("Subscription failed.", "فشل تفعيل الاشتراك."));
-        return;
-      }
-
-      alert(t("Subscription activated successfully!", "تم تفعيل الاشتراك بنجاح!"));
-      navigate("/dashboard", { replace: true });
-    } catch (e) {
-      alert(t("Network error. Try again.", "خطأ بالشبكة. حاول مرة أخرى."));
-    } finally {
-      setLoading(false);
+    const bData = await bRes.json().catch(() => ({}));
+    if (!bRes.ok) {
+      alert(bData?.error || t("Business signup failed.", "فشل تسجيل النشاط التجاري."));
+      return;
     }
-  };
+
+    // ✅ cleanup (optional but recommended)
+    localStorage.removeItem("pendingBusiness");
+    localStorage.removeItem("otpToken");
+
+    alert(t("Subscription activated & business created!", "تم تفعيل الاشتراك وتسجيل النشاط بنجاح!"));
+    navigate("/dashboard", { replace: true });
+  } catch (e) {
+    alert(t("Network error. Try again.", "خطأ بالشبكة. حاول مرة أخرى."));
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div
