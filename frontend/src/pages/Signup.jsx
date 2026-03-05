@@ -201,11 +201,11 @@ export default function Signup({ lang }) {
   setVerifiedWhatsApp(result.whatsapp);
   setMetaVerified(result.metaVerified);
   setOtpToken(result.otpToken || null);
-   }}
-    
+   
     // ✅ store otpToken
     localStorage.setItem("otpToken", result.otpToken || "");
   }}
+          />
 
         {/* MAP */}
         <label>{lang === "ar" ? "رابط الخريطة" : "Google Map Link"}</label>
