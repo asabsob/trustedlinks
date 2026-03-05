@@ -16,14 +16,20 @@ async function post(path, body) {
   const txt = await r.text();
   let data = {};
 
-  try {
-    data = JSON.parse(txt);
-  } catch {
-    throw new Error(`Non-JSON response (${r.status})`);
+ try {
+  const data = await post("/api/whatsapp/verify-otp", {
+    whatsapp: fullNumber,
+    code: otp.trim(),
+  });
+
+  setOtpVerified(true);
+
+  
   }
 
-  if (!r.ok) throw new Error(data?.error || `Request failed (${r.status})`);
-  return data;
+  alert(lang === "ar" ? "تم التحقق بنجاح ✅" : "Verified ✅");
+} catch (e) {
+  ...
 }
 
 function digitsOnly(v = "") {
