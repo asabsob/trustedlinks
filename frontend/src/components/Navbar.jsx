@@ -2,6 +2,13 @@ import React from "react";
 import { Link, NavLink } from "react-router-dom";
 
 export default function Navbar({ lang, t, token, toggleLang, handleLogout }) {
+
+  const pendingBusiness = localStorage.getItem("pendingBusiness");
+
+  const dashboardPath = token
+    ? (pendingBusiness ? "/subscribe" : "/dashboard")
+    : "/login";
+  
   return (
     <nav className="border-b border-gray-200 bg-white shadow-sm sticky top-0 z-50">
       <div className="container mx-auto flex items-center justify-between px-6 py-3">
@@ -51,7 +58,7 @@ export default function Navbar({ lang, t, token, toggleLang, handleLogout }) {
           ) : (
             <>
               <NavLink
-                to="/dashboard"
+                to={dashboardPath}
                 className={({ isActive }) =>
                   `text-sm font-medium ${
                     isActive ? "text-green-600" : "text-gray-700 hover:text-green-600"
