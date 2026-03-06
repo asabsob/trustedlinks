@@ -193,18 +193,16 @@ export default function Dashboard() {
           >
             <div>
               <div style={{ fontWeight: "600" }}>{t("Name", "الاسم")}</div>
-              <div>{business.nameAr || business.nameEn || business.name}</div>
+             <div>{business.name_ar || business.name}</div>
             </div>
 
             <div>
               <div style={{ fontWeight: "600" }}>{t("Category", "الفئة")}</div>
               <div>
-                {typeof business.category === "object"
-                  ? isAr
-                    ? business.category.nameAr
-                    : business.category.nameEn
-                  : business.category || "N/A"}
-              </div>
+  {Array.isArray(business.category)
+    ? business.category.join(", ")
+    : business.category || "N/A"}
+</div>
             </div>
 
             <div>
@@ -219,7 +217,7 @@ export default function Dashboard() {
 
             <div>
               <div style={{ fontWeight: "600" }}>{t("Address", "العنوان")}</div>
-              <div>{business.addressAr || business.addressEn || "N/A"}</div>
+             <div>{business.mapLink || "N/A"}</div>
             </div>
           </div>
         ) : (
