@@ -378,20 +378,27 @@ app.post("/api/auth/forgot-password", async (req, res) => {
 // ============================================================================
 // USER: /api/me  (الفرونت بيطلبه)
 // ============================================================================
-app.get("/api/me", requireUser, async (req, res) => {
+app.get("/api/business/me", requireUser, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).lean();
-    if (!user) return res.status(404).json({ error: "User not found" });
+    const currentUserId = String(req.user.id);
+    console.log("CURRENT USER ID:", currentUserId);
 
-    return res.json({
-      ok: true,
-      id: String(user._id),
-      email: user.email,
-      emailVerified: Boolean(user.emailVerified),
-      subscriptionPlan: user.subscriptionPlan || null,
-      planActivatedAt: user.planActivatedAt || null,
-    });
-  } catch {
+    const allBusinesses = await Business.find({}, { name: 1, ownerUserId: 1, whatsapp: 1 }).lean();
+    console.log("ALL BUSINESSES:", allBusinesses);
+
+    const b = await Business.findOne({ ownerUserId: currentUserId }).lean();
+
+    if (!b) {
+      return res.status(404).json({
+        error: "Business not found",
+        currentUserId,
+        allBusinesses,
+      });
+    }
+
+    return res.json(b);
+  } catch (e) {
+    console.error("business/me error:", e);
     return res.status(500).json({ error: "Failed" });
   }
 });
