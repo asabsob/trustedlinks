@@ -1,5 +1,6 @@
 // ============================================================================
-// TrustedLinks - Signup Page (Production-safe version for paste)
+// TrustedLinks - Signup Page
+// Creates USER only, stores business draft locally until subscribe/publish step
 // ============================================================================
 
 import React, { useState } from "react";
@@ -9,9 +10,12 @@ import WhatsAppVerify from "../components/WhatsAppVerify";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 
-export default function Signup({ lang }) {
+export default function Signup({ lang = "en" }) {
+  const navigate = useNavigate();
+
   const [businessNameAr, setBusinessNameAr] = useState("");
   const [businessNameEn, setBusinessNameEn] = useState("");
+  const [description, setDescription] = useState("");
 
   const [category, setCategory] = useState({
     key: "PROFESSIONAL_SERVICES",
@@ -19,9 +23,8 @@ export default function Signup({ lang }) {
     nameAr: "خدمات مهنية",
   });
 
-  const [verifiedWhatsApp, setVerifiedWhatsApp] = useState(null);
-  const [metaVerified, setMetaVerified] = useState(null);
-
+  const [verifiedWhatsApp, setVerifiedWhatsApp] = useState("");
+  const [otpToken, setOtpToken] = useState("");
   const [mapLink, setMapLink] = useState("");
   const [mediaLink, setMediaLink] = useState("");
 
@@ -31,11 +34,8 @@ export default function Signup({ lang }) {
 
   const [loading, setLoading] = useState(false);
 
-  const navigate = useNavigate();
+  const t = (en, ar) => (lang === "ar" ? ar : en);
 
-  const [otpToken, setOtpToken] = useState(null);
-  
-  // Meta categories
   const metaCategories = [
     { key: "AUTOMOTIVE", nameEn: "Automotive", nameAr: "سيارات" },
     { key: "BEAUTY_SPA_SALON", nameEn: "Beauty, Spa and Salon", nameAr: "تجميل وصالون" },
@@ -58,110 +58,102 @@ export default function Signup({ lang }) {
     { key: "OTHER", nameEn: "Other", nameAr: "أخرى" },
   ];
 
-  // -------------------------------------------------------------------------
-  // Signup handler
-  // -------------------------------------------------------------------------
   const handleSignup = async (e) => {
     e.preventDefault();
 
-    if (!businessNameAr.trim()) {
-      alert(lang === "ar" ? "يرجى إدخال الاسم التجاري بالعربية" : "Enter Arabic business name");
+    if (!businessNameAr.trim() && !businessNameEn.trim()) {
+      alert(t("Please enter a business name.", "يرجى إدخال اسم النشاط."));
       return;
     }
 
-    if (!verifiedWhatsApp) {
-      alert(lang === "ar" ? "يرجى التحقق من رقم واتساب" : "Verify WhatsApp first");
+    if (!verifiedWhatsApp || !otpToken) {
+      alert(t("Please verify WhatsApp first.", "يرجى توثيق واتساب أولاً."));
       return;
     }
 
-    if (metaVerified === false) {
-      alert(lang === "ar" ? "في انتظار توثيق ميتا" : "Wait for Meta verification");
+    if (!email.trim()) {
+      alert(t("Please enter your email.", "يرجى إدخال البريد الإلكتروني."));
       return;
     }
 
     if ((password || "").length < 8) {
-      alert(lang === "ar" ? "كلمة المرور يجب أن تكون 8 أحرف على الأقل" : "Password must be at least 8 characters");
+      alert(t("Password must be at least 8 characters.", "كلمة المرور يجب أن تكون 8 أحرف على الأقل."));
       return;
     }
 
     if (password !== confirmPassword) {
-      alert(lang === "ar" ? "كلمة المرور غير متطابقة" : "Passwords do not match");
+      alert(t("Passwords do not match.", "كلمتا المرور غير متطابقتين."));
       return;
     }
 
     setLoading(true);
 
-    // --------------------------------------------------------------
-    // Save entire business object to localStorage (pendingBusiness)
-    // --------------------------------------------------------------
-    const waDigits = verifiedWhatsApp.replace(/\D/g, "");
-    const otpToken = localStorage.getItem("otpToken") || "";
-    localStorage.setItem(
-      "pendingBusiness",
-      JSON.stringify({
+    try {
+      // 1) save business draft locally until subscribe/publish step
+      const pendingBusiness = {
         nameAr: businessNameAr.trim(),
         nameEn: businessNameEn.trim(),
+        description: description.trim(),
         categoryKey: category.key,
         categoryNameAr: category.nameAr,
         categoryNameEn: category.nameEn,
-        whatsapp: waDigits,
-        whatsappLink: `https://wa.me/${waDigits}`,
-        mapLink,
-        mediaLink,
-        metaVerified,
-        otpVerified: true,
+        whatsapp: verifiedWhatsApp,
+        mapLink: mapLink.trim(),
+        mediaLink: mediaLink.trim(),
         otpToken,
-      })
-    );
+      };
 
-    // --------------------------------------------------------------
-    // Create user
-    // --------------------------------------------------------------
-    try {
+      localStorage.setItem("pendingBusiness", JSON.stringify(pendingBusiness));
+      localStorage.setItem("otpToken", otpToken);
+
+      // 2) create user only
       const res = await fetch(`${API_BASE}/api/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+        }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        alert(data?.error || "Signup failed");
+        alert(data?.error || t("Signup failed.", "فشل إنشاء الحساب."));
         return;
       }
 
-      alert(lang === "ar" ? "تم إنشاء الحساب!" : "Signup complete!");
+      alert(
+        t(
+          "Account created successfully. Please verify your email, then log in.",
+          "تم إنشاء الحساب. يرجى تفعيل البريد الإلكتروني ثم تسجيل الدخول."
+        )
+      );
+
       navigate("/login", { replace: true });
     } catch (err) {
-      alert("Error: " + (err?.message || "Unknown error"));
+      alert(err?.message || t("Unexpected error.", "حدث خطأ غير متوقع."));
     } finally {
       setLoading(false);
     }
   };
 
-  // -------------------------------------------------------------------------
-  // UI
-  // -------------------------------------------------------------------------
   return (
     <div style={containerStyle}>
       <form onSubmit={handleSignup} style={formStyle(lang)}>
         <h2 style={{ color: "#22c55e", marginBottom: 24 }}>
-          {lang === "ar" ? "إنشاء حساب النشاط التجاري" : "Create Business Account"}
+          {t("Create Business Account", "إنشاء حساب النشاط التجاري")}
         </h2>
 
-        {/* BUSINESS NAME ARABIC */}
-        <label>{lang === "ar" ? "الاسم التجاري (عربي) *" : "Business Name (Arabic) *"}</label>
+        <label>{t("Business Name (Arabic)", "الاسم التجاري (عربي)")}</label>
         <input
           type="text"
           value={businessNameAr}
           onChange={(e) => setBusinessNameAr(e.target.value)}
           style={inputStyle}
-          required
         />
 
-        {/* BUSINESS NAME ENGLISH */}
-        <label>{lang === "ar" ? "الاسم التجاري (إنجليزي)" : "Business Name (English)"}</label>
+        <label>{t("Business Name (English)", "الاسم التجاري (إنجليزي)")}</label>
         <input
           type="text"
           value={businessNameEn}
@@ -169,12 +161,18 @@ export default function Signup({ lang }) {
           style={inputStyle}
         />
 
-        {/* Category */}
-        <label>{lang === "ar" ? "الفئة" : "Category"}</label>
+        <label>{t("Description", "الوصف")}</label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          style={{ ...inputStyle, minHeight: 90 }}
+        />
+
+        <label>{t("Category", "الفئة")}</label>
         <div className="relative z-20 mb-5">
           <Listbox value={category} onChange={setCategory}>
             <>
-              <Listbox.Button className="w-full border rounded-lg py-2 px-3 bg-white">
+              <Listbox.Button className="w-full border rounded-lg py-2 px-3 bg-white text-left">
                 {lang === "ar" ? category.nameAr : category.nameEn}
               </Listbox.Button>
 
@@ -193,32 +191,34 @@ export default function Signup({ lang }) {
           </Listbox>
         </div>
 
-        {/* WhatsApp Verification */}
         <WhatsAppVerify
-  lang={lang}
-  businessName={businessNameAr}
-  onVerified={(result) => {
-  setVerifiedWhatsApp(result.whatsapp);
-  setMetaVerified(result.metaVerified);
-  setOtpToken(result.otpToken || null);
-   
-    // ✅ store otpToken
-    localStorage.setItem("otpToken", result.otpToken || "");
-  }}
-          />
+          lang={lang}
+          onVerified={(result) => {
+            setVerifiedWhatsApp(result?.whatsapp || "");
+            setOtpToken(result?.otpToken || "");
+            if (result?.otpToken) localStorage.setItem("otpToken", result.otpToken);
+          }}
+        />
 
-        {/* MAP */}
-        <label>{lang === "ar" ? "رابط الخريطة" : "Google Map Link"}</label>
-        <input value={mapLink} onChange={(e) => setMapLink(e.target.value)} style={inputStyle} />
+        <label>{t("Google Map Link", "رابط الخريطة")}</label>
+        <input
+          value={mapLink}
+          onChange={(e) => setMapLink(e.target.value)}
+          style={inputStyle}
+          placeholder="https://maps.google.com/..."
+        />
 
-        {/* MEDIA */}
-        <label>{lang === "ar" ? "رابط الانستغرام" : "Instagram Link"}</label>
-        <input value={mediaLink} onChange={(e) => setMediaLink(e.target.value)} style={inputStyle} />
+        <label>{t("Instagram / Media Link", "رابط الانستغرام / الوسائط")}</label>
+        <input
+          value={mediaLink}
+          onChange={(e) => setMediaLink(e.target.value)}
+          style={inputStyle}
+          placeholder="https://instagram.com/..."
+        />
 
         <hr style={{ margin: "20px 0" }} />
 
-        {/* Email */}
-        <label>{lang === "ar" ? "البريد الإلكتروني" : "Email"}</label>
+        <label>{t("Email", "البريد الإلكتروني")}</label>
         <input
           type="email"
           required
@@ -227,8 +227,7 @@ export default function Signup({ lang }) {
           style={inputStyle}
         />
 
-        {/* Password */}
-        <label>{lang === "ar" ? "كلمة المرور" : "Password"}</label>
+        <label>{t("Password", "كلمة المرور")}</label>
         <input
           type="password"
           required
@@ -238,7 +237,7 @@ export default function Signup({ lang }) {
           style={inputStyle}
         />
 
-        <label>{lang === "ar" ? "تأكيد كلمة المرور" : "Confirm Password"}</label>
+        <label>{t("Confirm Password", "تأكيد كلمة المرور")}</label>
         <input
           type="password"
           required
@@ -250,7 +249,7 @@ export default function Signup({ lang }) {
 
         <button
           type="submit"
-          disabled={loading || !verifiedWhatsApp}
+          disabled={loading || !verifiedWhatsApp || !otpToken}
           style={{
             width: "100%",
             background: "#22c55e",
@@ -259,17 +258,19 @@ export default function Signup({ lang }) {
             borderRadius: 6,
             fontWeight: "600",
             cursor: loading ? "not-allowed" : "pointer",
-            opacity: verifiedWhatsApp ? 1 : 0.5,
+            opacity: !verifiedWhatsApp || !otpToken ? 0.6 : 1,
+            border: "none",
           }}
         >
-          {loading ? (lang === "ar" ? "جارٍ المتابعة..." : "Processing...") : lang === "ar" ? "متابعة" : "Continue"}
+          {loading
+            ? t("Creating account...", "جارٍ إنشاء الحساب...")
+            : t("Continue", "متابعة")}
         </button>
       </form>
     </div>
   );
 }
 
-// Styles
 const containerStyle = {
   display: "flex",
   justifyContent: "center",
@@ -283,7 +284,7 @@ const formStyle = (lang) => ({
   padding: "40px",
   borderRadius: "12px",
   boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-  maxWidth: "450px",
+  maxWidth: "520px",
   width: "100%",
   textAlign: lang === "ar" ? "right" : "left",
   direction: lang === "ar" ? "rtl" : "ltr",
@@ -296,4 +297,5 @@ const inputStyle = {
   border: "1px solid #ccc",
   borderRadius: "6px",
   marginBottom: "14px",
+  boxSizing: "border-box",
 };
