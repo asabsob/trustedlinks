@@ -3,16 +3,14 @@ import { useNavigate } from "react-router-dom";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 
-export default function Search({ t, lang }) {
+export default function Search({ lang = "en" }) {
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("all"); // meta key or "all"
+  const [category, setCategory] = useState("all");
   const [businesses, setBusinesses] = useState([]);
   const [filtered, setFiltered] = useState([]);
-  const [location, setLocation] = useState(null);
   const [activeLocation, setActiveLocation] = useState(null);
   const navigate = useNavigate();
 
-  /* ----------------------------- Meta categories ---------------------------- */
   const metaCategories = useMemo(
     () => [
       { key: "AUTOMOTIVE", nameEn: "Automotive", nameAr: "سيارات" },
@@ -49,7 +47,6 @@ export default function Search({ t, lang }) {
     return lang === "ar" ? hit.nameAr : hit.nameEn;
   };
 
-  /* -------------------------- normalize + helpers --------------------------- */
   const extractCategoryValues = (b) => {
     const raw = b.category ?? [];
     const arr = Array.isArray(raw) ? raw : [raw];
@@ -69,7 +66,10 @@ export default function Search({ t, lang }) {
 
     return extractCategoryValues(b).some((v) => {
       const s = (v || "").toString().toLowerCase();
-      return (selectedLabelEn && s.includes(selectedLabelEn)) || (selectedLabelAr && s.includes(selectedLabelAr));
+      return (
+        (selectedLabelEn && s.includes(selectedLabelEn)) ||
+        (selectedLabelAr && s.includes(selectedLabelAr))
+      );
     });
   };
 
@@ -85,24 +85,21 @@ export default function Search({ t, lang }) {
       .join(", ");
   };
 
-  /* -------------------------- FETCH ALL BUSINESSES -------------------------- */
   useEffect(() => {
     let cancelled = false;
 
     async function loadBusinesses() {
       try {
         const res = await fetch(`${API_BASE}/api/businesses`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || "Failed to load businesses");
+        const data = await res.json().catch(() => []);
 
+        if (!res.ok) throw new Error(data?.error || "Failed to load businesses");
         if (cancelled) return;
 
-        setBusinesses(Array.isArray(data) ? data : []);
-        setFiltered(Array.isArray(data) ? data : []);
-
-        // ⚠️ لا تعمل track-view لكل بزنس دفعة واحدة (يقتل الأداء)
-        // إذا بدك tracking للعرض، اعمله عند فتح التفاصيل فقط.
-      } catch (e) {
+        const safeData = Array.isArray(data) ? data : [];
+        setBusinesses(safeData);
+        setFiltered(safeData);
+      } catch {
         if (cancelled) return;
         setBusinesses([]);
         setFiltered([]);
@@ -115,22 +112,10 @@ export default function Search({ t, lang }) {
     };
   }, []);
 
-  /* -------------------------- DETECT USER LOCATION -------------------------- */
-  useEffect(() => {
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => {},
-        { enableHighAccuracy: true, timeout: 10000 }
-      );
-    }
-  }, []);
-
-  /* ------------------------------- SEARCH LOGIC ------------------------------ */
   const handleSearch = () => {
     let results = businesses;
 
-    if (query) {
+    if (query.trim()) {
       const q = query.toLowerCase();
       results = results.filter(
         (b) =>
@@ -140,27 +125,16 @@ export default function Search({ t, lang }) {
       );
     }
 
-    if (category && category !== "all") {
+    if (category !== "all") {
       results = results.filter((b) => businessHasCategory(b, category));
     }
 
     setFiltered(results);
   };
 
-  /* ---------------------------- TRACK ACTIONS ---------------------------- */
-  const trackClick = async (businessId, type = "whatsapp") => {
+  const trackClick = async (businessId) => {
     try {
       await fetch(`${API_BASE}/api/track-click`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, kind: type }),
-      });
-    } catch {}
-  };
-
-  const trackMessage = async (businessId) => {
-    try {
-      await fetch(`${API_BASE}/api/track-message`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ businessId }),
@@ -178,19 +152,29 @@ export default function Search({ t, lang }) {
     } catch {}
   };
 
-  /* ---------------------------- MAP LINK DETECTION ---------------------------- */
+  const trackWhatsapp = async (businessId) => {
+    try {
+      await fetch(`${API_BASE}/api/track-whatsapp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId }),
+      });
+    } catch {}
+  };
+
+  const trackMap = async (businessId) => {
+    try {
+      await fetch(`${API_BASE}/api/track-map`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId }),
+      });
+    } catch {}
+  };
+
   const getMapUrl = (b) => {
-    if (b.mapLink && b.mapLink.trim().startsWith("http")) return b.mapLink.trim();
-
-    const mapsRegex = /(https?:\/\/)?(goo\.gl|maps\.app|google\.com\/maps|share\.google)/i;
-    const allFields = [b.address, b.address_en, b.address_ar];
-
-    for (const field of allFields) {
-      if (mapsRegex.test(field || "")) {
-        let link = (field || "").trim();
-        if (!link.startsWith("http")) link = "https://" + link;
-        return link;
-      }
+    if (b.mapLink && b.mapLink.trim().startsWith("http")) {
+      return b.mapLink.trim();
     }
     return null;
   };
@@ -203,7 +187,6 @@ export default function Search({ t, lang }) {
         fontFamily: lang === "ar" ? "Tajawal, sans-serif" : "Inter, sans-serif",
       }}
     >
-      {/* 🔍 Search Header */}
       <div
         className="container"
         style={{
@@ -222,7 +205,9 @@ export default function Search({ t, lang }) {
           <input
             type="text"
             placeholder={
-              lang === "ar" ? "أدخل اسم النشاط أو كلمة مفتاحية..." : "Enter business name or keyword..."
+              lang === "ar"
+                ? "أدخل اسم النشاط أو كلمة مفتاحية..."
+                : "Enter business name or keyword..."
             }
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -235,7 +220,6 @@ export default function Search({ t, lang }) {
           />
         </div>
 
-        {/* 🏷️ Category Selector */}
         <div style={{ minWidth: 260 }}>
           <label style={{ display: "block", marginBottom: 4, color: "#555" }}>
             {lang === "ar" ? "تصفية حسب الفئة" : "Filter by Category"}
@@ -279,7 +263,6 @@ export default function Search({ t, lang }) {
         </button>
       </div>
 
-      {/* 🧾 Results */}
       <div className="container">
         <h2 style={{ textAlign: "center", marginBottom: 24 }}>
           {lang === "ar" ? "الأنشطة الموثقة" : "Verified Businesses"}
@@ -287,7 +270,9 @@ export default function Search({ t, lang }) {
 
         {filtered.length === 0 ? (
           <p style={{ textAlign: "center", color: "#666" }}>
-            {lang === "ar" ? "لم يتم العثور على نتائج مطابقة." : "No matching businesses found."}
+            {lang === "ar"
+              ? "لم يتم العثور على نتائج مطابقة."
+              : "No matching businesses found."}
           </p>
         ) : (
           <div
@@ -298,12 +283,13 @@ export default function Search({ t, lang }) {
             }}
           >
             {filtered.map((b) => {
+              const businessId = b._id || b.id;
               const mapUrl = getMapUrl(b);
-              const isActive = activeLocation === b.id;
+              const isActive = activeLocation === businessId;
 
               return (
                 <div
-                  key={b.id}
+                  key={businessId}
                   className="card"
                   style={{
                     border: "1px solid #e5e7eb",
@@ -314,7 +300,6 @@ export default function Search({ t, lang }) {
                     flexDirection: "column",
                   }}
                 >
-                  {/* 🎥 Media Section */}
                   <div
                     style={{
                       width: "100%",
@@ -330,7 +315,7 @@ export default function Search({ t, lang }) {
                     {b.mediaLink ? (
                       /instagram\.com/.test(b.mediaLink) ? (
                         <div
-                          onClick={() => trackMedia(b.id)}
+                          onClick={() => trackMedia(businessId)}
                           style={{
                             display: "flex",
                             flexDirection: "column",
@@ -360,7 +345,7 @@ export default function Search({ t, lang }) {
                         </div>
                       ) : /\.(jpg|jpeg|png|gif|webp)$/i.test(b.mediaLink) ? (
                         <img
-                          onClick={() => trackMedia(b.id)}
+                          onClick={() => trackMedia(businessId)}
                           src={b.mediaLink}
                           alt={b.name}
                           style={{
@@ -376,7 +361,7 @@ export default function Search({ t, lang }) {
                           title={b.name}
                           width="100%"
                           height="180"
-                          onLoad={() => trackMedia(b.id)}
+                          onLoad={() => trackMedia(businessId)}
                           style={{
                             borderRadius: "10px 10px 0 0",
                             border: "none",
@@ -384,13 +369,14 @@ export default function Search({ t, lang }) {
                         />
                       )
                     ) : (
-                      <div style={{ color: "#aaa" }}>{lang === "ar" ? "لا يوجد محتوى" : "No media"}</div>
+                      <div style={{ color: "#aaa" }}>
+                        {lang === "ar" ? "لا يوجد محتوى" : "No media"}
+                      </div>
                     )}
                   </div>
 
-                  {/* 📄 Info */}
                   <div style={{ padding: "16px" }}>
-                    <h3 style={{ marginBottom: 8 }}>{b.name}</h3>
+                    <h3 style={{ marginBottom: 8 }}>{b.name || b.name_ar}</h3>
 
                     <div
                       style={{
@@ -407,18 +393,25 @@ export default function Search({ t, lang }) {
                     </div>
 
                     <p style={{ color: "#555", fontSize: "15px", marginBottom: 8 }}>
-                      {b.description}
+                      {b.description || (lang === "ar" ? "لا يوجد وصف" : "No description")}
                     </p>
 
-                    {/* 📍 Location */}
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: 10, marginBottom: 12 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        marginTop: 10,
+                        marginBottom: 12,
+                      }}
+                    >
                       {mapUrl ? (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             window.open(mapUrl, "_blank", "noopener,noreferrer");
-                            setActiveLocation(b.id);
-                            trackClick(b.id, "map");
+                            setActiveLocation(businessId);
+                            trackMap(businessId);
                           }}
                           title="Open in Google Maps"
                           style={{
@@ -443,12 +436,17 @@ export default function Search({ t, lang }) {
                       )}
                     </div>
 
-                    {/* Buttons */}
-                    <div style={{ display: "flex", gap: "10px", justifyContent: "space-between" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "10px",
+                        justifyContent: "space-between",
+                      }}
+                    >
                       <button
                         onClick={() => {
-                          navigate(`/business/${b.id}`);
-                          trackClick(b.id, "details");
+                          navigate(`/business/${businessId}`);
+                          trackClick(businessId);
                         }}
                         style={{
                           flex: 1,
@@ -464,12 +462,14 @@ export default function Search({ t, lang }) {
                       </button>
 
                       <a
-                        href={b.whatsappLink || `https://wa.me/${(b.whatsapp || "").toString().replace(/\D/g, "")}`}
+                        href={
+                          b.whatsappLink ||
+                          `https://wa.me/${(b.whatsapp || "").toString().replace(/\D/g, "")}`
+                        }
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={() => {
-                          trackClick(b.id, "whatsapp");
-                          trackMessage(b.id);
+                          trackWhatsapp(businessId);
                         }}
                         style={{
                           flex: 1,
