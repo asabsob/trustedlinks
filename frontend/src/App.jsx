@@ -39,7 +39,7 @@ function RequireAuth({ children }) {
 }
 
 // -------------------------
-// Admin Protected Route (Context-based)
+// Admin Protected Route
 // -------------------------
 function PrivateAdmin({ children }) {
   const { admin, loading } = useAdminAuth();
@@ -47,13 +47,11 @@ function PrivateAdmin({ children }) {
   return admin ? children : <Navigate to="/admin/login" replace />;
 }
 
-// MAIN APP
 export default function App() {
   const [lang, setLang] = useState(localStorage.getItem("lang") || "en");
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
 
-  // Language Strings
   const strings = useMemo(
     () => ({
       en: {
@@ -100,13 +98,17 @@ export default function App() {
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("pendingBusiness");
+    localStorage.removeItem("otpToken");
     navigate("/", { replace: true });
     window.location.reload();
   };
 
   return (
-    <div className={lang === "ar" ? "rtl" : ""} dir={lang === "ar" ? "rtl" : "ltr"}>
-      {/* 🌟 Navbar */}
+    <div
+      className={lang === "ar" ? "rtl" : ""}
+      dir={lang === "ar" ? "rtl" : "ltr"}
+    >
       <Navbar
         lang={lang}
         t={t}
@@ -116,7 +118,7 @@ export default function App() {
       />
 
       <Routes>
-        {/* ---------------- Public Pages ---------------- */}
+        {/* Public */}
         <Route path="/" element={<Home lang={lang} />} />
         <Route path="/search" element={<Search lang={lang} />} />
         <Route path="/signup" element={<Signup lang={lang} />} />
@@ -126,7 +128,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage lang={lang} />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
 
-        {/* ---------------- User Private Pages ---------------- */}
+        {/* User Private */}
         <Route
           path="/dashboard"
           element={
@@ -152,9 +154,8 @@ export default function App() {
           }
         />
 
-        {/* ---------------- Admin Pages ---------------- */}
+        {/* Admin */}
         <Route path="/admin/login" element={<AdminLogin />} />
-
         <Route
           path="/admin"
           element={
@@ -171,11 +172,10 @@ export default function App() {
           <Route path="settings" element={<AdminSettings />} />
         </Route>
 
-        {/* ---------------- Fallback ---------------- */}
+        {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
-      {/* Footer */}
       <footer className="text-center mt-10 py-5 border-t border-gray-200 text-gray-500 text-sm">
         © {new Date().getFullYear()} Trusted Links
       </footer>
