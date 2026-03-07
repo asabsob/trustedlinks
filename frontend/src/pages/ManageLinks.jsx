@@ -13,7 +13,6 @@ export default function ManageLinks({ lang = "en" }) {
 
   const token = localStorage.getItem("token") || "";
 
-  // ---------------- Meta Categories ----------------
   const metaCategories = useMemo(
     () => [
       { key: "AUTOMOTIVE", en: "Automotive", ar: "سيارات" },
@@ -45,10 +44,10 @@ export default function ManageLinks({ lang = "en" }) {
           title: "Manage Your Business Information",
           desc: "Update your profile, category, media link, map location, and WhatsApp contact details.",
           details: "Business Details",
-          verified: "Verification Status",
-          verified_yes: "✅ Verified on Meta",
-          verified_no: "⛔ Hidden until verification",
-          verified_pending: "🕓 Pending review",
+          verified: "Visibility Status",
+          visible_yes: "✅ Live and visible in search",
+          visible_pending: "🕓 Pending review",
+          visible_no: "⛔ Hidden from search",
           map: "Google Maps Location",
           media: "Media / Instagram Link",
           whatsapp: "Update WhatsApp Number",
@@ -65,10 +64,10 @@ export default function ManageLinks({ lang = "en" }) {
           title: "إدارة معلومات نشاطك التجاري",
           desc: "قم بتحديث الفئة، رابط الوسائط، موقع الخريطة، ورقم واتساب.",
           details: "تفاصيل النشاط التجاري",
-          verified: "حالة التحقق",
-          verified_yes: "✅ تم التحقق من النشاط على Meta",
-          verified_no: "⛔ مخفي حتى يتم التحقق",
-          verified_pending: "🕓 قيد المراجعة",
+          verified: "حالة الظهور",
+          visible_yes: "✅ ظاهر ومتاح في البحث",
+          visible_pending: "🕓 قيد المراجعة",
+          visible_no: "⛔ مخفي من البحث",
           map: "رابط موقع خرائط Google",
           media: "رابط الوسائط أو إنستغرام",
           whatsapp: "تحديث رقم واتساب",
@@ -85,7 +84,6 @@ export default function ManageLinks({ lang = "en" }) {
     [lang]
   );
 
-  // ✅ Load Business Info
   useEffect(() => {
     let cancelled = false;
 
@@ -137,20 +135,33 @@ export default function ManageLinks({ lang = "en" }) {
 
   const updateBusiness = async () => {
     try {
+      const payload = {
+        ...form,
+        category:
+          typeof form.category === "object" && form.category?.key
+            ? [form.category.key]
+            : Array.isArray(form.category)
+            ? form.category
+            : form.category
+            ? [form.category]
+            : [],
+      };
+
       const res = await fetch(`${API_BASE}/api/business/update`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || "Failed");
 
-      setBusiness(data);
-      setForm(data);
+      const updatedBusiness = data.business || data;
+      setBusiness(updatedBusiness);
+      setForm(updatedBusiness);
       alert(t.success);
     } catch (err) {
       console.error(err);
@@ -159,7 +170,7 @@ export default function ManageLinks({ lang = "en" }) {
   };
 
   const deleteBusiness = async () => {
-    if (!window.confirm(isAr ? "هل أنت متأكد؟" : "⚠️ Are you sure?")) return;
+    if (!window.confirm(isAr ? "هل أنت متأكد؟" : "Are you sure?")) return;
 
     try {
       await fetch(`${API_BASE}/api/business/delete`, {
@@ -168,6 +179,8 @@ export default function ManageLinks({ lang = "en" }) {
       });
     } finally {
       localStorage.removeItem("token");
+      localStorage.removeItem("pendingBusiness");
+      localStorage.removeItem("otpToken");
       window.location.href = "/";
     }
   };
@@ -178,32 +191,45 @@ export default function ManageLinks({ lang = "en" }) {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` },
       });
+
       const data = await res.json().catch(() => ({}));
-      alert(`Status: ${data.status || "updated"}`);
+      if (!res.ok) throw new Error(data?.error || "Failed");
+
       setBusiness((prev) => ({ ...(prev || {}), status: data.status }));
+      setForm((prev) => ({ ...(prev || {}), status: data.status }));
+      alert(`${isAr ? "الحالة" : "Status"}: ${data.status || "updated"}`);
     } catch (err) {
       console.error(err);
     }
   };
 
-  if (loading) return <p style={{ textAlign: "center" }}>{isAr ? "جارٍ التحميل..." : "Loading..."}</p>;
+  if (loading) {
+    return <p style={{ textAlign: "center" }}>{isAr ? "جارٍ التحميل..." : "Loading..."}</p>;
+  }
 
-  const verifiedFlag = business?.verified;
-  const verificationState = business?.verification || business?.verificationStatus;
+  const visibilityText =
+    business?.status === "Active"
+      ? t.visible_yes
+      : business?.status === "Pending"
+      ? t.visible_pending
+      : t.visible_no;
 
-  const verificationText =
-    verifiedFlag === true
-      ? t.verified_yes
-      : verificationState === "pending"
-      ? t.verified_pending
-      : t.verified_no;
-
-  const categoryValue =
-    typeof form.category === "object" ? form.category.key : form.category || "";
+  const categoryValue = Array.isArray(form.category)
+    ? form.category[0] || ""
+    : typeof form.category === "object"
+    ? form.category.key || ""
+    : form.category || "";
 
   return (
-    <div style={{ maxWidth: 950, margin: "0 auto", paddingBottom: 50, direction: dir, textAlign: isAr ? "right" : "left" }}>
-      {/* Header */}
+    <div
+      style={{
+        maxWidth: 950,
+        margin: "0 auto",
+        paddingBottom: 50,
+        direction: dir,
+        textAlign: isAr ? "right" : "left",
+      }}
+    >
       <div
         style={{
           background: "linear-gradient(135deg,#22c55e,#34d399)",
@@ -217,7 +243,6 @@ export default function ManageLinks({ lang = "en" }) {
         <p>{t.desc}</p>
       </div>
 
-      {/* Business Verification Status */}
       <div
         style={{
           background: "#f0fdf4",
@@ -233,7 +258,7 @@ export default function ManageLinks({ lang = "en" }) {
         }}
       >
         <span style={{ fontWeight: 700, color: "#166534" }}>
-          {t.verified}: {verificationText}
+          {t.verified}: {visibilityText}
         </span>
 
         {business?.status && (
@@ -243,7 +268,6 @@ export default function ManageLinks({ lang = "en" }) {
         )}
       </div>
 
-      {/* Main Card */}
       <div
         style={{
           background: "#fff",
@@ -269,7 +293,6 @@ export default function ManageLinks({ lang = "en" }) {
           }}
         />
 
-        {/* Category */}
         <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>
           {isAr ? "الفئة" : "Category"}
         </label>
@@ -280,13 +303,9 @@ export default function ManageLinks({ lang = "en" }) {
             const selected = metaCategories.find((c) => c.key === e.target.value);
             if (!selected) return;
 
-            // Keep shape similar to your current storage (object)
             setForm((prev) => ({
               ...prev,
-              category: {
-                key: selected.key,
-                name: isAr ? selected.ar : selected.en,
-              },
+              category: [selected.key],
             }));
           }}
           style={{
@@ -306,8 +325,9 @@ export default function ManageLinks({ lang = "en" }) {
           ))}
         </select>
 
-        {/* Media */}
-        <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>{t.media}</label>
+        <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>
+          {t.media}
+        </label>
         <input
           name="mediaLink"
           value={form.mediaLink || ""}
@@ -323,8 +343,9 @@ export default function ManageLinks({ lang = "en" }) {
           }}
         />
 
-        {/* Map */}
-        <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>{t.map}</label>
+        <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>
+          {t.map}
+        </label>
         <input
           name="mapLink"
           value={form.mapLink || ""}
@@ -356,7 +377,6 @@ export default function ManageLinks({ lang = "en" }) {
         </button>
       </div>
 
-      {/* WhatsApp Update with OTP component */}
       <div style={{ marginTop: 30 }}>
         <h3>{t.whatsapp}</h3>
         <WhatsAppVerify
@@ -364,18 +384,15 @@ export default function ManageLinks({ lang = "en" }) {
           token={token}
           businessName={business?.name || ""}
           currentWhatsapp={business?.whatsapp || ""}
-          onVerified={(updatedBusiness) => {
-            setBusiness(updatedBusiness);
+          onVerified={(result) => {
             setForm((prev) => ({
               ...prev,
-              whatsapp: updatedBusiness.whatsapp,
-              verified: updatedBusiness.verified,
+              whatsapp: result?.whatsapp || prev.whatsapp,
             }));
           }}
         />
       </div>
 
-      {/* Actions */}
       <div style={{ marginTop: 30 }}>
         <h3>{t.actions}</h3>
         <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
