@@ -637,10 +637,8 @@ async function publishBusinessHandler(req, res) {
       return res.status(400).json({ error: "Business name required" });
     }
 
-    // إذا في business لنفس المستخدم → حدّثه بدل إنشاء جديد
     let business = await Business.findOne({ ownerUserId });
 
-    // لو لا يوجد business للمستخدم، تأكد أن الواتساب غير مربوط بbusiness آخر
     if (!business) {
       const whatsappTaken = await Business.findOne({ whatsapp });
       if (whatsappTaken) {
@@ -654,14 +652,13 @@ async function publishBusinessHandler(req, res) {
         description,
         category: Array.isArray(category) ? category : [],
         whatsapp,
-        status: "Pending", // يبقى Pending حتى مراجعة/تفعيل الأدمن
+        status: "Active", // ✅ مباشر بعد اختيار الباقة
         latitude,
         longitude,
         mapLink,
         mediaLink,
       });
     } else {
-      // حدّث بيانات النشاط الموجود
       business.name = name;
       business.name_ar = name_ar;
       business.description = description;
@@ -671,15 +668,14 @@ async function publishBusinessHandler(req, res) {
       business.longitude = longitude;
       business.mapLink = mapLink;
       business.mediaLink = mediaLink;
+      business.status = "Active"; // ✅ مباشر بعد اختيار الباقة
 
-      // عند النشر النهائي نخلي الحالة Pending للمراجعة
-      business.status = "Pending";
       await business.save();
     }
 
     return res.json({
       ok: true,
-      message: "Business published and pending review",
+      message: "Business published successfully",
       business,
     });
   } catch (e) {
