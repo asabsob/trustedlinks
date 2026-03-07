@@ -12,27 +12,62 @@ export default function BusinessDetails() {
 
   const [business, setBusiness] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  // Instagram extras (optional)
   const [instaProfilePic, setInstaProfilePic] = useState(null);
 
-  // ---------------------------- Tracking helpers ----------------------------
+  const metaCategories = useMemo(
+    () => ({
+      AUTOMOTIVE: { en: "Automotive", ar: "سيارات" },
+      BEAUTY_SPA_SALON: { en: "Beauty, Spa and Salon", ar: "تجميل وصالون" },
+      CLOTHING_APPAREL: { en: "Clothing and Apparel", ar: "ملابس وأزياء" },
+      EDUCATION: { en: "Education", ar: "تعليم" },
+      ENTERTAINMENT: { en: "Entertainment", ar: "ترفيه" },
+      EVENT_PLANNING: { en: "Event Planning and Service", ar: "تنظيم الفعاليات والخدمات" },
+      FINANCE_BANKING: { en: "Finance and Banking", ar: "تمويل وبنوك" },
+      FOOD_GROCERY: { en: "Food and Grocery", ar: "طعام وبقالة" },
+      BEVERAGES: { en: "Beverages", ar: "مشروبات" },
+      PUBLIC_SERVICE: { en: "Public Service", ar: "خدمات عامة" },
+      HOTEL_LODGING: { en: "Hotel and Lodging", ar: "فنادق وإقامة" },
+      MEDICAL_HEALTH: { en: "Medical and Health", ar: "صحة وطبية" },
+      NON_PROFIT: { en: "Non-profit", ar: "غير ربحي" },
+      PROFESSIONAL_SERVICES: { en: "Professional Services", ar: "خدمات مهنية" },
+      SHOPPING_RETAIL: { en: "Shopping and Retail", ar: "تسوق وتجزئة" },
+      TRAVEL_TRANSPORTATION: { en: "Travel and Transportation", ar: "سفر ومواصلات" },
+      RESTAURANT: { en: "Restaurant / Cafe", ar: "مطعم / مقهى" },
+      OTHER: { en: "Other", ar: "أخرى" },
+    }),
+    []
+  );
+
+  const getCategoryLabel = (category) => {
+    if (!category) return t("Uncategorized", "غير مصنّف");
+
+    if (Array.isArray(category)) {
+      return category
+        .map((c) => {
+          const key = String(c || "").toUpperCase().trim();
+          return metaCategories[key]
+            ? isAr
+              ? metaCategories[key].ar
+              : metaCategories[key].en
+            : c;
+        })
+        .join(", ");
+    }
+
+    const key = String(category || "").toUpperCase().trim();
+    return metaCategories[key]
+      ? isAr
+        ? metaCategories[key].ar
+        : metaCategories[key].en
+      : category;
+  };
+
   const trackView = async () => {
     try {
       await fetch(`${API_BASE}/api/track-view`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ businessId: id }),
-      });
-    } catch {}
-  };
-
-  const trackClick = async (kind) => {
-    try {
-      await fetch(`${API_BASE}/api/track-click`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId: id, kind }),
       });
     } catch {}
   };
@@ -47,7 +82,36 @@ export default function BusinessDetails() {
     } catch {}
   };
 
-  // ---------------------------- Load business info ----------------------------
+  const trackMap = async () => {
+    try {
+      await fetch(`${API_BASE}/api/track-map`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId: id }),
+      });
+    } catch {}
+  };
+
+  const trackWhatsapp = async () => {
+    try {
+      await fetch(`${API_BASE}/api/track-whatsapp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId: id }),
+      });
+    } catch {}
+  };
+
+  const trackClick = async () => {
+    try {
+      await fetch(`${API_BASE}/api/track-click`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId: id }),
+      });
+    } catch {}
+  };
+
   useEffect(() => {
     let cancelled = false;
 
@@ -65,8 +129,6 @@ export default function BusinessDetails() {
 
         if (cancelled) return;
         setBusiness(data);
-
-        // Track view AFTER successful load
         trackView();
       } catch {
         if (!cancelled) setBusiness(null);
@@ -81,7 +143,6 @@ export default function BusinessDetails() {
     };
   }, [id]);
 
-  // ---------------------------- Instagram profile image (optional) ----------------------------
   useEffect(() => {
     let cancelled = false;
 
@@ -101,7 +162,9 @@ export default function BusinessDetails() {
         const res = await fetch(`${API_BASE}/api/instagram-profile/${username}`);
         const data = await res.json().catch(() => null);
 
-        if (!cancelled && data?.profilePic) setInstaProfilePic(data.profilePic);
+        if (!cancelled && data?.profilePic) {
+          setInstaProfilePic(data.profilePic);
+        }
       } catch {}
     }
 
@@ -111,8 +174,17 @@ export default function BusinessDetails() {
     };
   }, [business]);
 
-  if (loading) return <p style={{ textAlign: "center" }}>{t("Loading...", "جارٍ التحميل...")}</p>;
-  if (!business) return <p style={{ textAlign: "center" }}>{t("Business not found.", "لم يتم العثور على النشاط.")}</p>;
+  if (loading) {
+    return <p style={{ textAlign: "center" }}>{t("Loading...", "جارٍ التحميل...")}</p>;
+  }
+
+  if (!business) {
+    return (
+      <p style={{ textAlign: "center" }}>
+        {t("Business not found.", "لم يتم العثور على النشاط.")}
+      </p>
+    );
+  }
 
   const media = business.mediaLink || "";
   const isYouTube = media.includes("youtube.com/watch");
@@ -122,6 +194,7 @@ export default function BusinessDetails() {
   const isInstagramPost = /instagram\.com\/(p|reel|tv)\//i.test(media);
 
   const youtubeEmbed = isYouTube ? media.replace("watch?v=", "embed/") : null;
+  const businessName = business.name_ar || business.name || t("Business", "النشاط");
 
   return (
     <div
@@ -129,7 +202,7 @@ export default function BusinessDetails() {
         maxWidth: "800px",
         margin: "40px auto",
         padding: "20px",
-        fontFamily: lang === "ar" ? "Tajawal, Inter, sans-serif" : "Inter, sans-serif",
+        fontFamily: isAr ? "Tajawal, Inter, sans-serif" : "Inter, sans-serif",
         direction: isAr ? "rtl" : "ltr",
         textAlign: isAr ? "right" : "left",
       }}
@@ -143,7 +216,7 @@ export default function BusinessDetails() {
           overflow: "hidden",
         }}
       >
-        {/* 🎬 Media Section */}
+        {/* Media */}
         {media ? (
           isYouTube ? (
             <iframe
@@ -164,7 +237,6 @@ export default function BusinessDetails() {
               onPlay={trackMedia}
             />
           ) : isInstagram ? (
-            // ✅ Production-safe: no direct Graph oEmbed from frontend
             isInstagramPost ? (
               <a
                 href={media}
@@ -229,7 +301,7 @@ export default function BusinessDetails() {
           ) : isImage ? (
             <img
               src={media}
-              alt={business.name}
+              alt={businessName}
               style={{ width: "100%", height: "360px", objectFit: "cover" }}
               onClick={trackMedia}
             />
@@ -269,9 +341,9 @@ export default function BusinessDetails() {
           </div>
         )}
 
-        {/* 🧾 Business Info */}
+        {/* Info */}
         <div style={{ padding: "24px" }}>
-          <h2 style={{ marginBottom: "10px" }}>{business.name}</h2>
+          <h2 style={{ marginBottom: "10px" }}>{businessName}</h2>
 
           <div
             style={{
@@ -284,18 +356,21 @@ export default function BusinessDetails() {
               marginBottom: "16px",
             }}
           >
-            {business.category || t("Uncategorized", "غير مصنّف")}
+            {getCategoryLabel(business.category)}
           </div>
 
-          {/* 🏠 Address Section */}
+          <p style={{ color: "#555", fontSize: "15px", marginBottom: "12px" }}>
+            {business.description || t("No description available.", "لا يوجد وصف متاح.")}
+          </p>
+
           <div style={{ color: "#777", fontSize: "14px", marginBottom: "12px" }}>
-            📍 <strong>{t("Address:", "العنوان:")}</strong>{" "}
+            📍 <strong>{t("Location:", "الموقع:")}</strong>{" "}
             {business.mapLink ? (
               <a
                 href={business.mapLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => trackClick("map")}
+                onClick={trackMap}
                 style={{
                   color: "#22c55e",
                   fontWeight: 600,
@@ -310,12 +385,11 @@ export default function BusinessDetails() {
             )}
           </div>
 
-          {/* 💬 Status */}
           <p style={{ color: "#777", fontSize: "14px" }}>
-            💬 <strong>{t("Status:", "الحالة:")}</strong> {business.status || t("Active", "نشط")}
+            💬 <strong>{t("Status:", "الحالة:")}</strong>{" "}
+            {business.status || t("Active", "نشط")}
           </p>
 
-          {/* ✅ Action Buttons */}
           <div style={{ marginTop: "24px", display: "flex", gap: "10px" }}>
             {(business.whatsappLink || business.whatsapp) && (
               <a
@@ -325,7 +399,7 @@ export default function BusinessDetails() {
                 }
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => trackClick("whatsapp")}
+                onClick={trackWhatsapp}
                 style={{
                   flex: 1,
                   textAlign: "center",
@@ -346,7 +420,7 @@ export default function BusinessDetails() {
                 href={business.website}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => trackClick("website")}
+                onClick={trackClick}
                 style={{
                   flex: 1,
                   textAlign: "center",
