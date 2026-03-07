@@ -2,82 +2,6 @@ import React, { useState } from "react";
 import { API_BASE } from "../config/api";
 import { useNavigate } from "react-router-dom";
 
-// ============================================================================
-// ✅ NEW: helper to safely parse JSON
-// ============================================================================
-function safeJsonParse(str) {
-  try {
-    return JSON.parse(str);
-  } catch {
-    return null;
-  }
-}
-
-// ============================================================================
-// ✅ NEW: after login, create business automatically if pendingBusiness exists
-// Requires backend endpoint: POST /api/business/signup
-// Headers:
-//   Authorization: Bearer <USER_TOKEN>
-//   X-OTP-Token: <OTP_TOKEN>
-// ============================================================================
-async function tryCreateBusinessAfterLogin(userToken) {
-  const pendingRaw = localStorage.getItem("pendingBusiness");
-  if (!pendingRaw) return { ok: true, skipped: true };
-
-  const pending = safeJsonParse(pendingRaw);
-  if (!pending) {
-    localStorage.removeItem("pendingBusiness");
-    return { ok: true, skipped: true };
-  }
-
-  // We support both: pending.otpToken OR localStorage("otpToken")
-  const otpToken = pending.otpToken || localStorage.getItem("otpToken");
-  if (!otpToken) {
-    console.warn("pendingBusiness exists but otpToken is missing");
-    return { ok: false, error: "Missing OTP token" };
-  }
-
-  const payload = {
-    name: pending.nameAr || pending.nameEn || "Business",
-    name_ar: pending.nameAr || "",
-    description: pending.description || "",
-    category: pending.categoryKey ? [pending.categoryKey] : [],
-    latitude: pending.latitude ?? null,
-    longitude: pending.longitude ?? null,
-    mapLink: pending.mapLink || "",
-    mediaLink: pending.mediaLink || "",
-  };
-
- fetch(`${API_BASE}/api/business/signup`, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${userToken}`,
-    "X-OTP-Token": otpToken,
-  },
-  body: JSON.stringify(businessData),
-});
-
-  const data = await res.json().catch(() => ({}));
-
-  if (!res.ok) {
-    const msg = data?.error || `Business signup failed (${res.status})`;
-    // If already created, consider it success
-    const low = String(msg).toLowerCase();
-    if (low.includes("already has a business") || low.includes("already registered")) {
-      localStorage.removeItem("pendingBusiness");
-      localStorage.removeItem("otpToken");
-      return { ok: true, already: true };
-    }
-    return { ok: false, error: msg };
-  }
-
-  // ✅ Success: clean pending
-  localStorage.removeItem("pendingBusiness");
-  localStorage.removeItem("otpToken");
-  return { ok: true, business: data?.business || data };
-}
-
 export default function LoginModal({
   isOpen,
   onClose,
@@ -117,6 +41,7 @@ export default function LoginModal({
     try {
       setLoading(true);
 
+      // 1) login
       const res = await fetch(`${API_BASE}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -139,30 +64,50 @@ export default function LoginModal({
         return;
       }
 
-      // ✅ Save user token
+      // 2) save token
       localStorage.setItem("token", data.token);
 
-      // ✅ NEW: if pendingBusiness exists, create it now
-      const created = await tryCreateBusinessAfterLogin(data.token);
-      if (!created.ok) {
-        // لا نوقف الدخول، بس نوضح سبب فاضي الداشبورد
+      // 3) fetch user profile after login
+      const meRes = await fetch(`${API_BASE}/api/me`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${data.token}`,
+        },
+      });
+
+      const meData = await meRes.json().catch(() => ({}));
+
+      if (!meRes.ok) {
         setError(
-          t(
-            `Logged in, but business setup failed: ${created.error}`,
-            `تم تسجيل الدخول، لكن إنشاء النشاط فشل: ${created.error}`
-          )
+          meData?.error ||
+            t(
+              "Logged in, but failed to load account info.",
+              "تم تسجيل الدخول لكن تعذر تحميل معلومات الحساب."
+            )
         );
+        return;
       }
 
       setInfoMessage(t("Login successful!", "تم تسجيل الدخول بنجاح!"));
 
-      // ✅ Keep existing flow
       if (onLoginSuccess) onLoginSuccess(data.token);
 
-      // ✅ Navigate (no need timeout but keep your UX)
+      const pendingBusiness = localStorage.getItem("pendingBusiness");
+
+      // 4) smart redirect based on state
       setTimeout(() => {
+        if (pendingBusiness) {
+          navigate("/subscribe", { replace: true });
+          return;
+        }
+
+        if (meData?.subscriptionPlan) {
+          navigate("/dashboard", { replace: true });
+          return;
+        }
+
         navigate("/dashboard", { replace: true });
-      }, 600);
+      }, 500);
     } catch (err) {
       setError(
         t(
@@ -181,7 +126,12 @@ export default function LoginModal({
     setInfoMessage("");
 
     if (!email) {
-      setError(t("Please enter your email first.", "أدخل بريدك الإلكتروني أولاً."));
+      setError(
+        t(
+          "Please enter your email first.",
+          "أدخل بريدك الإلكتروني أولاً."
+        )
+      );
       return;
     }
 
@@ -197,13 +147,19 @@ export default function LoginModal({
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setError(data?.error || t("Failed to resend email.", "فشل إرسال رابط التفعيل."));
+        setError(
+          data?.error ||
+            t("Failed to resend email.", "فشل إرسال رابط التفعيل.")
+        );
         return;
       }
 
       setInfoMessage(
         data?.message ||
-          t("Verification email sent. Check your inbox.", "تم إرسال رابط التفعيل. افحص بريدك.")
+          t(
+            "Verification email sent. Check your inbox.",
+            "تم إرسال رابط التفعيل. افحص بريدك."
+          )
       );
     } catch (err) {
       setError(t("Error while sending email.", "حدث خطأ أثناء الإرسال."));
@@ -219,7 +175,12 @@ export default function LoginModal({
     setInfoMessage("");
 
     if (!forgotEmail) {
-      setError(t("Please enter your email.", "يرجى إدخال البريد الإلكتروني."));
+      setError(
+        t(
+          "Please enter your email.",
+          "يرجى إدخال البريد الإلكتروني."
+        )
+      );
       return;
     }
 
@@ -237,7 +198,10 @@ export default function LoginModal({
       if (!res.ok) {
         setError(
           data?.error ||
-            t("Failed to reset password.", "فشل في إعادة تعيين كلمة المرور.")
+            t(
+              "Failed to reset password.",
+              "فشل في إعادة تعيين كلمة المرور."
+            )
         );
         return;
       }
@@ -285,7 +249,9 @@ export default function LoginModal({
           </div>
 
           <div>
-            <div className="text-lg font-semibold text-gray-800">Trusted Links</div>
+            <div className="text-lg font-semibold text-gray-800">
+              Trusted Links
+            </div>
             <div className="text-xs text-gray-500 -mt-1">
               {t("Secure business access", "دخول آمن للنشاط التجاري")}
             </div>
@@ -303,6 +269,7 @@ export default function LoginModal({
             {error}
           </div>
         )}
+
         {infoMessage && (
           <div className="mb-3 p-3 bg-green-100 border border-green-300 rounded-lg text-sm text-green-800">
             {infoMessage}
@@ -312,7 +279,9 @@ export default function LoginModal({
         {!showForgot ? (
           <form onSubmit={handleLogin} className="space-y-4">
             <div className={isRTL ? "text-right" : "text-left"}>
-              <label className="block text-sm mb-1">{t("Email", "البريد الإلكتروني")}</label>
+              <label className="block text-sm mb-1">
+                {t("Email", "البريد الإلكتروني")}
+              </label>
               <input
                 type="email"
                 placeholder="name@example.com"
@@ -324,7 +293,9 @@ export default function LoginModal({
             </div>
 
             <div className={isRTL ? "text-right" : "text-left"}>
-              <label className="block text-sm mb-1">{t("Password", "كلمة المرور")}</label>
+              <label className="block text-sm mb-1">
+                {t("Password", "كلمة المرور")}
+              </label>
               <input
                 type="password"
                 className="w-full border rounded-lg px-4 py-2 text-sm bg-gray-50 focus:ring-2 focus:ring-green-400 focus:outline-none"
@@ -339,17 +310,26 @@ export default function LoginModal({
               disabled={loading}
               className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-semibold text-sm transition-all shadow-md"
             >
-              {loading ? t("Logging in...", "جاري تسجيل الدخول...") : t("Login", "تسجيل الدخول")}
+              {loading
+                ? t("Logging in...", "جاري تسجيل الدخول...")
+                : t("Login", "تسجيل الدخول")}
             </button>
 
-            <div className={`flex justify-between text-xs mt-2 ${isRTL ? "flex-row-reverse" : ""}`}>
+            <div
+              className={`flex justify-between text-xs mt-2 ${
+                isRTL ? "flex-row-reverse" : ""
+              }`}
+            >
               <button
                 type="button"
                 onClick={handleResendVerification}
                 className="underline text-gray-600"
                 disabled={loading}
               >
-                {t("Resend verification email", "إعادة إرسال رابط التفعيل")}
+                {t(
+                  "Resend verification email",
+                  "إعادة إرسال رابط التفعيل"
+                )}
               </button>
 
               <button
@@ -367,7 +347,9 @@ export default function LoginModal({
         ) : (
           <form onSubmit={handleForgotPassword} className="space-y-4">
             <div className={isRTL ? "text-right" : "text-left"}>
-              <label className="block text-sm mb-1">{t("Email", "البريد الإلكتروني")}</label>
+              <label className="block text-sm mb-1">
+                {t("Email", "البريد الإلكتروني")}
+              </label>
               <input
                 type="email"
                 className="w-full border rounded-lg px-4 py-2 text-sm bg-gray-50"
@@ -383,8 +365,14 @@ export default function LoginModal({
               className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-semibold"
             >
               {loading
-                ? t("Sending reset link...", "جاري إرسال رابط إعادة التعيين...")
-                : t("Send reset email", "إرسال رابط إعادة التعيين")}
+                ? t(
+                    "Sending reset link...",
+                    "جاري إرسال رابط إعادة التعيين..."
+                  )
+                : t(
+                    "Send reset email",
+                    "إرسال رابط إعادة التعيين"
+                  )}
             </button>
 
             <button
