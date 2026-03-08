@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   LineChart,
   Line,
@@ -15,13 +16,15 @@ import {
 import { useSpring, animated } from "@react-spring/web";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
-
 const COLORS = ["#22c55e", "#34d399", "#4ade80", "#86efac"];
 
 export default function Reports({ lang = "en" }) {
   const isAr = lang === "ar";
+  const navigate = useNavigate();
+
   const [data, setData] = useState(null);
   const [msg, setMsg] = useState("");
+  const [loading, setLoading] = useState(true);
 
   const fadeIn = useSpring({
     opacity: 1,
@@ -34,12 +37,16 @@ export default function Reports({ lang = "en" }) {
 
     async function load() {
       const token = localStorage.getItem("token");
+
       if (!token) {
-        window.location.href = "/login";
+        navigate("/login", { replace: true });
         return;
       }
 
       try {
+        setLoading(true);
+        setMsg("");
+
         const res = await fetch(`${API_BASE}/api/business/reports`, {
           headers: {
             "Content-Type": "application/json",
@@ -50,6 +57,20 @@ export default function Reports({ lang = "en" }) {
         const d = await res.json().catch(() => null);
 
         if (!res.ok) {
+          if (res.status === 401) {
+            localStorage.removeItem("token");
+            navigate("/login", { replace: true });
+            return;
+          }
+
+          if (res.status === 404) {
+            throw new Error(
+              isAr
+                ? "لا توجد بيانات تقارير متاحة بعد."
+                : "No report data available yet."
+            );
+          }
+
           throw new Error(d?.error || `HTTP ${res.status}`);
         }
 
@@ -61,14 +82,17 @@ export default function Reports({ lang = "en" }) {
           activity: Array.isArray(d?.activity) ? d.activity : [],
         });
       } catch (e) {
-        console.error(e);
+        console.error("Reports load error:", e);
         if (!cancelled) {
           setMsg(
-            isAr
-              ? "تعذر تحميل التقارير حالياً."
-              : "Unable to load reports right now."
+            e?.message ||
+              (isAr
+                ? "تعذر تحميل التقارير حالياً."
+                : "Unable to load reports right now.")
           );
         }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     }
 
@@ -77,7 +101,37 @@ export default function Reports({ lang = "en" }) {
     return () => {
       cancelled = true;
     };
-  }, [isAr]);
+  }, [isAr, navigate]);
+
+  const pieData = useMemo(
+    () =>
+      (data?.sources || []).map((s) => ({
+        name: isAr ? s.name_ar || s.name || "" : s.name_en || s.name || "",
+        value: Number(s.value || 0),
+      })),
+    [data?.sources, isAr]
+  );
+
+  const convRate =
+    data?.totalClicks && data?.totalMessages
+      ? `${Math.round((data.totalMessages / data.totalClicks) * 100)}%`
+      : "0%";
+
+  if (loading) {
+    return (
+      <div
+        style={{
+          textAlign: "center",
+          padding: "60px",
+          color: "#666",
+          fontFamily: "Tajawal, Inter, sans-serif",
+          direction: isAr ? "rtl" : "ltr",
+        }}
+      >
+        {isAr ? "جارٍ تحميل التقارير..." : "Loading reports..."}
+      </div>
+    );
+  }
 
   if (!data) {
     return (
@@ -90,24 +144,10 @@ export default function Reports({ lang = "en" }) {
           direction: isAr ? "rtl" : "ltr",
         }}
       >
-        {msg || (isAr ? "جاري تحميل التقارير..." : "Loading reports...")}
+        {msg || (isAr ? "لا توجد بيانات متاحة." : "No data available.")}
       </div>
     );
   }
-
-  const convRate =
-    data.totalClicks && data.totalMessages
-      ? `${Math.round((data.totalMessages / data.totalClicks) * 100)}%`
-      : "0%";
-
-  const pieData = useMemo(
-    () =>
-      (data.sources || []).map((s) => ({
-        name: isAr ? s.name_ar || s.name || "" : s.name_en || s.name || "",
-        value: Number(s.value || 0),
-      })),
-    [data.sources, isAr]
-  );
 
   return (
     <div
@@ -144,7 +184,6 @@ export default function Reports({ lang = "en" }) {
           {data.business || "Business"} — {data.category || "Category"}
         </p>
 
-        {/* Summary Cards */}
         <div
           style={{
             display: "grid",
@@ -153,39 +192,14 @@ export default function Reports({ lang = "en" }) {
             marginBottom: "30px",
           }}
         >
-          <SummaryCard
-            label={isAr ? "إجمالي النقرات" : "Total Clicks"}
-            value={data.totalClicks ?? 0}
-            color="#22c55e"
-          />
-          <SummaryCard
-            label={isAr ? "إجمالي الرسائل" : "Total Messages"}
-            value={data.totalMessages ?? 0}
-            color="#34d399"
-          />
-          <SummaryCard
-            label={isAr ? "إجمالي الوسائط" : "Total Media Views"}
-            value={data.mediaViews ?? 0}
-            color="#4ade80"
-          />
-          <SummaryCard
-            label={isAr ? "إجمالي المشاهدات" : "Total Views"}
-            value={data.views ?? 0}
-            color="#86efac"
-          />
-          <SummaryCard
-            label={isAr ? "معدل التحويل" : "Conversion Rate"}
-            value={convRate}
-            color="#f97316"
-          />
-          <SummaryCard
-            label={isAr ? "النمو الأسبوعي" : "Weekly Growth"}
-            value={`${data.weeklyGrowth ?? 0}%`}
-            color="#16a34a"
-          />
+          <SummaryCard label={isAr ? "إجمالي النقرات" : "Total Clicks"} value={data.totalClicks ?? 0} color="#22c55e" />
+          <SummaryCard label={isAr ? "إجمالي الرسائل" : "Total Messages"} value={data.totalMessages ?? 0} color="#34d399" />
+          <SummaryCard label={isAr ? "إجمالي الوسائط" : "Total Media Views"} value={data.mediaViews ?? 0} color="#4ade80" />
+          <SummaryCard label={isAr ? "إجمالي المشاهدات" : "Total Views"} value={data.views ?? 0} color="#86efac" />
+          <SummaryCard label={isAr ? "معدل التحويل" : "Conversion Rate"} value={convRate} color="#f97316" />
+          <SummaryCard label={isAr ? "النمو الأسبوعي" : "Weekly Growth"} value={`${data.weeklyGrowth ?? 0}%`} color="#16a34a" />
         </div>
 
-        {/* Weekly Activity */}
         <div
           style={{
             background: "#fff",
@@ -207,35 +221,10 @@ export default function Reports({ lang = "en" }) {
                 <YAxis />
                 <Tooltip />
                 <Legend />
-
-                <Line
-                  type="monotone"
-                  dataKey="total"
-                  stroke="#22c55e"
-                  strokeWidth={2}
-                  name={isAr ? "إجمالي النقرات" : "Total Clicks"}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="whatsapp"
-                  stroke="#10b981"
-                  strokeWidth={2}
-                  name="WhatsApp"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="media"
-                  stroke="#facc15"
-                  strokeWidth={2}
-                  name={isAr ? "مشاهدات الوسائط" : "Media Views"}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="messages"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  name={isAr ? "الرسائل" : "Messages"}
-                />
+                <Line type="monotone" dataKey="total" stroke="#22c55e" strokeWidth={2} name={isAr ? "إجمالي النقرات" : "Total Clicks"} />
+                <Line type="monotone" dataKey="whatsapp" stroke="#10b981" strokeWidth={2} name="WhatsApp" />
+                <Line type="monotone" dataKey="media" stroke="#facc15" strokeWidth={2} name={isAr ? "مشاهدات الوسائط" : "Media Views"} />
+                <Line type="monotone" dataKey="messages" stroke="#3b82f6" strokeWidth={2} name={isAr ? "الرسائل" : "Messages"} />
               </LineChart>
             </ResponsiveContainer>
           ) : (
@@ -245,7 +234,6 @@ export default function Reports({ lang = "en" }) {
           )}
         </div>
 
-        {/* Interaction Sources */}
         <animated.div style={fadeIn}>
           <div
             style={{
@@ -270,26 +258,7 @@ export default function Reports({ lang = "en" }) {
                     cy="50%"
                     outerRadius={110}
                     paddingAngle={2}
-                    isAnimationActive={true}
-                    label={({ name, value, cx, cy, midAngle, outerRadius }) => {
-                      const RADIAN = Math.PI / 180;
-                      const radius = outerRadius + 28;
-                      const x = cx + radius * Math.cos(-midAngle * RADIAN);
-                      const y = cy + radius * Math.sin(-midAngle * RADIAN);
-                      return (
-                        <text
-                          x={x}
-                          y={y}
-                          fill="#16a34a"
-                          textAnchor={x > cx ? "start" : "end"}
-                          dominantBaseline="central"
-                          fontSize={14}
-                          fontWeight="700"
-                        >
-                          {`${name}: ${value}`}
-                        </text>
-                      );
-                    }}
+                    isAnimationActive
                   >
                     {pieData.map((_, index) => (
                       <Cell key={index} fill={COLORS[index % COLORS.length]} />
