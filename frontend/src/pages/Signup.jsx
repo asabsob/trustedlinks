@@ -45,7 +45,7 @@ export default function Signup({ lang = "en" }) {
     { key: "EVENT_PLANNING", nameEn: "Event Planning and Service", nameAr: "تنظيم الفعاليات والخدمات" },
     { key: "FINANCE_BANKING", nameEn: "Finance and Banking", nameAr: "تمويل وبنوك" },
     { key: "FOOD_GROCERY", nameEn: "Food and Grocery", nameAr: "طعام وبقالة" },
-    { key: "ALCOHOLIC_BEVERAGES", nameEn: "Beverages", nameAr: "مشروبات" },
+    { key: "BEVERAGES", nameEn: "Beverages", nameAr: "مشروبات" },
     { key: "PUBLIC_SERVICE", nameEn: "Public Service", nameAr: "خدمات عامة" },
     { key: "HOTEL_LODGING", nameEn: "Hotel and Lodging", nameAr: "فنادق وإقامة" },
     { key: "MEDICAL_HEALTH", nameEn: "Medical and Health", nameAr: "صحة وطبية" },
