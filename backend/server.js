@@ -1099,24 +1099,44 @@ app.get("/webhooks/javna/whatsapp", (_req, res) => {
   res.status(200).send("WhatsApp webhook is live");
 });
 
-app.post(
-  "/webhooks/javna/whatsapp",
-  express.raw({ type: "*/*" }),
-  async (req, res) => {
-    try {
-      console.log("POST WEBHOOK HIT");
-      console.log("HEADERS:", JSON.stringify(req.headers, null, 2));
+app.post("/webhooks/javna/whatsapp", async (req, res) => {
+  try {
+    console.log("POST WEBHOOK HIT");
+    console.log("HEADERS:", JSON.stringify(req.headers, null, 2));
+    console.log("BODY:", JSON.stringify(req.body, null, 2));
 
-      const rawBody = req.body ? req.body.toString("utf8") : "";
-      console.log("RAW BODY:", rawBody);
+    res.status(200).json({ ok: true });
 
-      return res.status(200).json({ ok: true });
-    } catch (e) {
-      console.error("WEBHOOK ERROR:", e);
-      return res.status(500).json({ ok: false });
+    const body = req.body || {};
+
+    if (body.eventScope !== "whatsapp" || body.event !== "wa.message.received") {
+      console.log("IGNORED EVENT:", body.eventScope, body.event);
+      return;
     }
+
+    const from = cleanDigits(body.from || body?.data?.from || "");
+    const text = (body?.data?.text?.text || "").toString().trim();
+
+    console.log("FROM:", from);
+    console.log("TEXT:", text);
+
+    if (!from || !text) {
+      console.log("MISSING FROM OR TEXT");
+      return;
+    }
+
+    const reply = `تم استلام رسالتك: ${text}`;
+
+    const sendResp = await javnaSendText({
+      to: from,
+      body: reply,
+    });
+
+    console.log("SEND RESP:", JSON.stringify(sendResp, null, 2));
+  } catch (e) {
+    console.error("WHATSAPP WEBHOOK ERROR:", e);
   }
-);
+});
 // ---------------------------------------------------------------------------
 // Debug
 // ---------------------------------------------------------------------------
