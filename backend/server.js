@@ -148,6 +148,7 @@ app.use(
 );
 
 app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: true }));
 
 // ---------------------------------------------------------------------------
 // Email (Resend)
@@ -1094,23 +1095,15 @@ app.post("/api/admin/settings", requireAdmin, async (req, res) => {
   return res.json({ ok: true, settings: ADMIN_SETTINGS });
 });
 
-app.get("/webhooks/javna/whatsapp", (_req, res) => {
-  res.status(200).send("WhatsApp webhook is live");
-});
-
 app.post("/webhooks/javna/whatsapp", async (req, res) => {
   try {
     console.log("WEBHOOK HIT");
+    console.log("HEADERS:", JSON.stringify(req.headers, null, 2));
     console.log("BODY:", JSON.stringify(req.body, null, 2));
 
     res.status(200).json({ ok: true });
 
     const body = req.body || {};
-
-    if (body.eventScope !== "whatsapp" || body.event !== "wa.message.received") {
-      console.log("IGNORED EVENT:", body.eventScope, body.event);
-      return;
-    }
 
     const from = cleanDigits(body.from || body?.data?.from || "");
     const text = (body?.data?.text?.text || "").toString().trim();
@@ -1123,10 +1116,7 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
       return;
     }
 
-    // اختبار مباشر بدون بحث
     const reply = `تم استلام رسالتك: ${text}`;
-
-    console.log("REPLY:", reply);
 
     const sendResp = await javnaSendText({
       to: from,
