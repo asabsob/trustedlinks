@@ -1095,16 +1095,25 @@ app.post("/api/admin/settings", requireAdmin, async (req, res) => {
 });
 
 // ============================================================================
-// WhatsApp Chat Search (Webhook) - optional
+// WhatsApp Chat Search Webhook - TrustedLinks
+// Search businesses directly from WhatsApp chat
 // ============================================================================
+
 app.post("/webhooks/javna/whatsapp", async (req, res) => {
   try {
+    // important: acknowledge webhook immediately
     res.json({ ok: true });
 
     const body = req.body || {};
+
     const from = cleanDigits(
-      body.from || body.sender || body?.data?.from || body?.message?.from || ""
+      body.from ||
+        body.sender ||
+        body?.data?.from ||
+        body?.message?.from ||
+        ""
     );
+
     const text = (
       body.text ||
       body.message ||
@@ -1117,40 +1126,73 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
 
     if (!from || !text) return;
 
-    const q = text.replace(/^search\s+/i, "").trim().toLowerCase();
+    const q = text.toLowerCase().trim();
+
+    // load only active businesses
     let results = await Business.find({ status: "Active" }).lean();
 
-    if (q) {
-      results = results.filter((b) => {
-        const name = (b.name || "").toLowerCase();
-        const nameAr = (b.name_ar || "").toLowerCase();
-        const desc = (b.description || "").toLowerCase();
-        const cat = Array.isArray(b.category) ? b.category.join(" ").toLowerCase() : "";
-        return name.includes(q) || nameAr.includes(q) || desc.includes(q) || cat.includes(q);
-      });
-    }
+    // search in multiple fields
+    results = results.filter((b) => {
+      const name = (b.name || "").toLowerCase();
+      const nameAr = (b.name_ar || "").toLowerCase();
+      const desc = (b.description || "").toLowerCase();
 
+      const cat = Array.isArray(b.category)
+        ? b.category.join(" ").toLowerCase()
+        : String(b.category || "").toLowerCase();
+
+      return (
+        name.includes(q) ||
+        nameAr.includes(q) ||
+        desc.includes(q) ||
+        cat.includes(q)
+      );
+    });
+
+    // limit reply size
     const top = results.slice(0, 5);
 
-    const reply = !top.length
-      ? `No results found for: "${q}".\nTry another keyword or category.`
-      : `Top results for "${q}":\n\n` +
+    let reply = "";
+
+    if (!top.length) {
+      reply =
+        `لم نجد نتائج مطابقة لـ "${text}".\n` +
+        `جرّب اسم نشاط، فئة، أو كلمة مختلفة.`;
+    } else {
+      reply =
+        `أفضل النتائج لـ "${text}":\n\n` +
         top
           .map((b, i) => {
-            const wa = b.whatsapp ? `https://wa.me/${cleanDigits(b.whatsapp)}` : "";
+            const businessName = b.name_ar || b.name || "Business";
+            const wa = b.whatsapp
+              ? `https://wa.me/${cleanDigits(b.whatsapp)}`
+              : "";
             const map = b.mapLink || "";
-            return `${i + 1}) ${b.name || "Business"}\n${wa ? `WhatsApp: ${wa}\n` : ""}${map ? `Map: ${map}\n` : ""}`;
+            const page = b._id
+              ? `${FRONTEND_BASE_URL}/business/${b._id}`
+              : "";
+
+            return (
+              `${i + 1}) ${businessName}\n` +
+              `${wa ? `واتساب: ${wa}\n` : ""}` +
+              `${map ? `الخريطة: ${map}\n` : ""}` +
+              `${page ? `الصفحة: ${page}\n` : ""}`
+            );
           })
           .join("\n");
+    }
 
     if (!JAVNA_API_KEY) {
       console.log("🧪 JAVNA disabled. Would reply to", from, "=>", reply);
       return;
     }
 
-    await javnaSendText({ to: from, body: reply });
+    await javnaSendText({
+      to: from,
+      body: reply,
+    });
   } catch (e) {
-    console.error("webhook error", e);
+    console.error("whatsapp webhook error:", e);
   }
 });
 
