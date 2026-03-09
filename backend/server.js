@@ -1094,24 +1094,22 @@ app.post("/api/admin/settings", requireAdmin, async (req, res) => {
   return res.json({ ok: true, settings: ADMIN_SETTINGS });
 });
 
-// ============================================================================
-// WhatsApp Chat Search Webhook - TrustedLinks
-// Search businesses directly from WhatsApp chat
-// ============================================================================
-
 app.post("/webhooks/javna/whatsapp", async (req, res) => {
   try {
-    // important: acknowledge webhook immediately
+    console.log("WEBHOOK HIT");
+    console.log("BODY:", JSON.stringify(req.body, null, 2));
+
     res.json({ ok: true });
 
     const body = req.body || {};
 
     const from = cleanDigits(
       body.from ||
-        body.sender ||
-        body?.data?.from ||
-        body?.message?.from ||
-        ""
+      body.sender ||
+      body?.data?.from ||
+      body?.message?.from ||
+      body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.from ||
+      ""
     );
 
     const text = (
@@ -1119,24 +1117,27 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
       body.message ||
       body?.data?.text ||
       body?.message?.text ||
+      body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.text?.body ||
       ""
-    )
-      .toString()
-      .trim();
+    ).toString().trim();
 
-    if (!from || !text) return;
+    console.log("FROM:", from);
+    console.log("TEXT:", text);
+
+    if (!from || !text) {
+      console.log("Webhook ignored: missing from/text");
+      return;
+    }
+
+    let results = await Business.find({ status: "Active" }).lean();
+    console.log("ACTIVE BUSINESSES:", results.length);
 
     const q = text.toLowerCase().trim();
 
-    // load only active businesses
-    let results = await Business.find({ status: "Active" }).lean();
-
-    // search in multiple fields
     results = results.filter((b) => {
       const name = (b.name || "").toLowerCase();
       const nameAr = (b.name_ar || "").toLowerCase();
       const desc = (b.description || "").toLowerCase();
-
       const cat = Array.isArray(b.category)
         ? b.category.join(" ").toLowerCase()
         : String(b.category || "").toLowerCase();
@@ -1149,53 +1150,38 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
       );
     });
 
-    // limit reply size
+    console.log("MATCHED RESULTS:", results.length);
+
     const top = results.slice(0, 5);
 
     let reply = "";
-
     if (!top.length) {
-      reply =
-        `لم نجد نتائج مطابقة لـ "${text}".\n` +
-        `جرّب اسم نشاط، فئة، أو كلمة مختلفة.`;
+      reply = `لم نجد نتائج مطابقة لـ "${text}".`;
     } else {
       reply =
         `أفضل النتائج لـ "${text}":\n\n` +
         top
           .map((b, i) => {
-            const businessName = b.name_ar || b.name || "Business";
-            const wa = b.whatsapp
-              ? `https://wa.me/${cleanDigits(b.whatsapp)}`
-              : "";
+            const wa = b.whatsapp ? `https://wa.me/${cleanDigits(b.whatsapp)}` : "";
             const map = b.mapLink || "";
-            const page = b._id
-              ? `${FRONTEND_BASE_URL}/business/${b._id}`
-              : "";
-
-            return (
-              `${i + 1}) ${businessName}\n` +
-              `${wa ? `واتساب: ${wa}\n` : ""}` +
-              `${map ? `الخريطة: ${map}\n` : ""}` +
-              `${page ? `الصفحة: ${page}\n` : ""}`
-            );
+            return `${i + 1}) ${b.name_ar || b.name}\n${wa ? `واتساب: ${wa}\n` : ""}${map ? `الخريطة: ${map}\n` : ""}`;
           })
           .join("\n");
     }
 
+    console.log("REPLY:", reply);
+
     if (!JAVNA_API_KEY) {
-      console.log("🧪 JAVNA disabled. Would reply to", from, "=>", reply);
+      console.log("JAVNA disabled");
       return;
     }
 
-    await javnaSendText({
-      to: from,
-      body: reply,
-    });
+    const sendResp = await javnaSendText({ to: from, body: reply });
+    console.log("SEND RESP:", sendResp);
   } catch (e) {
     console.error("whatsapp webhook error:", e);
   }
 });
-
 // ---------------------------------------------------------------------------
 // Debug
 // ---------------------------------------------------------------------------
