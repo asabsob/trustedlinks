@@ -1094,45 +1094,40 @@ app.post("/api/admin/settings", requireAdmin, async (req, res) => {
   return res.json({ ok: true, settings: ADMIN_SETTINGS });
 });
 
+app.get("/webhooks/javna/whatsapp", (_req, res) => {
+  res.status(200).send("WhatsApp webhook is live");
+});
+
 app.post("/webhooks/javna/whatsapp", async (req, res) => {
   try {
     console.log("WEBHOOK HIT");
     console.log("BODY:", JSON.stringify(req.body, null, 2));
 
-    res.json({ ok: true });
+    // acknowledge immediately
+    res.status(200).json({ ok: true });
 
     const body = req.body || {};
 
-    const from = cleanDigits(
-      body.from ||
-      body.sender ||
-      body?.data?.from ||
-      body?.message?.from ||
-      body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.from ||
-      ""
-    );
+    // validate event type
+    if (body.eventScope !== "whatsapp" || body.event !== "wa.message.received") {
+      console.log("Ignored event:", body.eventScope, body.event);
+      return;
+    }
 
-    const text = (
-      body.text ||
-      body.message ||
-      body?.data?.text ||
-      body?.message?.text ||
-      body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.text?.body ||
-      ""
-    ).toString().trim();
+    const from = cleanDigits(body.from || body?.data?.from || "");
+    const text = (body?.data?.text?.text || "").toString().trim();
 
     console.log("FROM:", from);
     console.log("TEXT:", text);
 
     if (!from || !text) {
-      console.log("Webhook ignored: missing from/text");
+      console.log("Missing from/text");
       return;
     }
 
-    let results = await Business.find({ status: "Active" }).lean();
-    console.log("ACTIVE BUSINESSES:", results.length);
+    const q = text.toLowerCase();
 
-    const q = text.toLowerCase().trim();
+    let results = await Business.find({ status: "Active" }).lean();
 
     results = results.filter((b) => {
       const name = (b.name || "").toLowerCase();
@@ -1150,21 +1145,33 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
       );
     });
 
-    console.log("MATCHED RESULTS:", results.length);
-
     const top = results.slice(0, 5);
 
     let reply = "";
+
     if (!top.length) {
-      reply = `لم نجد نتائج مطابقة لـ "${text}".`;
+      reply =
+        `لم نجد نتائج مطابقة لـ "${text}".\n` +
+        `جرّب اسم نشاط أو فئة أخرى.`;
     } else {
       reply =
         `أفضل النتائج لـ "${text}":\n\n` +
         top
           .map((b, i) => {
+            const businessName = b.name_ar || b.name || "Business";
             const wa = b.whatsapp ? `https://wa.me/${cleanDigits(b.whatsapp)}` : "";
-            const map = b.mapLink || "";
-            return `${i + 1}) ${b.name_ar || b.name}\n${wa ? `واتساب: ${wa}\n` : ""}${map ? `الخريطة: ${map}\n` : ""}`;
+            const map =
+              b.mapLink?.includes("iframe")
+                ? b.mapLink.match(/src="([^"]+)"/)?.[1] || ""
+                : b.mapLink || "";
+            const page = b._id ? `${FRONTEND_BASE_URL}/business/${b._id}` : "";
+
+            return (
+              `${i + 1}) ${businessName}\n` +
+              `${wa ? `واتساب: ${wa}\n` : ""}` +
+              `${map ? `الخريطة: ${map}\n` : ""}` +
+              `${page ? `الصفحة: ${page}\n` : ""}`
+            );
           })
           .join("\n");
     }
@@ -1172,11 +1179,15 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
     console.log("REPLY:", reply);
 
     if (!JAVNA_API_KEY) {
-      console.log("JAVNA disabled");
+      console.log("JAVNA disabled. Would reply to:", from);
       return;
     }
 
-    const sendResp = await javnaSendText({ to: from, body: reply });
+    const sendResp = await javnaSendText({
+      to: from,
+      body: reply,
+    });
+
     console.log("SEND RESP:", sendResp);
   } catch (e) {
     console.error("whatsapp webhook error:", e);
