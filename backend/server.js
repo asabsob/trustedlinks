@@ -1103,14 +1103,12 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
     console.log("WEBHOOK HIT");
     console.log("BODY:", JSON.stringify(req.body, null, 2));
 
-    // acknowledge immediately
     res.status(200).json({ ok: true });
 
     const body = req.body || {};
 
-    // validate event type
     if (body.eventScope !== "whatsapp" || body.event !== "wa.message.received") {
-      console.log("Ignored event:", body.eventScope, body.event);
+      console.log("IGNORED EVENT:", body.eventScope, body.event);
       return;
     }
 
@@ -1121,76 +1119,23 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
     console.log("TEXT:", text);
 
     if (!from || !text) {
-      console.log("Missing from/text");
+      console.log("MISSING FROM OR TEXT");
       return;
     }
 
-    const q = text.toLowerCase();
-
-    let results = await Business.find({ status: "Active" }).lean();
-
-    results = results.filter((b) => {
-      const name = (b.name || "").toLowerCase();
-      const nameAr = (b.name_ar || "").toLowerCase();
-      const desc = (b.description || "").toLowerCase();
-      const cat = Array.isArray(b.category)
-        ? b.category.join(" ").toLowerCase()
-        : String(b.category || "").toLowerCase();
-
-      return (
-        name.includes(q) ||
-        nameAr.includes(q) ||
-        desc.includes(q) ||
-        cat.includes(q)
-      );
-    });
-
-    const top = results.slice(0, 5);
-
-    let reply = "";
-
-    if (!top.length) {
-      reply =
-        `لم نجد نتائج مطابقة لـ "${text}".\n` +
-        `جرّب اسم نشاط أو فئة أخرى.`;
-    } else {
-      reply =
-        `أفضل النتائج لـ "${text}":\n\n` +
-        top
-          .map((b, i) => {
-            const businessName = b.name_ar || b.name || "Business";
-            const wa = b.whatsapp ? `https://wa.me/${cleanDigits(b.whatsapp)}` : "";
-            const map =
-              b.mapLink?.includes("iframe")
-                ? b.mapLink.match(/src="([^"]+)"/)?.[1] || ""
-                : b.mapLink || "";
-            const page = b._id ? `${FRONTEND_BASE_URL}/business/${b._id}` : "";
-
-            return (
-              `${i + 1}) ${businessName}\n` +
-              `${wa ? `واتساب: ${wa}\n` : ""}` +
-              `${map ? `الخريطة: ${map}\n` : ""}` +
-              `${page ? `الصفحة: ${page}\n` : ""}`
-            );
-          })
-          .join("\n");
-    }
+    // اختبار مباشر بدون بحث
+    const reply = `تم استلام رسالتك: ${text}`;
 
     console.log("REPLY:", reply);
-
-    if (!JAVNA_API_KEY) {
-      console.log("JAVNA disabled. Would reply to:", from);
-      return;
-    }
 
     const sendResp = await javnaSendText({
       to: from,
       body: reply,
     });
 
-    console.log("SEND RESP:", sendResp);
+    console.log("SEND RESP:", JSON.stringify(sendResp, null, 2));
   } catch (e) {
-    console.error("whatsapp webhook error:", e);
+    console.error("WHATSAPP WEBHOOK ERROR:", e);
   }
 });
 // ---------------------------------------------------------------------------
