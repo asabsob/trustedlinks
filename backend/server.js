@@ -1095,39 +1095,31 @@ app.post("/api/admin/settings", requireAdmin, async (req, res) => {
   return res.json({ ok: true, settings: ADMIN_SETTINGS });
 });
 
-app.post("/webhooks/javna/whatsapp", async (req, res) => {
-  try {
-    console.log("WEBHOOK HIT");
-    console.log("HEADERS:", JSON.stringify(req.headers, null, 2));
-    console.log("BODY:", JSON.stringify(req.body, null, 2));
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: true }));
 
-    res.status(200).json({ ok: true });
-
-    const body = req.body || {};
-
-    const from = cleanDigits(body.from || body?.data?.from || "");
-    const text = (body?.data?.text?.text || "").toString().trim();
-
-    console.log("FROM:", from);
-    console.log("TEXT:", text);
-
-    if (!from || !text) {
-      console.log("MISSING FROM OR TEXT");
-      return;
-    }
-
-    const reply = `تم استلام رسالتك: ${text}`;
-
-    const sendResp = await javnaSendText({
-      to: from,
-      body: reply,
-    });
-
-    console.log("SEND RESP:", JSON.stringify(sendResp, null, 2));
-  } catch (e) {
-    console.error("WHATSAPP WEBHOOK ERROR:", e);
-  }
+app.get("/api/debug/ping", (_req, res) => {
+  console.log("PING HIT");
+  res.json({ ok: true, message: "pong" });
 });
+
+app.get("/webhooks/javna/whatsapp", (_req, res) => {
+  console.log("GET WEBHOOK HIT");
+  res.send("WhatsApp webhook is live");
+});
+
+app.post(
+  "/webhooks/javna/whatsapp",
+  express.text({ type: "*/*" }),
+  async (req, res) => {
+    console.log("POST WEBHOOK HIT");
+    console.log("HEADERS:", JSON.stringify(req.headers, null, 2));
+    console.log("RAW BODY:", req.body);
+
+    return res.status(200).json({ ok: true });
+  }
+);
+
 // ---------------------------------------------------------------------------
 // Debug
 // ---------------------------------------------------------------------------
