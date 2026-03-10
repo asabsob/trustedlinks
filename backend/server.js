@@ -250,6 +250,9 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   return JSON.parse(txt);
 }
 
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: true }));
+
 // ============================================================================
 // Health
 // ============================================================================
@@ -416,8 +419,11 @@ app.post("/api/auth/resend-verification", async (req, res) => {
 
 app.post("/api/auth/forgot-password", async (req, res) => {
   try {
-    const { email } = req.body || {};
-    const emailNorm = String(email || "").toLowerCase().trim();
+    console.log("FORGOT BODY:", req.body);
+
+    const emailNorm = String(req.body?.email || "")
+      .trim()
+      .toLowerCase();
 
     if (!emailNorm) {
       return res.status(400).json({ error: "Email is required" });
@@ -425,17 +431,18 @@ app.post("/api/auth/forgot-password", async (req, res) => {
 
     const user = await User.findOne({ email: emailNorm });
 
-    // لا نظهر إذا الإيميل موجود أو لا
     if (!user) {
       return res.json({
         ok: true,
-        message: "If this email is registered, a reset link has been sent.",
+        message: "If this email exists, a reset link has been sent.",
       });
     }
 
     const resetToken = nanoid(40);
+
     user.resetToken = resetToken;
-    user.resetTokenExpiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    user.resetTokenExpiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
     await user.save();
 
     const resetUrl =
@@ -443,35 +450,22 @@ app.post("/api/auth/forgot-password", async (req, res) => {
       `?email=${encodeURIComponent(emailNorm)}` +
       `&token=${encodeURIComponent(resetToken)}`;
 
-    try {
-      await sendEmail({
-        to: emailNorm,
-        subject: "Reset your password",
-        text: `Reset your password using this link: ${resetUrl}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-            <h2>Reset your password</h2>
-            <p>Click the link below to reset your password:</p>
-            <p>
-              <a href="${resetUrl}" style="color:#16a34a;font-weight:bold;">
-                Reset Password
-              </a>
-            </p>
-            <p>This link will expire in 1 hour.</p>
-          </div>
-        `,
-      });
-    } catch (err) {
-      console.error("send reset email error:", err);
-    }
+    await sendEmail({
+      to: emailNorm,
+      subject: "Reset your password",
+      html: `
+      <p>Reset your password:</p>
+      <p><a href="${resetUrl}">${resetUrl}</a></p>
+      `,
+    });
 
-    return res.json({
+    res.json({
       ok: true,
-      message: "If this email is registered, a reset link has been sent.",
+      message: "Reset email sent.",
     });
   } catch (e) {
     console.error("forgot-password error:", e);
-    return res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -1167,8 +1161,6 @@ app.post("/api/admin/settings", requireAdmin, async (req, res) => {
   return res.json({ ok: true, settings: ADMIN_SETTINGS });
 });
 
-app.use(express.json({ limit: "2mb" }));
-app.use(express.urlencoded({ extended: true }));
 
 app.get("/webhooks/javna/whatsapp", (_req, res) => {
   res.status(200).send("WhatsApp webhook is live");
