@@ -419,12 +419,23 @@ app.post("/api/auth/forgot-password", async (req, res) => {
     const { email } = req.body || {};
     const emailNorm = String(email || "").toLowerCase().trim();
 
+    if (!emailNorm) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
     const user = await User.findOne({ email: emailNorm });
-    if (!user) return res.json({ ok: true });
+
+    // لا نظهر إذا الإيميل موجود أو لا
+    if (!user) {
+      return res.json({
+        ok: true,
+        message: "If this email is registered, a reset link has been sent.",
+      });
+    }
 
     const resetToken = nanoid(40);
     user.resetToken = resetToken;
-    user.resetTokenExpiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    user.resetTokenExpiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     await user.save();
 
     const resetUrl =
@@ -436,16 +447,80 @@ app.post("/api/auth/forgot-password", async (req, res) => {
       await sendEmail({
         to: emailNorm,
         subject: "Reset your password",
-        text: `Reset your password: ${resetUrl}`,
-        html: `<p>Reset your password:</p><p><a href="${resetUrl}">${resetUrl}</a></p>`,
+        text: `Reset your password using this link: ${resetUrl}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+            <h2>Reset your password</h2>
+            <p>Click the link below to reset your password:</p>
+            <p>
+              <a href="${resetUrl}" style="color:#16a34a;font-weight:bold;">
+                Reset Password
+              </a>
+            </p>
+            <p>This link will expire in 1 hour.</p>
+          </div>
+        `,
       });
     } catch (err) {
       console.error("send reset email error:", err);
     }
 
-    return res.json({ ok: true });
+    return res.json({
+      ok: true,
+      message: "If this email is registered, a reset link has been sent.",
+    });
   } catch (e) {
     console.error("forgot-password error:", e);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.post("/api/auth/reset-password", async (req, res) => {
+  try {
+    const { email, token, newPassword } = req.body || {};
+
+    const emailNorm = String(email || "").toLowerCase().trim();
+    const resetToken = String(token || "").trim();
+    const password = String(newPassword || "");
+
+    if (!emailNorm || !resetToken || !password) {
+      return res.status(400).json({ error: "Email, token, and new password are required" });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters" });
+    }
+
+    const user = await User.findOne({ email: emailNorm });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (!user.resetToken || !user.resetTokenExpiresAt) {
+      return res.status(400).json({ error: "Invalid or expired reset token" });
+    }
+
+    if (String(user.resetToken) !== resetToken) {
+      return res.status(401).json({ error: "Invalid reset token" });
+    }
+
+    if (new Date(user.resetTokenExpiresAt).getTime() < Date.now()) {
+      return res.status(410).json({ error: "Reset token expired" });
+    }
+
+    user.passwordHash = await bcrypt.hash(password, 10);
+    user.resetToken = null;
+    user.resetTokenExpiresAt = null;
+
+    await user.save();
+
+    return res.json({
+      ok: true,
+      message: "Password reset successfully",
+    });
+  } catch (e) {
+    console.error("reset-password error:", e);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
