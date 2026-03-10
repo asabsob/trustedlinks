@@ -12,6 +12,7 @@ import Subscribe from "./pages/Subscribe.jsx";
 import BusinessDetails from "./pages/BusinessDetails.jsx";
 import ForgotPassword from "./pages/ForgotPassword";
 import LoginPage from "./pages/LoginPage.jsx";
+import ResetPassword from "./pages/ResetPassword.jsx";
 
 /* 🧭 Admin Pages */
 import AdminLayout from "./pages/admin/AdminLayout.jsx";
@@ -127,7 +128,8 @@ export default function App() {
         <Route path="/register" element={<Navigate to="/signup" replace />} />
         <Route path="/login" element={<LoginPage lang={lang} />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
-
+        <Route path="/reset-password" element={<ResetPassword lang={lang} />} />
+        
         {/* User Private */}
         <Route
           path="/dashboard"
