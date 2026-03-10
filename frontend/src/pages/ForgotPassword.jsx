@@ -12,63 +12,62 @@ export default function ForgotPassword({ lang = "en" }) {
   const [messageType, setMessageType] = useState(""); // success | error
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    const cleanEmail = email.trim().toLowerCase();
+  const cleanEmail = email.trim().toLowerCase();
 
-    if (!cleanEmail) {
-      setMessageType("error");
-      setMessage(t("Please enter your email.", "يرجى إدخال البريد الإلكتروني."));
-      return;
-    }
+  if (!cleanEmail) {
+    setMessageType("error");
+    setMessage(
+      t("Please enter your email.", "يرجى إدخال البريد الإلكتروني.")
+    );
+    return;
+  }
 
-    setLoading(true);
-    setMessage("");
-    setMessageType("");
+  setLoading(true);
+  setMessage("");
+  setMessageType("");
 
-    try {
-      const res = await fetch(`${API_BASE}/api/auth/forgot-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: cleanEmail }),
-      });
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/forgot-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: cleanEmail }),
+    });
 
-      const data = await res.json().catch(() => ({}));
+    const data = await res.json().catch(() => ({}));
 
-      if (res.ok) {
-        setMessageType("success");
-        setMessage(
-          data?.message ||
-            t(
-              "If this email is registered, a reset link has been sent.",
-              "إذا كان هذا البريد الإلكتروني مسجلاً، فقد تم إرسال رابط إعادة التعيين."
-            )
-        );
-        setEmail("");
-      } else {
-        setMessageType("error");
-        setMessage(
-          data?.error ||
-            t(
-              "Failed to send reset link.",
-              "فشل إرسال رابط إعادة التعيين."
-            )
-        );
-      }
-    } catch (err) {
-      console.error("Forgot password error:", err);
+    if (res.ok) {
+      setMessageType("success");
+      setMessage(
+        data?.message ||
+          t(
+            "If this email is registered, a reset link has been sent.",
+            "إذا كان هذا البريد الإلكتروني مسجلاً، فقد تم إرسال رابط إعادة التعيين."
+          )
+      );
+      setEmail("");
+    } else {
       setMessageType("error");
       setMessage(
-        t(
-          "Something went wrong. Please try again.",
-          "حدث خطأ ما. يرجى المحاولة مرة أخرى."
-        )
+        data?.error ||
+          t("Failed to send reset link.", "فشل إرسال رابط إعادة التعيين.")
       );
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (err) {
+    console.error("Forgot password error:", err);
+    setMessageType("error");
+    setMessage(
+      t(
+        "Something went wrong. Please try again.",
+        "حدث خطأ ما. يرجى المحاولة مرة أخرى."
+      )
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div
