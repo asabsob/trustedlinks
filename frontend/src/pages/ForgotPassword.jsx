@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 
@@ -8,41 +9,62 @@ export default function ForgotPassword({ lang = "en" }) {
 
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState(""); // success | error
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanEmail) {
+      setMessageType("error");
+      setMessage(t("Please enter your email.", "يرجى إدخال البريد الإلكتروني."));
+      return;
+    }
+
     setLoading(true);
     setMessage("");
+    setMessageType("");
 
     try {
       const res = await fetch(`${API_BASE}/api/auth/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: cleanEmail }),
       });
 
-      const text = await res.text();
-      let data = {};
-      try {
-        data = JSON.parse(text);
-      } catch {
-        data = {};
-      }
+      const data = await res.json().catch(() => ({}));
 
       if (res.ok) {
+        setMessageType("success");
         setMessage(
-          t(
-            "✅ If this email exists, a reset link has been sent.",
-            "✅ إذا كان البريد موجوداً، سيتم إرسال رابط إعادة التعيين."
-          )
+          data?.message ||
+            t(
+              "If this email is registered, a reset link has been sent.",
+              "إذا كان هذا البريد الإلكتروني مسجلاً، فقد تم إرسال رابط إعادة التعيين."
+            )
         );
+        setEmail("");
       } else {
-        setMessage(`❌ ${data.error || t("Request failed.", "فشل الطلب.")}`);
+        setMessageType("error");
+        setMessage(
+          data?.error ||
+            t(
+              "Failed to send reset link.",
+              "فشل إرسال رابط إعادة التعيين."
+            )
+        );
       }
     } catch (err) {
       console.error("Forgot password error:", err);
-      setMessage(t("❌ Something went wrong. Please try again.", "❌ حدث خطأ. حاول مرة أخرى."));
+      setMessageType("error");
+      setMessage(
+        t(
+          "Something went wrong. Please try again.",
+          "حدث خطأ ما. يرجى المحاولة مرة أخرى."
+        )
+      );
     } finally {
       setLoading(false);
     }
@@ -50,7 +72,7 @@ export default function ForgotPassword({ lang = "en" }) {
 
   return (
     <div
-      className="flex items-center justify-center min-h-screen bg-gray-50"
+      className="flex items-center justify-center min-h-screen bg-gray-50 px-4"
       dir={isAr ? "rtl" : "ltr"}
     >
       <form
@@ -74,7 +96,7 @@ export default function ForgotPassword({ lang = "en" }) {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className={`w-full border border-gray-300 rounded-lg p-2 mb-4 ${
+          className={`w-full border border-gray-300 rounded-lg p-3 mb-4 focus:outline-none focus:ring-2 focus:ring-green-500 ${
             isAr ? "text-right" : "text-left"
           }`}
         />
@@ -82,16 +104,35 @@ export default function ForgotPassword({ lang = "en" }) {
         <button
           type="submit"
           disabled={loading}
-          className={`w-full bg-green-600 text-white rounded-lg py-2 font-medium transition ${
+          className={`w-full bg-green-600 text-white rounded-lg py-3 font-medium transition ${
             loading ? "opacity-50 cursor-not-allowed" : "hover:bg-green-700"
           }`}
         >
-          {loading ? t("Sending...", "جارٍ الإرسال...") : t("Send Reset Link", "إرسال رابط إعادة التعيين")}
+          {loading
+            ? t("Sending...", "جارٍ الإرسال...")
+            : t("Send Reset Link", "إرسال رابط إعادة التعيين")}
         </button>
 
         {message && (
-          <p className="text-sm mt-4 text-center text-gray-700">{message}</p>
+          <div
+            className={`text-sm mt-4 text-center rounded-lg px-4 py-3 ${
+              messageType === "success"
+                ? "bg-green-100 text-green-700 border border-green-200"
+                : "bg-red-100 text-red-700 border border-red-200"
+            }`}
+          >
+            {message}
+          </div>
         )}
+
+        <div className="mt-5 text-center">
+          <Link
+            to="/login"
+            className="text-sm text-green-700 hover:underline font-medium"
+          >
+            {t("Back to login", "العودة إلى تسجيل الدخول")}
+          </Link>
+        </div>
       </form>
     </div>
   );
