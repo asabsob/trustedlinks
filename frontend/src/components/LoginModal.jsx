@@ -333,9 +333,9 @@ export default function LoginModal({
               <button
                 type="button"
                 onClick={() => {
-                  setShowForgot(true);
-                  setForgotEmail(email);
-                }}
+  setShowForgot(true);
+  setForgotEmail(String(email || "").trim().toLowerCase());
+}}
                 className="underline text-gray-600"
               >
                 {t("Forgot password?", "نسيت كلمة المرور؟")}
@@ -348,13 +348,14 @@ export default function LoginModal({
               <label className="block text-sm mb-1">
                 {t("Email", "البريد الإلكتروني")}
               </label>
-              <input
-                type="email"
-                className="w-full border rounded-lg px-4 py-2 text-sm bg-gray-50"
-                value={forgotEmail}
-                onChange={(e) => setForgotEmail(e.target.value)}
-                style={isRTL ? { textAlign: "right" } : {}}
-              />
+            <input
+  type="email"
+  className="w-full border rounded-lg px-4 py-2 text-sm bg-gray-50"
+  value={forgotEmail}
+  onChange={(e) => setForgotEmail(e.target.value)}
+  placeholder="name@example.com"
+  style={isRTL ? { textAlign: "right" } : {}}
+/>
             </div>
 
             <button
