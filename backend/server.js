@@ -543,55 +543,10 @@ app.get("/api/me", requireUser, async (req, res) => {
 // ============================================================================
 // WhatsApp OTP
 // ============================================================================
-app.post("/api/whatsapp/request-otp", async (req, res) => {
-  try {
-    const { whatsapp } = req.body || {};
-    if (!whatsapp) return res.status(400).json({ error: "WhatsApp number missing" });
-
-    const clean = cleanDigits(whatsapp);
-    if (!/^\d{10,15}$/.test(clean)) {
-      return res.status(400).json({ error: "Invalid WhatsApp number" });
-    }
-
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-    await Otp.deleteMany({ whatsapp: clean, purpose: "business_signup" });
-    await Otp.create({
-      whatsapp: clean,
-      code: otp,
-      purpose: "business_signup",
-      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
-    });
-
-    if (!JAVNA_API_KEY) {
-      console.log("🧪 JAVNA disabled (missing key). OTP:", otp, "to:", clean);
-      return res.json({ success: true, message: "OTP generated (mock).", devOtp: otp });
-    }
-
-    const javnaResp = await javnaSendOtpTemplate({
-      to: `+${clean}`,
-      code: otp,
-      lang: "en",
-    });
-
-    if (javnaResp?.stats?.rejected === "1") {
-      return res.status(400).json({
-        success: false,
-        error: "Javna rejected template",
-        javna: javnaResp,
-      });
-    }
-
-    return res.json({ success: true, message: "OTP sent.", javna: javnaResp });
-  } catch (e) {
-    console.error("request-otp error", e);
-    return res.status(500).json({ error: "Failed to send OTP" });
-  }
-});
-
 app.post("/api/whatsapp/verify-otp", async (req, res) => {
   try {
     const { whatsapp, code } = req.body || {};
+
     if (!whatsapp || !code) {
       return res.status(400).json({
         ok: false,
@@ -600,17 +555,50 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
     }
 
     const clean = cleanDigits(whatsapp);
+
     if (!/^\d{10,15}$/.test(clean)) {
-      return res.status(400).json({ ok: false, error: "Invalid WhatsApp number" });
+      return res.status(400).json({
+        ok: false,
+        error: "Invalid WhatsApp number",
+      });
     }
 
-    const rec = await Otp.findOne({ whatsapp: clean, purpose: "business_signup" });
-    if (!rec) return res.status(404).json({ ok: false, error: "No OTP found.", reason: "NO_OTP" });
-    if (String(rec.code) !== String(code)) {
-      return res.status(401).json({ ok: false, error: "Invalid OTP code.", reason: "BAD_CODE" });
+    const existingBusiness = await Business.findOne({ whatsapp: clean });
+    if (existingBusiness) {
+      return res.status(409).json({
+        ok: false,
+        error: "This WhatsApp number is already registered.",
+        reason: "WHATSAPP_ALREADY_REGISTERED",
+      });
     }
+
+    const rec = await Otp.findOne({
+      whatsapp: clean,
+      purpose: "business_signup",
+    });
+
+    if (!rec) {
+      return res.status(404).json({
+        ok: false,
+        error: "No OTP found.",
+        reason: "NO_OTP",
+      });
+    }
+
+    if (String(rec.code) !== String(code)) {
+      return res.status(401).json({
+        ok: false,
+        error: "Invalid OTP code.",
+        reason: "BAD_CODE",
+      });
+    }
+
     if (rec.expiresAt.getTime() < Date.now()) {
-      return res.status(410).json({ ok: false, error: "OTP expired.", reason: "EXPIRED" });
+      return res.status(410).json({
+        ok: false,
+        error: "OTP expired.",
+        reason: "EXPIRED",
+      });
     }
 
     await Otp.deleteOne({ _id: rec._id });
@@ -630,7 +618,10 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
     });
   } catch (e) {
     console.error("verify-otp error", e);
-    return res.status(500).json({ ok: false, error: "Internal server error" });
+    return res.status(500).json({
+      ok: false,
+      error: "Internal server error",
+    });
   }
 });
 
@@ -757,6 +748,94 @@ app.post("/api/business/publish", requireUser, requireOtpToken, publishBusinessH
 // Alias للتوافق مع الفرونت الحالي إن كان يستعمل signup
 app.post("/api/business/signup", requireUser, requireOtpToken, publishBusinessHandler);
 
+async function publishBusinessHandler(req, res) {
+  try {
+    const ownerUserId = String(req.user.id);
+    const whatsapp = String(req.otp.whatsapp);
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (!user.emailVerified) {
+      return res.status(403).json({ error: "Email not verified" });
+    }
+
+    if (!user.subscriptionPlan) {
+      return res.status(403).json({ error: "Subscription required before publish" });
+    }
+
+    const {
+      name,
+      name_ar = "",
+      description = "",
+      category = [],
+      latitude = null,
+      longitude = null,
+      mapLink = "",
+      mediaLink = "",
+    } = req.body || {};
+
+    if (!name) {
+      return res.status(400).json({ error: "Business name required" });
+    }
+
+    const existing = await Business.findOne({ whatsapp });
+    if (existing && String(existing.ownerUserId) !== ownerUserId) {
+      return res.status(409).json({
+        error: "WhatsApp already registered to another account",
+      });
+    }
+
+    let business = await Business.findOne({ ownerUserId });
+
+    if (!business) {
+      business = await Business.create({
+        ownerUserId,
+        name,
+        name_ar,
+        description,
+        category: Array.isArray(category) ? category : [],
+        whatsapp,
+        status: "Active",
+        latitude,
+        longitude,
+        mapLink,
+        mediaLink,
+      });
+    } else {
+      business.name = name;
+      business.name_ar = name_ar;
+      business.description = description;
+      business.category = Array.isArray(category) ? category : [];
+      business.whatsapp = whatsapp;
+      business.status = "Active";
+      business.latitude = latitude;
+      business.longitude = longitude;
+      business.mapLink = mapLink;
+      business.mediaLink = mediaLink;
+
+      await business.save();
+    }
+
+    return res.json({
+      ok: true,
+      message: "Business published successfully",
+      business,
+    });
+  } catch (e) {
+    console.error("publishBusinessHandler error:", e);
+
+    if (e?.code === 11000) {
+      return res.status(409).json({
+        error: "This WhatsApp number is already registered.",
+      });
+    }
+
+    return res.status(500).json({ error: "Failed to publish business" });
+  }
+}
 // ============================================================================
 // USER BUSINESS
 // ============================================================================
