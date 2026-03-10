@@ -170,60 +170,58 @@ export default function LoginModal({
 
   // -------------- FORGOT PASSWORD --------------
   const handleForgotPassword = async (e) => {
-    e.preventDefault();
-    setError("");
-    setInfoMessage("");
+  e.preventDefault();
+  setError("");
+  setInfoMessage("");
 
-    if (!forgotEmail) {
+  const cleanEmail = String(forgotEmail || "").trim().toLowerCase();
+
+  if (!cleanEmail) {
+    setError(t("Please enter your email.", "يرجى إدخال البريد الإلكتروني."));
+    return;
+  }
+
+  try {
+    setLoading(true);
+
+    const res = await fetch(`${API_BASE}/api/auth/forgot-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: cleanEmail }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
       setError(
-        t(
-          "Please enter your email.",
-          "يرجى إدخال البريد الإلكتروني."
-        )
+        data?.error ||
+          t(
+            "Failed to send reset email.",
+            "فشل إرسال رابط إعادة تعيين كلمة المرور."
+          )
       );
       return;
     }
 
-    try {
-      setLoading(true);
-
-      const res = await fetch(`${API_BASE}/api/auth/forgot-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: forgotEmail }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        setError(
-          data?.error ||
-            t(
-              "Failed to reset password.",
-              "فشل في إعادة تعيين كلمة المرور."
-            )
-        );
-        return;
-      }
-
-      setInfoMessage(
-        data?.message ||
-          t(
-            "If this email is registered, a reset email has been sent.",
-            "إذا كان البريد مسجلاً، تم إرسال رسالة لإعادة التعيين."
-          )
-      );
-    } catch (err) {
-      setError(
+    setInfoMessage(
+      data?.message ||
         t(
-          "Error while resetting password.",
-          "حدث خطأ أثناء إعادة تعيين كلمة المرور."
+          "If this email is registered, a reset link has been sent.",
+          "إذا كان البريد الإلكتروني مسجلاً، فقد تم إرسال رابط إعادة التعيين."
         )
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+    );
+  } catch (err) {
+    console.error("Forgot password error:", err);
+    setError(
+      t(
+        "Something went wrong. Please try again.",
+        "حدث خطأ ما. يرجى المحاولة مرة أخرى."
+      )
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div
