@@ -543,6 +543,71 @@ app.get("/api/me", requireUser, async (req, res) => {
 // ============================================================================
 // WhatsApp OTP
 // ============================================================================
+app.post("/api/whatsapp/request-otp", async (req, res) => {
+  try {
+    const { whatsapp } = req.body || {};
+
+    if (!whatsapp) {
+      return res.status(400).json({ error: "WhatsApp number missing" });
+    }
+
+    const clean = cleanDigits(whatsapp);
+
+    if (!/^\d{10,15}$/.test(clean)) {
+      return res.status(400).json({ error: "Invalid WhatsApp number" });
+    }
+
+    const already = await Business.findOne({ whatsapp: clean });
+    if (already) {
+      return res.status(409).json({
+        error: "This WhatsApp number is already registered.",
+      });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    await Otp.deleteMany({ whatsapp: clean, purpose: "business_signup" });
+
+    await Otp.create({
+      whatsapp: clean,
+      code: otp,
+      purpose: "business_signup",
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+    });
+
+    if (!JAVNA_API_KEY) {
+      return res.json({
+        success: true,
+        message: "OTP generated (mock).",
+        devOtp: otp,
+      });
+    }
+
+    const javnaResp = await javnaSendOtpTemplate({
+      to: `+${clean}`,
+      code: otp,
+      lang: "en",
+    });
+
+    if (javnaResp?.stats?.rejected === "1") {
+      return res.status(400).json({
+        success: false,
+        error: "Javna rejected template",
+        javna: javnaResp,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "OTP sent.",
+      javna: javnaResp,
+    });
+  } catch (e) {
+    console.error("request-otp error", e);
+    return res.status(500).json({ error: "Failed to send OTP" });
+  }
+});
+
 app.post("/api/whatsapp/verify-otp", async (req, res) => {
   try {
     const { whatsapp, code } = req.body || {};
