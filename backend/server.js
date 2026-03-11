@@ -1220,6 +1220,72 @@ let ADMIN_SETTINGS = {
   email: ADMIN_EMAIL,
 };
 
+function formatSearchResults(results = [], query = "", lang = "ar") {
+  if (!results.length) {
+    return lang === "ar"
+      ? `عذرًا، لم نجد نتائج مطابقة لـ "${query}". حاول باسم شركة أو نوع نشاط آخر.`
+      : `Sorry, no results were found for "${query}". Try another company name or business category.`;
+  }
+
+  if (lang === "ar") {
+    let msg = `وجدنا ${results.length} نتيجة لـ "${query}":\n\n`;
+
+    results.forEach((item, index) => {
+      msg += `${index + 1}. ${item.name_ar || item.name || "اسم غير متوفر"}\n`;
+
+      if (Array.isArray(item.category) && item.category.length) {
+        msg += `التصنيف: ${item.category.join(" - ")}\n`;
+      }
+
+      if (item.description) {
+        msg += `الوصف: ${item.description}\n`;
+      }
+
+      if (item.whatsapp) {
+        const wa = cleanDigits(item.whatsapp);
+        msg += `تواصل مباشرة: https://wa.me/${wa}\n`;
+      }
+
+      if (item.mapLink) {
+        msg += `الموقع: ${item.mapLink}\n`;
+      }
+
+      msg += `\n`;
+    });
+
+    msg += `أرسل اسم شركة أو نوع نشاط آخر للبحث من جديد.`;
+    return msg;
+  }
+
+  let msg = `We found ${results.length} result(s) for "${query}":\n\n`;
+
+  results.forEach((item, index) => {
+    msg += `${index + 1}. ${item.name || item.name_ar || "Unnamed business"}\n`;
+
+    if (Array.isArray(item.category) && item.category.length) {
+      msg += `Category: ${item.category.join(" - ")}\n`;
+    }
+
+    if (item.description) {
+      msg += `Description: ${item.description}\n`;
+    }
+
+    if (item.whatsapp) {
+      const wa = cleanDigits(item.whatsapp);
+      msg += `Chat directly: https://wa.me/${wa}\n`;
+    }
+
+    if (item.mapLink) {
+      msg += `Location: ${item.mapLink}\n`;
+    }
+
+    msg += `\n`;
+  });
+
+  msg += `Send another company name or category to search again.`;
+  return msg;
+}
+
 app.get("/api/admin/settings", requireAdmin, async (_req, res) => res.json(ADMIN_SETTINGS));
 
 app.post("/api/admin/settings", requireAdmin, async (req, res) => {
@@ -1227,6 +1293,26 @@ app.post("/api/admin/settings", requireAdmin, async (req, res) => {
   return res.json({ ok: true, settings: ADMIN_SETTINGS });
 });
 
+async function searchBusinesses(query) {
+  if (!query) return [];
+
+  const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  const results = await Business.find({
+    status: "Active", // يظهر فقط الأنشطة المعتمدة
+    $or: [
+      { name: { $regex: safeQuery, $options: "i" } },
+      { name_ar: { $regex: safeQuery, $options: "i" } },
+      { description: { $regex: safeQuery, $options: "i" } },
+      { category: { $elemMatch: { $regex: safeQuery, $options: "i" } } },
+      { whatsapp: { $regex: safeQuery, $options: "i" } }
+    ]
+  })
+  .limit(5)
+  .lean();
+
+  return results;
+}
 
 app.get("/webhooks/javna/whatsapp", (_req, res) => {
   res.status(200).send("WhatsApp webhook is live");
@@ -1238,6 +1324,7 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
     console.log("HEADERS:", JSON.stringify(req.headers, null, 2));
     console.log("BODY:", JSON.stringify(req.body, null, 2));
 
+    // نرجع 200 مباشرة لـ Javna
     res.status(200).json({ ok: true });
 
     const body = req.body || {};
@@ -1248,17 +1335,62 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
     }
 
     const from = cleanDigits(body.from || body?.data?.from || "");
-    const text = (body?.data?.text?.text || "").toString().trim();
+    const incomingText = (
+      body?.data?.text?.text ||
+      body?.data?.text ||
+      ""
+    )
+      .toString()
+      .trim();
 
     console.log("FROM:", from);
-    console.log("TEXT:", text);
+    console.log("TEXT:", incomingText);
 
-    if (!from || !text) {
+    if (!from || !incomingText) {
       console.log("MISSING FROM OR TEXT");
       return;
     }
 
-    const reply = `تم استلام رسالتك: ${text}`;
+    const lang = detectLanguage(incomingText);
+
+    if (isHelpCommand(incomingText)) {
+      const helpReply =
+        lang === "ar"
+          ? "مرحبًا بك في TrustedLinks.\nأرسل اسم شركة أو نوع نشاط مثل: مطعم، صيدلية، كوفي."
+          : "Welcome to TrustedLinks.\nSend a company name or category such as: restaurant, pharmacy, coffee.";
+
+      const helpResp = await javnaSendText({
+        to: from,
+        body: helpReply,
+      });
+
+      console.log("HELP RESP:", JSON.stringify(helpResp, null, 2));
+      return;
+    }
+
+    const query = normalizeSearchText(incomingText);
+    console.log("LANG:", lang);
+    console.log("QUERY:", query);
+
+    if (!query) {
+      const emptyReply =
+        lang === "ar"
+          ? "أرسل اسم شركة أو نوع النشاط الذي تريد البحث عنه."
+          : "Please send a company name or business category to search for.";
+
+      const emptyResp = await javnaSendText({
+        to: from,
+        body: emptyReply,
+      });
+
+      console.log("EMPTY RESP:", JSON.stringify(emptyResp, null, 2));
+      return;
+    }
+
+    const results = await searchBusinesses(query);
+    console.log("SEARCH RESULTS COUNT:", results.length);
+
+    const reply = formatSearchResults(results, query, lang);
 
     const sendResp = await javnaSendText({
       to: from,
