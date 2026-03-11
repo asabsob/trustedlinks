@@ -1293,26 +1293,6 @@ app.post("/api/admin/settings", requireAdmin, async (req, res) => {
   return res.json({ ok: true, settings: ADMIN_SETTINGS });
 });
 
-async function searchBusinesses(query) {
-  if (!query) return [];
-
-  const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-  const results = await Business.find({
-    status: "Active", // يظهر فقط الأنشطة المعتمدة
-    $or: [
-      { name: { $regex: safeQuery, $options: "i" } },
-      { name_ar: { $regex: safeQuery, $options: "i" } },
-      { description: { $regex: safeQuery, $options: "i" } },
-      { category: { $elemMatch: { $regex: safeQuery, $options: "i" } } },
-      { whatsapp: { $regex: safeQuery, $options: "i" } }
-    ]
-  })
-  .limit(5)
-  .lean();
-
-  return results;
-}
 
 function detectLanguage(text = "") {
   return /[\u0600-\u06FF]/.test(text) ? "ar" : "en";
