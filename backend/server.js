@@ -1314,6 +1314,51 @@ async function searchBusinesses(query) {
   return results;
 }
 
+function detectLanguage(text = "") {
+  return /[\u0600-\u06FF]/.test(text) ? "ar" : "en";
+}
+
+function isHelpCommand(text = "") {
+  const t = String(text || "").trim().toLowerCase();
+  return ["help", "start", "مساعدة", "ابدأ"].includes(t);
+}
+
+function normalizeSearchText(text = "") {
+  return String(text || "")
+    .trim()
+    .replace(/^ابحث عن\s*/i, "")
+    .replace(/^دور على\s*/i, "")
+    .replace(/^بحث عن\s*/i, "")
+    .replace(/^search for\s*/i, "")
+    .replace(/^find\s*/i, "")
+    .trim();
+}
+
+function escapeRegex(text = "") {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function searchBusinesses(query) {
+  if (!query) return [];
+
+  const safeQuery = escapeRegex(query);
+
+  const results = await Business.find({
+    status: "Active",
+    $or: [
+      { name: { $regex: safeQuery, $options: "i" } },
+      { name_ar: { $regex: safeQuery, $options: "i" } },
+      { description: { $regex: safeQuery, $options: "i" } },
+      { category: { $elemMatch: { $regex: safeQuery, $options: "i" } } },
+      { whatsapp: { $regex: safeQuery, $options: "i" } },
+    ],
+  })
+    .limit(5)
+    .lean();
+
+  return results;
+}
+
 app.get("/webhooks/javna/whatsapp", (_req, res) => {
   res.status(200).send("WhatsApp webhook is live");
 });
