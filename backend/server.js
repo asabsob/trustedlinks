@@ -1649,6 +1649,7 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
     console.log("HEADERS:", JSON.stringify(req.headers, null, 2));
     console.log("BODY:", JSON.stringify(req.body, null, 2));
 
+    // reply immediately to Javna
     res.status(200).json({ ok: true });
 
     const body = req.body || {};
@@ -1675,6 +1676,7 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
       return;
     }
 
+    // location message
     if (
       messageType === "location" &&
       incomingLocation?.latitude != null &&
@@ -1686,96 +1688,95 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
       const nearest = await findNearestBusinesses(lat, lng, 5);
       const locationReply = formatNearestResults(nearest, "ar");
 
-      const sendResp = await javnaSendText({
+      const locationSendResp = await javnaSendText({
         to: from,
         body: locationReply,
       });
 
-      console.log("LOCATION SEND RESP:", JSON.stringify(sendResp, null, 2));
+      console.log("LOCATION SEND RESP:", JSON.stringify(locationSendResp, null, 2));
       return;
     }
 
-   if (!incomingText) {
-  const emptyResp = await javnaSendText({
-    to: from,
-    body: "أرسل اسم شركة أو نوع نشاط للبحث، أو شارك موقعك لإظهار الأقرب.",
-  });
+    if (!incomingText) {
+      const emptyTextResp = await javnaSendText({
+        to: from,
+        body: "أرسل اسم شركة أو نوع نشاط للبحث، أو شارك موقعك لإظهار الأقرب.",
+      });
 
-  console.log("EMPTY TEXT RESP:", JSON.stringify(emptyResp, null, 2));
-  return;
-}
+      console.log("EMPTY TEXT RESP:", JSON.stringify(emptyTextResp, null, 2));
+      return;
+    }
 
-const lang = detectLanguage(incomingText);
+    const lang = detectLanguage(incomingText);
+    const nearbyIntent = parseNearbyIntent(incomingText);
 
-const nearbyIntent = parseNearbyIntent(incomingText);
+    if (nearbyIntent.isNearby) {
+      const nearbyReply =
+        lang === "ar"
+          ? nearbyIntent.categoryQuery
+            ? `أرسل موقعك عبر واتساب، وسأعرض لك أقرب النتائج لـ "${nearbyIntent.categoryQuery}".`
+            : "أرسل موقعك عبر واتساب، وسأعرض لك أقرب الأنشطة المسجلة."
+          : nearbyIntent.categoryQuery
+            ? `Please share your location on WhatsApp, and I’ll show you the nearest results for "${nearbyIntent.categoryQuery}".`
+            : "Please share your location on WhatsApp, and I’ll show you the nearest listed businesses.";
 
-if (nearbyIntent.isNearby) {
-  const nearbyReply =
-    lang === "ar"
-      ? nearbyIntent.categoryQuery
-        ? `أرسل موقعك عبر واتساب، وسأعرض لك أقرب النتائج لـ "${nearbyIntent.categoryQuery}".`
-        : "أرسل موقعك عبر واتساب، وسأعرض لك أقرب الأنشطة المسجلة."
-      : nearbyIntent.categoryQuery
-        ? `Please share your location on WhatsApp, and I’ll show you the nearest results for "${nearbyIntent.categoryQuery}".`
-        : "Please share your location on WhatsApp, and I’ll show you the nearest listed businesses.";
+      const nearbyResp = await javnaSendText({
+        to: from,
+        body: nearbyReply,
+      });
 
-  await javnaSendText({
-    to: from,
-    body: nearbyReply,
-  });
+      console.log("NEARBY RESP:", JSON.stringify(nearbyResp, null, 2));
+      return;
+    }
 
-  return;
-}
+    if (isHelpCommand(incomingText)) {
+      const helpReply =
+        lang === "ar"
+          ? "مرحبًا بك في TrustedLinks.\nأرسل اسم شركة أو نوع نشاط مثل: مطعم، صيدلية، كوفي.\nأو أرسل: أقرب شركة ثم شارك موقعك."
+          : "Welcome to TrustedLinks.\nSend a company name or category such as: restaurant, pharmacy, coffee.\nOr send: near me, then share your location.";
 
-if (isHelpCommand(incomingText)) {
-  const helpReply =
-    lang === "ar"
-      ? "مرحبًا بك في TrustedLinks.\nأرسل اسم شركة أو نوع نشاط مثل: مطعم، صيدلية، كوفي.\nأو أرسل: أقرب شركة ثم شارك موقعك."
-      : "Welcome to TrustedLinks.\nSend a company name or category such as: restaurant, pharmacy, coffee.\nOr send: near me, then share your location.";
+      const helpResp = await javnaSendText({
+        to: from,
+        body: helpReply,
+      });
 
-  const helpResp = await javnaSendText({
-    to: from,
-    body: helpReply,
-  });
+      console.log("HELP RESP:", JSON.stringify(helpResp, null, 2));
+      return;
+    }
 
-  console.log("HELP RESP:", JSON.stringify(helpResp, null, 2));
-  return;
-}
+    const query = normalizeSearchText(incomingText);
+    console.log("LANG:", lang);
+    console.log("QUERY:", query);
 
-const query = normalizeSearchText(incomingText);
-console.log("LANG:", lang);
-console.log("QUERY:", query);
+    if (!query) {
+      const emptyReply =
+        lang === "ar"
+          ? "أرسل اسم شركة أو نوع النشاط الذي تريد البحث عنه."
+          : "Please send a company name or business category to search for.";
 
-if (!query) {
-  const emptyReply =
-    lang === "ar"
-      ? "أرسل اسم شركة أو نوع النشاط الذي تريد البحث عنه."
-      : "Please send a company name or business category to search for.";
+      const emptyResp = await javnaSendText({
+        to: from,
+        body: emptyReply,
+      });
 
-  const emptyResp = await javnaSendText({
-    to: from,
-    body: emptyReply,
-  });
+      console.log("EMPTY RESP:", JSON.stringify(emptyResp, null, 2));
+      return;
+    }
 
-
-console.log("SEND RESP:", JSON.stringify(sendResp, null, 2));
-
-    
     const results = await searchBusinesses(query);
-console.log("SEARCH RESULTS COUNT:", results.length);
+    console.log("SEARCH RESULTS COUNT:", results.length);
 
-const reply = formatSearchResults(results, query, lang);
+    const reply = formatSearchResults(results, query, lang);
 
-const sendResp = await javnaSendText({
-  to: from,
-  body: reply,
-});
+    const sendResp = await javnaSendText({
+      to: from,
+      body: reply,
+    });
 
-console.log("SEND RESP:", JSON.stringify(sendResp, null, 2));
-
-} catch (e) {
-  console.error("WHATSAPP WEBHOOK ERROR:", e);
-}
+    console.log("SEND RESP:", JSON.stringify(sendResp, null, 2));
+  } catch (e) {
+    console.error("WHATSAPP WEBHOOK ERROR:", e);
+  }
 });
 
 // ---------------------------------------------------------------------------
