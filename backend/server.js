@@ -1234,8 +1234,10 @@ function formatSearchResults(results = [], query = "", lang = "ar") {
       msg += `${index + 1}. ${item.name_ar || item.name || "اسم غير متوفر"}\n`;
 
       if (Array.isArray(item.category) && item.category.length) {
-        msg += `التصنيف: ${item.category.join(" - ")}\n`;
-      }
+       const category = item.category.join(" - ");
+msg += lang === "ar"
+  ? `التصنيف: ${category}\n`
+  : `Category: ${category}\n`;
 
       if (item.description) {
         msg += `الوصف: ${item.description}\n`;
@@ -1293,11 +1295,41 @@ app.post("/api/admin/settings", requireAdmin, async (req, res) => {
   return res.json({ ok: true, settings: ADMIN_SETTINGS });
 });
 
+const SEARCH_SYNONYMS = {
+  مطعم: ["مطعم", "restaurants", "restaurant", "food", "dining"],
+  كوفي: ["كوفي", "قهوة", "coffee", "cafe", "café"],
+  صيدلية: ["صيدلية", "pharmacy", "drugstore", "medicine"],
+  حلويات: ["حلويات", "desserts", "sweets", "bakery"],
+  سوبرماركت: ["سوبرماركت", "supermarket", "grocery", "mini market"],
+  ملابس: ["ملابس", "fashion", "clothes", "apparel"],
+  إلكترونيات: ["إلكترونيات", "electronics", "mobiles", "phones"],
+};
 
 function detectLanguage(text = "") {
   return /[\u0600-\u06FF]/.test(text) ? "ar" : "en";
 }
+const messageType = body?.data?.type || "";
+const incomingLocation = body?.data?.location || null;
 
+if (
+  messageType === "location" &&
+  incomingLocation?.latitude != null &&
+  incomingLocation?.longitude != null
+) {
+  const lat = Number(incomingLocation.latitude);
+  const lng = Number(incomingLocation.longitude);
+
+  const nearest = await findNearestBusinesses(lat, lng, 5);
+  const locationReply = formatNearestResults(nearest, "ar");
+
+  const sendResp = await javnaSendText({
+    to: from,
+    body: locationReply,
+  });
+
+  console.log("LOCATION SEND RESP:", JSON.stringify(sendResp, null, 2));
+  return;
+}
 function isHelpCommand(text = "") {
   const t = String(text || "").trim().toLowerCase();
   return ["help", "start", "مساعدة", "ابدأ"].includes(t);
@@ -1321,22 +1353,111 @@ function escapeRegex(text = "") {
 async function searchBusinesses(query) {
   if (!query) return [];
 
-  const safeQuery = escapeRegex(query);
+  const terms = expandSearchTerms(query);
+
+  const orConditions = [];
+  for (const term of terms) {
+    const safe = escapeRegex(term);
+    orConditions.push(
+      { name: { $regex: safe, $options: "i" } },
+      { name_ar: { $regex: safe, $options: "i" } },
+      { description: { $regex: safe, $options: "i" } },
+      { category: { $elemMatch: { $regex: safe, $options: "i" } } },
+      { whatsapp: { $regex: safe, $options: "i" } }
+    );
+  }
 
   const results = await Business.find({
     status: "Active",
-    $or: [
-      { name: { $regex: safeQuery, $options: "i" } },
-      { name_ar: { $regex: safeQuery, $options: "i" } },
-      { description: { $regex: safeQuery, $options: "i" } },
-      { category: { $elemMatch: { $regex: safeQuery, $options: "i" } } },
-      { whatsapp: { $regex: safeQuery, $options: "i" } },
-    ],
+    $or: orConditions,
   })
     .limit(5)
     .lean();
 
   return results;
+}
+
+function toRad(value) {
+  return (value * Math.PI) / 180;
+}
+
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+async function findNearestBusinesses(lat, lng, limit = 5) {
+  const all = await Business.find({
+    status: "Active",
+    latitude: { $ne: null },
+    longitude: { $ne: null },
+  }).lean();
+
+  const ranked = all
+    .map(item => ({
+      ...item,
+      distanceKm: haversineKm(lat, lng, item.latitude, item.longitude),
+    }))
+    .sort((a, b) => a.distanceKm - b.distanceKm)
+    .slice(0, limit);
+
+  return ranked;
+}
+function formatNearestResults(results = [], lang = "ar") {
+  if (!results.length) {
+    return lang === "ar"
+      ? "عذرًا، لم نجد أنشطة قريبة تحتوي على موقع محفوظ."
+      : "Sorry, no nearby businesses with saved locations were found.";
+  }
+
+  let msg =
+    lang === "ar"
+      ? `أقرب النتائج لك:\n\n`
+      : `Nearest results to you:\n\n`;
+
+  results.forEach((item, index) => {
+    msg += `${index + 1}. ${item.name_ar || item.name || "Unnamed business"}\n`;
+
+    if (Array.isArray(item.category) && item.category.length) {
+      msg += lang === "ar"
+        ? `التصنيف: ${item.category.join(" - ")}\n`
+        : `Category: ${item.category.join(" - ")}\n`;
+    }
+
+    if (typeof item.distanceKm === "number") {
+      msg += lang === "ar"
+        ? `المسافة التقريبية: ${item.distanceKm.toFixed(1)} كم\n`
+        : `Approx. distance: ${item.distanceKm.toFixed(1)} km\n`;
+    }
+
+    if (item.whatsapp) {
+      const wa = cleanDigits(item.whatsapp);
+      msg += lang === "ar"
+        ? `تواصل مباشرة: https://wa.me/${wa}\n`
+        : `Chat directly: https://wa.me/${wa}\n`;
+    }
+
+    if (item.mapLink) {
+      msg += lang === "ar"
+        ? `الموقع: ${item.mapLink}\n`
+        : `Location: ${item.mapLink}\n`;
+    }
+
+    msg += `\n`;
+  });
+
+  return msg;
 }
 
 app.get("/webhooks/javna/whatsapp", (_req, res) => {
@@ -1353,6 +1474,12 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
     res.status(200).json({ ok: true });
 
     const body = req.body || {};
+
+    const messageType = body?.data?.type || "";
+const incomingLocation = body?.data?.location || null;
+
+    console.log("MESSAGE TYPE:", messageType);
+console.log("LOCATION:", incomingLocation);
 
     if (body.eventScope !== "whatsapp" || body.event !== "wa.message.received") {
       console.log("IGNORED EVENT:", body.eventScope, body.event);
@@ -1377,6 +1504,21 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
     }
 
     const lang = detectLanguage(incomingText);
+
+    if (isNearbyIntent(incomingText)) {
+  const nearbyReply =
+    lang === "ar"
+      ? "أرسل موقعك عبر واتساب، وسأعرض لك أقرب الأنشطة المسجلة."
+      : "Please share your location on WhatsApp, and I’ll show you the nearest listed businesses.";
+
+  const resp = await javnaSendText({
+    to: from,
+    body: nearbyReply,
+  });
+
+  console.log("NEARBY PROMPT RESP:", JSON.stringify(resp, null, 2));
+  return;
+}
 
     if (isHelpCommand(incomingText)) {
       const helpReply =
