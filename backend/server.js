@@ -1762,20 +1762,22 @@ console.log("SEND RESP:", JSON.stringify(sendResp, null, 2));
 
     
     const results = await searchBusinesses(query);
-    console.log("SEARCH RESULTS COUNT:", results.length);
+console.log("SEARCH RESULTS COUNT:", results.length);
 
-    const reply = formatSearchResults(results, query, lang);
+const reply = formatSearchResults(results, query, lang);
 
-    const sendResp = await javnaSendText({
-      to: from,
-      body: reply,
-    });
-
-    console.log("SEND RESP:", JSON.stringify(sendResp, null, 2));
-  } catch (e) {
-    console.error("WHATSAPP WEBHOOK ERROR:", e);
-  }
+const sendResp = await javnaSendText({
+  to: from,
+  body: reply,
 });
+
+console.log("SEND RESP:", JSON.stringify(sendResp, null, 2));
+
+} catch (e) {
+  console.error("WHATSAPP WEBHOOK ERROR:", e);
+}
+});
+
 // ---------------------------------------------------------------------------
 // Debug
 // ---------------------------------------------------------------------------
