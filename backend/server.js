@@ -1228,13 +1228,109 @@ app.post("/api/admin/settings", requireAdmin, async (req, res) => {
 });
 
 const SEARCH_SYNONYMS = {
-  مطعم: ["مطعم", "restaurant", "restaurants", "food", "dining"],
-  كوفي: ["كوفي", "قهوة", "coffee", "cafe", "café"],
-  صيدلية: ["صيدلية", "pharmacy", "drugstore", "medicine"],
-  حلويات: ["حلويات", "desserts", "sweets", "bakery"],
-  سوبرماركت: ["سوبرماركت", "supermarket", "grocery", "mini market"],
-  ملابس: ["ملابس", "fashion", "clothes", "apparel"],
-  إلكترونيات: ["إلكترونيات", "electronics", "mobiles", "phones"],
+  مطعم: [
+    "مطعم",
+    "restaurant",
+    "restaurants",
+    "food",
+    "dining",
+    "وجبات",
+    "أكل",
+    "FOOD_GROCERY",
+    "RESTAURANT",
+    "RESTAURANTS",
+  ],
+  كوفي: [
+    "كوفي",
+    "قهوة",
+    "coffee",
+    "cafe",
+    "café",
+    "espresso",
+    "latte",
+    "BEVERAGES",
+    "CAFE",
+    "COFFEE",
+    "DRINKS",
+  ],
+  قهوة: [
+    "قهوة",
+    "كوفي",
+    "coffee",
+    "cafe",
+    "café",
+    "espresso",
+    "latte",
+    "BEVERAGES",
+    "CAFE",
+    "COFFEE",
+    "DRINKS",
+  ],
+  شاي: [
+    "شاي",
+    "tea",
+    "karak",
+    "chai",
+    "BEVERAGES",
+    "DRINKS",
+  ],
+  مشاوي: [
+    "مشاوي",
+    "grill",
+    "grills",
+    "bbq",
+    "barbecue",
+    "kebab",
+    "restaurant",
+    "RESTAURANT",
+    "FOOD_GROCERY",
+  ],
+  صيدلية: [
+    "صيدلية",
+    "pharmacy",
+    "drugstore",
+    "medicine",
+    "PHARMACY",
+    "HEALTH",
+  ],
+  حلويات: [
+    "حلويات",
+    "desserts",
+    "sweets",
+    "bakery",
+    "cake",
+    "pastry",
+    "DESSERTS",
+    "BAKERY",
+    "BEVERAGES",
+  ],
+  سوبرماركت: [
+    "سوبرماركت",
+    "supermarket",
+    "grocery",
+    "mini market",
+    "market",
+    "FOOD_GROCERY",
+    "GROCERY",
+    "SUPERMARKET",
+  ],
+  ملابس: [
+    "ملابس",
+    "fashion",
+    "clothes",
+    "apparel",
+    "FASHION",
+    "APPAREL",
+  ],
+  إلكترونيات: [
+    "إلكترونيات",
+    "electronics",
+    "mobiles",
+    "phones",
+    "laptops",
+    "ELECTRONICS",
+    "MOBILES",
+  ],
 };
 
 const CATEGORY_LABELS_AR = {
@@ -1260,17 +1356,31 @@ function isHelpCommand(text = "") {
   return ["help", "start", "مساعدة", "ابدأ"].includes(t);
 }
 
-function isNearbyIntent(text = "") {
-  const t = String(text || "").trim().toLowerCase();
-  return [
-    "أقرب شركة",
-    "اقرب شركة",
-    "أقرب مطعم",
-    "اقرب مطعم",
-    "near me",
-    "closest",
-    "nearby",
-  ].includes(t);
+function parseNearbyIntent(text = "") {
+  const raw = String(text || "").trim();
+  const lower = raw.toLowerCase();
+
+  if (lower.startsWith("أقرب ")) {
+    return { isNearby: true, categoryQuery: raw.replace(/^أقرب\s+/, "").trim() };
+  }
+
+  if (lower.startsWith("اقرب ")) {
+    return { isNearby: true, categoryQuery: raw.replace(/^اقرب\s+/, "").trim() };
+  }
+
+  if (lower === "أقرب" || lower === "اقرب" || lower === "أقرب شركة" || lower === "اقرب شركة") {
+    return { isNearby: true, categoryQuery: "" };
+  }
+
+  if (lower.startsWith("near ")) {
+    return { isNearby: true, categoryQuery: raw.replace(/^near\s+/i, "").trim() };
+  }
+
+  if (["near me", "closest", "nearby"].includes(lower)) {
+    return { isNearby: true, categoryQuery: "" };
+  }
+
+  return { isNearby: false, categoryQuery: "" };
 }
 
 function normalizeSearchText(text = "") {
@@ -1289,13 +1399,20 @@ function escapeRegex(text = "") {
 }
 
 function expandSearchTerms(query = "") {
-  const q = String(query || "").trim().toLowerCase();
-  const terms = new Set([q]);
+  const raw = String(query || "").trim();
+  const lower = raw.toLowerCase();
+
+  const terms = new Set([raw, lower]);
 
   for (const [key, values] of Object.entries(SEARCH_SYNONYMS)) {
-    const all = [key, ...values].map((v) => String(v).toLowerCase());
-    if (all.includes(q)) {
-      all.forEach((v) => terms.add(v));
+    const all = [key, ...values];
+
+    const normalizedAll = all.map((v) => String(v).toLowerCase());
+    if (normalizedAll.includes(lower)) {
+      all.forEach((v) => {
+        terms.add(String(v));
+        terms.add(String(v).toLowerCase());
+      });
     }
   }
 
@@ -1307,21 +1424,22 @@ function localizeCategories(categories = [], lang = "ar") {
   if (lang !== "ar") return categories;
   return categories.map((c) => CATEGORY_LABELS_AR[String(c).toUpperCase()] || c);
 }
-
 async function searchBusinesses(query) {
   if (!query) return [];
 
   const terms = expandSearchTerms(query);
+  console.log("EXPANDED TERMS:", terms);
 
   const orConditions = [];
+
   for (const term of terms) {
     const safe = escapeRegex(term);
+
     orConditions.push(
       { name: { $regex: safe, $options: "i" } },
       { name_ar: { $regex: safe, $options: "i" } },
       { description: { $regex: safe, $options: "i" } },
-      { category: { $elemMatch: { $regex: safe, $options: "i" } } },
-      { whatsapp: { $regex: safe, $options: "i" } }
+      { category: { $elemMatch: { $regex: safe, $options: "i" } } }
     );
   }
 
@@ -1329,7 +1447,7 @@ async function searchBusinesses(query) {
     status: "Active",
     $or: orConditions,
   })
-    .limit(5)
+    .limit(10)
     .lean();
 
   const unique = [];
@@ -1366,14 +1484,39 @@ function haversineKm(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
-async function findNearestBusinesses(lat, lng, limit = 5) {
+async function findNearestBusinesses(lat, lng, categoryQuery = "", limit = 5) {
   const all = await Business.find({
     status: "Active",
     latitude: { $ne: null },
     longitude: { $ne: null },
   }).lean();
 
-  return all
+  let filtered = all;
+
+  if (categoryQuery) {
+    const terms = expandSearchTerms(categoryQuery);
+
+    filtered = all.filter((item) => {
+      const name = String(item.name || "").toLowerCase();
+      const nameAr = String(item.name_ar || "").toLowerCase();
+      const desc = String(item.description || "").toLowerCase();
+      const cats = Array.isArray(item.category)
+        ? item.category.join(" ").toLowerCase()
+        : "";
+
+      return terms.some((term) => {
+        const t = String(term).toLowerCase();
+        return (
+          name.includes(t) ||
+          nameAr.includes(t) ||
+          desc.includes(t) ||
+          cats.includes(t)
+        );
+      });
+    });
+  }
+
+  return filtered
     .map((item) => ({
       ...item,
       distanceKm: haversineKm(lat, lng, item.latitude, item.longitude),
@@ -1564,32 +1707,25 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
 
     const lang = detectLanguage(incomingText);
 
-    if (isNearbyIntent(incomingText)) {
-      const nearbyReply =
-        lang === "ar"
-          ? "أرسل موقعك عبر واتساب، وسأعرض لك أقرب الأنشطة المسجلة."
-          : "Please share your location on WhatsApp, and I’ll show you the nearest listed businesses.";
+  const nearbyIntent = parseNearbyIntent(incomingText);
 
-      const resp = await javnaSendText({
-        to: from,
-        body: nearbyReply,
-      });
+if (nearbyIntent.isNearby) {
+  const nearbyReply =
+    lang === "ar"
+      ? nearbyIntent.categoryQuery
+        ? `أرسل موقعك عبر واتساب، وسأعرض لك أقرب النتائج لـ "${nearbyIntent.categoryQuery}".`
+        : "أرسل موقعك عبر واتساب، وسأعرض لك أقرب الأنشطة المسجلة."
+      : nearbyIntent.categoryQuery
+        ? `Please share your location on WhatsApp, and I’ll show you the nearest results for "${nearbyIntent.categoryQuery}".`
+        : "Please share your location on WhatsApp, and I’ll show you the nearest listed businesses.";
 
-      console.log("NEARBY PROMPT RESP:", JSON.stringify(resp, null, 2));
-      return;
-    }
+  await javnaSendText({
+    to: from,
+    body: nearbyReply,
+  });
 
-    if (isHelpCommand(incomingText)) {
-      const helpReply =
-        lang === "ar"
-          ? "مرحبًا بك في TrustedLinks.\nأرسل اسم شركة أو نوع نشاط مثل: مطعم، صيدلية، كوفي.\nأو أرسل: أقرب شركة ثم شارك موقعك."
-          : "Welcome to TrustedLinks.\nSend a company name or category such as: restaurant, pharmacy, coffee.\nOr send: near me, then share your location.";
-
-      const helpResp = await javnaSendText({
-        to: from,
-        body: helpReply,
-      });
-
+  return;
+}
       console.log("HELP RESP:", JSON.stringify(helpResp, null, 2));
       return;
     }
