@@ -1757,19 +1757,6 @@ if (!query) {
     body: emptyReply,
   });
 
-  console.log("EMPTY RESP:", JSON.stringify(emptyResp, null, 2));
-  return;
-}
-
-const results = await searchBusinesses(query);
-console.log("SEARCH RESULTS COUNT:", results.length);
-
-const reply = formatSearchResults(results, query, lang);
-
-const sendResp = await javnaSendText({
-  to: from,
-  body: reply,
-});
 
 console.log("SEND RESP:", JSON.stringify(sendResp, null, 2));
 
