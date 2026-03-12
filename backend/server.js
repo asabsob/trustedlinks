@@ -1695,19 +1695,19 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
       return;
     }
 
-    if (!incomingText) {
-      const emptyResp = await javnaSendText({
-        to: from,
-        body: "أرسل اسم شركة أو نوع نشاط للبحث، أو شارك موقعك لإظهار الأقرب.",
-      });
+   if (!incomingText) {
+  const emptyResp = await javnaSendText({
+    to: from,
+    body: "أرسل اسم شركة أو نوع نشاط للبحث، أو شارك موقعك لإظهار الأقرب.",
+  });
 
-      console.log("EMPTY TEXT RESP:", JSON.stringify(emptyResp, null, 2));
-      return;
-    }
+  console.log("EMPTY TEXT RESP:", JSON.stringify(emptyResp, null, 2));
+  return;
+}
 
-    const lang = detectLanguage(incomingText);
+const lang = detectLanguage(incomingText);
 
-  const nearbyIntent = parseNearbyIntent(incomingText);
+const nearbyIntent = parseNearbyIntent(incomingText);
 
 if (nearbyIntent.isNearby) {
   const nearbyReply =
@@ -1726,29 +1726,54 @@ if (nearbyIntent.isNearby) {
 
   return;
 }
-      console.log("HELP RESP:", JSON.stringify(helpResp, null, 2));
-      return;
-    }
 
-    const query = normalizeSearchText(incomingText);
-    console.log("LANG:", lang);
-    console.log("QUERY:", query);
+if (isHelpCommand(incomingText)) {
+  const helpReply =
+    lang === "ar"
+      ? "مرحبًا بك في TrustedLinks.\nأرسل اسم شركة أو نوع نشاط مثل: مطعم، صيدلية، كوفي.\nأو أرسل: أقرب شركة ثم شارك موقعك."
+      : "Welcome to TrustedLinks.\nSend a company name or category such as: restaurant, pharmacy, coffee.\nOr send: near me, then share your location.";
 
-    if (!query) {
-      const emptyReply =
-        lang === "ar"
-          ? "أرسل اسم شركة أو نوع النشاط الذي تريد البحث عنه."
-          : "Please send a company name or business category to search for.";
+  const helpResp = await javnaSendText({
+    to: from,
+    body: helpReply,
+  });
 
-      const emptyResp = await javnaSendText({
-        to: from,
-        body: emptyReply,
-      });
+  console.log("HELP RESP:", JSON.stringify(helpResp, null, 2));
+  return;
+}
 
-      console.log("EMPTY RESP:", JSON.stringify(emptyResp, null, 2));
-      return;
-    }
+const query = normalizeSearchText(incomingText);
+console.log("LANG:", lang);
+console.log("QUERY:", query);
 
+if (!query) {
+  const emptyReply =
+    lang === "ar"
+      ? "أرسل اسم شركة أو نوع النشاط الذي تريد البحث عنه."
+      : "Please send a company name or business category to search for.";
+
+  const emptyResp = await javnaSendText({
+    to: from,
+    body: emptyReply,
+  });
+
+  console.log("EMPTY RESP:", JSON.stringify(emptyResp, null, 2));
+  return;
+}
+
+const results = await searchBusinesses(query);
+console.log("SEARCH RESULTS COUNT:", results.length);
+
+const reply = formatSearchResults(results, query, lang);
+
+const sendResp = await javnaSendText({
+  to: from,
+  body: reply,
+});
+
+console.log("SEND RESP:", JSON.stringify(sendResp, null, 2));
+
+    
     const results = await searchBusinesses(query);
     console.log("SEARCH RESULTS COUNT:", results.length);
 
