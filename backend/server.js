@@ -1786,6 +1786,7 @@ app.get("/api/debug/mongo", async (_req, res) => {
       businesses,
       hasMongoUri: Boolean(process.env.MONGODB_URI),
     });
+    
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e) });
   }
