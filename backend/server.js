@@ -1220,6 +1220,168 @@ let ADMIN_SETTINGS = {
   email: ADMIN_EMAIL,
 };
 
+app.get("/api/admin/settings", requireAdmin, async (_req, res) => res.json(ADMIN_SETTINGS));
+
+app.post("/api/admin/settings", requireAdmin, async (req, res) => {
+  ADMIN_SETTINGS = { ...ADMIN_SETTINGS, ...(req.body || {}) };
+  return res.json({ ok: true, settings: ADMIN_SETTINGS });
+});
+
+const SEARCH_SYNONYMS = {
+  مطعم: ["مطعم", "restaurant", "restaurants", "food", "dining"],
+  كوفي: ["كوفي", "قهوة", "coffee", "cafe", "café"],
+  صيدلية: ["صيدلية", "pharmacy", "drugstore", "medicine"],
+  حلويات: ["حلويات", "desserts", "sweets", "bakery"],
+  سوبرماركت: ["سوبرماركت", "supermarket", "grocery", "mini market"],
+  ملابس: ["ملابس", "fashion", "clothes", "apparel"],
+  إلكترونيات: ["إلكترونيات", "electronics", "mobiles", "phones"],
+};
+
+const CATEGORY_LABELS_AR = {
+  BEVERAGES: "مشروبات",
+  RESTAURANT: "مطعم",
+  RESTAURANTS: "مطاعم",
+  PHARMACY: "صيدلية",
+  DESSERTS: "حلويات",
+  CAFE: "كوفي",
+  COFFEE: "قهوة",
+  SUPERMARKET: "سوبرماركت",
+  GROCERY: "بقالة",
+  ELECTRONICS: "إلكترونيات",
+  FASHION: "ملابس",
+};
+
+function detectLanguage(text = "") {
+  return /[\u0600-\u06FF]/.test(text) ? "ar" : "en";
+}
+
+function isHelpCommand(text = "") {
+  const t = String(text || "").trim().toLowerCase();
+  return ["help", "start", "مساعدة", "ابدأ"].includes(t);
+}
+
+function isNearbyIntent(text = "") {
+  const t = String(text || "").trim().toLowerCase();
+  return [
+    "أقرب شركة",
+    "اقرب شركة",
+    "أقرب مطعم",
+    "اقرب مطعم",
+    "near me",
+    "closest",
+    "nearby",
+  ].includes(t);
+}
+
+function normalizeSearchText(text = "") {
+  return String(text || "")
+    .trim()
+    .replace(/^ابحث عن\s*/i, "")
+    .replace(/^دور على\s*/i, "")
+    .replace(/^بحث عن\s*/i, "")
+    .replace(/^search for\s*/i, "")
+    .replace(/^find\s*/i, "")
+    .trim();
+}
+
+function escapeRegex(text = "") {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function expandSearchTerms(query = "") {
+  const q = String(query || "").trim().toLowerCase();
+  const terms = new Set([q]);
+
+  for (const [key, values] of Object.entries(SEARCH_SYNONYMS)) {
+    const all = [key, ...values].map((v) => String(v).toLowerCase());
+    if (all.includes(q)) {
+      all.forEach((v) => terms.add(v));
+    }
+  }
+
+  return [...terms];
+}
+
+function localizeCategories(categories = [], lang = "ar") {
+  if (!Array.isArray(categories)) return [];
+  if (lang !== "ar") return categories;
+  return categories.map((c) => CATEGORY_LABELS_AR[String(c).toUpperCase()] || c);
+}
+
+async function searchBusinesses(query) {
+  if (!query) return [];
+
+  const terms = expandSearchTerms(query);
+
+  const orConditions = [];
+  for (const term of terms) {
+    const safe = escapeRegex(term);
+    orConditions.push(
+      { name: { $regex: safe, $options: "i" } },
+      { name_ar: { $regex: safe, $options: "i" } },
+      { description: { $regex: safe, $options: "i" } },
+      { category: { $elemMatch: { $regex: safe, $options: "i" } } },
+      { whatsapp: { $regex: safe, $options: "i" } }
+    );
+  }
+
+  const results = await Business.find({
+    status: "Active",
+    $or: orConditions,
+  })
+    .limit(5)
+    .lean();
+
+  const unique = [];
+  const seen = new Set();
+
+  for (const item of results) {
+    const key = String(item._id || item.whatsapp || item.name || Math.random());
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(item);
+    }
+  }
+
+  return unique.slice(0, 5);
+}
+
+function toRad(value) {
+  return (value * Math.PI) / 180;
+}
+
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+async function findNearestBusinesses(lat, lng, limit = 5) {
+  const all = await Business.find({
+    status: "Active",
+    latitude: { $ne: null },
+    longitude: { $ne: null },
+  }).lean();
+
+  return all
+    .map((item) => ({
+      ...item,
+      distanceKm: haversineKm(lat, lng, item.latitude, item.longitude),
+    }))
+    .sort((a, b) => a.distanceKm - b.distanceKm)
+    .slice(0, limit);
+}
+
 function formatSearchResults(results = [], query = "", lang = "ar") {
   if (!results.length) {
     return lang === "ar"
@@ -1234,10 +1396,9 @@ function formatSearchResults(results = [], query = "", lang = "ar") {
       msg += `${index + 1}. ${item.name_ar || item.name || "اسم غير متوفر"}\n`;
 
       if (Array.isArray(item.category) && item.category.length) {
-       const category = item.category.join(" - ");
-msg += lang === "ar"
-  ? `التصنيف: ${category}\n`
-  : `Category: ${category}\n`;
+        const cats = localizeCategories(item.category, "ar");
+        msg += `التصنيف: ${cats.join(" - ")}\n`;
+      }
 
       if (item.description) {
         msg += `الوصف: ${item.description}\n`;
@@ -1288,132 +1449,6 @@ msg += lang === "ar"
   return msg;
 }
 
-app.get("/api/admin/settings", requireAdmin, async (_req, res) => res.json(ADMIN_SETTINGS));
-
-app.post("/api/admin/settings", requireAdmin, async (req, res) => {
-  ADMIN_SETTINGS = { ...ADMIN_SETTINGS, ...(req.body || {}) };
-  return res.json({ ok: true, settings: ADMIN_SETTINGS });
-});
-
-const SEARCH_SYNONYMS = {
-  مطعم: ["مطعم", "restaurants", "restaurant", "food", "dining"],
-  كوفي: ["كوفي", "قهوة", "coffee", "cafe", "café"],
-  صيدلية: ["صيدلية", "pharmacy", "drugstore", "medicine"],
-  حلويات: ["حلويات", "desserts", "sweets", "bakery"],
-  سوبرماركت: ["سوبرماركت", "supermarket", "grocery", "mini market"],
-  ملابس: ["ملابس", "fashion", "clothes", "apparel"],
-  إلكترونيات: ["إلكترونيات", "electronics", "mobiles", "phones"],
-};
-
-function detectLanguage(text = "") {
-  return /[\u0600-\u06FF]/.test(text) ? "ar" : "en";
-}
-const messageType = body?.data?.type || "";
-const incomingLocation = body?.data?.location || null;
-
-if (
-  messageType === "location" &&
-  incomingLocation?.latitude != null &&
-  incomingLocation?.longitude != null
-) {
-  const lat = Number(incomingLocation.latitude);
-  const lng = Number(incomingLocation.longitude);
-
-  const nearest = await findNearestBusinesses(lat, lng, 5);
-  const locationReply = formatNearestResults(nearest, "ar");
-
-  const sendResp = await javnaSendText({
-    to: from,
-    body: locationReply,
-  });
-
-  console.log("LOCATION SEND RESP:", JSON.stringify(sendResp, null, 2));
-  return;
-}
-function isHelpCommand(text = "") {
-  const t = String(text || "").trim().toLowerCase();
-  return ["help", "start", "مساعدة", "ابدأ"].includes(t);
-}
-
-function normalizeSearchText(text = "") {
-  return String(text || "")
-    .trim()
-    .replace(/^ابحث عن\s*/i, "")
-    .replace(/^دور على\s*/i, "")
-    .replace(/^بحث عن\s*/i, "")
-    .replace(/^search for\s*/i, "")
-    .replace(/^find\s*/i, "")
-    .trim();
-}
-
-function escapeRegex(text = "") {
-  return String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-async function searchBusinesses(query) {
-  if (!query) return [];
-
-  const terms = expandSearchTerms(query);
-
-  const orConditions = [];
-  for (const term of terms) {
-    const safe = escapeRegex(term);
-    orConditions.push(
-      { name: { $regex: safe, $options: "i" } },
-      { name_ar: { $regex: safe, $options: "i" } },
-      { description: { $regex: safe, $options: "i" } },
-      { category: { $elemMatch: { $regex: safe, $options: "i" } } },
-      { whatsapp: { $regex: safe, $options: "i" } }
-    );
-  }
-
-  const results = await Business.find({
-    status: "Active",
-    $or: orConditions,
-  })
-    .limit(5)
-    .lean();
-
-  return results;
-}
-
-function toRad(value) {
-  return (value * Math.PI) / 180;
-}
-
-function haversineKm(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) *
-      Math.cos(toRad(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
-async function findNearestBusinesses(lat, lng, limit = 5) {
-  const all = await Business.find({
-    status: "Active",
-    latitude: { $ne: null },
-    longitude: { $ne: null },
-  }).lean();
-
-  const ranked = all
-    .map(item => ({
-      ...item,
-      distanceKm: haversineKm(lat, lng, item.latitude, item.longitude),
-    }))
-    .sort((a, b) => a.distanceKm - b.distanceKm)
-    .slice(0, limit);
-
-  return ranked;
-}
 function formatNearestResults(results = [], lang = "ar") {
   if (!results.length) {
     return lang === "ar"
@@ -1430,9 +1465,10 @@ function formatNearestResults(results = [], lang = "ar") {
     msg += `${index + 1}. ${item.name_ar || item.name || "Unnamed business"}\n`;
 
     if (Array.isArray(item.category) && item.category.length) {
+      const cats = localizeCategories(item.category, lang);
       msg += lang === "ar"
-        ? `التصنيف: ${item.category.join(" - ")}\n`
-        : `Category: ${item.category.join(" - ")}\n`;
+        ? `التصنيف: ${cats.join(" - ")}\n`
+        : `Category: ${cats.join(" - ")}\n`;
     }
 
     if (typeof item.distanceKm === "number") {
@@ -1470,16 +1506,9 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
     console.log("HEADERS:", JSON.stringify(req.headers, null, 2));
     console.log("BODY:", JSON.stringify(req.body, null, 2));
 
-    // نرجع 200 مباشرة لـ Javna
     res.status(200).json({ ok: true });
 
     const body = req.body || {};
-
-    const messageType = body?.data?.type || "";
-const incomingLocation = body?.data?.location || null;
-
-    console.log("MESSAGE TYPE:", messageType);
-console.log("LOCATION:", incomingLocation);
 
     if (body.eventScope !== "whatsapp" || body.event !== "wa.message.received") {
       console.log("IGNORED EVENT:", body.eventScope, body.event);
@@ -1487,44 +1516,74 @@ console.log("LOCATION:", incomingLocation);
     }
 
     const from = cleanDigits(body.from || body?.data?.from || "");
-    const incomingText = (
-      body?.data?.text?.text ||
-      body?.data?.text ||
-      ""
-    )
+    const messageType = body?.data?.type || "";
+    const incomingLocation = body?.data?.location || null;
+    const incomingText = (body?.data?.text?.text || body?.data?.text || "")
       .toString()
       .trim();
 
     console.log("FROM:", from);
     console.log("TEXT:", incomingText);
+    console.log("MESSAGE TYPE:", messageType);
+    console.log("LOCATION:", incomingLocation);
 
-    if (!from || !incomingText) {
-      console.log("MISSING FROM OR TEXT");
+    if (!from) {
+      console.log("MISSING FROM");
+      return;
+    }
+
+    if (
+      messageType === "location" &&
+      incomingLocation?.latitude != null &&
+      incomingLocation?.longitude != null
+    ) {
+      const lat = Number(incomingLocation.latitude);
+      const lng = Number(incomingLocation.longitude);
+
+      const nearest = await findNearestBusinesses(lat, lng, 5);
+      const locationReply = formatNearestResults(nearest, "ar");
+
+      const sendResp = await javnaSendText({
+        to: from,
+        body: locationReply,
+      });
+
+      console.log("LOCATION SEND RESP:", JSON.stringify(sendResp, null, 2));
+      return;
+    }
+
+    if (!incomingText) {
+      const emptyResp = await javnaSendText({
+        to: from,
+        body: "أرسل اسم شركة أو نوع نشاط للبحث، أو شارك موقعك لإظهار الأقرب.",
+      });
+
+      console.log("EMPTY TEXT RESP:", JSON.stringify(emptyResp, null, 2));
       return;
     }
 
     const lang = detectLanguage(incomingText);
 
     if (isNearbyIntent(incomingText)) {
-  const nearbyReply =
-    lang === "ar"
-      ? "أرسل موقعك عبر واتساب، وسأعرض لك أقرب الأنشطة المسجلة."
-      : "Please share your location on WhatsApp, and I’ll show you the nearest listed businesses.";
+      const nearbyReply =
+        lang === "ar"
+          ? "أرسل موقعك عبر واتساب، وسأعرض لك أقرب الأنشطة المسجلة."
+          : "Please share your location on WhatsApp, and I’ll show you the nearest listed businesses.";
 
-  const resp = await javnaSendText({
-    to: from,
-    body: nearbyReply,
-  });
+      const resp = await javnaSendText({
+        to: from,
+        body: nearbyReply,
+      });
 
-  console.log("NEARBY PROMPT RESP:", JSON.stringify(resp, null, 2));
-  return;
-}
+      console.log("NEARBY PROMPT RESP:", JSON.stringify(resp, null, 2));
+      return;
+    }
 
     if (isHelpCommand(incomingText)) {
       const helpReply =
         lang === "ar"
-          ? "مرحبًا بك في TrustedLinks.\nأرسل اسم شركة أو نوع نشاط مثل: مطعم، صيدلية، كوفي."
-          : "Welcome to TrustedLinks.\nSend a company name or category such as: restaurant, pharmacy, coffee.";
+          ? "مرحبًا بك في TrustedLinks.\nأرسل اسم شركة أو نوع نشاط مثل: مطعم، صيدلية، كوفي.\nأو أرسل: أقرب شركة ثم شارك موقعك."
+          : "Welcome to TrustedLinks.\nSend a company name or category such as: restaurant, pharmacy, coffee.\nOr send: near me, then share your location.";
 
       const helpResp = await javnaSendText({
         to: from,
