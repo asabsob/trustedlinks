@@ -21,6 +21,7 @@ import { connectDB } from "./db.js";
 import User from "./models/User.js";
 import Business from "./models/Business.js";
 import Otp from "./models/Otp.js";
+import { parseSearchIntent } from "./utils/aiSearchParser.js";
 
 dotenv.config();
 await connectDB();
@@ -1744,9 +1745,23 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
       return;
     }
 
-    const query = normalizeSearchText(incomingText);
-    console.log("LANG:", lang);
-    console.log("QUERY:", query);
+ let query = normalizeSearchText(incomingText);
+
+try {
+  const ai = await parseSearchIntent(incomingText);
+
+  console.log("AI RESULT:", ai);
+
+  if (ai?.category) {
+    query = ai.category;
+  }
+
+} catch (err) {
+  console.error("AI PARSE FAILED:", err);
+}
+
+console.log("LANG:", lang);
+console.log("QUERY:", query);
 
     if (!query) {
       const emptyReply =
