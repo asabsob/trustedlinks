@@ -1357,6 +1357,31 @@ function isHelpCommand(text = "") {
   return ["help", "start", "مساعدة", "ابدأ"].includes(t);
 }
 
+function isThanks(text = "") {
+  const t = String(text).toLowerCase().trim();
+  return ["شكرا", "شكرًا", "thanks", "thank you"].includes(t);
+}
+
+function isCategoryQuestion(text = "") {
+  const t = text.toLowerCase();
+  return t.includes("تصنيف") || t.includes("التصنيفات") || t.includes("categories");
+}
+if (isCategoryQuestion(incomingText)) {
+  await javnaSendText({
+    to: from,
+    body:
+`التصنيفات المتوفرة حالياً:
+
+🍽 مطاعم
+☕ قهوة
+💊 صيدليات
+🛒 تجارة
+🥤 مشروبات
+
+اكتب أي تصنيف للبحث.`
+  });
+  return;
+}
 function isGreeting(text = "") {
   const t = String(text || "").trim().toLowerCase();
   return [
@@ -1730,6 +1755,13 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
       return;
     }
 
+    if (isThanks(incomingText)) {
+  await javnaSendText({
+    to: from,
+    body: "على الرحب والسعة 😊\nإذا احتجت البحث عن شركة اكتب اسمها أو نوع النشاط."
+  });
+  return;
+}
     // location message
     if (
       messageType === "location" &&
