@@ -1357,6 +1357,53 @@ function isHelpCommand(text = "") {
   return ["help", "start", "مساعدة", "ابدأ"].includes(t);
 }
 
+function isGreeting(text = "") {
+  const t = String(text || "").trim().toLowerCase();
+  return [
+    "سلام",
+    "مرحبا",
+    "هلا",
+    "اهلا",
+    "أهلا",
+    "hello",
+    "hi",
+    "hey",
+    "start",
+    "ابدأ",
+  ].includes(t);
+}
+
+function getWelcomeMessage(lang = "ar") {
+  if (lang === "ar") {
+    return (
+      "مرحبًا بك في TrustedLinks 👋\n\n" +
+      "يمكنني مساعدتك في البحث عن الشركات بسهولة.\n\n" +
+      "أمثلة:\n" +
+      "• مطعم\n" +
+      "• قهوة\n" +
+      "• صيدلية\n" +
+      "• كوكو\n\n" +
+      "ويمكنك أيضًا إرسال:\n" +
+      "• أقرب شركة\n" +
+      "• أقرب مطعم\n\n" +
+      "اكتب اسم الشركة أو نوع النشاط للبدء."
+    );
+  }
+
+  return (
+    "Welcome to TrustedLinks 👋\n\n" +
+    "I can help you find businesses easily.\n\n" +
+    "Examples:\n" +
+    "• restaurant\n" +
+    "• coffee\n" +
+    "• pharmacy\n" +
+    "• coco\n\n" +
+    "You can also send:\n" +
+    "• nearest business\n" +
+    "• nearest restaurant\n\n" +
+    "Type a business name or category to begin."
+  );
+}
 function parseNearbyIntent(text = "") {
   const raw = String(text || "").trim();
   const lower = raw.toLowerCase();
@@ -1529,67 +1576,69 @@ async function findNearestBusinesses(lat, lng, categoryQuery = "", limit = 5) {
 function formatSearchResults(results = [], query = "", lang = "ar") {
   if (!results.length) {
     return lang === "ar"
-      ? `عذرًا، لم نجد نتائج مطابقة لـ "${query}". حاول باسم شركة أو نوع نشاط آخر.`
-      : `Sorry, no results were found for "${query}". Try another company name or business category.`;
+      ? `عذرًا، لم نجد نتائج مطابقة لـ "${query}".\n\nحاول باسم شركة أو نوع نشاط آخر.`
+      : `Sorry, no results were found for "${query}".\n\nTry another company name or business category.`;
   }
 
   if (lang === "ar") {
-    let msg = `وجدنا ${results.length} نتيجة لـ "${query}":\n\n`;
+    let msg = `نتائج البحث عن: "${query}"\n`;
+    msg += `عدد النتائج: ${results.length}\n\n`;
 
     results.forEach((item, index) => {
-      msg += `${index + 1}. ${item.name_ar || item.name || "اسم غير متوفر"}\n`;
+      msg += `#${index + 1} ${item.name_ar || item.name || "اسم غير متوفر"}\n`;
 
       if (Array.isArray(item.category) && item.category.length) {
         const cats = localizeCategories(item.category, "ar");
-        msg += `التصنيف: ${cats.join(" - ")}\n`;
+        msg += `🏷️ التصنيف: ${cats.join(" - ")}\n`;
       }
 
       if (item.description) {
-        msg += `الوصف: ${item.description}\n`;
+        msg += `📝 الوصف: ${item.description}\n`;
       }
 
       if (item.whatsapp) {
         const wa = cleanDigits(item.whatsapp);
-        msg += `تواصل مباشرة: https://wa.me/${wa}\n`;
+        msg += `💬 المحادثة: https://wa.me/${wa}\n`;
       }
 
       if (item.mapLink) {
-        msg += `الموقع: ${item.mapLink}\n`;
+        msg += `📍 الموقع: ${item.mapLink}\n`;
       }
 
       msg += `\n`;
     });
 
-    msg += `أرسل اسم شركة أو نوع نشاط آخر للبحث من جديد.`;
+    msg += `للبحث مرة أخرى، أرسل اسم شركة أو نوع نشاط آخر.`;
     return msg;
   }
 
-  let msg = `We found ${results.length} result(s) for "${query}":\n\n`;
+  let msg = `Search results for: "${query}"\n`;
+  msg += `Results found: ${results.length}\n\n`;
 
   results.forEach((item, index) => {
-    msg += `${index + 1}. ${item.name || item.name_ar || "Unnamed business"}\n`;
+    msg += `#${index + 1} ${item.name || item.name_ar || "Unnamed business"}\n`;
 
     if (Array.isArray(item.category) && item.category.length) {
-      msg += `Category: ${item.category.join(" - ")}\n`;
+      msg += `🏷️ Category: ${item.category.join(" - ")}\n`;
     }
 
     if (item.description) {
-      msg += `Description: ${item.description}\n`;
+      msg += `📝 Description: ${item.description}\n`;
     }
 
     if (item.whatsapp) {
       const wa = cleanDigits(item.whatsapp);
-      msg += `Chat directly: https://wa.me/${wa}\n`;
+      msg += `💬 Chat: https://wa.me/${wa}\n`;
     }
 
     if (item.mapLink) {
-      msg += `Location: ${item.mapLink}\n`;
+      msg += `📍 Location: ${item.mapLink}\n`;
     }
 
     msg += `\n`;
   });
 
-  msg += `Send another company name or category to search again.`;
+  msg += `Send another business name or category to search again.`;
   return msg;
 }
 
@@ -1606,36 +1655,40 @@ function formatNearestResults(results = [], lang = "ar") {
       : `Nearest results to you:\n\n`;
 
   results.forEach((item, index) => {
-    msg += `${index + 1}. ${item.name_ar || item.name || "Unnamed business"}\n`;
+    msg += `#${index + 1} ${item.name_ar || item.name || "اسم غير متوفر"}\n`;
 
     if (Array.isArray(item.category) && item.category.length) {
       const cats = localizeCategories(item.category, lang);
       msg += lang === "ar"
-        ? `التصنيف: ${cats.join(" - ")}\n`
-        : `Category: ${cats.join(" - ")}\n`;
+        ? `🏷️ التصنيف: ${cats.join(" - ")}\n`
+        : `🏷️ Category: ${cats.join(" - ")}\n`;
     }
 
     if (typeof item.distanceKm === "number") {
       msg += lang === "ar"
-        ? `المسافة التقريبية: ${item.distanceKm.toFixed(1)} كم\n`
-        : `Approx. distance: ${item.distanceKm.toFixed(1)} km\n`;
+        ? `📏 المسافة التقريبية: ${item.distanceKm.toFixed(1)} كم\n`
+        : `📏 Approx. distance: ${item.distanceKm.toFixed(1)} km\n`;
     }
 
     if (item.whatsapp) {
       const wa = cleanDigits(item.whatsapp);
       msg += lang === "ar"
-        ? `تواصل مباشرة: https://wa.me/${wa}\n`
-        : `Chat directly: https://wa.me/${wa}\n`;
+        ? `💬 المحادثة: https://wa.me/${wa}\n`
+        : `💬 Chat: https://wa.me/${wa}\n`;
     }
 
     if (item.mapLink) {
       msg += lang === "ar"
-        ? `الموقع: ${item.mapLink}\n`
-        : `Location: ${item.mapLink}\n`;
+        ? `📍 الموقع: ${item.mapLink}\n`
+        : `📍 Location: ${item.mapLink}\n`;
     }
 
     msg += `\n`;
   });
+
+  msg += lang === "ar"
+    ? "أرسل نوع نشاط آخر أو اسم شركة للبحث من جديد."
+    : "Send another category or business name to search again.";
 
   return msg;
 }
@@ -1711,6 +1764,18 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
     const lang = detectLanguage(incomingText);
     const nearbyIntent = parseNearbyIntent(incomingText);
 
+    if (isGreeting(incomingText)) {
+  const welcomeReply = getWelcomeMessage(lang);
+
+  const welcomeResp = await javnaSendText({
+    to: from,
+    body: welcomeReply,
+  });
+
+  console.log("WELCOME RESP:", JSON.stringify(welcomeResp, null, 2));
+  return;
+}
+    
     if (nearbyIntent.isNearby) {
       const nearbyReply =
         lang === "ar"
@@ -1731,11 +1796,10 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
     }
 
     if (isHelpCommand(incomingText)) {
-      const helpReply =
-        lang === "ar"
-          ? "مرحبًا بك في TrustedLinks.\nأرسل اسم شركة أو نوع نشاط مثل: مطعم، صيدلية، كوفي.\nأو أرسل: أقرب شركة ثم شارك موقعك."
-          : "Welcome to TrustedLinks.\nSend a company name or category such as: restaurant, pharmacy, coffee.\nOr send: near me, then share your location.";
-
+     const helpReply =
+  lang === "ar"
+    ? "مرحبًا بك في TrustedLinks 👋\n\nأرسل:\n• اسم شركة\n• أو نوع نشاط مثل: مطعم، قهوة، صيدلية\n\nوللبحث القريب أرسل:\n• أقرب شركة\n• أقرب مطعم"
+    : "Welcome to TrustedLinks 👋\n\nSend:\n• a business name\n• or a category like: restaurant, coffee, pharmacy\n\nFor nearby search, send:\n• nearest business\n• nearest restaurant";
       const helpResp = await javnaSendText({
         to: from,
         body: helpReply,
