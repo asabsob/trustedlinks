@@ -1362,26 +1362,6 @@ function isThanks(text = "") {
   return ["شكرا", "شكرًا", "thanks", "thank you"].includes(t);
 }
 
-function isCategoryQuestion(text = "") {
-  const t = text.toLowerCase();
-  return t.includes("تصنيف") || t.includes("التصنيفات") || t.includes("categories");
-}
-if (isCategoryQuestion(incomingText)) {
-  await javnaSendText({
-    to: from,
-    body:
-`التصنيفات المتوفرة حالياً:
-
-🍽 مطاعم
-☕ قهوة
-💊 صيدليات
-🛒 تجارة
-🥤 مشروبات
-
-اكتب أي تصنيف للبحث.`
-  });
-  return;
-}
 function isGreeting(text = "") {
   const t = String(text || "").trim().toLowerCase();
   return [
