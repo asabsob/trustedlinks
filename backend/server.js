@@ -21,7 +21,7 @@ import { connectDB } from "./db.js";
 import User from "./models/User.js";
 import Business from "./models/Business.js";
 import Otp from "./models/Otp.js";
-import { parseSearchIntent } from "./utils/aiSearchParser.js";
+import { parseSearchIntent } from "./server/utils/aiSearchParser.js";
 
 dotenv.config();
 await connectDB();
