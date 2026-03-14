@@ -12,3 +12,17 @@ export function detectNearbyIntent(text = "") {
 
   return false;
 }
+import { expandTerms } from "./synonyms.js";
+
+export function detectNearbyCategory(text=""){
+  const words = String(text).split(" ");
+
+  for(const w of words){
+    const terms = expandTerms(w);
+    if(terms.length > 1){
+      return terms[0]; // category key
+    }
+  }
+
+  return null;
+}
