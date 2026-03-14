@@ -23,6 +23,16 @@ import Business from "./models/Business.js";
 import Otp from "./models/Otp.js";
 import { parseSearchIntent } from "./server/utils/aiSearchParser.js";
 
+import { searchBusinesses } from "./search/searchService.js";
+import { normalizeSearchText } from "./search/textNormalizer.js";
+import { formatResults } from "./search/searchFormatter.js";
+
+const query = normalizeSearchText(incomingText);
+
+const results = await searchBusinesses(query);
+
+const reply = formatResults(results);
+
 dotenv.config();
 await connectDB();
 
