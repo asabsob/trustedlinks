@@ -1,11 +1,11 @@
-import Business from "../models/Business.js"
-import {expandTerms} from "./synonyms.js"
+import Business from "../models/Business.js";
+import { expandTerms } from "./synonyms.js";
 
 export async function searchBusinesses(query){
 
- const terms = expandTerms(query)
+ const terms = expandTerms(query);
 
- const regex = new RegExp(query,"i")
+ const regex = new RegExp(query,"i");
 
  const results = await Business.find({
 
@@ -16,8 +16,8 @@ export async function searchBusinesses(query){
    {category:{$in:terms}}
   ]
 
- }).limit(10)
+ }).limit(10);
 
- return results
+ return results;
 
 }
