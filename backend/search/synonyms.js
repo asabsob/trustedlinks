@@ -1,38 +1,21 @@
 export const SEARCH_SYNONYMS = {
-
-  قهوة: ["قهوة","كوفي","coffee","cafe","beverages","مشروبات","drinks"],
-  
-  شاي: ["شاي","tea","beverages","مشروبات","drinks"],
-
-  مطعم: ["مطعم","restaurant","food","eat","meals"],
-
-  صيدلية: ["صيدلية","pharmacy","medicine","drugstore"],
-
-  حلويات: ["حلويات","dessert","sweets","cake","pastry"],
-
-  مشاوي: ["مشاوي","grill","bbq","kebab"],
-
-  مشروبات: ["مشروبات","beverages","drinks","coffee","tea","juice"]
-
-}
-
+  beverages: ["قهوة","كوفي","coffee","cafe","شاي","tea","مشروبات","drinks","beverages","juice","عصير"],
+  restaurant: ["مطعم","مطاعم","restaurant","restaurants","food","اكل","وجبات"],
+  pharmacy: ["صيدلية","صيدليات","pharmacy","drugstore","medicine","دواء"],
+  dessert: ["حلويات","dessرت","dessert","sweets","cake","pastry"],
+  grill: ["مشاوي","grill","bbq","kebab"]
+};
 
 export function expandTerms(query){
-
-  const q = String(query || "").trim().toLowerCase()
+  const q = String(query || "").toLowerCase().trim();
 
   for(const key in SEARCH_SYNONYMS){
-
-    const words = SEARCH_SYNONYMS[key].map(v => v.toLowerCase())
-
-    if(words.includes(q)){
-
-      return SEARCH_SYNONYMS[key]
-
+    const list = SEARCH_SYNONYMS[key].map(v => v.toLowerCase());
+    if(list.includes(q)){
+      // نرجع الفئة + كل المرادفات
+      return [key, ...SEARCH_SYNONYMS[key]];
     }
-
   }
 
-  return [query]
-
+  return [q];
 }
