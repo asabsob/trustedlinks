@@ -34,7 +34,6 @@ const results = await searchBusinesses(query);
 
 const reply = formatResults(results);
 
-const reply = formatSearchResults(results, query, lang);
 
 dotenv.config();
 await connectDB();
