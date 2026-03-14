@@ -3,13 +3,16 @@ function parseNearbyIntent(text = "") {
   const q = raw.toLowerCase();
 
   const nearbyWords = [
+    "قريبة مني",
+    "قريب مني",
     "أقرب",
     "اقرب",
-    "قريب",
     "قريبة",
-    "near",
+    "قريب",
+    "near me",
     "nearest",
     "closest",
+    "near",
   ];
 
   const removeWords = [
@@ -29,15 +32,14 @@ function parseNearbyIntent(text = "") {
 
   let categoryQuery = raw;
 
-  nearbyWords.forEach((word) => {
-    const rx = new RegExp(word, "ig");
-    categoryQuery = categoryQuery.replace(rx, " ");
-  });
-
-  removeWords.forEach((word) => {
-    const rx = new RegExp(word, "ig");
-    categoryQuery = categoryQuery.replace(rx, " ");
-  });
+  // remove longer phrases first
+  [...nearbyWords, ...removeWords]
+    .sort((a, b) => b.length - a.length)
+    .forEach((word) => {
+      const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const rx = new RegExp(escaped, "ig");
+      categoryQuery = categoryQuery.replace(rx, " ");
+    });
 
   categoryQuery = categoryQuery.replace(/\s+/g, " ").trim();
 
