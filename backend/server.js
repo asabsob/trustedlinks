@@ -25,7 +25,8 @@ import { parseSearchIntent } from "./server/utils/aiSearchParser.js";
 
 import { searchBusinesses } from "./search/searchService.js";
 import { normalizeSearchText } from "./search/textNormalizer.js";
-import { formatResults } from "./search/searchFormatter.js";
+import { formatSearchResults } from "./search/searchFormatter.js";
+import { findNearestBusinesses } from "./search/nearbyService.js";
 
 const query = normalizeSearchText(incomingText);
 
@@ -1238,126 +1239,6 @@ app.post("/api/admin/settings", requireAdmin, async (req, res) => {
   return res.json({ ok: true, settings: ADMIN_SETTINGS });
 });
 
-const SEARCH_SYNONYMS = {
-  مطعم: [
-    "مطعم",
-    "restaurant",
-    "restaurants",
-    "food",
-    "dining",
-    "وجبات",
-    "أكل",
-    "FOOD_GROCERY",
-    "RESTAURANT",
-    "RESTAURANTS",
-  ],
-  كوفي: [
-    "كوفي",
-    "قهوة",
-    "coffee",
-    "cafe",
-    "café",
-    "espresso",
-    "latte",
-    "BEVERAGES",
-    "CAFE",
-    "COFFEE",
-    "DRINKS",
-  ],
-  قهوة: [
-    "قهوة",
-    "كوفي",
-    "coffee",
-    "cafe",
-    "café",
-    "espresso",
-    "latte",
-    "BEVERAGES",
-    "CAFE",
-    "COFFEE",
-    "DRINKS",
-  ],
-  شاي: [
-    "شاي",
-    "tea",
-    "karak",
-    "chai",
-    "BEVERAGES",
-    "DRINKS",
-  ],
-  مشاوي: [
-    "مشاوي",
-    "grill",
-    "grills",
-    "bbq",
-    "barbecue",
-    "kebab",
-    "restaurant",
-    "RESTAURANT",
-    "FOOD_GROCERY",
-  ],
-  صيدلية: [
-    "صيدلية",
-    "pharmacy",
-    "drugstore",
-    "medicine",
-    "PHARMACY",
-    "HEALTH",
-  ],
-  حلويات: [
-    "حلويات",
-    "desserts",
-    "sweets",
-    "bakery",
-    "cake",
-    "pastry",
-    "DESSERTS",
-    "BAKERY",
-    "BEVERAGES",
-  ],
-  سوبرماركت: [
-    "سوبرماركت",
-    "supermarket",
-    "grocery",
-    "mini market",
-    "market",
-    "FOOD_GROCERY",
-    "GROCERY",
-    "SUPERMARKET",
-  ],
-  ملابس: [
-    "ملابس",
-    "fashion",
-    "clothes",
-    "apparel",
-    "FASHION",
-    "APPAREL",
-  ],
-  إلكترونيات: [
-    "إلكترونيات",
-    "electronics",
-    "mobiles",
-    "phones",
-    "laptops",
-    "ELECTRONICS",
-    "MOBILES",
-  ],
-};
-
-const CATEGORY_LABELS_AR = {
-  BEVERAGES: "مشروبات",
-  RESTAURANT: "مطعم",
-  RESTAURANTS: "مطاعم",
-  PHARMACY: "صيدلية",
-  DESSERTS: "حلويات",
-  CAFE: "كوفي",
-  COFFEE: "قهوة",
-  SUPERMARKET: "سوبرماركت",
-  GROCERY: "بقالة",
-  ELECTRONICS: "إلكترونيات",
-  FASHION: "ملابس",
-};
-
 function detectLanguage(text = "") {
   return /[\u0600-\u06FF]/.test(text) ? "ar" : "en";
 }
@@ -1419,6 +1300,7 @@ function getWelcomeMessage(lang = "ar") {
     "Type a business name or category to begin."
   );
 }
+
 function parseNearbyIntent(text = "") {
   const raw = String(text || "").trim();
   const lower = raw.toLowerCase();
@@ -1431,7 +1313,12 @@ function parseNearbyIntent(text = "") {
     return { isNearby: true, categoryQuery: raw.replace(/^اقرب\s+/, "").trim() };
   }
 
-  if (lower === "أقرب" || lower === "اقرب" || lower === "أقرب شركة" || lower === "اقرب شركة") {
+  if (
+    lower === "أقرب" ||
+    lower === "اقرب" ||
+    lower === "أقرب شركة" ||
+    lower === "اقرب شركة"
+  ) {
     return { isNearby: true, categoryQuery: "" };
   }
 
@@ -1445,269 +1332,6 @@ function parseNearbyIntent(text = "") {
 
   return { isNearby: false, categoryQuery: "" };
 }
-
-function normalizeSearchText(text = "") {
-  return String(text || "")
-    .trim()
-    .replace(/^ابحث عن\s*/i, "")
-    .replace(/^دور على\s*/i, "")
-    .replace(/^بحث عن\s*/i, "")
-    .replace(/^search for\s*/i, "")
-    .replace(/^find\s*/i, "")
-    .trim();
-}
-
-function escapeRegex(text = "") {
-  return String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function expandSearchTerms(query = "") {
-  const raw = String(query || "").trim();
-  const lower = raw.toLowerCase();
-
-  const terms = new Set([raw, lower]);
-
-  for (const [key, values] of Object.entries(SEARCH_SYNONYMS)) {
-    const all = [key, ...values];
-
-    const normalizedAll = all.map((v) => String(v).toLowerCase());
-    if (normalizedAll.includes(lower)) {
-      all.forEach((v) => {
-        terms.add(String(v));
-        terms.add(String(v).toLowerCase());
-      });
-    }
-  }
-
-  return [...terms];
-}
-
-function localizeCategories(categories = [], lang = "ar") {
-  if (!Array.isArray(categories)) return [];
-  if (lang !== "ar") return categories;
-  return categories.map((c) => CATEGORY_LABELS_AR[String(c).toUpperCase()] || c);
-}
-async function searchBusinesses(query) {
-  if (!query) return [];
-
-  const terms = expandSearchTerms(query);
-  console.log("EXPANDED TERMS:", terms);
-
-  const orConditions = [];
-
-  for (const term of terms) {
-    const safe = escapeRegex(term);
-
-    orConditions.push(
-      { name: { $regex: safe, $options: "i" } },
-      { name_ar: { $regex: safe, $options: "i" } },
-      { description: { $regex: safe, $options: "i" } },
-      { category: { $elemMatch: { $regex: safe, $options: "i" } } }
-    );
-  }
-
-  const results = await Business.find({
-    status: "Active",
-    $or: orConditions,
-  })
-    .limit(10)
-    .lean();
-
-  const unique = [];
-  const seen = new Set();
-
-  for (const item of results) {
-    const key = String(item._id || item.whatsapp || item.name || Math.random());
-    if (!seen.has(key)) {
-      seen.add(key);
-      unique.push(item);
-    }
-  }
-
-  return unique.slice(0, 5);
-}
-
-function toRad(value) {
-  return (value * Math.PI) / 180;
-}
-
-function haversineKm(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) *
-      Math.cos(toRad(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
-async function findNearestBusinesses(lat, lng, categoryQuery = "", limit = 5) {
-  const all = await Business.find({
-    status: "Active",
-    latitude: { $ne: null },
-    longitude: { $ne: null },
-  }).lean();
-
-  let filtered = all;
-
-  if (categoryQuery) {
-    const terms = expandSearchTerms(categoryQuery);
-
-    filtered = all.filter((item) => {
-      const name = String(item.name || "").toLowerCase();
-      const nameAr = String(item.name_ar || "").toLowerCase();
-      const desc = String(item.description || "").toLowerCase();
-      const cats = Array.isArray(item.category)
-        ? item.category.join(" ").toLowerCase()
-        : "";
-
-      return terms.some((term) => {
-        const t = String(term).toLowerCase();
-        return (
-          name.includes(t) ||
-          nameAr.includes(t) ||
-          desc.includes(t) ||
-          cats.includes(t)
-        );
-      });
-    });
-  }
-
-  return filtered
-    .map((item) => ({
-      ...item,
-      distanceKm: haversineKm(lat, lng, item.latitude, item.longitude),
-    }))
-    .sort((a, b) => a.distanceKm - b.distanceKm)
-    .slice(0, limit);
-}
-
-function formatSearchResults(results = [], query = "", lang = "ar") {
-  if (!results.length) {
-    return lang === "ar"
-      ? `عذرًا، لم نجد نتائج مطابقة لـ "${query}".\n\nحاول باسم شركة أو نوع نشاط آخر.`
-      : `Sorry, no results were found for "${query}".\n\nTry another company name or business category.`;
-  }
-
-  if (lang === "ar") {
-    let msg = `نتائج البحث عن: "${query}"\n`;
-    msg += `عدد النتائج: ${results.length}\n\n`;
-
-    results.forEach((item, index) => {
-      msg += `#${index + 1} ${item.name_ar || item.name || "اسم غير متوفر"}\n`;
-
-      if (Array.isArray(item.category) && item.category.length) {
-        const cats = localizeCategories(item.category, "ar");
-        msg += `🏷️ التصنيف: ${cats.join(" - ")}\n`;
-      }
-
-      if (item.description) {
-        msg += `📝 الوصف: ${item.description}\n`;
-      }
-
-      if (item.whatsapp) {
-        const wa = cleanDigits(item.whatsapp);
-        msg += `💬 المحادثة: https://wa.me/${wa}\n`;
-      }
-
-      if (item.mapLink) {
-        msg += `📍 الموقع: ${item.mapLink}\n`;
-      }
-
-      msg += `\n`;
-    });
-
-    msg += `للبحث مرة أخرى، أرسل اسم شركة أو نوع نشاط آخر.`;
-    return msg;
-  }
-
-  let msg = `Search results for: "${query}"\n`;
-  msg += `Results found: ${results.length}\n\n`;
-
-  results.forEach((item, index) => {
-    msg += `#${index + 1} ${item.name || item.name_ar || "Unnamed business"}\n`;
-
-    if (Array.isArray(item.category) && item.category.length) {
-      msg += `🏷️ Category: ${item.category.join(" - ")}\n`;
-    }
-
-    if (item.description) {
-      msg += `📝 Description: ${item.description}\n`;
-    }
-
-    if (item.whatsapp) {
-      const wa = cleanDigits(item.whatsapp);
-      msg += `💬 Chat: https://wa.me/${wa}\n`;
-    }
-
-    if (item.mapLink) {
-      msg += `📍 Location: ${item.mapLink}\n`;
-    }
-
-    msg += `\n`;
-  });
-
-  msg += `Send another business name or category to search again.`;
-  return msg;
-}
-
-function formatNearestResults(results = [], lang = "ar") {
-  if (!results.length) {
-    return lang === "ar"
-      ? "عذرًا، لم نجد أنشطة قريبة تحتوي على موقع محفوظ."
-      : "Sorry, no nearby businesses with saved locations were found.";
-  }
-
-  let msg =
-    lang === "ar"
-      ? `أقرب النتائج لك:\n\n`
-      : `Nearest results to you:\n\n`;
-
-  results.forEach((item, index) => {
-    msg += `#${index + 1} ${item.name_ar || item.name || "اسم غير متوفر"}\n`;
-
-    if (Array.isArray(item.category) && item.category.length) {
-      const cats = localizeCategories(item.category, lang);
-      msg += lang === "ar"
-        ? `🏷️ التصنيف: ${cats.join(" - ")}\n`
-        : `🏷️ Category: ${cats.join(" - ")}\n`;
-    }
-
-    if (typeof item.distanceKm === "number") {
-      msg += lang === "ar"
-        ? `📏 المسافة التقريبية: ${item.distanceKm.toFixed(1)} كم\n`
-        : `📏 Approx. distance: ${item.distanceKm.toFixed(1)} km\n`;
-    }
-
-    if (item.whatsapp) {
-      const wa = cleanDigits(item.whatsapp);
-      msg += lang === "ar"
-        ? `💬 المحادثة: https://wa.me/${wa}\n`
-        : `💬 Chat: https://wa.me/${wa}\n`;
-    }
-
-    if (item.mapLink) {
-      msg += lang === "ar"
-        ? `📍 الموقع: ${item.mapLink}\n`
-        : `📍 Location: ${item.mapLink}\n`;
-    }
-
-    msg += `\n`;
-  });
-
-  msg += lang === "ar"
-    ? "أرسل نوع نشاط آخر أو اسم شركة للبحث من جديد."
-    : "Send another category or business name to search again.";
-
-  return msg;
-}
-
 app.get("/webhooks/javna/whatsapp", (_req, res) => {
   res.status(200).send("WhatsApp webhook is live");
 });
