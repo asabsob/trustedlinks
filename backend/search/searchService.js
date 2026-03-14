@@ -1,23 +1,34 @@
 import Business from "../models/Business.js";
 import { expandTerms } from "./synonyms.js";
 
-export async function searchBusinesses(query){
+export async function searchBusinesses(query) {
+  const rawQuery = String(query || "").trim();
+  if (!rawQuery) return [];
 
- const terms = expandTerms(query);
+  const terms = expandTerms(rawQuery).filter(Boolean);
 
- const regex = new RegExp(query,"i");
+  const escapedTerms = terms.map((term) =>
+    String(term).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  );
 
- const results = await Business.find({
+  const regexList = escapedTerms.map((term) => new RegExp(term, "i"));
+  const mainRegex = new RegExp(
+    rawQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+    "i"
+  );
 
-  $or:[
-   {name:regex},
-   {name_ar:regex},
-   {keywords:{$in:terms}},
-   {category:{$in:terms}}
-  ]
+  const results = await Business.find({
+    status: "Active",
+    $or: [
+      { name: mainRegex },
+      { name_ar: mainRegex },
+      { description: mainRegex },
+      { keywords: { $in: regexList } },
+      { category: { $in: regexList } },
+    ],
+  })
+    .limit(10)
+    .lean();
 
- }).limit(10);
-
- return results;
-
+  return results;
 }
