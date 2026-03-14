@@ -1,23 +1,38 @@
 export const SEARCH_SYNONYMS = {
-  قهوة:["قهوة","كوفي","coffee","cafe"],
-  مطعم:["مطعم","restaurant","food"],
-  صيدلية:["صيدلية","pharmacy"],
-  حلويات:["حلويات","dessert","sweets"],
-  مشاوي:["مشاوي","grill","bbq"]
+
+  قهوة: ["قهوة","كوفي","coffee","cafe","beverages","مشروبات","drinks"],
+  
+  شاي: ["شاي","tea","beverages","مشروبات","drinks"],
+
+  مطعم: ["مطعم","restaurant","food","eat","meals"],
+
+  صيدلية: ["صيدلية","pharmacy","medicine","drugstore"],
+
+  حلويات: ["حلويات","dessert","sweets","cake","pastry"],
+
+  مشاوي: ["مشاوي","grill","bbq","kebab"],
+
+  مشروبات: ["مشروبات","beverages","drinks","coffee","tea","juice"]
+
 }
+
 
 export function expandTerms(query){
 
- for(const key in SEARCH_SYNONYMS){
+  const q = String(query || "").trim().toLowerCase()
 
-   if(SEARCH_SYNONYMS[key].includes(query)){
+  for(const key in SEARCH_SYNONYMS){
 
-     return SEARCH_SYNONYMS[key]
+    const words = SEARCH_SYNONYMS[key].map(v => v.toLowerCase())
 
-   }
+    if(words.includes(q)){
 
- }
+      return SEARCH_SYNONYMS[key]
 
- return [query]
+    }
+
+  }
+
+  return [query]
 
 }
