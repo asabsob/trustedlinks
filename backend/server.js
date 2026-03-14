@@ -1451,7 +1451,7 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
       return;
     }
 
- let query = normalizeSearchText(incomingText);
+let query = normalizeSearchText(incomingText);
 
 try {
   const ai = await parseSearchIntent(incomingText);
@@ -1461,12 +1461,10 @@ try {
   if (ai?.category) {
     query = ai.category;
   }
-
 } catch (err) {
   console.error("AI PARSE FAILED:", err);
 }
 
-const query = normalizeSearchText(incomingText);
 console.log("LANG:", lang);
 console.log("QUERY:", query);
 
@@ -1485,6 +1483,18 @@ if (!query) {
   return;
 }
 
+const results = await searchBusinesses(query);
+console.log("SEARCH RESULTS COUNT:", results.length);
+
+const reply = formatSearchResults(results, query, lang);
+
+const sendResp = await javnaSendText({
+  to: from,
+  body: reply,
+});
+
+console.log("SEND RESP:", JSON.stringify(sendResp, null, 2));
+    
 const results = await searchBusinesses(query);
 console.log("SEARCH RESULTS COUNT:", results.length);
 
