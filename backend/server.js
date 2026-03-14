@@ -1324,35 +1324,42 @@ function getWelcomeMessage(lang = "ar") {
 
 function parseNearbyIntent(text = "") {
   const raw = String(text || "").trim();
-  const lower = raw.toLowerCase();
+  const q = raw.toLowerCase();
 
-  if (lower.startsWith("أقرب ")) {
-    return { isNearby: true, categoryQuery: raw.replace(/^أقرب\s+/, "").trim() };
+  const nearbyWords = [
+    "أقرب",
+    "اقرب",
+    "قريب",
+    "قريبة",
+    "قريب مني",
+    "قريبة مني",
+    "near",
+    "near me",
+    "nearest",
+    "closest",
+  ];
+
+  const isNearby = nearbyWords.some((word) => q.includes(word.toLowerCase()));
+
+  if (!isNearby) {
+    return { isNearby: false, categoryQuery: "" };
   }
 
-  if (lower.startsWith("اقرب ")) {
-    return { isNearby: true, categoryQuery: raw.replace(/^اقرب\s+/, "").trim() };
-  }
+  let categoryQuery = raw;
 
-  if (
-    lower === "أقرب" ||
-    lower === "اقرب" ||
-    lower === "أقرب شركة" ||
-    lower === "اقرب شركة"
-  ) {
-    return { isNearby: true, categoryQuery: "" };
-  }
+  nearbyWords.forEach((word) => {
+    const rx = new RegExp(word, "ig");
+    categoryQuery = categoryQuery.replace(rx, " ");
+  });
 
-  if (lower.startsWith("near ")) {
-    return { isNearby: true, categoryQuery: raw.replace(/^near\s+/i, "").trim() };
-  }
+  categoryQuery = categoryQuery.replace(/\s+/g, " ").trim();
 
-  if (["near me", "closest", "nearby"].includes(lower)) {
-    return { isNearby: true, categoryQuery: "" };
-  }
-
-  return { isNearby: false, categoryQuery: "" };
+  return {
+    isNearby: true,
+    categoryQuery,
+  };
 }
+
 app.get("/webhooks/javna/whatsapp", (_req, res) => {
   res.status(200).send("WhatsApp webhook is live");
 });
@@ -1498,6 +1505,8 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
       return;
     }
 
+    console.log("NEARBY INTENT:", nearbyIntent);
+    
     // 7) Normal search
     let query = normalizeSearchText(incomingText);
 
