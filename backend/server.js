@@ -1326,20 +1326,30 @@ function parseNearbyIntent(text = "") {
   const raw = String(text || "").trim();
   const q = raw.toLowerCase();
 
-  const nearbyWords = [
+  const phrasesToRemove = [
+    "قريبة مني",
+    "قريب مني",
+    "قريبة",
+    "قريب",
     "أقرب",
     "اقرب",
-    "قريب",
-    "قريبة",
-    "قريب مني",
-    "قريبة مني",
-    "near",
+    "بالقرب مني",
+    "بالقرب",
+    "حولي",
+    "مني",
+    "عندي",
     "near me",
     "nearest",
     "closest",
+    "near",
+    "around me",
+    "around",
+    "me",
   ];
 
-  const isNearby = nearbyWords.some((word) => q.includes(word.toLowerCase()));
+  const isNearby = phrasesToRemove.some((word) =>
+    q.includes(word.toLowerCase())
+  );
 
   if (!isNearby) {
     return { isNearby: false, categoryQuery: "" };
@@ -1347,10 +1357,13 @@ function parseNearbyIntent(text = "") {
 
   let categoryQuery = raw;
 
-  nearbyWords.forEach((word) => {
-    const rx = new RegExp(word, "ig");
-    categoryQuery = categoryQuery.replace(rx, " ");
-  });
+  phrasesToRemove
+    .sort((a, b) => b.length - a.length)
+    .forEach((word) => {
+      const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const rx = new RegExp(escaped, "ig");
+      categoryQuery = categoryQuery.replace(rx, " ");
+    });
 
   categoryQuery = categoryQuery.replace(/\s+/g, " ").trim();
 
@@ -1359,7 +1372,6 @@ function parseNearbyIntent(text = "") {
     categoryQuery,
   };
 }
-
 app.get("/webhooks/javna/whatsapp", (_req, res) => {
   res.status(200).send("WhatsApp webhook is live");
 });
@@ -1480,32 +1492,31 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
       return;
     }
 
-    // 6) Nearby intent
-    const nearbyIntent = parseNearbyIntent(incomingText);
+ // 6) Nearby intent
+const nearbyIntent = parseNearbyIntent(incomingText);
+console.log("NEARBY INTENT:", nearbyIntent);
 
-    if (nearbyIntent.isNearby) {
-      const categoryQuery = normalizeSearchText(nearbyIntent.categoryQuery || "");
-      setPendingNearby(from, categoryQuery);
+if (nearbyIntent.isNearby) {
+  const categoryQuery = normalizeSearchText(nearbyIntent.categoryQuery || "");
+  setPendingNearby(from, categoryQuery);
 
-      const nearbyReply =
-        lang === "ar"
-          ? categoryQuery
-            ? `📍 أرسل موقعك عبر واتساب، وسأعرض لك أقرب النتائج لـ "${categoryQuery}".`
-            : "📍 أرسل موقعك عبر واتساب، وسأعرض لك أقرب الأنشطة المسجلة."
-          : categoryQuery
-            ? `📍 Please share your location on WhatsApp, and I’ll show you the nearest results for "${categoryQuery}".`
-            : "📍 Please share your location on WhatsApp, and I’ll show you the nearest listed businesses.";
+  const nearbyReply =
+    lang === "ar"
+      ? categoryQuery
+        ? `📍 أرسل موقعك عبر واتساب، وسأعرض لك أقرب النتائج لـ "${categoryQuery}".`
+        : "📍 أرسل موقعك عبر واتساب، وسأعرض لك أقرب الأنشطة المسجلة."
+      : categoryQuery
+        ? `📍 Please share your location on WhatsApp, and I’ll show you the nearest results for "${categoryQuery}".`
+        : "📍 Please share your location on WhatsApp, and I’ll show you the nearest listed businesses.";
 
-      const nearbyResp = await javnaSendText({
-        to: from,
-        body: nearbyReply,
-      });
+  const nearbyResp = await javnaSendText({
+    to: from,
+    body: nearbyReply,
+  });
 
-      console.log("NEARBY RESP:", JSON.stringify(nearbyResp, null, 2));
-      return;
-    }
-
-    console.log("NEARBY INTENT:", nearbyIntent);
+  console.log("NEARBY RESP:", JSON.stringify(nearbyResp, null, 2));
+  return;
+}
     
     // 7) Normal search
     let query = normalizeSearchText(incomingText);
