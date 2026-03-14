@@ -28,7 +28,6 @@ import { normalizeSearchText } from "./search/textNormalizer.js";
 import { formatSearchResults, formatNearestResults } from "./search/searchFormatter.js";
 import { findNearestBusinesses } from "./search/nearbyService.js";
 
-const query = normalizeSearchText(incomingText);
 
 dotenv.config();
 await connectDB();
@@ -1467,35 +1466,37 @@ try {
   console.error("AI PARSE FAILED:", err);
 }
 
+const query = normalizeSearchText(incomingText);
 console.log("LANG:", lang);
 console.log("QUERY:", query);
 
-    if (!query) {
-      const emptyReply =
-        lang === "ar"
-          ? "أرسل اسم شركة أو نوع النشاط الذي تريد البحث عنه."
-          : "Please send a company name or business category to search for.";
+if (!query) {
+  const emptyReply =
+    lang === "ar"
+      ? "أرسل اسم شركة أو نوع النشاط الذي تريد البحث عنه."
+      : "Please send a company name or business category to search for.";
 
-      const emptyResp = await javnaSendText({
-        to: from,
-        body: emptyReply,
-      });
+  const emptyResp = await javnaSendText({
+    to: from,
+    body: emptyReply,
+  });
 
-      console.log("EMPTY RESP:", JSON.stringify(emptyResp, null, 2));
-      return;
-    }
+  console.log("EMPTY RESP:", JSON.stringify(emptyResp, null, 2));
+  return;
+}
 
-    const results = await searchBusinesses(query);
-    console.log("SEARCH RESULTS COUNT:", results.length);
+const results = await searchBusinesses(query);
+console.log("SEARCH RESULTS COUNT:", results.length);
 
-    const reply = formatSearchResults(results, query, lang);
+const reply = formatSearchResults(results, query, lang);
 
-    const sendResp = await javnaSendText({
-      to: from,
-      body: reply,
-    });
+const sendResp = await javnaSendText({
+  to: from,
+  body: reply,
+});
 
-    console.log("SEND RESP:", JSON.stringify(sendResp, null, 2));
+console.log("SEND RESP:", JSON.stringify(sendResp, null, 2));
+
   } catch (e) {
     console.error("WHATSAPP WEBHOOK ERROR:", e);
   }
