@@ -1455,7 +1455,6 @@ let query = normalizeSearchText(incomingText);
 
 try {
   const ai = await parseSearchIntent(incomingText);
-
   console.log("AI RESULT:", ai);
 
   if (ai?.category) {
@@ -1494,18 +1493,7 @@ const sendResp = await javnaSendText({
 });
 
 console.log("SEND RESP:", JSON.stringify(sendResp, null, 2));
-    
-const results = await searchBusinesses(query);
-console.log("SEARCH RESULTS COUNT:", results.length);
 
-const reply = formatSearchResults(results, query, lang);
-
-const sendResp = await javnaSendText({
-  to: from,
-  body: reply,
-});
-
-console.log("SEND RESP:", JSON.stringify(sendResp, null, 2));
 
   } catch (e) {
     console.error("WHATSAPP WEBHOOK ERROR:", e);
