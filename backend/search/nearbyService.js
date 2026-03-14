@@ -1,61 +1,48 @@
 import Business from "../models/Business.js";
 import { expandTerms } from "./synonyms.js";
 
-export function distanceKm(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) *
-      Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
 export async function findNearestBusinesses(lat, lng, limit = 5, categoryQuery = "") {
-  const mongoQuery = {
+  const nLat = Number(lat);
+  const nLng = Number(lng);
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 5, 20));
+
+  if (Number.isNaN(nLat) || Number.isNaN(nLng)) {
+    return [];
+  }
+
+  const query = {
     status: "Active",
-    latitude: { $ne: null },
-    longitude: { $ne: null },
+    location: {
+      $near: {
+        $geometry: {
+          type: "Point",
+          coordinates: [nLng, nLat],
+        },
+      },
+    },
   };
 
-  let businesses = await Business.find(mongoQuery).lean();
+  if (categoryQuery?.trim()) {
+    const terms = expandTerms(categoryQuery.trim())
+      .map((t) => t.trim())
+      .filter(Boolean);
 
-  if (categoryQuery) {
-    const terms = expandTerms(categoryQuery);
-    const regexList = terms.map((term) => new RegExp(term, "i"));
-
-    businesses = businesses.filter((b) => {
-      const name = b.name || "";
-      const nameAr = b.name_ar || "";
-      const desc = b.description || "";
-      const category = Array.isArray(b.category) ? b.category : [];
-      const keywords = Array.isArray(b.keywords) ? b.keywords : [];
-
-      return regexList.some((rx) => {
-        return (
-          rx.test(name) ||
-          rx.test(nameAr) ||
-          rx.test(desc) ||
-          category.some((c) => rx.test(c)) ||
-          keywords.some((k) => rx.test(k))
-        );
-      });
+    query.$or = terms.flatMap((term) => {
+      const rx = new RegExp(term, "i");
+      return [
+        { name: rx },
+        { name_ar: rx },
+        { description: rx },
+        { category: rx },
+        { keywords: rx },
+      ];
     });
   }
 
-  const sorted = businesses
-    .map((b) => ({
-      ...b,
-      distanceKm: distanceKm(lat, lng, b.latitude, b.longitude),
-    }))
-    .sort((a, b) => a.distanceKm - b.distanceKm);
+  const businesses = await Business.find(query)
+    .select("name name_ar description category keywords whatsapp city location")
+    .limit(safeLimit)
+    .lean();
 
-  return sorted.slice(0, limit);
+  return businesses;
 }
