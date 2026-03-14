@@ -19,7 +19,7 @@ const BusinessSchema = new mongoose.Schema(
     keywords: { type: [String], default: [] },
 
     whatsapp: { type: String, required: true, unique: true },
-   status: { type: String, default: "Active" }
+    status: { type: String, default: "Active" },
 
     latitude: { type: Number, default: null },
     longitude: { type: Number, default: null },
@@ -35,6 +35,5 @@ const BusinessSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
 
 export default mongoose.models.Business || mongoose.model("Business", BusinessSchema);
