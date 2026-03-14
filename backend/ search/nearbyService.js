@@ -17,3 +17,17 @@ export function distanceKm(lat1,lon1,lat2,lon2){
  return R*c
 
 }
+export function findNearestBusinesses(businesses,lat,lng){
+
+ return businesses
+  .map(b=>{
+
+   const d=distanceKm(lat,lng,b.latitude,b.longitude)
+
+   return {...b._doc,distanceKm:d}
+
+  })
+  .sort((a,b)=>a.distanceKm-b.distanceKm)
+  .slice(0,5)
+
+}
