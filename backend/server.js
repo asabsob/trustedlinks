@@ -1451,25 +1451,9 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
     }
 
 let query = normalizeSearchText(incomingText);
-let results = await searchBusinesses(query);
-
-// only use AI if local search failed and input is not too short
-if ((!results || results.length === 0) && incomingText.trim().length > 3) {
-  try {
-    const ai = await parseSearchIntent(incomingText);
-    console.log("AI RESULT:", ai);
-
-    if (ai?.category) {
-      query = normalizeSearchText(ai.category);
-      results = await searchBusinesses(query);
-    }
-  } catch (err) {
-    console.error("AI PARSE FAILED:", err);
-  }
-}
 
 console.log("LANG:", lang);
-console.log("QUERY:", query);
+console.log("INITIAL QUERY:", query);
 
 if (!query) {
   const emptyReply =
@@ -1486,8 +1470,25 @@ if (!query) {
   return;
 }
 
-const results = await searchBusinesses(query);
-console.log("SEARCH RESULTS COUNT:", results.length);
+// 1) fast local search first
+let results = await searchBusinesses(query);
+console.log("LOCAL SEARCH RESULTS COUNT:", results.length);
+
+// 2) AI fallback only if local search failed
+if ((!results || results.length === 0) && incomingText.trim().length > 3) {
+  try {
+    const ai = await parseSearchIntent(incomingText);
+    console.log("AI RESULT:", ai);
+
+    if (ai?.category) {
+      query = normalizeSearchText(ai.category);
+      results = await searchBusinesses(query);
+      console.log("AI FALLBACK RESULTS COUNT:", results.length);
+    }
+  } catch (err) {
+    console.error("AI PARSE FAILED:", err);
+  }
+}
 
 const reply = formatSearchResults(results, query, lang);
 
@@ -1497,7 +1498,6 @@ const sendResp = await javnaSendText({
 });
 
 console.log("SEND RESP:", JSON.stringify(sendResp, null, 2));
-
 
   } catch (e) {
     console.error("WHATSAPP WEBHOOK ERROR:", e);
