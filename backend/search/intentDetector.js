@@ -1,36 +1,48 @@
-export function parseNearbyIntent(text = "") {
-
-  const q = String(text).toLowerCase().trim();
+function parseNearbyIntent(text = "") {
+  const raw = String(text || "").trim();
+  const q = raw.toLowerCase();
 
   const nearbyWords = [
-    "اقرب",
     "أقرب",
+    "اقرب",
     "قريب",
     "قريبة",
-    "قريب مني",
-    "قريبة مني",
     "near",
     "nearest",
-    "closest"
+    "closest",
   ];
 
-  let isNearby = nearbyWords.some(word => q.includes(word));
+  const removeWords = [
+    "مني",
+    "عندي",
+    "حولي",
+    "بالقرب",
+    "around",
+    "me",
+  ];
+
+  const isNearby = nearbyWords.some((word) => q.includes(word.toLowerCase()));
 
   if (!isNearby) {
-    return { isNearby: false };
+    return { isNearby: false, categoryQuery: "" };
   }
 
-  // remove nearby words to extract category
-  let categoryQuery = q;
+  let categoryQuery = raw;
 
-  nearbyWords.forEach(word => {
-    categoryQuery = categoryQuery.replace(word, "");
+  nearbyWords.forEach((word) => {
+    const rx = new RegExp(word, "ig");
+    categoryQuery = categoryQuery.replace(rx, " ");
   });
 
-  categoryQuery = categoryQuery.trim();
+  removeWords.forEach((word) => {
+    const rx = new RegExp(word, "ig");
+    categoryQuery = categoryQuery.replace(rx, " ");
+  });
+
+  categoryQuery = categoryQuery.replace(/\s+/g, " ").trim();
 
   return {
     isNearby: true,
-    categoryQuery
+    categoryQuery,
   };
 }
