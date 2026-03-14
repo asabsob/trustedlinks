@@ -40,6 +40,12 @@ await connectDB();
 const app = express();
 const PORT = process.env.PORT || 5175;
 
+const query = normalizeSearchText(incomingText);
+
+const results = await searchBusinesses(query);
+
+const reply = formatResults(results);
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
