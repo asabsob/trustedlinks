@@ -20,6 +20,7 @@ import { nanoid } from "nanoid";
 import { connectDB } from "./db.js";
 import User from "./models/User.js";
 import Business from "./models/Business.js";
+import { expandTerms } from "./synonyms.js";
 import Otp from "./models/Otp.js";
 import { parseSearchIntent } from "./server/utils/aiSearchParser.js";
 import { searchBusinesses } from "./search/searchService.js";
@@ -33,6 +34,7 @@ await connectDB();
 
 const app = express();
 const PORT = process.env.PORT || 5175;
+const PENDING_NEARBY_REQUESTS = new Map();
 
 
 // ---------------------------------------------------------------------------
@@ -125,6 +127,30 @@ async function getUserOr404(userId, res) {
     return null;
   }
   return user;
+}
+
+function setPendingNearby(from, category = "") {
+  PENDING_NEARBY_REQUESTS.set(from, {
+    category: category || "",
+    createdAt: Date.now(),
+  });
+}
+
+function getPendingNearby(from) {
+  const item = PENDING_NEARBY_REQUESTS.get(from);
+  if (!item) return null;
+
+  // expire after 10 minutes
+  if (Date.now() - item.createdAt > 10 * 60 * 1000) {
+    PENDING_NEARBY_REQUESTS.delete(from);
+    return null;
+  }
+
+  return item;
+}
+
+function clearPendingNearby(from) {
+  PENDING_NEARBY_REQUESTS.delete(from);
 }
 
 // ---------------------------------------------------------------------------
@@ -1337,7 +1363,7 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
     console.log("HEADERS:", JSON.stringify(req.headers, null, 2));
     console.log("BODY:", JSON.stringify(req.body, null, 2));
 
-    // reply immediately to Javna
+    // Reply immediately to Javna
     res.status(200).json({ ok: true });
 
     const body = req.body || {};
@@ -1364,14 +1390,22 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
       return;
     }
 
+    const lang = detectLanguage(incomingText || "");
+    const pendingNearby = getPendingNearby(from);
+
+    // 1) Thanks
     if (isThanks(incomingText)) {
-  await javnaSendText({
-    to: from,
-    body: "على الرحب والسعة 😊\nإذا احتجت البحث عن شركة اكتب اسمها أو نوع النشاط."
-  });
-  return;
-}
-    // location message
+      await javnaSendText({
+        to: from,
+        body:
+          lang === "ar"
+            ? "على الرحب والسعة 😊\nإذا احتجت البحث عن شركة اكتب اسمها أو نوع النشاط."
+            : "You're welcome 😊\nSend a company name or category any time.",
+      });
+      return;
+    }
+
+    // 2) Location message
     if (
       messageType === "location" &&
       incomingLocation?.latitude != null &&
@@ -1380,8 +1414,10 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
       const lat = Number(incomingLocation.latitude);
       const lng = Number(incomingLocation.longitude);
 
-      const nearest = await findNearestBusinesses(lat, lng, 5);
-      const locationReply = formatNearestResults(nearest, "ar");
+      const categoryQuery = pendingNearby?.category || "";
+      const nearest = await findNearestBusinesses(lat, lng, 5, categoryQuery);
+
+      const locationReply = formatNearestResults(nearest, lang, categoryQuery);
 
       const locationSendResp = await javnaSendText({
         to: from,
@@ -1389,43 +1425,69 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
       });
 
       console.log("LOCATION SEND RESP:", JSON.stringify(locationSendResp, null, 2));
+
+      clearPendingNearby(from);
       return;
     }
 
+    // 3) Empty text
     if (!incomingText) {
       const emptyTextResp = await javnaSendText({
         to: from,
-        body: "أرسل اسم شركة أو نوع نشاط للبحث، أو شارك موقعك لإظهار الأقرب.",
+        body:
+          lang === "ar"
+            ? "أرسل اسم شركة أو نوع نشاط للبحث، أو شارك موقعك لإظهار الأقرب."
+            : "Send a company name or category, or share your location to find nearby results.",
       });
 
       console.log("EMPTY TEXT RESP:", JSON.stringify(emptyTextResp, null, 2));
       return;
     }
 
-    const lang = detectLanguage(incomingText);
+    // 4) Greeting
+    if (isGreeting(incomingText)) {
+      const welcomeReply = getWelcomeMessage(lang);
+
+      const welcomeResp = await javnaSendText({
+        to: from,
+        body: welcomeReply,
+      });
+
+      console.log("WELCOME RESP:", JSON.stringify(welcomeResp, null, 2));
+      return;
+    }
+
+    // 5) Help
+    if (isHelpCommand(incomingText)) {
+      const helpReply =
+        lang === "ar"
+          ? "مرحبًا بك في TrustedLinks 👋\n\nأرسل:\n• اسم شركة\n• أو نوع نشاط مثل: مطعم، قهوة، صيدلية\n\nوللبحث القريب أرسل:\n• أقرب شركة\n• أقرب مطعم\n• أقرب قهوة"
+          : "Welcome to TrustedLinks 👋\n\nSend:\n• a business name\n• or a category like: restaurant, coffee, pharmacy\n\nFor nearby search, send:\n• nearest business\n• nearest restaurant\n• nearest coffee";
+
+      const helpResp = await javnaSendText({
+        to: from,
+        body: helpReply,
+      });
+
+      console.log("HELP RESP:", JSON.stringify(helpResp, null, 2));
+      return;
+    }
+
+    // 6) Nearby intent
     const nearbyIntent = parseNearbyIntent(incomingText);
 
-    if (isGreeting(incomingText)) {
-  const welcomeReply = getWelcomeMessage(lang);
-
-  const welcomeResp = await javnaSendText({
-    to: from,
-    body: welcomeReply,
-  });
-
-  console.log("WELCOME RESP:", JSON.stringify(welcomeResp, null, 2));
-  return;
-}
-    
     if (nearbyIntent.isNearby) {
+      const categoryQuery = normalizeSearchText(nearbyIntent.categoryQuery || "");
+      setPendingNearby(from, categoryQuery);
+
       const nearbyReply =
         lang === "ar"
-          ? nearbyIntent.categoryQuery
-            ? `أرسل موقعك عبر واتساب، وسأعرض لك أقرب النتائج لـ "${nearbyIntent.categoryQuery}".`
-            : "أرسل موقعك عبر واتساب، وسأعرض لك أقرب الأنشطة المسجلة."
-          : nearbyIntent.categoryQuery
-            ? `Please share your location on WhatsApp, and I’ll show you the nearest results for "${nearbyIntent.categoryQuery}".`
-            : "Please share your location on WhatsApp, and I’ll show you the nearest listed businesses.";
+          ? categoryQuery
+            ? `📍 أرسل موقعك عبر واتساب، وسأعرض لك أقرب النتائج لـ "${categoryQuery}".`
+            : "📍 أرسل موقعك عبر واتساب، وسأعرض لك أقرب الأنشطة المسجلة."
+          : categoryQuery
+            ? `📍 Please share your location on WhatsApp, and I’ll show you the nearest results for "${categoryQuery}".`
+            : "📍 Please share your location on WhatsApp, and I’ll show you the nearest listed businesses.";
 
       const nearbyResp = await javnaSendText({
         to: from,
@@ -1436,69 +1498,55 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
       return;
     }
 
-    if (isHelpCommand(incomingText)) {
-     const helpReply =
-  lang === "ar"
-    ? "مرحبًا بك في TrustedLinks 👋\n\nأرسل:\n• اسم شركة\n• أو نوع نشاط مثل: مطعم، قهوة، صيدلية\n\nوللبحث القريب أرسل:\n• أقرب شركة\n• أقرب مطعم"
-    : "Welcome to TrustedLinks 👋\n\nSend:\n• a business name\n• or a category like: restaurant, coffee, pharmacy\n\nFor nearby search, send:\n• nearest business\n• nearest restaurant";
-      const helpResp = await javnaSendText({
+    // 7) Normal search
+    let query = normalizeSearchText(incomingText);
+
+    console.log("LANG:", lang);
+    console.log("INITIAL QUERY:", query);
+
+    if (!query) {
+      const emptyReply =
+        lang === "ar"
+          ? "أرسل اسم شركة أو نوع النشاط الذي تريد البحث عنه."
+          : "Please send a company name or business category to search for.";
+
+      const emptyResp = await javnaSendText({
         to: from,
-        body: helpReply,
+        body: emptyReply,
       });
 
-      console.log("HELP RESP:", JSON.stringify(helpResp, null, 2));
+      console.log("EMPTY RESP:", JSON.stringify(emptyResp, null, 2));
       return;
     }
 
-let query = normalizeSearchText(incomingText);
+    // local search first
+    let results = await searchBusinesses(query);
+    console.log("LOCAL SEARCH RESULTS COUNT:", results.length);
 
-console.log("LANG:", lang);
-console.log("INITIAL QUERY:", query);
+    // AI fallback only if no local results
+    if ((!results || results.length === 0) && incomingText.trim().length > 3) {
+      try {
+        const ai = await parseSearchIntent(incomingText);
+        console.log("AI RESULT:", ai);
 
-if (!query) {
-  const emptyReply =
-    lang === "ar"
-      ? "أرسل اسم شركة أو نوع النشاط الذي تريد البحث عنه."
-      : "Please send a company name or business category to search for.";
-
-  const emptyResp = await javnaSendText({
-    to: from,
-    body: emptyReply,
-  });
-
-  console.log("EMPTY RESP:", JSON.stringify(emptyResp, null, 2));
-  return;
-}
-
-// 1) fast local search first
-let results = await searchBusinesses(query);
-console.log("LOCAL SEARCH RESULTS COUNT:", results.length);
-
-// 2) AI fallback only if local search failed
-if ((!results || results.length === 0) && incomingText.trim().length > 3) {
-  try {
-    const ai = await parseSearchIntent(incomingText);
-    console.log("AI RESULT:", ai);
-
-    if (ai?.category) {
-      query = normalizeSearchText(ai.category);
-      results = await searchBusinesses(query);
-      console.log("AI FALLBACK RESULTS COUNT:", results.length);
+        if (ai?.category) {
+          query = normalizeSearchText(ai.category);
+          results = await searchBusinesses(query);
+          console.log("AI FALLBACK RESULTS COUNT:", results.length);
+        }
+      } catch (err) {
+        console.error("AI PARSE FAILED:", err);
+      }
     }
-  } catch (err) {
-    console.error("AI PARSE FAILED:", err);
-  }
-}
 
-const reply = formatSearchResults(results, query, lang);
+    const reply = formatSearchResults(results, query, lang);
 
-const sendResp = await javnaSendText({
-  to: from,
-  body: reply,
-});
+    const sendResp = await javnaSendText({
+      to: from,
+      body: reply,
+    });
 
-console.log("SEND RESP:", JSON.stringify(sendResp, null, 2));
-
+    console.log("SEND RESP:", JSON.stringify(sendResp, null, 2));
   } catch (e) {
     console.error("WHATSAPP WEBHOOK ERROR:", e);
   }
