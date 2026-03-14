@@ -25,7 +25,7 @@ import { parseSearchIntent } from "./server/utils/aiSearchParser.js";
 
 import { searchBusinesses } from "./search/searchService.js";
 import { normalizeSearchText } from "./search/textNormalizer.js";
-import { formatSearchResults } from "./search/searchFormatter.js";
+import { formatSearchResults, formatNearestResults } from "./search/searchFormatter.js";
 import { findNearestBusinesses } from "./search/nearbyService.js";
 
 const query = normalizeSearchText(incomingText);
@@ -33,6 +33,8 @@ const query = normalizeSearchText(incomingText);
 const results = await searchBusinesses(query);
 
 const reply = formatResults(results);
+
+const reply = formatSearchResults(results, query, lang);
 
 dotenv.config();
 await connectDB();
