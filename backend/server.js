@@ -20,7 +20,7 @@ import { nanoid } from "nanoid";
 import { connectDB } from "./db.js";
 import User from "./models/User.js";
 import Business from "./models/Business.js";
-import { expandTerms } from "./synonyms.js";
+
 import Otp from "./models/Otp.js";
 import { parseSearchIntent } from "./server/utils/aiSearchParser.js";
 import { searchBusinesses } from "./search/searchService.js";
