@@ -1451,16 +1451,21 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
     }
 
 let query = normalizeSearchText(incomingText);
+let results = await searchBusinesses(query);
 
-try {
-  const ai = await parseSearchIntent(incomingText);
-  console.log("AI RESULT:", ai);
+// only use AI if local search failed and input is not too short
+if ((!results || results.length === 0) && incomingText.trim().length > 3) {
+  try {
+    const ai = await parseSearchIntent(incomingText);
+    console.log("AI RESULT:", ai);
 
-  if (ai?.category) {
-    query = ai.category;
+    if (ai?.category) {
+      query = normalizeSearchText(ai.category);
+      results = await searchBusinesses(query);
+    }
+  } catch (err) {
+    console.error("AI PARSE FAILED:", err);
   }
-} catch (err) {
-  console.error("AI PARSE FAILED:", err);
 }
 
 console.log("LANG:", lang);
