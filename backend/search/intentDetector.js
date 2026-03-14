@@ -1,28 +1,36 @@
-export function detectNearbyIntent(text = "") {
-  const t = String(text).toLowerCase().trim();
+export function parseNearbyIntent(text = "") {
 
-  if(
-    t.includes("اقرب") ||
-    t.includes("أقرب") ||
-    t.includes("near") ||
-    t.includes("closest")
-  ){
-    return true;
+  const q = String(text).toLowerCase().trim();
+
+  const nearbyWords = [
+    "اقرب",
+    "أقرب",
+    "قريب",
+    "قريبة",
+    "قريب مني",
+    "قريبة مني",
+    "near",
+    "nearest",
+    "closest"
+  ];
+
+  let isNearby = nearbyWords.some(word => q.includes(word));
+
+  if (!isNearby) {
+    return { isNearby: false };
   }
 
-  return false;
-}
-import { expandTerms } from "./synonyms.js";
+  // remove nearby words to extract category
+  let categoryQuery = q;
 
-export function detectNearbyCategory(text=""){
-  const words = String(text).split(" ");
+  nearbyWords.forEach(word => {
+    categoryQuery = categoryQuery.replace(word, "");
+  });
 
-  for(const w of words){
-    const terms = expandTerms(w);
-    if(terms.length > 1){
-      return terms[0]; // category key
-    }
-  }
+  categoryQuery = categoryQuery.trim();
 
-  return null;
+  return {
+    isNearby: true,
+    categoryQuery
+  };
 }
