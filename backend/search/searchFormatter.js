@@ -66,17 +66,25 @@ export function formatSearchResults(results = [], query = "", lang = "ar") {
   return msg;
 }
 
-export function formatNearestResults(results = [], lang = "ar") {
+export function formatNearestResults(results = [], lang = "ar", categoryQuery = "") {
   if (!results.length) {
     return lang === "ar"
-      ? "عذرًا، لم نجد أنشطة قريبة تحتوي على موقع محفوظ."
-      : "Sorry, no nearby businesses with saved locations were found.";
+      ? categoryQuery
+        ? `عذرًا، لم نجد نتائج قريبة لـ "${categoryQuery}".`
+        : "عذرًا، لم نجد أنشطة قريبة تحتوي على موقع محفوظ."
+      : categoryQuery
+        ? `Sorry, no nearby results were found for "${categoryQuery}".`
+        : "Sorry, no nearby businesses with saved locations were found.";
   }
 
   let msg =
     lang === "ar"
-      ? `أقرب النتائج لك:\n\n`
-      : `Nearest results to you:\n\n`;
+      ? categoryQuery
+        ? `أقرب النتائج لـ "${categoryQuery}":\n\n`
+        : `أقرب النتائج لك:\n\n`
+      : categoryQuery
+        ? `Nearest results for "${categoryQuery}":\n\n`
+        : `Nearest results to you:\n\n`;
 
   results.forEach((item, index) => {
     msg += `#${index + 1} ${item.name_ar || item.name || "اسم غير متوفر"}\n`;
