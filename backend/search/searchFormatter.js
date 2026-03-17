@@ -1,4 +1,32 @@
-export function formatSearchResults(results = [], query = "", lang = "ar") {
+function cleanDigits(v = "") {
+  return String(v).replace(/\D/g, "");
+}
+
+function buildTrackedLink({ businessId, phone, query, userPhone }) {
+  const safePhone = cleanDigits(phone);
+
+  if (!safePhone) return "";
+
+  const payload = {
+    businessId: businessId || "",
+    phone: safePhone,
+    query: query || "",
+    userPhone: userPhone || "",
+  };
+
+  const token = Buffer.from(JSON.stringify(payload)).toString("base64url");
+
+  const baseUrl =
+    process.env.APP_BASE_URL ||
+    process.env.PUBLIC_BASE_URL ||
+    "https://trustedlinks-backend-production.up.railway.app";
+
+  return `${baseUrl}/l/${token}`;
+}
+
+export function formatSearchResults(results = [], query = "", lang = "ar", options = {}) {
+  const { userPhone = "" } = options;
+
   if (!results.length) {
     return lang === "ar"
       ? `عذرًا، لم نجد نتائج مطابقة لـ "${query}".\n\nحاول باسم شركة أو نوع نشاط آخر.`
@@ -9,7 +37,7 @@ export function formatSearchResults(results = [], query = "", lang = "ar") {
     let msg = `نتائج البحث عن: "${query}"\n`;
     msg += `عدد النتائج: ${results.length}\n\n`;
 
-    results.forEach((item, index) => {
+    results.slice(0, 3).forEach((item, index) => {
       msg += `#${index + 1} ${item.name_ar || item.name || "اسم غير متوفر"}\n`;
 
       if (Array.isArray(item.category) && item.category.length) {
@@ -20,9 +48,15 @@ export function formatSearchResults(results = [], query = "", lang = "ar") {
         msg += `📝 الوصف: ${item.description}\n`;
       }
 
-      if (item.whatsapp) {
-        const wa = String(item.whatsapp).replace(/\D/g, "");
-        msg += `💬 المحادثة: https://wa.me/${wa}\n`;
+      const trackedLink = buildTrackedLink({
+        businessId: item._id || "",
+        phone: item.whatsapp || item.phone || "",
+        query,
+        userPhone,
+      });
+
+      if (trackedLink) {
+        msg += `💬 المحادثة: ${trackedLink}\n`;
       }
 
       if (item.mapLink) {
@@ -32,6 +66,7 @@ export function formatSearchResults(results = [], query = "", lang = "ar") {
       msg += `\n`;
     });
 
+    msg += `📌 اكتب: المزيد لعرض نتائج إضافية\n`;
     msg += `للبحث مرة أخرى، أرسل اسم شركة أو نوع نشاط آخر.`;
     return msg;
   }
@@ -39,7 +74,7 @@ export function formatSearchResults(results = [], query = "", lang = "ar") {
   let msg = `Search results for: "${query}"\n`;
   msg += `Results found: ${results.length}\n\n`;
 
-  results.forEach((item, index) => {
+  results.slice(0, 3).forEach((item, index) => {
     msg += `#${index + 1} ${item.name || item.name_ar || "Unnamed business"}\n`;
 
     if (Array.isArray(item.category) && item.category.length) {
@@ -50,9 +85,15 @@ export function formatSearchResults(results = [], query = "", lang = "ar") {
       msg += `📝 Description: ${item.description}\n`;
     }
 
-    if (item.whatsapp) {
-      const wa = String(item.whatsapp).replace(/\D/g, "");
-      msg += `💬 Chat: https://wa.me/${wa}\n`;
+    const trackedLink = buildTrackedLink({
+      businessId: item._id || "",
+      phone: item.whatsapp || item.phone || "",
+      query,
+      userPhone,
+    });
+
+    if (trackedLink) {
+      msg += `💬 Chat: ${trackedLink}\n`;
     }
 
     if (item.mapLink) {
@@ -62,11 +103,14 @@ export function formatSearchResults(results = [], query = "", lang = "ar") {
     msg += `\n`;
   });
 
+  msg += `📌 Reply MORE to see more results\n`;
   msg += `Send another business name or category to search again.`;
   return msg;
 }
 
-export function formatNearestResults(results = [], lang = "ar", categoryQuery = "") {
+export function formatNearestResults(results = [], lang = "ar", categoryQuery = "", options = {}) {
+  const { userPhone = "" } = options;
+
   if (!results.length) {
     return lang === "ar"
       ? categoryQuery
@@ -86,8 +130,13 @@ export function formatNearestResults(results = [], lang = "ar", categoryQuery = 
         ? `Nearest results for "${categoryQuery}":\n\n`
         : `Nearest results to you:\n\n`;
 
-  results.forEach((item, index) => {
-    msg += `#${index + 1} ${item.name_ar || item.name || "اسم غير متوفر"}\n`;
+  results.slice(0, 3).forEach((item, index) => {
+    const businessName =
+      lang === "ar"
+        ? item.name_ar || item.name || "اسم غير متوفر"
+        : item.name || item.name_ar || "Unnamed business";
+
+    msg += `#${index + 1} ${businessName}\n`;
 
     if (Array.isArray(item.category) && item.category.length) {
       msg += lang === "ar"
@@ -101,11 +150,17 @@ export function formatNearestResults(results = [], lang = "ar", categoryQuery = 
         : `📏 Approx. distance: ${item.distanceKm.toFixed(1)} km\n`;
     }
 
-    if (item.whatsapp) {
-      const wa = String(item.whatsapp).replace(/\D/g, "");
+    const trackedLink = buildTrackedLink({
+      businessId: item._id || "",
+      phone: item.whatsapp || item.phone || "",
+      query: categoryQuery || "nearby",
+      userPhone,
+    });
+
+    if (trackedLink) {
       msg += lang === "ar"
-        ? `💬 المحادثة: https://wa.me/${wa}\n`
-        : `💬 Chat: https://wa.me/${wa}\n`;
+        ? `💬 المحادثة: ${trackedLink}\n`
+        : `💬 Chat: ${trackedLink}\n`;
     }
 
     if (item.mapLink) {
