@@ -27,7 +27,6 @@ import { searchBusinesses } from "./search/searchService.js";
 import { normalizeSearchText } from "./search/textNormalizer.js";
 import { formatSearchResults, formatNearestResults } from "./search/searchFormatter.js";
 import { findNearestBusinesses } from "./search/nearbyService.js";
-import express from "express";
 import SearchLog from "./models/SearchLog.js";
 import SearchSession from "./models/SearchSession.js";
 import SearchCache from "./models/SearchCache.js";
