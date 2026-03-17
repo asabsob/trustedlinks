@@ -30,6 +30,8 @@ import { findNearestBusinesses } from "./search/nearbyService.js";
 import SearchLog from "./models/SearchLog.js";
 import SearchSession from "./models/SearchSession.js";
 import SearchCache from "./models/SearchCache.js";
+import crypto from "crypto";
+import ClickLog from "./models/ClickLog.js";
 
 
 dotenv.config();
@@ -269,6 +271,103 @@ function isMoreCommand(text) {
     "نتائج أكثر",
     "اكثر",
   ].includes(t);
+}
+
+function buildTrackedLink({ businessId, phone, query, userPhone }) {
+  const payload = {
+    businessId,
+    phone,
+    query,
+    userPhone,
+  };
+
+  const token = Buffer.from(JSON.stringify(payload)).toString("base64");
+
+  return `https://trustedlinks-backend-production.up.railway.app/l/${token}`;
+}
+
+function formatSearchResults(results, query, lang, options = {}) {
+  const { userPhone } = options;
+
+  if (!Array.isArray(results) || results.length === 0) {
+    return lang === "ar"
+      ? `لم يتم العثور على نتائج لـ "${query}".\nجرّب اسم شركة أو نوع نشاط آخر.`
+      : `No results found for "${query}".\nTry another company name or category.`;
+  }
+
+  let message =
+    lang === "ar"
+      ? `🔎 نتائج البحث عن "${query}":\n\n`
+      : `🔎 Results for "${query}":\n\n`;
+
+  results.slice(0, 3).forEach((b, index) => {
+    const businessName = lang === "ar" ? (b.name_ar || b.name || "بدون اسم") : (b.name || b.name_ar || "Unnamed");
+    const phone = b.whatsapp || b.phone || "";
+    const trackedLink = buildTrackedLink({
+      businessId: b._id || "",
+      phone,
+      query,
+      userPhone,
+    });
+
+    message +=
+      lang === "ar"
+        ? `${index + 1}️⃣ ${businessName}\n💬 تواصل: ${trackedLink || "-"}\n\n`
+        : `${index + 1}️⃣ ${businessName}\n💬 Chat: ${trackedLink || "-"}\n\n`;
+  });
+
+  message +=
+    lang === "ar"
+      ? "📌 اكتب: المزيد لعرض نتائج إضافية"
+      : "📌 Reply MORE to see more results";
+
+  return message;
+}
+
+function formatNearestResults(results, lang, categoryQuery = "", options = {}) {
+  const { userPhone } = options;
+
+  if (!Array.isArray(results) || results.length === 0) {
+    return lang === "ar"
+      ? categoryQuery
+        ? `لا توجد نتائج قريبة لـ "${categoryQuery}".`
+        : "لا توجد نتائج قريبة."
+      : categoryQuery
+        ? `No nearby results found for "${categoryQuery}".`
+        : "No nearby results found.";
+  }
+
+  let message =
+    lang === "ar"
+      ? `📍 أقرب النتائج${categoryQuery ? ` لـ "${categoryQuery}"` : ""}:\n\n`
+      : `📍 Nearest results${categoryQuery ? ` for "${categoryQuery}"` : ""}:\n\n`;
+
+  results.slice(0, 3).forEach((b, index) => {
+    const businessName = lang === "ar" ? (b.name_ar || b.name || "بدون اسم") : (b.name || b.name_ar || "Unnamed");
+    const phone = b.whatsapp || b.phone || "";
+    const trackedLink = buildTrackedLink({
+      businessId: b._id || "",
+      phone,
+      query: categoryQuery || "nearby",
+      userPhone,
+    });
+
+    const distanceText =
+      typeof b.distanceKm === "number"
+        ? lang === "ar"
+          ? `${b.distanceKm.toFixed(1)} كم`
+          : `${b.distanceKm.toFixed(1)} km`
+        : lang === "ar"
+          ? "المسافة غير متوفرة"
+          : "Distance unavailable";
+
+    message +=
+      lang === "ar"
+        ? `${index + 1}️⃣ ${businessName}\n📍 ${distanceText}\n💬 تواصل: ${trackedLink || "-"}\n\n`
+        : `${index + 1}️⃣ ${businessName}\n📍 ${distanceText}\n💬 Chat: ${trackedLink || "-"}\n\n`;
+  });
+
+  return message;
 }
 // ---------------------------------------------------------------------------
 // URLs
@@ -1843,6 +1942,40 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
   }
 });
 
+
+app.get("/l/:token", async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    if (!token) {
+      return res.status(400).send("Invalid link");
+    }
+
+    // decode token
+    const decoded = JSON.parse(Buffer.from(token, "base64").toString());
+
+    const { businessId, phone, query, userPhone } = decoded;
+
+    // log click
+    await ClickLog.create({
+      businessId,
+      businessPhone: phone,
+      userPhone,
+      query,
+      timestamp: new Date(),
+    });
+
+    // redirect to WhatsApp
+    const message = encodeURIComponent(
+      "Hello, I found you on TrustedLinks"
+    );
+
+    return res.redirect(`https://wa.me/${phone}?text=${message}`);
+  } catch (err) {
+    console.error("LEAD CLICK ERROR:", err);
+    return res.status(500).send("Error");
+  }
+});
 // ---------------------------------------------------------------------------
 // Debug
 // ---------------------------------------------------------------------------
