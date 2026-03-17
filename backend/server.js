@@ -156,7 +156,121 @@ function getPendingNearby(from) {
 function clearPendingNearby(from) {
   PENDING_NEARBY_REQUESTS.delete(from);
 }
+async function logSearchEvent(payload) {
+  try {
+    await SearchLog.create(payload);
+  } catch (err) {
+    console.error("SEARCH LOG FAILED:", err);
+  }
+}
 
+async function getSearchSession(userPhone) {
+  try {
+    return await SearchSession.findOne({ userPhone }).lean();
+  } catch (err) {
+    console.error("GET SEARCH SESSION FAILED:", err);
+    return null;
+  }
+}
+
+async function getPendingNearbySession(userPhone) {
+  try {
+    return await SearchSession.findOne({ userPhone }).lean();
+  } catch (err) {
+    console.error("GET PENDING NEARBY SESSION FAILED:", err);
+    return null;
+  }
+}
+
+async function setSearchSession(userPhone, data) {
+  try {
+    await SearchSession.findOneAndUpdate(
+      { userPhone },
+      {
+        $set: {
+          ...data,
+          userPhone,
+          updatedAt: new Date(),
+        },
+      },
+      { upsert: true, new: true }
+    );
+  } catch (err) {
+    console.error("SET SEARCH SESSION FAILED:", err);
+  }
+}
+
+async function getCachedSearch(cacheKey) {
+  try {
+    const cached = await SearchCache.findOne({
+      cacheKey,
+      expiresAt: { $gt: new Date() },
+    }).lean();
+
+    return cached?.results || null;
+  } catch (err) {
+    console.error("GET CACHED SEARCH FAILED:", err);
+    return null;
+  }
+}
+
+async function setCachedSearch(cacheKey, results, ttlMinutes = 10) {
+  try {
+    const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
+
+    await SearchCache.findOneAndUpdate(
+      { cacheKey },
+      {
+        $set: {
+          cacheKey,
+          results: Array.isArray(results) ? results : [],
+          expiresAt,
+        },
+      },
+      { upsert: true, new: true }
+    );
+  } catch (err) {
+    console.error("SET CACHED SEARCH FAILED:", err);
+  }
+}
+
+function buildSearchCacheKey(query) {
+  return `search:${normalizeSearchText(query || "")}`;
+}
+
+function buildNearbyCacheKey(lat, lng, categoryQuery = "") {
+  const roundedLat = Number(lat).toFixed(3);
+  const roundedLng = Number(lng).toFixed(3);
+  const normalizedCategory = normalizeSearchText(categoryQuery || "");
+  return `nearby:${roundedLat}:${roundedLng}:${normalizedCategory}`;
+}
+
+function shouldUseAIFallback(incomingText, query) {
+  const text = (incomingText || "").trim();
+  const normalized = (query || "").trim();
+
+  if (!text || text.length <= 3) return false;
+  if (!normalized) return false;
+
+  const words = normalized.split(/\s+/).filter(Boolean);
+  if (words.length === 1 && words[0].length <= 4) return false;
+
+  return true;
+}
+
+function isMoreCommand(text) {
+  const t = (text || "").trim().toLowerCase();
+
+  return [
+    "more",
+    "show more",
+    "more results",
+    "المزيد",
+    "اعرض المزيد",
+    "نتائج أكثر",
+    "اكثر",
+  ].includes(t);
+}
 // ---------------------------------------------------------------------------
 // URLs
 // ---------------------------------------------------------------------------
