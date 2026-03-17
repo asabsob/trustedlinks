@@ -32,7 +32,7 @@ import SearchSession from "./models/SearchSession.js";
 import SearchCache from "./models/SearchCache.js";
 import crypto from "crypto";
 import ClickLog from "./models/ClickLog.js";
-
+import LeadToken from "./models/LeadToken.js";
 
 dotenv.config();
 await connectDB();
@@ -1555,6 +1555,8 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
       const lat = Number(incomingLocation.latitude);
       const lng = Number(incomingLocation.longitude);
 
+      console.log("PENDING NEARBY SESSION:", JSON.stringify(pendingNearby, null, 2));
+      
       const categoryQuery = pendingNearby?.pendingNearby?.category || "";
       const cacheKey = buildNearbyCacheKey(lat, lng, categoryQuery);
 
@@ -1771,7 +1773,7 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
       results = await searchBusinesses(query);
       console.log("LOCAL SEARCH RESULTS COUNT:", results.length);
 
-      if ((!results || results.length === 0) && shouldUseAIFallback(incomingText, query)) {
+     if (false && (!results || results.length === 0) && shouldUseAIFallback(incomingText, query)) {
         try {
           const ai = await parseSearchIntent(incomingText);
           console.log("AI RESULT:", ai);
@@ -1855,31 +1857,40 @@ app.get("/l/:token", async (req, res) => {
       return res.status(400).send("Invalid link");
     }
 
-    // decode token
-    const decoded = JSON.parse(Buffer.from(token, "base64").toString());
+    const leadToken = await LeadToken.findById(token).lean();
 
-    const { businessId, phone, query, userPhone } = decoded;
+    if (!leadToken) {
+      return res.status(404).send("Link not found or expired");
+    }
 
-    // log click
+    const {
+      businessId = "",
+      businessPhone = "",
+      query = "",
+      userPhone = "",
+    } = leadToken;
+
+    if (!businessPhone) {
+      return res.status(400).send("Invalid destination");
+    }
+
     await ClickLog.create({
       businessId,
-      businessPhone: phone,
+      businessPhone,
       userPhone,
       query,
       timestamp: new Date(),
     });
 
-    // redirect to WhatsApp
-    const message = encodeURIComponent(
-      "Hello, I found you on TrustedLinks"
-    );
+    const message = encodeURIComponent("Hello, I found you on TrustedLinks");
 
-    return res.redirect(`https://wa.me/${phone}?text=${message}`);
+    return res.redirect(`https://wa.me/${businessPhone}?text=${message}`);
   } catch (err) {
     console.error("LEAD CLICK ERROR:", err);
     return res.status(500).send("Error");
   }
 });
+
 // ---------------------------------------------------------------------------
 // Debug
 // ---------------------------------------------------------------------------
