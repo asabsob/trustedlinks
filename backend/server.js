@@ -27,6 +27,10 @@ import { searchBusinesses } from "./search/searchService.js";
 import { normalizeSearchText } from "./search/textNormalizer.js";
 import { formatSearchResults, formatNearestResults } from "./search/searchFormatter.js";
 import { findNearestBusinesses } from "./search/nearbyService.js";
+import express from "express";
+import SearchLog from "./models/SearchLog.js";
+import SearchSession from "./models/SearchSession.js";
+import SearchCache from "./models/SearchCache.js";
 
 
 dotenv.config();
@@ -1376,6 +1380,7 @@ app.get("/webhooks/javna/whatsapp", (_req, res) => {
   res.status(200).send("WhatsApp webhook is live");
 });
 
+
 app.post("/webhooks/javna/whatsapp", async (req, res) => {
   try {
     console.log("POST WEBHOOK HIT");
@@ -1410,7 +1415,8 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
     }
 
     const lang = detectLanguage(incomingText || "");
-    const pendingNearby = getPendingNearby(from);
+    const normalizedIncomingText = normalizeSearchText(incomingText || "");
+    const pendingNearby = await getPendingNearbySession(from);
 
     // 1) Thanks
     if (isThanks(incomingText)) {
@@ -1433,10 +1439,47 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
       const lat = Number(incomingLocation.latitude);
       const lng = Number(incomingLocation.longitude);
 
-      const categoryQuery = pendingNearby?.category || "";
-      const nearest = await findNearestBusinesses(lat, lng, 5, categoryQuery);
+      const categoryQuery = pendingNearby?.pendingNearby?.category || "";
+      const cacheKey = buildNearbyCacheKey(lat, lng, categoryQuery);
 
-      const locationReply = formatNearestResults(nearest, lang, categoryQuery);
+      let nearest = await getCachedSearch(cacheKey);
+
+      if (!nearest) {
+        nearest = await findNearestBusinesses(lat, lng, 5, categoryQuery);
+        await setCachedSearch(cacheKey, nearest, 10);
+      }
+
+      const locationReply = formatNearestResults(nearest, lang, categoryQuery, {
+        userPhone: from,
+      });
+
+      await logSearchEvent({
+        type: "nearby_location_received",
+        userPhone: from,
+        rawText: incomingText || null,
+        query: categoryQuery || null,
+        normalizedQuery: categoryQuery || null,
+        intent: "nearby",
+        lang,
+        location: {
+          lat,
+          lng,
+        },
+        resultsCount: Array.isArray(nearest) ? nearest.length : 0,
+        usedAI: false,
+        source: "nearby",
+        timestamp: new Date(),
+      });
+
+      await setSearchSession(from, {
+        userPhone: from,
+        lastQuery: categoryQuery || "",
+        normalizedQuery: categoryQuery || "",
+        lastIntent: "nearby",
+        lastResults: Array.isArray(nearest) ? nearest.slice(0, 10) : [],
+        pendingNearby: null,
+        updatedAt: new Date(),
+      });
 
       const locationSendResp = await javnaSendText({
         to: from,
@@ -1444,8 +1487,6 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
       });
 
       console.log("LOCATION SEND RESP:", JSON.stringify(locationSendResp, null, 2));
-
-      clearPendingNearby(from);
       return;
     }
 
@@ -1492,34 +1533,93 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
       return;
     }
 
- // 6) Nearby intent
-const nearbyIntent = parseNearbyIntent(incomingText);
-console.log("NEARBY INTENT:", nearbyIntent);
+    // 6) Nearby intent
+    const nearbyIntent = parseNearbyIntent(incomingText);
+    console.log("NEARBY INTENT:", nearbyIntent);
 
-if (nearbyIntent.isNearby) {
-  const categoryQuery = normalizeSearchText(nearbyIntent.categoryQuery || "");
-  setPendingNearby(from, categoryQuery);
+    if (nearbyIntent.isNearby) {
+      const categoryQuery = normalizeSearchText(nearbyIntent.categoryQuery || "");
 
-  const nearbyReply =
-    lang === "ar"
-      ? categoryQuery
-        ? `📍 أرسل موقعك عبر واتساب، وسأعرض لك أقرب النتائج لـ "${categoryQuery}".`
-        : "📍 أرسل موقعك عبر واتساب، وسأعرض لك أقرب الأنشطة المسجلة."
-      : categoryQuery
-        ? `📍 Please share your location on WhatsApp, and I’ll show you the nearest results for "${categoryQuery}".`
-        : "📍 Please share your location on WhatsApp, and I’ll show you the nearest listed businesses.";
+      await setSearchSession(from, {
+        userPhone: from,
+        lastQuery: categoryQuery || "",
+        normalizedQuery: categoryQuery || "",
+        lastIntent: "nearby_request",
+        lastResults: [],
+        pendingNearby: {
+          category: categoryQuery,
+        },
+        updatedAt: new Date(),
+      });
 
-  const nearbyResp = await javnaSendText({
-    to: from,
-    body: nearbyReply,
-  });
+      await logSearchEvent({
+        type: "nearby_request",
+        userPhone: from,
+        rawText: incomingText,
+        query: nearbyIntent.categoryQuery || "",
+        normalizedQuery: categoryQuery || "",
+        intent: "nearby",
+        lang,
+        location: null,
+        resultsCount: 0,
+        usedAI: false,
+        source: "nearby_request",
+        timestamp: new Date(),
+      });
 
-  console.log("NEARBY RESP:", JSON.stringify(nearbyResp, null, 2));
-  return;
-}
-    
-    // 7) Normal search
-    let query = normalizeSearchText(incomingText);
+      const nearbyReply =
+        lang === "ar"
+          ? categoryQuery
+            ? `📍 أرسل موقعك عبر واتساب، وسأعرض لك أقرب النتائج لـ "${categoryQuery}".`
+            : "📍 أرسل موقعك عبر واتساب، وسأعرض لك أقرب الأنشطة المسجلة."
+          : categoryQuery
+            ? `📍 Please share your location on WhatsApp, and I’ll show you the nearest results for "${categoryQuery}".`
+            : "📍 Please share your location on WhatsApp, and I’ll show you the nearest listed businesses.";
+
+      const nearbyResp = await javnaSendText({
+        to: from,
+        body: nearbyReply,
+      });
+
+      console.log("NEARBY RESP:", JSON.stringify(nearbyResp, null, 2));
+      return;
+    }
+
+    // 7) MORE command
+    if (isMoreCommand(incomingText)) {
+      const session = await getSearchSession(from);
+
+      if (!session?.lastResults || session.lastResults.length === 0) {
+        const noSessionReply =
+          lang === "ar"
+            ? "لا يوجد نتائج سابقة لعرض المزيد منها. اكتب اسم شركة أو نوع نشاط للبحث."
+            : "There are no previous results to continue. Send a company name or category to search.";
+
+        const noSessionResp = await javnaSendText({
+          to: from,
+          body: noSessionReply,
+        });
+
+        console.log("NO SESSION MORE RESP:", JSON.stringify(noSessionResp, null, 2));
+        return;
+      }
+
+      const moreReply =
+        lang === "ar"
+          ? "ميزة المزيد ستعتمد على الترقيم وحفظ الصفحات في المرحلة التالية. حالياً أرسل بحثًا جديدًا أو موقعك."
+          : "The MORE feature will use saved paging in the next step. For now, send a new search or your location.";
+
+      const moreResp = await javnaSendText({
+        to: from,
+        body: moreReply,
+      });
+
+      console.log("MORE RESP:", JSON.stringify(moreResp, null, 2));
+      return;
+    }
+
+    // 8) Normal search
+    let query = normalizedIncomingText;
 
     console.log("LANG:", lang);
     console.log("INITIAL QUERY:", query);
@@ -1539,27 +1639,85 @@ if (nearbyIntent.isNearby) {
       return;
     }
 
-    // local search first
-    let results = await searchBusinesses(query);
-    console.log("LOCAL SEARCH RESULTS COUNT:", results.length);
+    let results = [];
+    let usedAI = false;
+    let finalSource = "local";
+    let aiCategory = null;
 
-    // AI fallback only if no local results
-    if ((!results || results.length === 0) && incomingText.trim().length > 3) {
-      try {
-        const ai = await parseSearchIntent(incomingText);
-        console.log("AI RESULT:", ai);
+    const cacheKey = buildSearchCacheKey(query);
 
-        if (ai?.category) {
-          query = normalizeSearchText(ai.category);
-          results = await searchBusinesses(query);
-          console.log("AI FALLBACK RESULTS COUNT:", results.length);
+    const cachedResults = await getCachedSearch(cacheKey);
+    if (cachedResults) {
+      results = cachedResults;
+      finalSource = "cache";
+      console.log("CACHE HIT:", cacheKey, "COUNT:", results.length);
+    } else {
+      results = await searchBusinesses(query);
+      console.log("LOCAL SEARCH RESULTS COUNT:", results.length);
+
+      if ((!results || results.length === 0) && shouldUseAIFallback(incomingText, query)) {
+        try {
+          const ai = await parseSearchIntent(incomingText);
+          console.log("AI RESULT:", ai);
+
+          if (ai?.category) {
+            aiCategory = normalizeSearchText(ai.category);
+            query = aiCategory;
+            usedAI = true;
+            finalSource = "ai_fallback";
+
+            const aiCacheKey = buildSearchCacheKey(query);
+            const cachedAiResults = await getCachedSearch(aiCacheKey);
+
+            if (cachedAiResults) {
+              results = cachedAiResults;
+              finalSource = "ai_fallback_cache";
+            } else {
+              results = await searchBusinesses(query);
+              await setCachedSearch(aiCacheKey, results, 10);
+            }
+
+            console.log("AI FALLBACK RESULTS COUNT:", results.length);
+          }
+        } catch (err) {
+          console.error("AI PARSE FAILED:", err);
         }
-      } catch (err) {
-        console.error("AI PARSE FAILED:", err);
+      }
+
+      if (!usedAI) {
+        await setCachedSearch(cacheKey, results, 10);
       }
     }
 
-    const reply = formatSearchResults(results, query, lang);
+    await logSearchEvent({
+      type: "search",
+      userPhone: from,
+      rawText: incomingText,
+      query,
+      normalizedQuery: query,
+      intent: "search",
+      lang,
+      location: null,
+      resultsCount: Array.isArray(results) ? results.length : 0,
+      usedAI,
+      aiCategory,
+      source: finalSource,
+      timestamp: new Date(),
+    });
+
+    await setSearchSession(from, {
+      userPhone: from,
+      lastQuery: query,
+      normalizedQuery: query,
+      lastIntent: "search",
+      lastResults: Array.isArray(results) ? results.slice(0, 10) : [],
+      pendingNearby: null,
+      updatedAt: new Date(),
+    });
+
+    const reply = formatSearchResults(results, query, lang, {
+      userPhone: from,
+    });
 
     const sendResp = await javnaSendText({
       to: from,
