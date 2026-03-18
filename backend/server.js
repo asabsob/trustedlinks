@@ -1876,22 +1876,6 @@ const locationReply = formatNearestResults(enrichedNearest, lang, categoryQuery,
       updatedAt: new Date(),
     });
 
-   const enrichedResults = await Promise.all(
-  (Array.isArray(results) ? results : []).map(async (item) => {
-    const trackedLink = await createLeadTrackedLink({
-      businessId: item._id || "",
-      phone: item.whatsapp || item.phone || "",
-      query,
-      userPhone: from,
-    });
-
-    return {
-      ...item,
-      trackedLink,
-    };
-  })
-);
-
     const topResults = (Array.isArray(results) ? results : []).slice(0, 3);
 
 const enrichedResults = await Promise.all(
