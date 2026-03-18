@@ -273,6 +273,30 @@ function isMoreCommand(text) {
   ].includes(t);
 }
 
+async function createLeadTrackedLink({ businessId, phone, query, userPhone }) {
+  const safePhone = String(phone || "").replace(/\D/g, "");
+
+  if (!safePhone) return "";
+
+  try {
+    const doc = await LeadToken.create({
+      businessId: businessId || "",
+      businessPhone: safePhone,
+      userPhone: userPhone || "",
+      query: query || "",
+    });
+
+    const baseUrl =
+      process.env.APP_BASE_URL ||
+      process.env.PUBLIC_BASE_URL ||
+      "https://trustedlinks-backend-production.up.railway.app";
+
+    return `${baseUrl}/l/${doc._id}`;
+  } catch (err) {
+    console.error("CREATE LEAD TOKEN FAILED:", err);
+    return "";
+  }
+}
 // ---------------------------------------------------------------------------
 // URLs
 // ---------------------------------------------------------------------------
@@ -1567,10 +1591,26 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
         await setCachedSearch(cacheKey, nearest, 10);
       }
 
-      const locationReply = formatNearestResults(nearest, lang, categoryQuery, {
-        userPhone: from,
-      });
+  const enrichedNearest = await Promise.all(
+  (Array.isArray(nearest) ? nearest : []).map(async (item) => {
+    const trackedLink = await createLeadTrackedLink({
+      businessId: item._id || "",
+      phone: item.whatsapp || item.phone || "",
+      query: categoryQuery || "nearby",
+      userPhone: from,
+    });
 
+    return {
+      ...item,
+      trackedLink,
+    };
+  })
+);
+
+const locationReply = formatNearestResults(enrichedNearest, lang, categoryQuery, {
+  userPhone: from,
+});
+      
       await logSearchEvent({
         type: "nearby_location_received",
         userPhone: from,
@@ -1833,9 +1873,25 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
       updatedAt: new Date(),
     });
 
-    const reply = formatSearchResults(results, query, lang, {
+   const enrichedResults = await Promise.all(
+  (Array.isArray(results) ? results : []).map(async (item) => {
+    const trackedLink = await createLeadTrackedLink({
+      businessId: item._id || "",
+      phone: item.whatsapp || item.phone || "",
+      query,
       userPhone: from,
     });
+
+    return {
+      ...item,
+      trackedLink,
+    };
+  })
+);
+
+const reply = formatSearchResults(enrichedResults, query, lang, {
+  userPhone: from,
+});
 
     const sendResp = await javnaSendText({
       to: from,
