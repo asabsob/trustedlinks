@@ -1,32 +1,4 @@
-function cleanDigits(v = "") {
-  return String(v).replace(/\D/g, "");
-}
-
-function buildTrackedLink({ businessId, phone, query, userPhone }) {
-  const safePhone = cleanDigits(phone);
-
-  if (!safePhone) return "";
-
-  const payload = {
-    businessId: businessId || "",
-    phone: safePhone,
-    query: query || "",
-    userPhone: userPhone || "",
-  };
-
-  const token = Buffer.from(JSON.stringify(payload)).toString("base64url");
-
-  const baseUrl =
-    process.env.APP_BASE_URL ||
-    process.env.PUBLIC_BASE_URL ||
-    "https://trustedlinks-backend-production.up.railway.app";
-
-  return `${baseUrl}/l/${token}`;
-}
-
-export function formatSearchResults(results = [], query = "", lang = "ar", options = {}) {
-  const { userPhone = "" } = options;
-
+export function formatSearchResults(results = [], query = "", lang = "ar") {
   if (!results.length) {
     return lang === "ar"
       ? `عذرًا، لم نجد نتائج مطابقة لـ "${query}".\n\nحاول باسم شركة أو نوع نشاط آخر.`
@@ -48,15 +20,8 @@ export function formatSearchResults(results = [], query = "", lang = "ar", optio
         msg += `📝 الوصف: ${item.description}\n`;
       }
 
-      const trackedLink = buildTrackedLink({
-        businessId: item._id || "",
-        phone: item.whatsapp || item.phone || "",
-        query,
-        userPhone,
-      });
-
-      if (trackedLink) {
-        msg += `💬 المحادثة: ${trackedLink}\n`;
+      if (item.trackedLink) {
+        msg += `💬 المحادثة: ${item.trackedLink}\n`;
       }
 
       if (item.mapLink) {
@@ -85,15 +50,8 @@ export function formatSearchResults(results = [], query = "", lang = "ar", optio
       msg += `📝 Description: ${item.description}\n`;
     }
 
-    const trackedLink = buildTrackedLink({
-      businessId: item._id || "",
-      phone: item.whatsapp || item.phone || "",
-      query,
-      userPhone,
-    });
-
-    if (trackedLink) {
-      msg += `💬 Chat: ${trackedLink}\n`;
+    if (item.trackedLink) {
+      msg += `💬 Chat: ${item.trackedLink}\n`;
     }
 
     if (item.mapLink) {
@@ -108,9 +66,7 @@ export function formatSearchResults(results = [], query = "", lang = "ar", optio
   return msg;
 }
 
-export function formatNearestResults(results = [], lang = "ar", categoryQuery = "", options = {}) {
-  const { userPhone = "" } = options;
-
+export function formatNearestResults(results = [], lang = "ar", categoryQuery = "") {
   if (!results.length) {
     return lang === "ar"
       ? categoryQuery
@@ -150,17 +106,10 @@ export function formatNearestResults(results = [], lang = "ar", categoryQuery = 
         : `📏 Approx. distance: ${item.distanceKm.toFixed(1)} km\n`;
     }
 
-    const trackedLink = buildTrackedLink({
-      businessId: item._id || "",
-      phone: item.whatsapp || item.phone || "",
-      query: categoryQuery || "nearby",
-      userPhone,
-    });
-
-    if (trackedLink) {
+    if (item.trackedLink) {
       msg += lang === "ar"
-        ? `💬 المحادثة: ${trackedLink}\n`
-        : `💬 Chat: ${trackedLink}\n`;
+        ? `💬 المحادثة: ${item.trackedLink}\n`
+        : `💬 Chat: ${item.trackedLink}\n`;
     }
 
     if (item.mapLink) {
