@@ -19,10 +19,23 @@ const BusinessSchema = new mongoose.Schema(
     keywords: { type: [String], default: [] },
 
     whatsapp: { type: String, required: true, unique: true },
-    status: { type: String, default: "Active" },
+    status: { type: String, default: "Active", index: true },
 
     latitude: { type: Number, default: null },
     longitude: { type: Number, default: null },
+
+    location: {
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: null,
+      },
+      coordinates: {
+        type: [Number], // [lng, lat]
+        default: undefined,
+      },
+    },
+
     mapLink: { type: String, default: "" },
     mediaLink: { type: String, default: "" },
 
@@ -35,5 +48,25 @@ const BusinessSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+BusinessSchema.index({ location: "2dsphere" });
+
+BusinessSchema.pre("save", function (next) {
+  if (
+    typeof this.latitude === "number" &&
+    !Number.isNaN(this.latitude) &&
+    typeof this.longitude === "number" &&
+    !Number.isNaN(this.longitude)
+  ) {
+    this.location = {
+      type: "Point",
+      coordinates: [this.longitude, this.latitude],
+    };
+  } else {
+    this.location = undefined;
+  }
+
+  next();
+});
 
 export default mongoose.models.Business || mongoose.model("Business", BusinessSchema);
