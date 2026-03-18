@@ -1607,6 +1607,24 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
   })
 );
 
+      const topNearest = (Array.isArray(nearest) ? nearest : []).slice(0, 3);
+
+const enrichedNearest = await Promise.all(
+  topNearest.map(async (item) => {
+    const trackedLink = await createLeadTrackedLink({
+      businessId: item._id || "",
+      phone: item.whatsapp || item.phone || "",
+      query: categoryQuery || "nearby",
+      userPhone: from,
+    });
+
+    return {
+      ...item,
+      trackedLink,
+    };
+  })
+);
+      
 const locationReply = formatNearestResults(enrichedNearest, lang, categoryQuery, {
   userPhone: from,
 });
@@ -1889,6 +1907,24 @@ const locationReply = formatNearestResults(enrichedNearest, lang, categoryQuery,
   })
 );
 
+    const topResults = (Array.isArray(results) ? results : []).slice(0, 3);
+
+const enrichedResults = await Promise.all(
+  topResults.map(async (item) => {
+    const trackedLink = await createLeadTrackedLink({
+      businessId: item._id || "",
+      phone: item.whatsapp || item.phone || "",
+      query,
+      userPhone: from,
+    });
+
+    return {
+      ...item,
+      trackedLink,
+    };
+  })
+);
+    
 const reply = formatSearchResults(enrichedResults, query, lang, {
   userPhone: from,
 });
