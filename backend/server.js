@@ -273,10 +273,11 @@ function isMoreCommand(text) {
   ].includes(t);
 }
 
-async function createLeadTrackedLink({ businessId, phone, query, userPhone }) {
+async function createLeadTrackedLink({ phone }) {
   const safePhone = String(phone || "").replace(/\D/g, "");
-
   if (!safePhone) return "";
+  return `https://wa.me/${safePhone}`;
+}
 
   try {
     const doc = await LeadToken.create({
@@ -1570,87 +1571,96 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
       return;
     }
 
-    // 2) Location message
-    if (
-      messageType === "location" &&
-      incomingLocation?.latitude != null &&
-      incomingLocation?.longitude != null
-    ) {
-      const lat = Number(incomingLocation.latitude);
-      const lng = Number(incomingLocation.longitude);
+ // 2) Location message
+if (
+  messageType === "location" &&
+  incomingLocation?.latitude != null &&
+  incomingLocation?.longitude != null
+) {
+  const lat = Number(incomingLocation.latitude);
+  const lng = Number(incomingLocation.longitude);
 
-      console.log("PENDING NEARBY SESSION:", JSON.stringify(pendingNearby, null, 2));
-      
-      const categoryQuery = pendingNearby?.pendingNearby?.category || "";
-      const cacheKey = buildNearbyCacheKey(lat, lng, categoryQuery);
+  console.log("PENDING NEARBY SESSION:", JSON.stringify(pendingNearby, null, 2));
 
-      let nearest = await getCachedSearch(cacheKey);
+  const categoryQuery = pendingNearby?.pendingNearby?.category || "";
+  const cacheKey = buildNearbyCacheKey(lat, lng, categoryQuery);
 
-      if (!nearest) {
-        nearest = await findNearestBusinesses(lat, lng, 5, categoryQuery);
-        await setCachedSearch(cacheKey, nearest, 10);
-      }
+  let nearest = await getCachedSearch(cacheKey);
 
+  if (!nearest) {
+    nearest = await findNearestBusinesses(lat, lng, 3, categoryQuery);
+    setCachedSearch(cacheKey, (Array.isArray(nearest) ? nearest : []).slice(0, 10), 10)
+      .catch((e) => console.error("CACHE ERROR:", e));
+  }
 
-      const topNearest = (Array.isArray(nearest) ? nearest : []).slice(0, 3);
+  const topNearest = (Array.isArray(nearest) ? nearest : []).slice(0, 3);
 
-const enrichedNearest = await Promise.all(
-  topNearest.map(async (item) => {
-    const trackedLink = await createLeadTrackedLink({
-      businessId: item._id || "",
-      phone: item.whatsapp || item.phone || "",
-      query: categoryQuery || "nearby",
-      userPhone: from,
-    });
-
-    return {
-      ...item,
-      trackedLink,
-    };
-  })
-);
-      
-const locationReply = formatNearestResults(enrichedNearest, lang, categoryQuery, {
-  userPhone: from,
-});
-      
-      await logSearchEvent({
-        type: "nearby_location_received",
+  const enrichedNearest = await Promise.all(
+    topNearest.map(async (item) => {
+      const trackedLink = await createLeadTrackedLink({
+        businessId: item._id || "",
+        phone: item.whatsapp || item.phone || "",
+        query: categoryQuery || "nearby",
         userPhone: from,
-        rawText: incomingText || null,
-        query: categoryQuery || null,
-        normalizedQuery: categoryQuery || null,
-        intent: "nearby",
-        lang,
-        location: {
-          lat,
-          lng,
-        },
-        resultsCount: Array.isArray(nearest) ? nearest.length : 0,
-        usedAI: false,
-        source: "nearby",
-        timestamp: new Date(),
       });
 
-      await setSearchSession(from, {
-        userPhone: from,
-        lastQuery: categoryQuery || "",
-        normalizedQuery: categoryQuery || "",
-        lastIntent: "nearby",
-        lastResults: Array.isArray(nearest) ? nearest.slice(0, 10) : [],
-        pendingNearby: null,
-        updatedAt: new Date(),
-      });
+      return {
+        ...item,
+        trackedLink,
+      };
+    })
+  );
 
-      const locationSendResp = await javnaSendText({
-        to: from,
-        body: locationReply,
-      });
+  const locationReply = formatNearestResults(enrichedNearest, lang, categoryQuery, {
+    userPhone: from,
+  });
 
-      console.log("LOCATION SEND RESP:", JSON.stringify(locationSendResp, null, 2));
-      return;
-    }
+  // أرسل الرد أولاً
+  const locationSendResp = await javnaSendText({
+    to: from,
+    body: locationReply,
+  });
 
+  // ثم نفذ التخزين في الخلفية
+  logSearchEvent({
+    type: "nearby_location_received",
+    userPhone: from,
+    rawText: incomingText || null,
+    query: categoryQuery || null,
+    normalizedQuery: categoryQuery || null,
+    intent: "nearby",
+    lang,
+    location: {
+      lat,
+      lng,
+    },
+    resultsCount: Array.isArray(nearest) ? nearest.length : 0,
+    usedAI: false,
+    source: "nearby",
+    timestamp: new Date(),
+  }).catch((e) => console.error("LOG ERROR:", e));
+
+  setSearchSession(from, {
+    userPhone: from,
+    lastQuery: categoryQuery || "",
+    normalizedQuery: categoryQuery || "",
+    lastIntent: "nearby",
+    lastResults: topNearest.map((r) => ({
+      _id: r._id,
+      name: r.name,
+      name_ar: r.name_ar,
+      whatsapp: r.whatsapp,
+      phone: r.phone,
+      distanceKm: r.distanceKm,
+      trackedLink: r.trackedLink,
+    })),
+    pendingNearby: null,
+    updatedAt: new Date(),
+  }).catch((e) => console.error("SESSION ERROR:", e));
+
+  console.log("LOCATION SEND RESP:", JSON.stringify(locationSendResp, null, 2));
+  return;
+}
     // 3) Empty text
     if (!incomingText) {
       const emptyTextResp = await javnaSendText({
@@ -1694,57 +1704,57 @@ const locationReply = formatNearestResults(enrichedNearest, lang, categoryQuery,
       return;
     }
 
-    // 6) Nearby intent
-    const nearbyIntent = parseNearbyIntent(incomingText);
-    console.log("NEARBY INTENT:", nearbyIntent);
+   // 6) Nearby intent
+const nearbyIntent = parseNearbyIntent(incomingText);
+console.log("NEARBY INTENT:", nearbyIntent);
 
-    if (nearbyIntent.isNearby) {
-      const categoryQuery = normalizeSearchText(nearbyIntent.categoryQuery || "");
+if (nearbyIntent.isNearby) {
+  const categoryQuery = normalizeSearchText(nearbyIntent.categoryQuery || "");
 
-      await setSearchSession(from, {
-        userPhone: from,
-        lastQuery: categoryQuery || "",
-        normalizedQuery: categoryQuery || "",
-        lastIntent: "nearby_request",
-        lastResults: [],
-        pendingNearby: {
-          category: categoryQuery,
-        },
-        updatedAt: new Date(),
-      });
+  setSearchSession(from, {
+    userPhone: from,
+    lastQuery: categoryQuery || "",
+    normalizedQuery: categoryQuery || "",
+    lastIntent: "nearby_request",
+    lastResults: [],
+    pendingNearby: {
+      category: categoryQuery,
+    },
+    updatedAt: new Date(),
+  }).catch((e) => console.error("SESSION ERROR:", e));
 
-      await logSearchEvent({
-        type: "nearby_request",
-        userPhone: from,
-        rawText: incomingText,
-        query: nearbyIntent.categoryQuery || "",
-        normalizedQuery: categoryQuery || "",
-        intent: "nearby",
-        lang,
-        location: null,
-        resultsCount: 0,
-        usedAI: false,
-        source: "nearby_request",
-        timestamp: new Date(),
-      });
+  logSearchEvent({
+    type: "nearby_request",
+    userPhone: from,
+    rawText: incomingText,
+    query: nearbyIntent.categoryQuery || "",
+    normalizedQuery: categoryQuery || "",
+    intent: "nearby",
+    lang,
+    location: null,
+    resultsCount: 0,
+    usedAI: false,
+    source: "nearby_request",
+    timestamp: new Date(),
+  }).catch((e) => console.error("LOG ERROR:", e));
 
-      const nearbyReply =
-        lang === "ar"
-          ? categoryQuery
-            ? `📍 أرسل موقعك عبر واتساب، وسأعرض لك أقرب النتائج لـ "${categoryQuery}".`
-            : "📍 أرسل موقعك عبر واتساب، وسأعرض لك أقرب الأنشطة المسجلة."
-          : categoryQuery
-            ? `📍 Please share your location on WhatsApp, and I’ll show you the nearest results for "${categoryQuery}".`
-            : "📍 Please share your location on WhatsApp, and I’ll show you the nearest listed businesses.";
+  const nearbyReply =
+    lang === "ar"
+      ? categoryQuery
+        ? `📍 أرسل موقعك عبر واتساب، وسأعرض لك أقرب النتائج لـ "${categoryQuery}".`
+        : "📍 أرسل موقعك عبر واتساب، وسأعرض لك أقرب الأنشطة المسجلة."
+      : categoryQuery
+        ? `📍 Please share your location on WhatsApp, and I’ll show you the nearest results for "${categoryQuery}".`
+        : "📍 Please share your location on WhatsApp, and I’ll show you the nearest listed businesses.";
 
-      const nearbyResp = await javnaSendText({
-        to: from,
-        body: nearbyReply,
-      });
+  const nearbyResp = await javnaSendText({
+    to: from,
+    body: nearbyReply,
+  });
 
-      console.log("NEARBY RESP:", JSON.stringify(nearbyResp, null, 2));
-      return;
-    }
+  console.log("NEARBY RESP:", JSON.stringify(nearbyResp, null, 2));
+  return;
+}
 
     // 7) MORE command
     if (isMoreCommand(incomingText)) {
@@ -1800,83 +1810,59 @@ const locationReply = formatNearestResults(enrichedNearest, lang, categoryQuery,
       return;
     }
 
-    let results = [];
-    let usedAI = false;
-    let finalSource = "local";
-    let aiCategory = null;
+   let results = [];
+let usedAI = false;
+let finalSource = "local";
+let aiCategory = null;
 
-    const cacheKey = buildSearchCacheKey(query);
+const cacheKey = buildSearchCacheKey(query);
 
-    const cachedResults = await getCachedSearch(cacheKey);
-    if (cachedResults) {
-      results = cachedResults;
-      finalSource = "cache";
-      console.log("CACHE HIT:", cacheKey, "COUNT:", results.length);
-    } else {
-      results = await searchBusinesses(query);
-      console.log("LOCAL SEARCH RESULTS COUNT:", results.length);
+const cachedResults = await getCachedSearch(cacheKey);
+if (cachedResults) {
+  results = cachedResults;
+  finalSource = "cache";
+  console.log("CACHE HIT:", cacheKey, "COUNT:", results.length);
+} else {
+  results = await searchBusinesses(query);
+  console.log("LOCAL SEARCH RESULTS COUNT:", results.length);
 
-     if (false && (!results || results.length === 0) && shouldUseAIFallback(incomingText, query)) {
-        try {
-          const ai = await parseSearchIntent(incomingText);
-          console.log("AI RESULT:", ai);
+  if (false && (!results || results.length === 0) && shouldUseAIFallback(incomingText, query)) {
+    try {
+      const ai = await parseSearchIntent(incomingText);
+      console.log("AI RESULT:", ai);
 
-          if (ai?.category) {
-            aiCategory = normalizeSearchText(ai.category);
-            query = aiCategory;
-            usedAI = true;
-            finalSource = "ai_fallback";
+      if (ai?.category) {
+        aiCategory = normalizeSearchText(ai.category);
+        query = aiCategory;
+        usedAI = true;
+        finalSource = "ai_fallback";
 
-            const aiCacheKey = buildSearchCacheKey(query);
-            const cachedAiResults = await getCachedSearch(aiCacheKey);
+        const aiCacheKey = buildSearchCacheKey(query);
+        const cachedAiResults = await getCachedSearch(aiCacheKey);
 
-            if (cachedAiResults) {
-              results = cachedAiResults;
-              finalSource = "ai_fallback_cache";
-            } else {
-              results = await searchBusinesses(query);
-              await setCachedSearch(aiCacheKey, results, 10);
-            }
-
-            console.log("AI FALLBACK RESULTS COUNT:", results.length);
-          }
-        } catch (err) {
-          console.error("AI PARSE FAILED:", err);
+        if (cachedAiResults) {
+          results = cachedAiResults;
+          finalSource = "ai_fallback_cache";
+        } else {
+          results = await searchBusinesses(query);
+          setCachedSearch(aiCacheKey, (Array.isArray(results) ? results : []).slice(0, 10), 10)
+            .catch((e) => console.error("CACHE ERROR:", e));
         }
-      }
 
-      if (!usedAI) {
-        await setCachedSearch(cacheKey, results, 10);
+        console.log("AI FALLBACK RESULTS COUNT:", results.length);
       }
+    } catch (err) {
+      console.error("AI PARSE FAILED:", err);
     }
+  }
 
-    await logSearchEvent({
-      type: "search",
-      userPhone: from,
-      rawText: incomingText,
-      query,
-      normalizedQuery: query,
-      intent: "search",
-      lang,
-      location: null,
-      resultsCount: Array.isArray(results) ? results.length : 0,
-      usedAI,
-      aiCategory,
-      source: finalSource,
-      timestamp: new Date(),
-    });
+  if (!usedAI) {
+    setCachedSearch(cacheKey, (Array.isArray(results) ? results : []).slice(0, 10), 10)
+      .catch((e) => console.error("CACHE ERROR:", e));
+  }
+}
 
-    await setSearchSession(from, {
-      userPhone: from,
-      lastQuery: query,
-      normalizedQuery: query,
-      lastIntent: "search",
-      lastResults: Array.isArray(results) ? results.slice(0, 10) : [],
-      pendingNearby: null,
-      updatedAt: new Date(),
-    });
-
-    const topResults = (Array.isArray(results) ? results : []).slice(0, 3);
+const topResults = (Array.isArray(results) ? results : []).slice(0, 3);
 
 const enrichedResults = await Promise.all(
   topResults.map(async (item) => {
@@ -1893,17 +1879,53 @@ const enrichedResults = await Promise.all(
     };
   })
 );
-    
+
 const reply = formatSearchResults(enrichedResults, query, lang, {
   userPhone: from,
 });
 
-    const sendResp = await javnaSendText({
-      to: from,
-      body: reply,
-    });
+// أرسل الرد أولاً
+const sendResp = await javnaSendText({
+  to: from,
+  body: reply,
+});
 
-    console.log("SEND RESP:", JSON.stringify(sendResp, null, 2));
+// ثم التخزين في الخلفية
+logSearchEvent({
+  type: "search",
+  userPhone: from,
+  rawText: incomingText,
+  query,
+  normalizedQuery: query,
+  intent: "search",
+  lang,
+  location: null,
+  resultsCount: Array.isArray(results) ? results.length : 0,
+  usedAI,
+  aiCategory,
+  source: finalSource,
+  timestamp: new Date(),
+}).catch((e) => console.error("LOG ERROR:", e));
+
+setSearchSession(from, {
+  userPhone: from,
+  lastQuery: query,
+  normalizedQuery: query,
+  lastIntent: "search",
+  lastResults: topResults.map((r) => ({
+    _id: r._id,
+    name: r.name,
+    name_ar: r.name_ar,
+    whatsapp: r.whatsapp,
+    phone: r.phone,
+    distanceKm: r.distanceKm,
+    trackedLink: r.trackedLink,
+  })),
+  pendingNearby: null,
+  updatedAt: new Date(),
+}).catch((e) => console.error("SESSION ERROR:", e));
+
+console.log("SEND RESP:", JSON.stringify(sendResp, null, 2));
   } catch (e) {
     console.error("WHATSAPP WEBHOOK ERROR:", e);
   }
@@ -1935,13 +1957,13 @@ app.get("/l/:token", async (req, res) => {
       return res.status(400).send("Invalid destination");
     }
 
-    await ClickLog.create({
-      businessId,
-      businessPhone,
-      userPhone,
-      query,
-      timestamp: new Date(),
-    });
+   ClickLog.create({
+  businessId,
+  businessPhone,
+  userPhone,
+  query,
+  timestamp: new Date(),
+}).catch((err) => console.error("CLICK LOG ERROR:", err));
 
     const message = encodeURIComponent("Hello, I found you on TrustedLinks");
 
