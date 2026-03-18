@@ -1591,21 +1591,6 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
         await setCachedSearch(cacheKey, nearest, 10);
       }
 
-  const enrichedNearest = await Promise.all(
-  (Array.isArray(nearest) ? nearest : []).map(async (item) => {
-    const trackedLink = await createLeadTrackedLink({
-      businessId: item._id || "",
-      phone: item.whatsapp || item.phone || "",
-      query: categoryQuery || "nearby",
-      userPhone: from,
-    });
-
-    return {
-      ...item,
-      trackedLink,
-    };
-  })
-);
 
       const topNearest = (Array.isArray(nearest) ? nearest : []).slice(0, 3);
 
