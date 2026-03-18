@@ -1,3 +1,4 @@
+// frontend/src/pages/Signup.jsx
 // ============================================================================
 // TrustedLinks - Signup Page
 // Creates USER only, stores business draft locally until subscribe/publish step
@@ -7,6 +8,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Listbox, Transition } from "@headlessui/react";
 import WhatsAppVerify from "../components/WhatsAppVerify";
+import LocationPicker from "../components/LocationPicker";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 
@@ -27,6 +29,9 @@ export default function Signup({ lang = "en" }) {
   const [otpToken, setOtpToken] = useState("");
   const [mapLink, setMapLink] = useState("");
   const [mediaLink, setMediaLink] = useState("");
+
+  const [latitude, setLatitude] = useState(null);
+  const [longitude, setLongitude] = useState(null);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -71,6 +76,11 @@ export default function Signup({ lang = "en" }) {
       return;
     }
 
+    if (latitude == null || longitude == null) {
+      alert(t("Please choose a location on the map.", "يرجى اختيار الموقع على الخريطة."));
+      return;
+    }
+
     if (!email.trim()) {
       alert(t("Please enter your email.", "يرجى إدخال البريد الإلكتروني."));
       return;
@@ -89,7 +99,6 @@ export default function Signup({ lang = "en" }) {
     setLoading(true);
 
     try {
-      // 1) save business draft locally until subscribe/publish step
       const pendingBusiness = {
         nameAr: businessNameAr.trim(),
         nameEn: businessNameEn.trim(),
@@ -100,13 +109,14 @@ export default function Signup({ lang = "en" }) {
         whatsapp: verifiedWhatsApp,
         mapLink: mapLink.trim(),
         mediaLink: mediaLink.trim(),
+        latitude,
+        longitude,
         otpToken,
       };
 
       localStorage.setItem("pendingBusiness", JSON.stringify(pendingBusiness));
       localStorage.setItem("otpToken", otpToken);
 
-      // 2) create user only
       const res = await fetch(`${API_BASE}/api/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -200,12 +210,60 @@ export default function Signup({ lang = "en" }) {
           }}
         />
 
-        <label>{t("Google Map Link", "رابط الخريطة")}</label>
+        <label style={{ marginBottom: 8, display: "block" }}>
+          {t("Business Location", "موقع النشاط على الخريطة")}
+        </label>
+
+        <div style={{ marginBottom: 14 }}>
+          <LocationPicker
+            value={
+              latitude != null && longitude != null
+                ? { lat: latitude, lng: longitude }
+                : null
+            }
+            onChange={({ lat, lng }) => {
+              setLatitude(lat);
+              setLongitude(lng);
+              setMapLink(
+                `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`
+              );
+            }}
+            height={320}
+          />
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div>
+            <label>{t("Latitude", "خط العرض")}</label>
+            <input
+              value={latitude ?? ""}
+              onChange={(e) =>
+                setLatitude(e.target.value === "" ? null : Number(e.target.value))
+              }
+              style={inputStyle}
+              placeholder="31.9539"
+            />
+          </div>
+
+          <div>
+            <label>{t("Longitude", "خط الطول")}</label>
+            <input
+              value={longitude ?? ""}
+              onChange={(e) =>
+                setLongitude(e.target.value === "" ? null : Number(e.target.value))
+              }
+              style={inputStyle}
+              placeholder="35.9106"
+            />
+          </div>
+        </div>
+
+        <label>{t("Map Link", "رابط الخريطة")}</label>
         <input
           value={mapLink}
           onChange={(e) => setMapLink(e.target.value)}
           style={inputStyle}
-          placeholder="https://maps.google.com/..."
+          placeholder="Auto-generated map link"
         />
 
         <label>{t("Instagram / Media Link", "رابط الانستغرام / الوسائط")}</label>
