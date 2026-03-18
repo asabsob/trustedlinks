@@ -278,26 +278,6 @@ async function createLeadTrackedLink({ phone }) {
   if (!safePhone) return "";
   return `https://wa.me/${safePhone}`;
 }
-
-  try {
-    const doc = await LeadToken.create({
-      businessId: businessId || "",
-      businessPhone: safePhone,
-      userPhone: userPhone || "",
-      query: query || "",
-    });
-
-    const baseUrl =
-      process.env.APP_BASE_URL ||
-      process.env.PUBLIC_BASE_URL ||
-      "https://trustedlinks-backend-production.up.railway.app";
-
-    return `${baseUrl}/l/${doc._id}`;
-  } catch (err) {
-    console.error("CREATE LEAD TOKEN FAILED:", err);
-    return "";
-  }
-}
 // ---------------------------------------------------------------------------
 // URLs
 // ---------------------------------------------------------------------------
