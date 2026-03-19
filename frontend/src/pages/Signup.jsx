@@ -63,91 +63,91 @@ export default function Signup({ lang = "en" }) {
     { key: "OTHER", nameEn: "Other", nameAr: "أخرى" },
   ];
 
-  const handleSignup = async (e) => {
-    e.preventDefault();
+ const handleSignup = async (e) => {
+  e.preventDefault();
 
-    if (!businessNameAr.trim() && !businessNameEn.trim()) {
-      alert(t("Please enter a business name.", "يرجى إدخال اسم النشاط."));
+  if (!businessNameAr.trim() && !businessNameEn.trim()) {
+    alert(t("Please enter a business name.", "يرجى إدخال اسم النشاط."));
+    return;
+  }
+
+  if (!verifiedWhatsApp || !otpToken) {
+    alert(t("Please verify WhatsApp first.", "يرجى توثيق واتساب أولاً."));
+    return;
+  }
+
+  if (latitude == null || longitude == null) {
+    alert(t("Please choose a location on the map.", "يرجى اختيار الموقع على الخريطة."));
+    return;
+  }
+
+  if (!email.trim()) {
+    alert(t("Please enter your email.", "يرجى إدخال البريد الإلكتروني."));
+    return;
+  }
+
+  if ((password || "").length < 8) {
+    alert(t("Password must be at least 8 characters.", "كلمة المرور يجب أن تكون 8 أحرف على الأقل."));
+    return;
+  }
+
+  if (password !== confirmPassword) {
+    alert(t("Passwords do not match.", "كلمتا المرور غير متطابقتين."));
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const businessPayload = {
+      name: businessNameEn.trim() || businessNameAr.trim(),
+      name_ar: businessNameAr.trim(),
+      description: description.trim(),
+      category: [category.key],
+      keywords: [],
+      whatsapp: verifiedWhatsApp,
+      mapLink: mapLink.trim(),
+      mediaLink: mediaLink.trim(),
+      latitude,
+      longitude,
+      otpToken,
+    };
+
+    // optional backup فقط
+    localStorage.setItem("pendingBusiness", JSON.stringify(businessPayload));
+    localStorage.setItem("otpToken", otpToken);
+
+    const res = await fetch(`${API_BASE}/api/auth/signup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: email.trim(),
+        password,
+        business: businessPayload,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      alert(data?.error || t("Signup failed.", "فشل إنشاء الحساب."));
       return;
     }
 
-    if (!verifiedWhatsApp || !otpToken) {
-      alert(t("Please verify WhatsApp first.", "يرجى توثيق واتساب أولاً."));
-      return;
-    }
+    alert(
+      t(
+        "Account and business created successfully. Please verify your email, then log in.",
+        "تم إنشاء الحساب والنشاط بنجاح. يرجى تفعيل البريد الإلكتروني ثم تسجيل الدخول."
+      )
+    );
 
-    if (latitude == null || longitude == null) {
-      alert(t("Please choose a location on the map.", "يرجى اختيار الموقع على الخريطة."));
-      return;
-    }
-
-    if (!email.trim()) {
-      alert(t("Please enter your email.", "يرجى إدخال البريد الإلكتروني."));
-      return;
-    }
-
-    if ((password || "").length < 8) {
-      alert(t("Password must be at least 8 characters.", "كلمة المرور يجب أن تكون 8 أحرف على الأقل."));
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      alert(t("Passwords do not match.", "كلمتا المرور غير متطابقتين."));
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const pendingBusiness = {
-        nameAr: businessNameAr.trim(),
-        nameEn: businessNameEn.trim(),
-        description: description.trim(),
-        categoryKey: category.key,
-        categoryNameAr: category.nameAr,
-        categoryNameEn: category.nameEn,
-        whatsapp: verifiedWhatsApp,
-        mapLink: mapLink.trim(),
-        mediaLink: mediaLink.trim(),
-        latitude,
-        longitude,
-        otpToken,
-      };
-
-      localStorage.setItem("pendingBusiness", JSON.stringify(pendingBusiness));
-      localStorage.setItem("otpToken", otpToken);
-
-      const res = await fetch(`${API_BASE}/api/auth/signup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email.trim(),
-          password,
-        }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        alert(data?.error || t("Signup failed.", "فشل إنشاء الحساب."));
-        return;
-      }
-
-      alert(
-        t(
-          "Account created successfully. Please verify your email, then log in.",
-          "تم إنشاء الحساب. يرجى تفعيل البريد الإلكتروني ثم تسجيل الدخول."
-        )
-      );
-
-      navigate("/login", { replace: true });
-    } catch (err) {
-      alert(err?.message || t("Unexpected error.", "حدث خطأ غير متوقع."));
-    } finally {
-      setLoading(false);
-    }
-  };
-
+    navigate("/login", { replace: true });
+  } catch (err) {
+    alert(err?.message || t("Unexpected error.", "حدث خطأ غير متوقع."));
+  } finally {
+    setLoading(false);
+  }
+};
   return (
     <div style={containerStyle}>
       <form onSubmit={handleSignup} style={formStyle(lang)}>
