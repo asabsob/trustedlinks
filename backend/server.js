@@ -457,13 +457,21 @@ app.post("/api/auth/signup", async (req, res) => {
     const verifyToken = crypto.randomBytes(32).toString("hex");
 
     const user = await User.create({
-      email: String(email).trim().toLowerCase(),
-      passwordHash,
-      emailVerified: false,
-      verifyToken,
-      subscriptionPlan: "monthly",
-    });
+  email: String(email).trim().toLowerCase(),
+  passwordHash,
+  emailVerified: false,
+  verifyToken,
 
+  // ❌ أوقف الاشتراك
+  subscriptionPlan: null,
+  planActivatedAt: null,
+
+  // ✅ رصيد مجاني
+  walletBalance: 5,
+  currency: "USD",
+  freeCreditGranted: true,
+});
+    
     const createdBusiness = await Business.create({
       ownerUserId: String(user._id),
 
@@ -516,13 +524,17 @@ app.post("/api/auth/login", async (req, res) => {
     }
 
     const token = signUserToken(String(user._id));
-    return res.json({
-      ok: true,
-      token,
-      subscriptionPlan: user.subscriptionPlan,
-      planActivatedAt: user.planActivatedAt,
-      email: user.email,
-    });
+   return res.json({
+  ok: true,
+  token,
+  email: user.email,
+
+  walletBalance: user.walletBalance,
+  currency: user.currency,
+
+  subscriptionPlan: user.subscriptionPlan,
+});
+    
   } catch (e) {
     console.error("login error", e);
     return res.status(500).json({ error: "Internal server error" });
