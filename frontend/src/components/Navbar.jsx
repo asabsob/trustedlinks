@@ -3,11 +3,7 @@ import { Link, NavLink } from "react-router-dom";
 
 export default function Navbar({ lang, t, token, toggleLang, handleLogout }) {
 
-  const pendingBusiness = localStorage.getItem("pendingBusiness");
-
-  const dashboardPath = token
-    ? (pendingBusiness ? "/subscribe" : "/dashboard")
-    : "/login";
+ const dashboardPath = token ? "/dashboard" : "/login";
   
   return (
     <nav className="border-b border-gray-200 bg-white shadow-sm sticky top-0 z-50">
