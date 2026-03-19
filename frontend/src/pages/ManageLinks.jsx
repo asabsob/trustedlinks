@@ -6,12 +6,11 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 export default function ManageLinks({ lang = "en" }) {
   const isAr = lang === "ar";
   const dir = isAr ? "rtl" : "ltr";
+  const token = localStorage.getItem("token") || "";
 
   const [business, setBusiness] = useState(null);
   const [form, setForm] = useState({});
   const [loading, setLoading] = useState(true);
-
-  const token = localStorage.getItem("token") || "";
 
   const metaCategories = useMemo(
     () => [
@@ -42,43 +41,61 @@ export default function ManageLinks({ lang = "en" }) {
       ({
         en: {
           title: "Manage Your Business Information",
-          desc: "Update your profile, category, media link, map location, and WhatsApp contact details.",
-          details: "Business Details",
-          verified: "Visibility Status",
+          desc: "Update your business profile, category, media link, map location, and WhatsApp details.",
+          statusTitle: "Visibility Status",
           visible_yes: "✅ Live and visible in search",
           visible_pending: "🕓 Pending review",
           visible_no: "⛔ Hidden from search",
-          map: "Google Maps Location",
+          status: "Status",
+          details: "Business Details",
+          detailsDesc: "Edit the core information displayed for your business profile.",
+          name: "Business Name",
+          category: "Category",
           media: "Media / Instagram Link",
-          whatsapp: "Update WhatsApp Number",
-          actions: "Account Actions",
-          suspend: "Suspend Link",
-          reactivate: "Reactivate Link",
-          delete: "Delete Business",
-          update: "Save Changes",
+          map: "Map Location Link",
+          openLocation: "Open location",
+          save: "Save Changes",
           success: "✅ Updated successfully!",
           update_failed: "❌ Update failed.",
           load_failed: "❌ Failed to load business info.",
+          whatsappTitle: "Update WhatsApp Number",
+          whatsappDesc: "Verify and update the WhatsApp number connected to this business.",
+          actions: "Account Actions",
+          actionsDesc: "Careful actions that affect your business visibility or account presence.",
+          suspend: "Suspend Link",
+          reactivate: "Reactivate Link",
+          delete: "Delete Business",
+          confirmDelete: "Are you sure?",
+          loading: "Loading...",
         },
         ar: {
-          title: "إدارة معلومات نشاطك التجاري",
-          desc: "قم بتحديث الفئة، رابط الوسائط، موقع الخريطة، ورقم واتساب.",
-          details: "تفاصيل النشاط التجاري",
-          verified: "حالة الظهور",
+          title: "إدارة معلومات نشاطك",
+          desc: "قم بتحديث ملف نشاطك، الفئة، رابط الوسائط، موقع الخريطة، وتفاصيل واتساب.",
+          statusTitle: "حالة الظهور",
           visible_yes: "✅ ظاهر ومتاح في البحث",
           visible_pending: "🕓 قيد المراجعة",
           visible_no: "⛔ مخفي من البحث",
-          map: "رابط موقع خرائط Google",
+          status: "الحالة",
+          details: "بيانات النشاط",
+          detailsDesc: "عدّل المعلومات الأساسية الظاهرة في ملف نشاطك.",
+          name: "اسم النشاط",
+          category: "الفئة",
           media: "رابط الوسائط أو إنستغرام",
-          whatsapp: "تحديث رقم واتساب",
-          actions: "إجراءات الحساب",
-          suspend: "تعليق الرابط",
-          reactivate: "إعادة تفعيل الرابط",
-          delete: "حذف النشاط",
-          update: "حفظ التغييرات",
+          map: "رابط موقع النشاط",
+          openLocation: "فتح الموقع",
+          save: "حفظ التغييرات",
           success: "✅ تم التحديث بنجاح!",
           update_failed: "❌ فشل التحديث.",
           load_failed: "❌ فشل تحميل بيانات النشاط.",
+          whatsappTitle: "تحديث رقم واتساب",
+          whatsappDesc: "قم بتوثيق وتحديث رقم واتساب المرتبط بهذا النشاط.",
+          actions: "إجراءات الحساب",
+          actionsDesc: "إجراءات حساسة تؤثر على ظهور النشاط أو وجوده في المنصة.",
+          suspend: "تعليق الرابط",
+          reactivate: "إعادة التفعيل",
+          delete: "حذف النشاط",
+          confirmDelete: "هل أنت متأكد؟",
+          loading: "جارٍ التحميل...",
         },
       }[lang] || {}),
     [lang]
@@ -170,7 +187,7 @@ export default function ManageLinks({ lang = "en" }) {
   };
 
   const deleteBusiness = async () => {
-    if (!window.confirm(isAr ? "هل أنت متأكد؟" : "Are you sure?")) return;
+    if (!window.confirm(t.confirmDelete)) return;
 
     try {
       await fetch(`${API_BASE}/api/business/delete`, {
@@ -197,15 +214,11 @@ export default function ManageLinks({ lang = "en" }) {
 
       setBusiness((prev) => ({ ...(prev || {}), status: data.status }));
       setForm((prev) => ({ ...(prev || {}), status: data.status }));
-      alert(`${isAr ? "الحالة" : "Status"}: ${data.status || "updated"}`);
+      alert(`${t.status}: ${data.status || "updated"}`);
     } catch (err) {
       console.error(err);
     }
   };
-
-  if (loading) {
-    return <p style={{ textAlign: "center" }}>{isAr ? "جارٍ التحميل..." : "Loading..."}</p>;
-  }
 
   const visibilityText =
     business?.status === "Active"
@@ -220,213 +233,328 @@ export default function ManageLinks({ lang = "en" }) {
     ? form.category.key || ""
     : form.category || "";
 
+  if (loading) {
+    return (
+      <div style={pageWrap(dir)}>
+        <div style={loadingCard}>{t.loading}</div>
+      </div>
+    );
+  }
+
   return (
-    <div
-      style={{
-        maxWidth: 950,
-        margin: "0 auto",
-        paddingBottom: 50,
-        direction: dir,
-        textAlign: isAr ? "right" : "left",
-      }}
-    >
-      <div
-        style={{
-          background: "linear-gradient(135deg,#22c55e,#34d399)",
-          color: "#fff",
-          padding: "32px",
-          borderRadius: 14,
-          marginBottom: 20,
-        }}
-      >
-        <h2>{t.title}</h2>
-        <p>{t.desc}</p>
-      </div>
+    <div style={pageWrap(dir)}>
+      {/* Hero */}
+      <section style={heroCard}>
+        <div style={heroBadge}>{t.details}</div>
+        <h1 style={heroTitle}>{t.title}</h1>
+        <p style={heroSubtitle}>{t.desc}</p>
+      </section>
 
-      <div
-        style={{
-          background: "#f0fdf4",
-          border: "1px solid #86efac",
-          borderRadius: 12,
-          padding: "16px 20px",
-          marginBottom: 16,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: 10,
-          flexWrap: "wrap",
-        }}
-      >
-        <span style={{ fontWeight: 700, color: "#166534" }}>
-          {t.verified}: {visibilityText}
-        </span>
-
+      {/* Status */}
+      <section style={statusCard}>
+        <div style={{ fontWeight: 700, color: "#166534" }}>
+          {t.statusTitle}: {visibilityText}
+        </div>
         {business?.status && (
-          <span style={{ fontWeight: 600, color: "#166534" }}>
-            {isAr ? "الحالة" : "Status"}: {business.status}
-          </span>
+          <div style={{ fontWeight: 700, color: "#166534" }}>
+            {t.status}: {business.status}
+          </div>
         )}
-      </div>
+      </section>
 
-      <div
-        style={{
-          background: "#fff",
-          padding: 24,
-          borderRadius: 12,
-          boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
-        }}
-      >
-        <h3 style={{ marginBottom: 14, color: "#111827" }}>{t.details}</h3>
+      {/* Main Grid */}
+      <section style={mainGrid}>
+        {/* Business Details */}
+        <div style={panelCard}>
+          <div style={panelHeader}>
+            <h3 style={panelTitle}>{t.details}</h3>
+            <p style={panelDesc}>{t.detailsDesc}</p>
+          </div>
 
-        <input
-          name="name"
-          value={form.name || ""}
-          onChange={handleChange}
-          placeholder={isAr ? "اسم النشاط التجاري" : "Business Name"}
-          style={{
-            width: "100%",
-            padding: 10,
-            marginBottom: 12,
-            borderRadius: 8,
-            border: "1px solid #ddd",
-            textAlign: isAr ? "right" : "left",
-          }}
-        />
+          <div style={formGrid}>
+            <div style={fieldBlock}>
+              <label style={labelStyle}>{t.name}</label>
+              <input
+                name="name"
+                value={form.name || ""}
+                onChange={handleChange}
+                placeholder={t.name}
+                style={inputStyle(isAr)}
+              />
+            </div>
 
-        <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>
-          {isAr ? "الفئة" : "Category"}
-        </label>
+            <div style={fieldBlock}>
+              <label style={labelStyle}>{t.category}</label>
+              <select
+                value={categoryValue}
+                onChange={(e) => {
+                  const selected = metaCategories.find((c) => c.key === e.target.value);
+                  if (!selected) return;
 
-        <select
-          value={categoryValue}
-          onChange={(e) => {
-            const selected = metaCategories.find((c) => c.key === e.target.value);
-            if (!selected) return;
+                  setForm((prev) => ({
+                    ...prev,
+                    category: [selected.key],
+                  }));
+                }}
+                style={inputStyle(isAr)}
+              >
+                <option value="">{isAr ? "اختر الفئة" : "Select category"}</option>
+                {metaCategories.map((c) => (
+                  <option key={c.key} value={c.key}>
+                    {isAr ? c.ar : c.en}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-            setForm((prev) => ({
-              ...prev,
-              category: [selected.key],
-            }));
-          }}
-          style={{
-            width: "100%",
-            padding: 10,
-            borderRadius: 8,
-            border: "1px solid #ddd",
-            marginBottom: 12,
-            textAlign: isAr ? "right" : "left",
-          }}
-        >
-          <option value="">{isAr ? "اختر الفئة" : "Select category"}</option>
-          {metaCategories.map((c) => (
-            <option key={c.key} value={c.key}>
-              {isAr ? c.ar : c.en}
-            </option>
-          ))}
-        </select>
+            <div style={fieldBlock}>
+              <label style={labelStyle}>{t.media}</label>
+              <input
+                name="mediaLink"
+                value={form.mediaLink || ""}
+                onChange={handleChange}
+                placeholder="https://instagram.com/..."
+                style={inputStyle(isAr)}
+              />
+            </div>
 
-        <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>
-          {t.media}
-        </label>
-        <input
-          name="mediaLink"
-          value={form.mediaLink || ""}
-          onChange={handleChange}
-          placeholder="https://instagram.com/..."
-          style={{
-            width: "100%",
-            padding: 10,
-            borderRadius: 8,
-            border: "1px solid #ddd",
-            marginBottom: 12,
-            textAlign: isAr ? "right" : "left",
-          }}
-        />
+            <div style={fieldBlock}>
+              <label style={labelStyle}>{t.map}</label>
+              <input
+                name="mapLink"
+                value={form.mapLink || ""}
+                onChange={handleChange}
+                placeholder="https://maps.google.com/..."
+                style={inputStyle(isAr)}
+              />
+              {form.mapLink ? (
+                <a
+                  href={form.mapLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={linkStyle}
+                >
+                  {t.openLocation}
+                </a>
+              ) : null}
+            </div>
+          </div>
 
-        <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>
-          {t.map}
-        </label>
-        <input
-          name="mapLink"
-          value={form.mapLink || ""}
-          onChange={handleChange}
-          placeholder="https://maps.google.com/..."
-          style={{
-            width: "100%",
-            padding: 10,
-            borderRadius: 8,
-            border: "1px solid #ddd",
-            marginBottom: 16,
-            textAlign: isAr ? "right" : "left",
-          }}
-        />
+          <div style={{ marginTop: 18 }}>
+            <button onClick={updateBusiness} style={primaryBtn}>
+              {t.save}
+            </button>
+          </div>
+        </div>
 
-        <button
-          onClick={updateBusiness}
-          style={{
-            background: "#22c55e",
-            color: "#fff",
-            border: "none",
-            padding: "10px 20px",
-            borderRadius: 8,
-            cursor: "pointer",
-            fontWeight: 600,
-          }}
-        >
-          {t.update}
-        </button>
-      </div>
+        {/* WhatsApp Update */}
+        <div style={panelCard}>
+          <div style={panelHeader}>
+            <h3 style={panelTitle}>{t.whatsappTitle}</h3>
+            <p style={panelDesc}>{t.whatsappDesc}</p>
+          </div>
 
-      <div style={{ marginTop: 30 }}>
-        <h3>{t.whatsapp}</h3>
-        <WhatsAppVerify
-          lang={lang}
-          token={token}
-          businessName={business?.name || ""}
-          currentWhatsapp={business?.whatsapp || ""}
-          onVerified={(result) => {
-            setForm((prev) => ({
-              ...prev,
-              whatsapp: result?.whatsapp || prev.whatsapp,
-            }));
-          }}
-        />
-      </div>
-
-      <div style={{ marginTop: 30 }}>
-        <h3>{t.actions}</h3>
-        <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
-          <button
-            onClick={toggleStatus}
-            style={{
-              background: "#eab308",
-              color: "#fff",
-              border: "none",
-              padding: "10px 16px",
-              borderRadius: 8,
-              fontWeight: 600,
-              cursor: "pointer",
+          <WhatsAppVerify
+            lang={lang}
+            token={token}
+            businessName={business?.name || ""}
+            currentWhatsapp={business?.whatsapp || ""}
+            onVerified={(result) => {
+              setForm((prev) => ({
+                ...prev,
+                whatsapp: result?.whatsapp || prev.whatsapp,
+              }));
             }}
-          >
+          />
+        </div>
+      </section>
+
+      {/* Actions */}
+      <section style={panelCard}>
+        <div style={panelHeader}>
+          <h3 style={panelTitle}>{t.actions}</h3>
+          <p style={panelDesc}>{t.actionsDesc}</p>
+        </div>
+
+        <div style={actionsWrap}>
+          <button onClick={toggleStatus} style={warningBtn}>
             {business?.status === "Suspended" ? t.reactivate : t.suspend}
           </button>
 
-          <button
-            onClick={deleteBusiness}
-            style={{
-              background: "#ef4444",
-              color: "#fff",
-              border: "none",
-              padding: "10px 16px",
-              borderRadius: 8,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
+          <button onClick={deleteBusiness} style={dangerBtn}>
             {t.delete}
           </button>
         </div>
-      </div>
+      </section>
     </div>
   );
 }
+
+const pageWrap = (dir) => ({
+  maxWidth: "1280px",
+  margin: "0 auto",
+  padding: "24px",
+  direction: dir,
+});
+
+const heroCard = {
+  background: "linear-gradient(135deg, #16a34a 0%, #34d399 100%)",
+  color: "#fff",
+  borderRadius: "20px",
+  padding: "28px",
+  marginBottom: "18px",
+  boxShadow: "0 10px 30px rgba(22, 163, 74, 0.18)",
+};
+
+const heroBadge = {
+  display: "inline-block",
+  background: "rgba(255,255,255,0.18)",
+  border: "1px solid rgba(255,255,255,0.25)",
+  padding: "6px 12px",
+  borderRadius: "999px",
+  fontSize: "13px",
+  fontWeight: 600,
+  marginBottom: "14px",
+};
+
+const heroTitle = {
+  margin: "0 0 8px",
+  fontSize: "30px",
+  fontWeight: 800,
+};
+
+const heroSubtitle = {
+  margin: 0,
+  maxWidth: "760px",
+  lineHeight: 1.7,
+  color: "rgba(255,255,255,0.95)",
+};
+
+const statusCard = {
+  background: "#f0fdf4",
+  border: "1px solid #86efac",
+  borderRadius: "16px",
+  padding: "16px 20px",
+  marginBottom: "18px",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "10px",
+  flexWrap: "wrap",
+};
+
+const mainGrid = {
+  display: "grid",
+  gridTemplateColumns: "1.15fr 1fr",
+  gap: "18px",
+  marginBottom: "18px",
+};
+
+const panelCard = {
+  background: "#fff",
+  borderRadius: "18px",
+  padding: "22px",
+  border: "1px solid #e5e7eb",
+  boxShadow: "0 6px 18px rgba(15, 23, 42, 0.04)",
+};
+
+const panelHeader = {
+  marginBottom: "16px",
+};
+
+const panelTitle = {
+  margin: "0 0 6px",
+  fontSize: "22px",
+  color: "#111827",
+};
+
+const panelDesc = {
+  margin: 0,
+  color: "#6b7280",
+  fontSize: "14px",
+  lineHeight: 1.6,
+};
+
+const formGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: "14px",
+};
+
+const fieldBlock = {
+  display: "flex",
+  flexDirection: "column",
+};
+
+const labelStyle = {
+  fontSize: "14px",
+  fontWeight: 700,
+  marginBottom: "8px",
+  color: "#111827",
+};
+
+const inputStyle = (isAr) => ({
+  width: "100%",
+  padding: "12px 14px",
+  borderRadius: "12px",
+  border: "1px solid #d1d5db",
+  background: "#fff",
+  boxSizing: "border-box",
+  textAlign: isAr ? "right" : "left",
+  fontSize: "15px",
+});
+
+const linkStyle = {
+  display: "inline-block",
+  marginTop: "8px",
+  color: "#16a34a",
+  textDecoration: "none",
+  fontWeight: 600,
+  fontSize: "14px",
+};
+
+const actionsWrap = {
+  display: "flex",
+  gap: "12px",
+  flexWrap: "wrap",
+};
+
+const primaryBtn = {
+  background: "#16a34a",
+  color: "#fff",
+  border: "none",
+  borderRadius: "12px",
+  padding: "12px 18px",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const warningBtn = {
+  background: "#f59e0b",
+  color: "#fff",
+  border: "none",
+  borderRadius: "12px",
+  padding: "12px 18px",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const dangerBtn = {
+  background: "#ef4444",
+  color: "#fff",
+  border: "none",
+  borderRadius: "12px",
+  padding: "12px 18px",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const loadingCard = {
+  minHeight: "40vh",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  color: "#374151",
+  fontSize: "18px",
+  fontWeight: 600,
+};
