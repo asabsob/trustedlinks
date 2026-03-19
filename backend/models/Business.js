@@ -51,7 +51,7 @@ const BusinessSchema = new mongoose.Schema(
 
 BusinessSchema.index({ location: "2dsphere" });
 
-BusinessSchema.pre("save", function (next) {
+BusinessSchema.pre("save", function () {
   if (
     typeof this.latitude === "number" &&
     !Number.isNaN(this.latitude) &&
@@ -65,8 +65,6 @@ BusinessSchema.pre("save", function (next) {
   } else {
     this.location = undefined;
   }
-
-  next();
 });
 
 export default mongoose.models.Business || mongoose.model("Business", BusinessSchema);
