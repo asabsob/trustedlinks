@@ -11,7 +11,8 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 export default function Dashboard({ lang = "en" }) {
   const navigate = useNavigate();
   const isAr = lang === "ar";
-
+const t = (en, ar) => (isAr ? ar : en);
+  
   const [user, setUser] = useState(null);
   const [business, setBusiness] = useState(null);
   const [reports, setReports] = useState(null);
