@@ -1,5 +1,5 @@
 // ============================================================================
-// WhatsAppVerify Component — JAVNA ONLY (Production-ready)
+// WhatsAppVerify Component — Clean UI + JAVNA ONLY
 // ============================================================================
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -33,7 +33,6 @@ function buildInternational(dial, localInput) {
   const localDigits = digitsOnly(localInput);
   const normalizedLocal = localDigits.replace(/^0+/, "");
   const dialDigits = String(dial || "").replace(/\D/g, "");
-
   return `+${dialDigits}${normalizedLocal}`;
 }
 
@@ -42,23 +41,27 @@ export default function WhatsAppVerify({
   currentWhatsapp = "",
   onVerified,
 }) {
+  const isAr = lang === "ar";
+  const t = (en, ar) => (isAr ? ar : en);
+
   const [whatsapp, setWhatsapp] = useState(currentWhatsapp || "");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
   const [loading, setLoading] = useState(false);
   const [timer, setTimer] = useState(0);
+  const [message, setMessage] = useState({ type: "", text: "" });
 
   const dropdownRef = useRef(null);
 
   const countries = [
-    { code: "JO", dial: "+962", flag: "/flags/jo.png" },
-    { code: "SA", dial: "+966", flag: "/flags/sa.png" },
-    { code: "AE", dial: "+971", flag: "/flags/ae.png" },
-    { code: "QA", dial: "+974", flag: "/flags/qa.png" },
-    { code: "KW", dial: "+965", flag: "/flags/kw.png" },
-    { code: "BH", dial: "+973", flag: "/flags/bh.png" },
-    { code: "OM", dial: "+968", flag: "/flags/om.png" },
+    { code: "JO", dial: "+962" },
+    { code: "SA", dial: "+966" },
+    { code: "AE", dial: "+971" },
+    { code: "QA", dial: "+974" },
+    { code: "KW", dial: "+965" },
+    { code: "BH", dial: "+973" },
+    { code: "OM", dial: "+968" },
   ];
 
   const [country, setCountry] = useState(countries[0]);
@@ -87,24 +90,30 @@ export default function WhatsAppVerify({
     return () => clearInterval(id);
   }, [timer]);
 
-  // ================= SEND OTP =================
   const sendOtp = async () => {
     if (loading) return;
 
     const digits = digitsOnly(whatsapp);
 
     if (!digits) {
-      alert(lang === "ar" ? "أدخل رقم الهاتف" : "Enter phone number");
+      setMessage({
+        type: "error",
+        text: t("Please enter your phone number.", "يرجى إدخال رقم الهاتف."),
+      });
       return;
     }
 
     if (digits.length < 8) {
-      alert(lang === "ar" ? "رقم غير صالح" : "Invalid phone number");
+      setMessage({
+        type: "error",
+        text: t("Invalid phone number.", "رقم الهاتف غير صالح."),
+      });
       return;
     }
 
     try {
       setLoading(true);
+      setMessage({ type: "", text: "" });
 
       await post("/api/whatsapp/request-otp", {
         whatsapp: fullNumber,
@@ -112,24 +121,32 @@ export default function WhatsAppVerify({
 
       setOtpSent(true);
       setTimer(60);
-
-      alert(lang === "ar" ? "تم إرسال الرمز على واتساب" : "OTP sent on WhatsApp");
+      setMessage({
+        type: "success",
+        text: t("OTP sent successfully on WhatsApp.", "تم إرسال رمز التحقق عبر واتساب بنجاح."),
+      });
     } catch (e) {
-      alert(e.message);
+      setMessage({
+        type: "error",
+        text: e.message || t("Failed to send OTP.", "فشل إرسال رمز التحقق."),
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  // ================= VERIFY OTP =================
   const verifyOtp = async () => {
     if (!otp.trim()) {
-      alert(lang === "ar" ? "أدخل الرمز" : "Enter OTP");
+      setMessage({
+        type: "error",
+        text: t("Please enter the OTP.", "يرجى إدخال رمز التحقق."),
+      });
       return;
     }
 
     try {
       setLoading(true);
+      setMessage({ type: "", text: "" });
 
       const data = await post("/api/whatsapp/verify-otp", {
         whatsapp: fullNumber,
@@ -137,27 +154,31 @@ export default function WhatsAppVerify({
       });
 
       const digits = fullNumber.replace(/\D/g, "");
-   const otpToken = data?.token || data?.otpToken || "";
-      localStorage.setItem("otpToken", otpToken);
+      const otpToken = data?.token || data?.otpToken || "";
 
+      localStorage.setItem("otpToken", otpToken);
       setOtpVerified(true);
 
-      // حفظ التوكن
-      localStorage.setItem("otpToken", otpToken);
-
-      // إرسال النتيجة للأب
       if (onVerified) {
         onVerified({
           whatsapp: digits,
           whatsappLink: `https://wa.me/${digits}`,
-          otpToken: otpToken,
+          otpToken,
           metaVerified: null,
         });
       }
 
-      alert(lang === "ar" ? "تم التحقق بنجاح" : "Verified successfully");
+      setMessage({
+        type: "success",
+        text: t("WhatsApp verified successfully.", "تم توثيق رقم واتساب بنجاح."),
+      });
     } catch (e) {
-      alert(lang === "ar" ? `فشل التحقق: ${e.message}` : `Verify failed: ${e.message}`);
+      setMessage({
+        type: "error",
+        text:
+          e.message ||
+          t("Verification failed.", "فشل التحقق."),
+      });
     } finally {
       setLoading(false);
     }
@@ -170,23 +191,33 @@ export default function WhatsAppVerify({
   };
 
   return (
-    <div className="w-full bg-white border rounded-xl p-4 space-y-3">
+    <div style={wrapStyle(isAr)}>
+      <div style={headerStyle}>
+        <h4 style={titleStyle}>
+          {t("WhatsApp Verification", "توثيق واتساب")}
+        </h4>
+        <p style={descStyle}>
+          {t(
+            "Use OTP verification to confirm the WhatsApp number connected to your business.",
+            "استخدم رمز التحقق لتأكيد رقم واتساب المرتبط بنشاطك."
+          )}
+        </p>
+      </div>
 
-      {/* Country + Phone */}
-      <div className="flex gap-3">
-
-        <div className="relative w-36" ref={dropdownRef}>
+      <div style={rowStyle}>
+        <div style={{ ...fieldStyle, maxWidth: 140 }} ref={dropdownRef}>
+          <label style={labelStyle}>{t("Country", "الدولة")}</label>
           <button
             type="button"
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="w-full border rounded-lg px-3 py-2 bg-white flex justify-between items-center"
+            style={dropdownButtonStyle}
           >
             <span>{country.dial}</span>
             <span>▾</span>
           </button>
 
           {dropdownOpen && (
-            <div className="absolute w-full bg-white border rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto z-20">
+            <div style={dropdownMenuStyle}>
               {countries.map((c) => (
                 <div
                   key={c.code}
@@ -194,7 +225,7 @@ export default function WhatsAppVerify({
                     setCountry(c);
                     setDropdownOpen(false);
                   }}
-                  className="px-3 py-2 cursor-pointer hover:bg-gray-100"
+                  style={dropdownItemStyle}
                 >
                   {c.dial}
                 </div>
@@ -203,65 +234,225 @@ export default function WhatsAppVerify({
           )}
         </div>
 
-        <input
-          value={whatsapp}
-          onChange={(e) => setWhatsapp(e.target.value)}
-          placeholder={lang === "ar" ? "رقم الهاتف" : "Phone number"}
-          className="flex-1 border rounded-lg px-3 py-2"
-        />
+        <div style={{ ...fieldStyle, flex: 1 }}>
+          <label style={labelStyle}>{t("Phone Number", "رقم الهاتف")}</label>
+          <input
+            value={whatsapp}
+            onChange={(e) => setWhatsapp(e.target.value)}
+            placeholder={t("Phone number", "رقم الهاتف")}
+            style={inputStyle(isAr)}
+          />
+        </div>
       </div>
 
-      <div className="text-xs text-gray-500">
-        {lang === "ar" ? "سيتم الإرسال إلى:" : "Sending to:"} {fullNumber}
+      <div style={helperTextStyle}>
+        {t("Sending to:", "سيتم الإرسال إلى:")} <strong>{fullNumber}</strong>
       </div>
 
-      {!otpSent && (
-        <button
-          onClick={sendOtp}
-          disabled={loading}
-          className="w-full bg-green-600 text-white py-2 rounded-lg"
+      {message.text ? (
+        <div
+          style={
+            message.type === "success" ? successMessageStyle : errorMessageStyle
+          }
         >
-          {loading ? "..." : lang === "ar" ? "إرسال الرمز" : "Send OTP"}
+          {message.text}
+        </div>
+      ) : null}
+
+      {!otpSent && !otpVerified && (
+        <button onClick={sendOtp} disabled={loading} style={primaryBtn}>
+          {loading ? "..." : t("Send OTP", "إرسال الرمز")}
         </button>
       )}
 
       {otpSent && !otpVerified && (
-        <div className="space-y-3">
+        <div style={{ marginTop: 16 }}>
+          <div style={fieldStyle}>
+            <label style={labelStyle}>{t("OTP Code", "رمز التحقق")}</label>
+            <input
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+              placeholder="OTP"
+              style={inputStyle(isAr)}
+            />
+          </div>
 
-          <input
-            value={otp}
-            onChange={(e) => setOtp(e.target.value)}
-            placeholder="OTP"
-            className="w-full border rounded-lg px-3 py-2"
-          />
+          <div style={actionRowStyle}>
+            <button onClick={verifyOtp} disabled={loading} style={primaryBtn}>
+              {loading ? "..." : t("Verify", "تحقق")}
+            </button>
 
-          <button
-            onClick={verifyOtp}
-            disabled={loading}
-            className="w-full bg-green-600 text-white py-2 rounded-lg"
-          >
-            {loading ? "..." : lang === "ar" ? "تحقق" : "Verify"}
-          </button>
-
-          <button
-            onClick={resendOtp}
-            disabled={timer > 0 || loading}
-            className="w-full bg-blue-600 text-white py-2 rounded-lg"
-          >
-            {timer > 0
-              ? `${lang === "ar" ? "إعادة خلال" : "Resend in"} ${timer}s`
-              : lang === "ar"
-              ? "إعادة الإرسال"
-              : "Resend OTP"}
-          </button>
+            <button
+              onClick={resendOtp}
+              disabled={timer > 0 || loading}
+              style={secondaryBtn(timer > 0 || loading)}
+            >
+              {timer > 0
+                ? `${t("Resend in", "إعادة خلال")} ${timer}s`
+                : t("Resend OTP", "إعادة الإرسال")}
+            </button>
+          </div>
         </div>
       )}
 
       {otpVerified && (
-        <div className="text-green-600 font-semibold text-sm">
-          ✅ {lang === "ar" ? "تم توثيق واتساب" : "WhatsApp verified"}
+        <div style={verifiedBadgeStyle}>
+          ✅ {t("WhatsApp verified", "تم توثيق واتساب")}
         </div>
       )}
     </div>
   );
 }
+
+const wrapStyle = (isAr) => ({
+  background: "#fff",
+  border: "1px solid #e5e7eb",
+  borderRadius: "18px",
+  padding: "22px",
+  boxShadow: "0 6px 18px rgba(15, 23, 42, 0.04)",
+  direction: isAr ? "rtl" : "ltr",
+});
+
+const headerStyle = {
+  marginBottom: "16px",
+};
+
+const titleStyle = {
+  margin: "0 0 6px",
+  fontSize: "20px",
+  color: "#111827",
+};
+
+const descStyle = {
+  margin: 0,
+  color: "#6b7280",
+  fontSize: "14px",
+  lineHeight: 1.6,
+};
+
+const rowStyle = {
+  display: "flex",
+  gap: "12px",
+  flexWrap: "wrap",
+};
+
+const fieldStyle = {
+  display: "flex",
+  flexDirection: "column",
+  position: "relative",
+};
+
+const labelStyle = {
+  fontSize: "14px",
+  fontWeight: 700,
+  marginBottom: "8px",
+  color: "#111827",
+};
+
+const inputStyle = (isAr) => ({
+  width: "100%",
+  padding: "12px 14px",
+  borderRadius: "12px",
+  border: "1px solid #d1d5db",
+  background: "#fff",
+  boxSizing: "border-box",
+  textAlign: isAr ? "right" : "left",
+  fontSize: "15px",
+});
+
+const dropdownButtonStyle = {
+  width: "100%",
+  border: "1px solid #d1d5db",
+  borderRadius: "12px",
+  padding: "12px 14px",
+  background: "#fff",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  cursor: "pointer",
+  fontSize: "15px",
+};
+
+const dropdownMenuStyle = {
+  position: "absolute",
+  top: "100%",
+  left: 0,
+  right: 0,
+  marginTop: "6px",
+  background: "#fff",
+  border: "1px solid #e5e7eb",
+  borderRadius: "12px",
+  boxShadow: "0 10px 24px rgba(15, 23, 42, 0.08)",
+  zIndex: 20,
+  overflow: "hidden",
+};
+
+const dropdownItemStyle = {
+  padding: "10px 14px",
+  cursor: "pointer",
+  borderBottom: "1px solid #f3f4f6",
+};
+
+const helperTextStyle = {
+  marginTop: "10px",
+  color: "#6b7280",
+  fontSize: "13px",
+};
+
+const actionRowStyle = {
+  display: "flex",
+  gap: "12px",
+  flexWrap: "wrap",
+  marginTop: "14px",
+};
+
+const primaryBtn = {
+  background: "#16a34a",
+  color: "#fff",
+  border: "none",
+  borderRadius: "12px",
+  padding: "12px 18px",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const secondaryBtn = (disabled) => ({
+  background: disabled ? "#d1d5db" : "#2563eb",
+  color: "#fff",
+  border: "none",
+  borderRadius: "12px",
+  padding: "12px 18px",
+  fontWeight: 700,
+  cursor: disabled ? "not-allowed" : "pointer",
+});
+
+const successMessageStyle = {
+  marginTop: "14px",
+  background: "#f0fdf4",
+  border: "1px solid #86efac",
+  color: "#166534",
+  borderRadius: "12px",
+  padding: "12px 14px",
+  fontSize: "14px",
+};
+
+const errorMessageStyle = {
+  marginTop: "14px",
+  background: "#fef2f2",
+  border: "1px solid #fecaca",
+  color: "#991b1b",
+  borderRadius: "12px",
+  padding: "12px 14px",
+  fontSize: "14px",
+};
+
+const verifiedBadgeStyle = {
+  marginTop: "16px",
+  background: "#ecfdf5",
+  color: "#166534",
+  border: "1px solid #a7f3d0",
+  borderRadius: "999px",
+  padding: "10px 14px",
+  display: "inline-block",
+  fontWeight: 700,
+};
