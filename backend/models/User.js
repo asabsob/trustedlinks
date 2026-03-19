@@ -8,8 +8,14 @@ const UserSchema = new mongoose.Schema(
     emailVerified: { type: Boolean, default: false },
     verifyToken: { type: String, default: null },
 
+    // ❌ سنوقف الاشتراك مؤقتًا
     subscriptionPlan: { type: String, default: null },
     planActivatedAt: { type: Date, default: null },
+
+    // ✅ الجديد (Wallet)
+    walletBalance: { type: Number, default: 5 }, // 🎁 5$ مجاني
+    currency: { type: String, default: "USD" },
+    freeCreditGranted: { type: Boolean, default: true },
 
     resetToken: { type: String, default: null },
     resetTokenExpiresAt: { type: Date, default: null },
