@@ -4,15 +4,13 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useLang } from "../context/LangContext.jsx";
+
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 
-export default function Dashboard() {
+export default function Dashboard({ lang = "en" }) {
   const navigate = useNavigate();
-  const { lang } = useLang();
   const isAr = lang === "ar";
-  const t = (en, ar) => (isAr ? ar : en);
 
   const [user, setUser] = useState(null);
   const [business, setBusiness] = useState(null);
