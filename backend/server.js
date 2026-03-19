@@ -1035,7 +1035,16 @@ app.put("/api/business/update", requireUser, async (req, res) => {
     const b = await Business.findOne({ ownerUserId: String(req.user.id) });
     if (!b) return res.status(404).json({ error: "Business not found" });
 
-    const { name, category, mediaLink, mapLink, description, name_ar } = req.body || {};
+    const {
+      name,
+      category,
+      mediaLink,
+      mapLink,
+      description,
+      name_ar,
+      latitude,
+      longitude,
+    } = req.body || {};
 
     if (name !== undefined) b.name = name;
     if (name_ar !== undefined) b.name_ar = name_ar;
@@ -1043,6 +1052,20 @@ app.put("/api/business/update", requireUser, async (req, res) => {
     if (category !== undefined) b.category = Array.isArray(category) ? category : b.category;
     if (mediaLink !== undefined) b.mediaLink = mediaLink;
     if (mapLink !== undefined) b.mapLink = mapLink;
+
+    if (latitude !== undefined) {
+      b.latitude =
+        latitude === null || latitude === ""
+          ? null
+          : Number(latitude);
+    }
+
+    if (longitude !== undefined) {
+      b.longitude =
+        longitude === null || longitude === ""
+          ? null
+          : Number(longitude);
+    }
 
     await b.save();
     return res.json({ ok: true, business: b });
