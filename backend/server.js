@@ -430,55 +430,69 @@ app.get("/api/health", (_req, res) => {
 // AUTH (Signup/Login) + Email Verification + Forgot Password
 // ============================================================================
 
-// 1) Signup user only
 app.post("/api/auth/signup", async (req, res) => {
   try {
-    const { email, password } = req.body || {};
+    const { email, password, business } = req.body || {};
+
     if (!email || !password) {
-      return res.status(400).json({ error: "Email and password required" });
+      return res.status(400).json({ error: "Email and password are required" });
     }
 
-    const emailNorm = String(email).toLowerCase().trim();
-    const exists = await User.findOne({ email: emailNorm });
-    if (exists) return res.status(400).json({ error: "Email already registered" });
+    if (!business) {
+      return res.status(400).json({ error: "Business data is required" });
+    }
 
-    const passwordHash = await bcrypt.hash(String(password), 10);
-    const verifyToken = nanoid(32);
+    const existingUser = await User.findOne({ email: String(email).trim().toLowerCase() });
+    if (existingUser) {
+      return res.status(409).json({ error: "Email already exists" });
+    }
 
-    await User.create({
-      email: emailNorm,
+    const existingBusiness = await Business.findOne({ whatsapp: business.whatsapp });
+    if (existingBusiness) {
+      return res.status(409).json({ error: "This WhatsApp number is already registered" });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const verifyToken = crypto.randomBytes(32).toString("hex");
+
+    const user = await User.create({
+      email: String(email).trim().toLowerCase(),
       passwordHash,
       emailVerified: false,
       verifyToken,
-      subscriptionPlan: null,
-      planActivatedAt: null,
-      resetToken: null,
-      resetTokenExpiresAt: null,
+      subscriptionPlan: "monthly",
     });
 
-    const verifyUrl =
-      `${API_BASE_URL}/api/auth/verify-email` +
-      `?email=${encodeURIComponent(emailNorm)}` +
-      `&token=${encodeURIComponent(verifyToken)}`;
+    const createdBusiness = await Business.create({
+      ownerUserId: String(user._id),
 
-    try {
-      await sendEmail({
-        to: emailNorm,
-        subject: "Verify your email",
-        text: `Verify your email using this link: ${verifyUrl}`,
-        html: `<p>Verify your email:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
-      });
-    } catch (err) {
-      console.error("send verification email error:", err);
-    }
+      name: business.name || "",
+      name_ar: business.name_ar || "",
+      description: business.description || "",
+      category: Array.isArray(business.category) ? business.category : [],
+      keywords: Array.isArray(business.keywords) ? business.keywords : [],
 
-    return res.json({
+      whatsapp: business.whatsapp,
+      status: "Active",
+
+      latitude: typeof business.latitude === "number" ? business.latitude : null,
+      longitude: typeof business.longitude === "number" ? business.longitude : null,
+      mapLink: business.mapLink || "",
+      mediaLink: business.mediaLink || "",
+    });
+
+    // إذا عندك إرسال إيميل تفعيل، خله كما هو هنا
+
+    return res.status(201).json({
       ok: true,
-      message: "Signup ok. Check your email.",
+      userId: String(user._id),
+      businessId: String(createdBusiness._id),
+      message: "User and business created successfully",
     });
   } catch (e) {
-    console.error("signup error", e);
-    return res.status(500).json({ error: "Internal server error" });
+    console.error("signup error:", e);
+    return res.status(500).json({ error: "Signup failed" });
   }
 });
 
