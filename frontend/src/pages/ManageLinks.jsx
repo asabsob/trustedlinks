@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import WhatsAppVerify from "../components/WhatsAppVerify";
+import LocationPicker from "../components/LocationPicker";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 
@@ -11,6 +12,7 @@ export default function ManageLinks({ lang = "en" }) {
   const [business, setBusiness] = useState(null);
   const [form, setForm] = useState({});
   const [loading, setLoading] = useState(true);
+  const [feedback, setFeedback] = useState({ type: "", text: "" });
 
   const metaCategories = useMemo(
     () => [
@@ -52,7 +54,9 @@ export default function ManageLinks({ lang = "en" }) {
           name: "Business Name",
           category: "Category",
           media: "Media / Instagram Link",
-          map: "Map Location Link",
+          map: "Business Location",
+          mapLink: "Map Link",
+          coordinates: "Coordinates",
           openLocation: "Open location",
           save: "Save Changes",
           success: "✅ Updated successfully!",
@@ -67,6 +71,7 @@ export default function ManageLinks({ lang = "en" }) {
           delete: "Delete Business",
           confirmDelete: "Are you sure?",
           loading: "Loading...",
+          selectCategory: "Select category",
         },
         ar: {
           title: "إدارة معلومات نشاطك",
@@ -81,7 +86,9 @@ export default function ManageLinks({ lang = "en" }) {
           name: "اسم النشاط",
           category: "الفئة",
           media: "رابط الوسائط أو إنستغرام",
-          map: "رابط موقع النشاط",
+          map: "موقع النشاط",
+          mapLink: "رابط الخريطة",
+          coordinates: "الإحداثيات",
           openLocation: "فتح الموقع",
           save: "حفظ التغييرات",
           success: "✅ تم التحديث بنجاح!",
@@ -96,6 +103,7 @@ export default function ManageLinks({ lang = "en" }) {
           delete: "حذف النشاط",
           confirmDelete: "هل أنت متأكد؟",
           loading: "جارٍ التحميل...",
+          selectCategory: "اختر الفئة",
         },
       }[lang] || {}),
     [lang]
@@ -107,6 +115,7 @@ export default function ManageLinks({ lang = "en" }) {
     async function load() {
       try {
         setLoading(true);
+        setFeedback({ type: "", text: "" });
 
         const r = await fetch(`${API_BASE}/api/business/me`, {
           headers: {
@@ -126,7 +135,7 @@ export default function ManageLinks({ lang = "en" }) {
         if (!cancelled) {
           setBusiness(null);
           setForm({});
-          alert(t.load_failed || "Failed to load");
+          setFeedback({ type: "error", text: t.load_failed || "Failed to load" });
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -152,6 +161,8 @@ export default function ManageLinks({ lang = "en" }) {
 
   const updateBusiness = async () => {
     try {
+      setFeedback({ type: "", text: "" });
+
       const payload = {
         ...form,
         category:
@@ -162,6 +173,14 @@ export default function ManageLinks({ lang = "en" }) {
             : form.category
             ? [form.category]
             : [],
+        latitude:
+          typeof form.latitude === "number"
+            ? form.latitude
+            : Number(form.latitude) || null,
+        longitude:
+          typeof form.longitude === "number"
+            ? form.longitude
+            : Number(form.longitude) || null,
       };
 
       const res = await fetch(`${API_BASE}/api/business/update`, {
@@ -179,10 +198,10 @@ export default function ManageLinks({ lang = "en" }) {
       const updatedBusiness = data.business || data;
       setBusiness(updatedBusiness);
       setForm(updatedBusiness);
-      alert(t.success);
+      setFeedback({ type: "success", text: t.success });
     } catch (err) {
       console.error(err);
-      alert(t.update_failed);
+      setFeedback({ type: "error", text: t.update_failed });
     }
   };
 
@@ -204,6 +223,8 @@ export default function ManageLinks({ lang = "en" }) {
 
   const toggleStatus = async () => {
     try {
+      setFeedback({ type: "", text: "" });
+
       const res = await fetch(`${API_BASE}/api/business/toggle-status`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` },
@@ -214,9 +235,13 @@ export default function ManageLinks({ lang = "en" }) {
 
       setBusiness((prev) => ({ ...(prev || {}), status: data.status }));
       setForm((prev) => ({ ...(prev || {}), status: data.status }));
-      alert(`${t.status}: ${data.status || "updated"}`);
+      setFeedback({
+        type: "success",
+        text: `${t.status}: ${data.status || "updated"}`,
+      });
     } catch (err) {
       console.error(err);
+      setFeedback({ type: "error", text: t.update_failed });
     }
   };
 
@@ -233,6 +258,19 @@ export default function ManageLinks({ lang = "en" }) {
     ? form.category.key || ""
     : form.category || "";
 
+  const categoryLabel = useMemo(() => {
+    const current = metaCategories.find((c) => c.key === categoryValue);
+    return current ? (isAr ? current.ar : current.en) : categoryValue || "-";
+  }, [categoryValue, metaCategories, isAr]);
+
+  const currentLocation =
+    form.latitude != null && form.longitude != null
+      ? {
+          lat: Number(form.latitude),
+          lng: Number(form.longitude),
+        }
+      : null;
+
   if (loading) {
     return (
       <div style={pageWrap(dir)}>
@@ -243,14 +281,18 @@ export default function ManageLinks({ lang = "en" }) {
 
   return (
     <div style={pageWrap(dir)}>
-      {/* Hero */}
       <section style={heroCard}>
         <div style={heroBadge}>{t.details}</div>
         <h1 style={heroTitle}>{t.title}</h1>
         <p style={heroSubtitle}>{t.desc}</p>
       </section>
 
-      {/* Status */}
+      {feedback.text ? (
+        <div style={feedback.type === "success" ? successBox : errorBox}>
+          {feedback.text}
+        </div>
+      ) : null}
+
       <section style={statusCard}>
         <div style={{ fontWeight: 700, color: "#166534" }}>
           {t.statusTitle}: {visibilityText}
@@ -262,13 +304,22 @@ export default function ManageLinks({ lang = "en" }) {
         )}
       </section>
 
-      {/* Main Grid */}
       <section style={mainGrid}>
-        {/* Business Details */}
         <div style={panelCard}>
           <div style={panelHeader}>
             <h3 style={panelTitle}>{t.details}</h3>
             <p style={panelDesc}>{t.detailsDesc}</p>
+          </div>
+
+          <div style={summaryRow}>
+            <div style={summaryChip}>
+              <span style={summaryChipLabel}>{t.category}</span>
+              <strong>{categoryLabel}</strong>
+            </div>
+            <div style={summaryChip}>
+              <span style={summaryChipLabel}>{t.status}</span>
+              <strong>{business?.status || "-"}</strong>
+            </div>
           </div>
 
           <div style={formGrid}>
@@ -298,7 +349,7 @@ export default function ManageLinks({ lang = "en" }) {
                 }}
                 style={inputStyle(isAr)}
               >
-                <option value="">{isAr ? "اختر الفئة" : "Select category"}</option>
+                <option value="">{t.selectCategory}</option>
                 {metaCategories.map((c) => (
                   <option key={c.key} value={c.key}>
                     {isAr ? c.ar : c.en}
@@ -319,7 +370,7 @@ export default function ManageLinks({ lang = "en" }) {
             </div>
 
             <div style={fieldBlock}>
-              <label style={labelStyle}>{t.map}</label>
+              <label style={labelStyle}>{t.mapLink}</label>
               <input
                 name="mapLink"
                 value={form.mapLink || ""}
@@ -341,13 +392,40 @@ export default function ManageLinks({ lang = "en" }) {
           </div>
 
           <div style={{ marginTop: 18 }}>
+            <label style={{ ...labelStyle, marginBottom: 10 }}>{t.map}</label>
+
+            <LocationPicker
+              value={currentLocation}
+              onChange={({ lat, lng }) => {
+                setForm((prev) => ({
+                  ...prev,
+                  latitude: lat,
+                  longitude: lng,
+                  mapLink: `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`,
+                }));
+              }}
+              height={320}
+            />
+
+            <div style={coordsBox}>
+              <div>
+                <span style={summaryChipLabel}>{t.coordinates}</span>
+                <strong>
+                  {currentLocation
+                    ? `${Number(currentLocation.lat).toFixed(5)}, ${Number(currentLocation.lng).toFixed(5)}`
+                    : "-"}
+                </strong>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ marginTop: 18 }}>
             <button onClick={updateBusiness} style={primaryBtn}>
               {t.save}
             </button>
           </div>
         </div>
 
-        {/* WhatsApp Update */}
         <div style={panelCard}>
           <div style={panelHeader}>
             <h3 style={panelTitle}>{t.whatsappTitle}</h3>
@@ -364,12 +442,17 @@ export default function ManageLinks({ lang = "en" }) {
                 ...prev,
                 whatsapp: result?.whatsapp || prev.whatsapp,
               }));
+              setFeedback({
+                type: "success",
+                text: isAr
+                  ? "✅ تم تحديث رقم واتساب بنجاح."
+                  : "✅ WhatsApp number verified successfully.",
+              });
             }}
           />
         </div>
       </section>
 
-      {/* Actions */}
       <section style={panelCard}>
         <div style={panelHeader}>
           <h3 style={panelTitle}>{t.actions}</h3>
@@ -475,6 +558,28 @@ const panelDesc = {
   lineHeight: 1.6,
 };
 
+const summaryRow = {
+  display: "flex",
+  gap: "12px",
+  flexWrap: "wrap",
+  marginBottom: "16px",
+};
+
+const summaryChip = {
+  background: "#f9fafb",
+  border: "1px solid #e5e7eb",
+  borderRadius: "14px",
+  padding: "10px 14px",
+  minWidth: "150px",
+};
+
+const summaryChipLabel = {
+  display: "block",
+  fontSize: "12px",
+  color: "#6b7280",
+  marginBottom: "4px",
+};
+
 const formGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
@@ -511,6 +616,14 @@ const linkStyle = {
   textDecoration: "none",
   fontWeight: 600,
   fontSize: "14px",
+};
+
+const coordsBox = {
+  marginTop: "12px",
+  background: "#f9fafb",
+  border: "1px solid #e5e7eb",
+  borderRadius: "14px",
+  padding: "12px 14px",
 };
 
 const actionsWrap = {
@@ -556,5 +669,27 @@ const loadingCard = {
   justifyContent: "center",
   color: "#374151",
   fontSize: "18px",
+  fontWeight: 600,
+};
+
+const successBox = {
+  marginBottom: "16px",
+  background: "#f0fdf4",
+  border: "1px solid #86efac",
+  color: "#166534",
+  borderRadius: "14px",
+  padding: "12px 14px",
+  fontSize: "14px",
+  fontWeight: 600,
+};
+
+const errorBox = {
+  marginBottom: "16px",
+  background: "#fef2f2",
+  border: "1px solid #fecaca",
+  color: "#991b1b",
+  borderRadius: "14px",
+  padding: "12px 14px",
+  fontSize: "14px",
   fontWeight: 600,
 };
