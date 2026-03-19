@@ -113,8 +113,7 @@ export default function Signup({ lang = "en" }) {
       otpToken,
     };
 
-    // optional backup فقط
-    localStorage.setItem("pendingBusiness", JSON.stringify(businessPayload));
+  
     localStorage.setItem("otpToken", otpToken);
 
     const res = await fetch(`${API_BASE}/api/auth/signup`, {
