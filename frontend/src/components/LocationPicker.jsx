@@ -1,59 +1,57 @@
-import { useEffect } from "react";
-import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
+import React, { useEffect, useRef } from "react";
 
-// Fix default marker icons in React/Vite
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-});
+export default function LocationPicker({ value, onChange }) {
+  const mapRef = useRef(null);
+  const markerRef = useRef(null);
 
-function ClickHandler({ value, onChange }) {
-  useMapEvents({
-    click(e) {
-      const next = {
-        lat: e.latlng.lat,
-        lng: e.latlng.lng,
-      };
-      onChange(next);
-    },
-  });
-
-  return value ? <Marker position={[value.lat, value.lng]} /> : null;
-}
-
-function RecenterMap({ value }) {
-  const map = useMapEvents({});
   useEffect(() => {
-    if (value?.lat && value?.lng) {
-      map.setView([value.lat, value.lng], 16);
-    }
-  }, [value, map]);
+    if (!window.google) return;
 
-  return null;
-}
+    const defaultLocation = value || { lat: 31.9539, lng: 35.9106 }; // عمان
 
-export default function LocationPicker({ value, onChange, height = 320 }) {
-  const center = value?.lat && value?.lng ? [value.lat, value.lng] : [31.9539, 35.9106]; // Amman default
+    const map = new window.google.maps.Map(mapRef.current, {
+      center: defaultLocation,
+      zoom: 13,
+    });
+
+    const marker = new window.google.maps.Marker({
+      position: defaultLocation,
+      map,
+      draggable: true,
+    });
+
+    markerRef.current = marker;
+
+    marker.addListener("dragend", () => {
+      const pos = marker.getPosition();
+      const newLocation = {
+        lat: pos.lat(),
+        lng: pos.lng(),
+      };
+
+      onChange && onChange(newLocation);
+    });
+
+    map.addListener("click", (e) => {
+      const newLocation = {
+        lat: e.latLng.lat(),
+        lng: e.latLng.lng(),
+      };
+
+      marker.setPosition(newLocation);
+      onChange && onChange(newLocation);
+    });
+  }, []);
 
   return (
-    <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid #ddd" }}>
-      <MapContainer
-        center={center}
-        zoom={13}
-        style={{ height, width: "100%" }}
-        scrollWheelZoom
-      >
-        <TileLayer
-          attribution='&copy; OpenStreetMap contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <ClickHandler value={value} onChange={onChange} />
-        <RecenterMap value={value} />
-      </MapContainer>
-    </div>
+    <div
+      ref={mapRef}
+      style={{
+        width: "100%",
+        height: "300px",
+        borderRadius: "12px",
+        border: "1px solid #ddd",
+      }}
+    />
   );
 }
