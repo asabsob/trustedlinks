@@ -716,10 +716,19 @@ app.get("/api/me", requireUser, async (req, res) => {
       id: String(user._id),
       email: user.email,
       emailVerified: Boolean(user.emailVerified),
+
+      // legacy
       subscriptionPlan: user.subscriptionPlan || null,
       planActivatedAt: user.planActivatedAt || null,
+
+      // wallet
+      walletBalance:
+        typeof user.walletBalance === "number" ? user.walletBalance : 0,
+      currency: user.currency || "USD",
+      freeCreditGranted: Boolean(user.freeCreditGranted),
     });
-  } catch {
+  } catch (e) {
+    console.error("/api/me error:", e);
     return res.status(500).json({ error: "Failed" });
   }
 });
