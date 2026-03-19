@@ -1,8 +1,8 @@
 // ============================================================================
-// Trusted Links - Business Dashboard (Bilingual: EN + AR)
+// Trusted Links - Business Dashboard (Clean + Bilingual)
 // ============================================================================
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLang } from "../context/LangContext.jsx";
 
@@ -35,23 +35,18 @@ export default function Dashboard() {
         setLoading(true);
         setError("");
 
-        // 1) Get user
         const meRes = await fetch(`${API_BASE}/api/me`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const meData = await meRes.json();
-        if (!meRes.ok) throw new Error(meData?.error || "Auth failed");
+        const meData = await meRes.json().catch(() => null);
+
+        if (!meRes.ok) {
+          throw new Error(meData?.error || "Auth failed");
+        }
 
         if (cancelled) return;
         setUser(meData);
 
-        // Subscription check
-        if (!meData.subscriptionPlan) {
-          navigate("/subscribe", { replace: true });
-          return;
-        }
-
-        // 2) Get business + 3) reports in parallel
         const [bizRes, repRes] = await Promise.all([
           fetch(`${API_BASE}/api/business/me`, {
             headers: { Authorization: `Bearer ${token}` },
@@ -66,17 +61,14 @@ export default function Dashboard() {
 
         if (cancelled) return;
 
-        if (bizRes.ok) setBusiness(bizData);
-        else setBusiness(null);
-
-        if (repRes.ok) setReports(repData);
-        else setReports(null);
+        setBusiness(bizRes.ok ? bizData : null);
+        setReports(repRes.ok ? repData : null);
       } catch (e) {
         if (cancelled) return;
         setError(
           t(
-            "Authentication failed. Please log in again.",
-            "فشل التحقق من الهوية. يرجى تسجيل الدخول مرة أخرى."
+            "Unable to load dashboard data. Please log in again.",
+            "تعذر تحميل بيانات لوحة التحكم. يرجى تسجيل الدخول مرة أخرى."
           )
         );
       } finally {
@@ -85,191 +77,464 @@ export default function Dashboard() {
     }
 
     loadAll();
+
     return () => {
       cancelled = true;
     };
-  }, [navigate, lang]);
+  }, [lang]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    navigate("/", { replace: true });
-  };
+  const businessName = useMemo(() => {
+    if (!business) return t("Your Business", "نشاطك التجاري");
+    return business.name_ar || business.name || t("Your Business", "نشاطك التجاري");
+  }, [business, lang]);
 
-  if (loading)
+  const categoryText = useMemo(() => {
+    if (!business?.category) return t("N/A", "غير متوفر");
+    if (Array.isArray(business.category)) return business.category.join(", ");
+    return business.category;
+  }, [business, lang]);
+
+  const walletText = useMemo(() => {
+    if (!user) return "0 USD";
+    const balance = typeof user.walletBalance === "number" ? user.walletBalance : 0;
+    const currency = user.currency || "USD";
+    return `${balance} ${currency}`;
+  }, [user]);
+
+  const shortMapLink = useMemo(() => {
+    if (!business?.mapLink) return null;
+    try {
+      const url = new URL(business.mapLink);
+      return url.hostname.replace("www.", "");
+    } catch {
+      return business.mapLink;
+    }
+  }, [business]);
+
+  if (loading) {
     return (
-      <p style={{ textAlign: "center" }}>{t("Loading...", "جارٍ التحميل...")}</p>
-    );
-
-  if (error)
-    return (
-      <div style={{ textAlign: "center", padding: "40px" }}>
-        <h3>⚠️ {error}</h3>
-        <p>{t("Please try again later.", "يرجى المحاولة لاحقاً.")}</p>
+      <div style={pageWrap(isAr)}>
+        <div style={loadingCard}>
+          <div style={spinnerStyle} />
+          <p style={{ margin: 0 }}>{t("Loading dashboard...", "جارٍ تحميل لوحة التحكم...")}</p>
+        </div>
       </div>
     );
+  }
+
+  if (error) {
+    return (
+      <div style={pageWrap(isAr)}>
+        <div style={errorCard}>
+          <h3 style={{ marginTop: 0 }}>⚠️ {t("Something went wrong", "حدث خطأ")}</h3>
+          <p>{error}</p>
+          <button onClick={() => navigate("/login")} style={primaryBtn}>
+            {t("Go to Login", "الذهاب إلى تسجيل الدخول")}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div
-      className="section container"
-      style={{ padding: "20px", direction: isAr ? "rtl" : "ltr" }}
-    >
-      {/* Header bar */}
-      <div
-        style={{
-          background: "#ffffff",
-          borderRadius: "12px",
-          padding: "16px 24px",
-          marginBottom: "20px",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
+    <div style={pageWrap(isAr)}>
+      {/* Hero */}
+      <section style={heroCard}>
         <div>
-          <h3 style={{ margin: 0, color: "#166534" }}>
-            {t("👋 Welcome,", "👋 أهلاً،")} {user?.email}
-          </h3>
-          <p style={{ marginTop: 4, color: "#555" }}>
-            {t("Plan:", "الخطة:")}{" "}
-            <strong style={{ color: "#22c55e" }}>
-              {user?.subscriptionPlan}
-            </strong>
+          <div style={heroBadge}>
+            {t("Business Dashboard", "لوحة تحكم النشاط")}
+          </div>
+          <h1 style={heroTitle}>
+            {t("Welcome back", "مرحبًا بعودتك")} {businessName}
+          </h1>
+          <p style={heroSubtitle}>
+            {t(
+              "Manage your business profile, wallet, and performance from one place.",
+              "تابع ملف نشاطك، رصيدك، وأداءك من مكان واحد."
+            )}
           </p>
         </div>
+      </section>
 
-        <button
-          onClick={handleLogout}
-          style={{
-            background: "#ef4444",
-            color: "#fff",
-            border: "none",
-            borderRadius: "6px",
-            padding: "8px 14px",
-            fontWeight: "600",
-            cursor: "pointer",
-          }}
-        >
-          {t("Logout", "تسجيل خروج")}
-        </button>
-      </div>
+      {/* Summary Cards */}
+      <section style={statsGrid}>
+        <StatCard
+          title={t("Wallet Balance", "الرصيد الحالي")}
+          value={walletText}
+          subtitle={t("Starter credit included", "يشمل الرصيد المجاني المبدئي")}
+        />
+        <StatCard
+          title={t("Total Clicks", "إجمالي النقرات")}
+          value={reports?.totalClicks ?? 0}
+          subtitle={t("Business interactions", "تفاعلات النشاط")}
+        />
+        <StatCard
+          title={t("Total Messages", "إجمالي الرسائل")}
+          value={reports?.totalMessages ?? 0}
+          subtitle={t("WhatsApp conversations", "محادثات واتساب")}
+        />
+        <StatCard
+          title={t("Weekly Growth", "النمو الأسبوعي")}
+          value={`${reports?.weeklyGrowth ?? 0}%`}
+          subtitle={t("Performance trend", "اتجاه الأداء")}
+        />
+      </section>
 
-      {/* Top banner */}
-      <div
-        style={{
-          background: "linear-gradient(135deg,#22c55e,#34d399)",
-          color: "#fff",
-          padding: "32px",
-          borderRadius: 14,
-          marginBottom: 16,
-        }}
-      >
-        <h2>{t("Business Dashboard", "لوحة تحكم النشاط")}</h2>
-        <p>{t("Monitor your activity and insights", "تابع نشاطك وإحصاءاتك")}</p>
-      </div>
-
-      {/* Business Info */}
-      <div
-        style={{
-          background: "#fff",
-          padding: "24px",
-          borderRadius: "12px",
-          marginBottom: "16px",
-          boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
-        }}
-      >
-        <h3 style={{ color: "#166534" }}>
-          {t("Business Details", "بيانات النشاط التجاري")}
-        </h3>
-
-        {business ? (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "12px",
-              marginTop: "14px",
-            }}
-          >
-            <div>
-              <div style={{ fontWeight: "600" }}>{t("Name", "الاسم")}</div>
-             <div>{business.name_ar || business.name}</div>
-            </div>
-
-            <div>
-              <div style={{ fontWeight: "600" }}>{t("Category", "الفئة")}</div>
-              <div>
-  {Array.isArray(business.category)
-    ? business.category.join(", ")
-    : business.category || "N/A"}
-</div>
-            </div>
-
-            <div>
-              <div style={{ fontWeight: "600" }}>{t("Description", "الوصف")}</div>
-              <div>{business.description || t("N/A", "لا يوجد")}</div>
-            </div>
-
-            <div>
-              <div style={{ fontWeight: "600" }}>{t("WhatsApp", "واتساب")}</div>
-              <div>{business.whatsapp || "N/A"}</div>
-            </div>
-
-            <div>
-              <div style={{ fontWeight: "600" }}>{t("Address", "العنوان")}</div>
-             <div>{business.mapLink || "N/A"}</div>
-            </div>
+      {/* Main Content */}
+      <section style={mainGrid}>
+        <div style={panelCard}>
+          <div style={panelHeader}>
+            <h3 style={panelTitle}>{t("Business Details", "بيانات النشاط")}</h3>
+            <p style={panelDesc}>
+              {t(
+                "Basic information for your registered business.",
+                "المعلومات الأساسية لنشاطك المسجل."
+              )}
+            </p>
           </div>
-        ) : (
-          <p>{t("No business linked yet.", "لا يوجد نشاط مسجل بعد.")}</p>
-        )}
-      </div>
 
-      {/* Reports */}
-      <div
-        style={{
-          background: "#fff",
-          padding: "24px",
-          borderRadius: "12px",
-          boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
-        }}
-      >
-        <h3 style={{ marginBottom: 12, color: "#166534" }}>
-          {t("Performance Summary", "ملخص الأداء")}
-        </h3>
-
-        {reports ? (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr 1fr",
-              gap: "16px",
-              textAlign: "center",
-            }}
-          >
-            <div style={{ background: "#f0fdf4", padding: 16, borderRadius: 10 }}>
-              <h4>{t("Total Clicks", "إجمالي النقرات")}</h4>
-              <p style={{ fontSize: 20, fontWeight: 600 }}>{reports.totalClicks}</p>
+          {business ? (
+            <div style={detailsGrid}>
+              <InfoItem
+                label={t("Business Name", "اسم النشاط")}
+                value={business.name_ar || business.name || t("N/A", "غير متوفر")}
+              />
+              <InfoItem
+                label={t("Category", "الفئة")}
+                value={categoryText}
+              />
+              <InfoItem
+                label={t("WhatsApp", "واتساب")}
+                value={business.whatsapp || t("N/A", "غير متوفر")}
+              />
+              <InfoItem
+                label={t("Description", "الوصف")}
+                value={business.description || t("N/A", "غير متوفر")}
+                fullWidth
+              />
+              <InfoItem
+                label={t("Map", "الخريطة")}
+                value={
+                  business.mapLink ? (
+                    <a
+                      href={business.mapLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={linkStyle}
+                    >
+                      {t("Open location", "فتح الموقع")} · {shortMapLink}
+                    </a>
+                  ) : (
+                    t("N/A", "غير متوفر")
+                  )
+                }
+              />
+              <InfoItem
+                label={t("Coordinates", "الإحداثيات")}
+                value={
+                  business.latitude != null && business.longitude != null
+                    ? `${business.latitude}, ${business.longitude}`
+                    : t("N/A", "غير متوفر")
+                }
+              />
             </div>
+          ) : (
+            <EmptyState
+              title={t("No business found", "لا يوجد نشاط مسجل")}
+              text={t(
+                "Your account is active, but no business profile is linked yet.",
+                "حسابك نشط، لكن لا يوجد ملف نشاط مرتبط به حتى الآن."
+              )}
+            />
+          )}
+        </div>
 
-            <div style={{ background: "#f0fdf4", padding: 16, borderRadius: 10 }}>
-              <h4>{t("Total Messages", "إجمالي الرسائل")}</h4>
-              <p style={{ fontSize: 20, fontWeight: 600 }}>
-                {reports.totalMessages}
-              </p>
-            </div>
-
-            <div style={{ background: "#f0fdf4", padding: 16, borderRadius: 10 }}>
-              <h4>{t("Weekly Growth", "نمو أسبوعي")}</h4>
-              <p style={{ fontSize: 20, fontWeight: 600 }}>
-                {reports.weeklyGrowth}%
-              </p>
-            </div>
+        <div style={panelCard}>
+          <div style={panelHeader}>
+            <h3 style={panelTitle}>{t("Performance Summary", "ملخص الأداء")}</h3>
+            <p style={panelDesc}>
+              {t(
+                "Quick overview of engagement on your business profile.",
+                "نظرة سريعة على التفاعل مع ملف نشاطك."
+              )}
+            </p>
           </div>
-        ) : (
-          <p>{t("No report data available.", "لا توجد بيانات تقارير متاحة.")}</p>
-        )}
-      </div>
+
+          {reports ? (
+            <div style={miniStatsGrid}>
+              <MiniStat
+                title={t("Views", "المشاهدات")}
+                value={reports.views ?? 0}
+              />
+              <MiniStat
+                title={t("Clicks", "النقرات")}
+                value={reports.totalClicks ?? 0}
+              />
+              <MiniStat
+                title={t("Messages", "الرسائل")}
+                value={reports.totalMessages ?? 0}
+              />
+              <MiniStat
+                title={t("Media Views", "مشاهدات الوسائط")}
+                value={reports.mediaViews ?? 0}
+              />
+            </div>
+          ) : (
+            <EmptyState
+              title={t("No report data yet", "لا توجد بيانات أداء بعد")}
+              text={t(
+                "Your analytics will appear here once users start interacting with your business.",
+                "ستظهر إحصاءاتك هنا بمجرد بدء تفاعل المستخدمين مع نشاطك."
+              )}
+            />
+          )}
+        </div>
+      </section>
     </div>
   );
 }
+
+function StatCard({ title, value, subtitle }) {
+  return (
+    <div style={statCard}>
+      <div style={statTitle}>{title}</div>
+      <div style={statValue}>{value}</div>
+      <div style={statSubtitle}>{subtitle}</div>
+    </div>
+  );
+}
+
+function MiniStat({ title, value }) {
+  return (
+    <div style={miniStatCard}>
+      <div style={miniStatTitle}>{title}</div>
+      <div style={miniStatValue}>{value}</div>
+    </div>
+  );
+}
+
+function InfoItem({ label, value, fullWidth = false }) {
+  return (
+    <div style={{ ...infoItemCard, gridColumn: fullWidth ? "1 / -1" : "auto" }}>
+      <div style={infoLabel}>{label}</div>
+      <div style={infoValue}>{value}</div>
+    </div>
+  );
+}
+
+function EmptyState({ title, text }) {
+  return (
+    <div style={emptyStateCard}>
+      <h4 style={{ marginTop: 0, marginBottom: 8 }}>{title}</h4>
+      <p style={{ margin: 0, color: "#6b7280" }}>{text}</p>
+    </div>
+  );
+}
+
+const pageWrap = (isAr) => ({
+  padding: "24px",
+  maxWidth: "1280px",
+  margin: "0 auto",
+  direction: isAr ? "rtl" : "ltr",
+});
+
+const heroCard = {
+  background: "linear-gradient(135deg, #16a34a 0%, #34d399 100%)",
+  color: "#fff",
+  borderRadius: "20px",
+  padding: "28px",
+  marginBottom: "22px",
+  boxShadow: "0 10px 30px rgba(22, 163, 74, 0.18)",
+};
+
+const heroBadge = {
+  display: "inline-block",
+  background: "rgba(255,255,255,0.18)",
+  border: "1px solid rgba(255,255,255,0.25)",
+  padding: "6px 12px",
+  borderRadius: "999px",
+  fontSize: "13px",
+  fontWeight: 600,
+  marginBottom: "14px",
+};
+
+const heroTitle = {
+  margin: "0 0 8px",
+  fontSize: "30px",
+  fontWeight: 800,
+};
+
+const heroSubtitle = {
+  margin: 0,
+  maxWidth: "720px",
+  lineHeight: 1.7,
+  color: "rgba(255,255,255,0.95)",
+};
+
+const statsGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: "16px",
+  marginBottom: "22px",
+};
+
+const statCard = {
+  background: "#fff",
+  borderRadius: "18px",
+  padding: "20px",
+  border: "1px solid #e5e7eb",
+  boxShadow: "0 6px 18px rgba(15, 23, 42, 0.04)",
+};
+
+const statTitle = {
+  color: "#6b7280",
+  fontSize: "14px",
+  marginBottom: "10px",
+};
+
+const statValue = {
+  fontSize: "28px",
+  fontWeight: 800,
+  color: "#111827",
+  marginBottom: "6px",
+};
+
+const statSubtitle = {
+  color: "#9ca3af",
+  fontSize: "13px",
+};
+
+const mainGrid = {
+  display: "grid",
+  gridTemplateColumns: "1.2fr 1fr",
+  gap: "18px",
+};
+
+const panelCard = {
+  background: "#fff",
+  borderRadius: "18px",
+  padding: "22px",
+  border: "1px solid #e5e7eb",
+  boxShadow: "0 6px 18px rgba(15, 23, 42, 0.04)",
+};
+
+const panelHeader = {
+  marginBottom: "16px",
+};
+
+const panelTitle = {
+  margin: "0 0 6px",
+  fontSize: "20px",
+  color: "#111827",
+};
+
+const panelDesc = {
+  margin: 0,
+  color: "#6b7280",
+  fontSize: "14px",
+};
+
+const detailsGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: "14px",
+};
+
+const infoItemCard = {
+  background: "#f9fafb",
+  border: "1px solid #eef2f7",
+  borderRadius: "14px",
+  padding: "14px 16px",
+};
+
+const infoLabel = {
+  fontSize: "13px",
+  color: "#6b7280",
+  marginBottom: "8px",
+  fontWeight: 600,
+};
+
+const infoValue = {
+  fontSize: "15px",
+  color: "#111827",
+  lineHeight: 1.7,
+  wordBreak: "break-word",
+};
+
+const miniStatsGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: "14px",
+};
+
+const miniStatCard = {
+  background: "#f0fdf4",
+  border: "1px solid #dcfce7",
+  borderRadius: "14px",
+  padding: "18px",
+  textAlign: "center",
+};
+
+const miniStatTitle = {
+  color: "#166534",
+  fontSize: "14px",
+  marginBottom: "8px",
+};
+
+const miniStatValue = {
+  color: "#111827",
+  fontSize: "26px",
+  fontWeight: 800,
+};
+
+const emptyStateCard = {
+  background: "#f9fafb",
+  border: "1px dashed #d1d5db",
+  borderRadius: "16px",
+  padding: "24px",
+};
+
+const loadingCard = {
+  minHeight: "50vh",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "14px",
+  color: "#374151",
+};
+
+const errorCard = {
+  maxWidth: "720px",
+  margin: "60px auto",
+  background: "#fff",
+  border: "1px solid #fee2e2",
+  borderRadius: "18px",
+  padding: "24px",
+  boxShadow: "0 8px 24px rgba(239, 68, 68, 0.08)",
+};
+
+const spinnerStyle = {
+  width: "34px",
+  height: "34px",
+  border: "4px solid #dcfce7",
+  borderTop: "4px solid #16a34a",
+  borderRadius: "50%",
+  animation: "spin 1s linear infinite",
+};
+
+const primaryBtn = {
+  background: "#16a34a",
+  color: "#fff",
+  border: "none",
+  borderRadius: "10px",
+  padding: "10px 16px",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const linkStyle = {
+  color: "#16a34a",
+  fontWeight: 600,
+  textDecoration: "none",
+};
