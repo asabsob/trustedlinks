@@ -1,10 +1,13 @@
 import mongoose from "mongoose";
 
 export async function connectDB() {
-  const uri = process.env.MONGODB_URI;
-  if (!uri) throw new Error("Missing MONGODB_URI");
+  const mongoUri = process.env.MONGODB_URI || "";
 
-  mongoose.set("strictQuery", true);
-  await mongoose.connect(uri);
-  console.log("✅ MongoDB connected");
+  console.log(
+    "MONGODB URI CHECK:",
+    mongoUri.replace(/\/\/(.*?):(.*?)@/, "//***:***@")
+  );
+
+  await mongoose.connect(mongoUri);
+  console.log("MongoDB connected");
 }
