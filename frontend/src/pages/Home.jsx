@@ -1,9 +1,9 @@
+```jsx
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 export default function Home({ lang }) {
   const navigate = useNavigate();
-
   const isArabic = lang === "ar";
 
   const handleBack = () => {
@@ -14,29 +14,23 @@ export default function Home({ lang }) {
     }
   };
 
-  const sectionTitleStyle = {
-    fontSize: "1.8rem",
-    fontWeight: "700",
-    marginBottom: "14px",
-    color: "#0f172a",
-  };
-
-  const sectionTextStyle = {
-    fontSize: "1rem",
-    color: "#475569",
-    lineHeight: "1.8",
-    maxWidth: "760px",
-    margin: "0 auto",
-  };
-
-  const cardStyle = {
-    background: "white",
-    borderRadius: "18px",
-    padding: "24px",
-    boxShadow: "0 8px 24px rgba(15,23,42,0.06)",
-    border: "1px solid #e5e7eb",
-    textAlign: isArabic ? "right" : "left",
-  };
+  const navItems = [
+    {
+      title: isArabic ? "لوحة التحكم" : "Dashboard",
+      desc: isArabic ? "نظرة عامة سريعة" : "Quick overview",
+      to: "/dashboard",
+    },
+    {
+      title: isArabic ? "إدارة الروابط" : "Manage Links",
+      desc: isArabic ? "تنظيم روابطك" : "Organize your links",
+      to: "/manage-links",
+    },
+    {
+      title: isArabic ? "توثيق واتساب" : "WhatsApp Verify",
+      desc: isArabic ? "تأكيد الرقم" : "Verify your number",
+      to: "/whatsapp-verify",
+    },
+  ];
 
   return (
     <div
@@ -45,123 +39,125 @@ export default function Home({ lang }) {
         direction: isArabic ? "rtl" : "ltr",
         background: "#f8fafc",
         minHeight: "100vh",
-        padding: "32px 20px 60px",
+        padding: "28px 18px 50px",
       }}
     >
-      <div style={{ maxWidth: "1180px", margin: "0 auto" }}>
-        {/* Top Bar */}
+      <div style={{ maxWidth: "1120px", margin: "0 auto" }}>
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            flexWrap: "wrap",
             gap: "12px",
-            marginBottom: "24px",
+            flexWrap: "wrap",
+            marginBottom: "20px",
           }}
         >
           <button
             onClick={handleBack}
             style={{
-              background: "white",
-              border: "1px solid #dbe2ea",
+              background: "#fff",
+              border: "1px solid #e2e8f0",
               borderRadius: "12px",
               padding: "10px 16px",
               cursor: "pointer",
               fontSize: "0.95rem",
               fontWeight: "600",
               color: "#0f172a",
-              boxShadow: "0 4px 12px rgba(15,23,42,0.05)",
+              boxShadow: "0 4px 14px rgba(15,23,42,0.05)",
             }}
           >
-            {isArabic ? "← العودة" : "← Back"}
+            {isArabic ? "← رجوع" : "← Back"}
           </button>
 
           <div
             style={{
-              fontSize: "0.95rem",
+              fontSize: "0.92rem",
               color: "#64748b",
               fontWeight: "500",
             }}
           >
-            {isArabic
-              ? "الرئيسية / TrustedLinks"
-              : "Home / TrustedLinks"}
+            {isArabic ? "الرئيسية" : "Home"}
           </div>
         </div>
 
-        {/* Hero */}
         <section
           style={{
             background: "linear-gradient(135deg, #16a34a, #22c55e)",
-            color: "white",
-            borderRadius: "24px",
-            padding: "56px 28px",
-            boxShadow: "0 12px 30px rgba(34,197,94,0.22)",
-            marginBottom: "28px",
+            color: "#fff",
+            borderRadius: "26px",
+            padding: "56px 26px",
+            boxShadow: "0 16px 35px rgba(34,197,94,0.18)",
+            marginBottom: "24px",
+            overflow: "hidden",
           }}
         >
-          <div style={{ maxWidth: "860px", margin: "0 auto", textAlign: "center" }}>
+          <div
+            style={{
+              maxWidth: "840px",
+              margin: "0 auto",
+              textAlign: "center",
+            }}
+          >
             <div
               style={{
                 display: "inline-block",
-                background: "rgba(255,255,255,0.16)",
-                border: "1px solid rgba(255,255,255,0.22)",
                 padding: "8px 14px",
                 borderRadius: "999px",
+                background: "rgba(255,255,255,0.14)",
+                border: "1px solid rgba(255,255,255,0.18)",
                 fontSize: "0.9rem",
                 fontWeight: "600",
                 marginBottom: "18px",
               }}
             >
-              {isArabic ? "روابط موثوقة • تواصل أسرع" : "Verified Links • Faster Access"}
+              {isArabic ? "روابط موثوقة للشركات والعملاء" : "Trusted links for businesses and customers"}
             </div>
 
             <h1
               style={{
-                fontSize: "clamp(2rem, 4vw, 3.2rem)",
+                fontSize: "clamp(2rem, 4vw, 3.1rem)",
                 fontWeight: "800",
-                marginBottom: "18px",
                 lineHeight: "1.2",
+                marginBottom: "16px",
               }}
             >
               {isArabic
-                ? "TrustedLinks تربط الأفراد بالشركات بطريقة أوضح وأكثر ثقة"
-                : "TrustedLinks connects people and businesses with clarity and trust"}
+                ? "TrustedLinks تجعل الوصول إلى الشركات أكثر وضوحًا وثقة"
+                : "TrustedLinks makes reaching businesses clearer and more trusted"}
             </h1>
 
             <p
               style={{
-                fontSize: "1.08rem",
+                fontSize: "1.06rem",
                 lineHeight: "1.9",
-                maxWidth: "780px",
-                margin: "0 auto 32px",
                 color: "rgba(255,255,255,0.95)",
+                maxWidth: "760px",
+                margin: "0 auto 28px",
               }}
             >
               {isArabic
-                ? "منصة تساعد المستخدمين على الوصول إلى روابط واتساب والروابط الرسمية للشركات بشكل مباشر، وتساعد الشركات على الظهور بصورة احترافية وإدارة حضورها الرقمي بسهولة."
-                : "A platform that helps users reach official business links and WhatsApp contacts directly, while helping businesses present themselves professionally and manage their digital presence with ease."}
+                ? "منصة تساعد الأفراد على الوصول إلى روابط واتساب والروابط الرسمية بسرعة، وتساعد الشركات على الظهور بصورة احترافية وإدارة وجودها الرقمي بسهولة."
+                : "A platform that helps people reach official links and WhatsApp contacts quickly, while helping businesses present themselves professionally and manage their digital presence with ease."}
             </p>
 
             <div
               style={{
                 display: "flex",
-                gap: "14px",
                 justifyContent: "center",
+                gap: "12px",
                 flexWrap: "wrap",
               }}
             >
               <Link
                 to="/search"
                 style={{
-                  background: "white",
+                  background: "#fff",
                   color: "#16a34a",
-                  borderRadius: "12px",
-                  padding: "13px 24px",
-                  fontSize: "1rem",
-                  fontWeight: "700",
                   textDecoration: "none",
+                  padding: "13px 22px",
+                  borderRadius: "12px",
+                  fontWeight: "700",
                   boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
                 }}
               >
@@ -172,362 +168,320 @@ export default function Home({ lang }) {
                 to="/register"
                 style={{
                   background: "#0f172a",
-                  color: "white",
-                  borderRadius: "12px",
-                  padding: "13px 24px",
-                  fontSize: "1rem",
-                  fontWeight: "700",
+                  color: "#fff",
                   textDecoration: "none",
+                  padding: "13px 22px",
+                  borderRadius: "12px",
+                  fontWeight: "700",
                 }}
               >
-                {isArabic ? "سجّل نشاطك الآن" : "Register Your Business"}
-              </Link>
-
-              <Link
-                to="/dashboard"
-                style={{
-                  background: "transparent",
-                  color: "white",
-                  border: "1px solid rgba(255,255,255,0.5)",
-                  borderRadius: "12px",
-                  padding: "13px 24px",
-                  fontSize: "1rem",
-                  fontWeight: "700",
-                  textDecoration: "none",
-                }}
-              >
-                {isArabic ? "لوحة التحكم" : "Go to Dashboard"}
+                {isArabic ? "سجّل نشاطك" : "Register Your Business"}
               </Link>
             </div>
           </div>
         </section>
 
-        {/* Importance */}
-        <section style={{ marginBottom: "28px" }}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-              gap: "20px",
-            }}
-          >
-            <div style={cardStyle}>
-              <h2
-                style={{
-                  fontSize: "1.35rem",
-                  fontWeight: "700",
-                  color: "#16a34a",
-                  marginBottom: "14px",
-                }}
-              >
-                {isArabic ? "للأفراد" : "For Individuals"}
-              </h2>
-
-              <ul
-                style={{
-                  margin: 0,
-                  paddingInlineStart: "20px",
-                  color: "#475569",
-                  lineHeight: "2",
-                  fontSize: "1rem",
-                }}
-              >
-                <li>
-                  {isArabic
-                    ? "الوصول السريع إلى جهات التواصل الصحيحة"
-                    : "Quick access to the right business contacts"}
-                </li>
-                <li>
-                  {isArabic
-                    ? "تقليل احتمالية الوصول إلى روابط غير موثوقة"
-                    : "Reduced risk of reaching untrusted links"}
-                </li>
-                <li>
-                  {isArabic
-                    ? "البحث بشكل أسهل داخل منصة واضحة ومنظمة"
-                    : "Easier search inside a clear, organized platform"}
-                </li>
-                <li>
-                  {isArabic
-                    ? "التواصل المباشر عبر واتساب أو الرابط الرسمي"
-                    : "Direct contact through WhatsApp or official links"}
-                </li>
-              </ul>
-            </div>
-
-            <div style={cardStyle}>
-              <h2
-                style={{
-                  fontSize: "1.35rem",
-                  fontWeight: "700",
-                  color: "#16a34a",
-                  marginBottom: "14px",
-                }}
-              >
-                {isArabic ? "للشركات" : "For Businesses"}
-              </h2>
-
-              <ul
-                style={{
-                  margin: 0,
-                  paddingInlineStart: "20px",
-                  color: "#475569",
-                  lineHeight: "2",
-                  fontSize: "1rem",
-                }}
-              >
-                <li>
-                  {isArabic
-                    ? "ظهور احترافي ومنظم أمام العملاء"
-                    : "Professional and organized visibility to customers"}
-                </li>
-                <li>
-                  {isArabic
-                    ? "إضافة الروابط الرسمية في مكان واحد"
-                    : "All official links in one place"}
-                </li>
-                <li>
-                  {isArabic
-                    ? "توثيق واتساب لزيادة الثقة"
-                    : "WhatsApp verification to increase trust"}
-                </li>
-                <li>
-                  {isArabic
-                    ? "إدارة أسهل من خلال لوحة تحكم موحدة"
-                    : "Simpler management through one dashboard"}
-                </li>
-              </ul>
-            </div>
-          </div>
-        </section>
-
-        {/* How it works */}
         <section
           style={{
-            ...cardStyle,
-            marginBottom: "28px",
-            textAlign: "center",
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: "18px",
+            marginBottom: "24px",
           }}
         >
-          <h2 style={sectionTitleStyle}>
-            {isArabic ? "كيف تعمل المنصة؟" : "How the platform works"}
-          </h2>
-          <p style={sectionTextStyle}>
-            {isArabic
-              ? "عملية بسيطة وواضحة للمستخدمين ولأصحاب الأعمال، تساعد على الوصول السريع وبناء الثقة."
-              : "A simple and clear process for both users and businesses, designed for fast access and stronger trust."}
-          </p>
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: "20px",
+              padding: "24px",
+              border: "1px solid #e5e7eb",
+              boxShadow: "0 8px 24px rgba(15,23,42,0.05)",
+            }}
+          >
+            <h2
+              style={{
+                fontSize: "1.25rem",
+                fontWeight: "700",
+                color: "#0f172a",
+                marginBottom: "12px",
+                textAlign: isArabic ? "right" : "left",
+              }}
+            >
+              {isArabic ? "للأفراد" : "For Individuals"}
+            </h2>
+
+            <p
+              style={{
+                color: "#475569",
+                lineHeight: "1.9",
+                margin: 0,
+                textAlign: isArabic ? "right" : "left",
+              }}
+            >
+              {isArabic
+                ? "ابحث بسهولة عن الشركات، وصل بسرعة إلى جهة التواصل الصحيحة، وتجنب الروابط غير الواضحة أو غير الموثوقة."
+                : "Search for businesses easily, reach the right contact faster, and avoid unclear or untrusted links."}
+            </p>
+          </div>
 
           <div
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: "18px",
-              marginTop: "28px",
-              textAlign: isArabic ? "right" : "left",
+              background: "#fff",
+              borderRadius: "20px",
+              padding: "24px",
+              border: "1px solid #e5e7eb",
+              boxShadow: "0 8px 24px rgba(15,23,42,0.05)",
             }}
           >
-            {[
-              {
-                number: "01",
-                title: isArabic ? "ابحث أو سجّل" : "Search or Register",
-                text: isArabic
-                  ? "المستخدم يبحث عن نشاط، أو الشركة تبدأ بتسجيل حسابها."
-                  : "Users search for a business, or companies start by creating an account.",
-              },
-              {
-                number: "02",
-                title: isArabic ? "أضف المعلومات" : "Add Information",
-                text: isArabic
-                  ? "تتم إضافة الروابط وبيانات النشاط بشكل منظم."
-                  : "Business details and official links are added in an organized way.",
-              },
-              {
-                number: "03",
-                title: isArabic ? "فعّل التحقق" : "Verify WhatsApp",
-                text: isArabic
-                  ? "تأكيد رقم واتساب يعزز الموثوقية أمام العملاء."
-                  : "WhatsApp verification increases trust for customers.",
-              },
-              {
-                number: "04",
-                title: isArabic ? "ابدأ الاستخدام" : "Start Using",
-                text: isArabic
-                  ? "يصل العميل بسرعة إلى الجهة الصحيحة، وتدير الشركة حضورها بسهولة."
-                  : "Customers reach the right contact faster, and businesses manage their presence easily.",
-              },
-            ].map((item) => (
-              <div
-                key={item.number}
-                style={{
-                  background: "#f8fafc",
-                  borderRadius: "16px",
-                  padding: "20px",
-                  border: "1px solid #e2e8f0",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: "0.9rem",
-                    fontWeight: "800",
-                    color: "#16a34a",
-                    marginBottom: "10px",
-                  }}
-                >
-                  {item.number}
-                </div>
-                <h3
-                  style={{
-                    fontSize: "1.05rem",
-                    fontWeight: "700",
-                    color: "#0f172a",
-                    marginBottom: "10px",
-                  }}
-                >
-                  {item.title}
-                </h3>
-                <p style={{ color: "#475569", lineHeight: "1.8", margin: 0 }}>
-                  {item.text}
-                </p>
-              </div>
-            ))}
+            <h2
+              style={{
+                fontSize: "1.25rem",
+                fontWeight: "700",
+                color: "#0f172a",
+                marginBottom: "12px",
+                textAlign: isArabic ? "right" : "left",
+              }}
+            >
+              {isArabic ? "للشركات" : "For Businesses"}
+            </h2>
+
+            <p
+              style={{
+                color: "#475569",
+                lineHeight: "1.9",
+                margin: 0,
+                textAlign: isArabic ? "right" : "left",
+              }}
+            >
+              {isArabic
+                ? "اعرض روابطك الرسمية، فعّل توثيق واتساب، وقدم حضورًا رقميًا أكثر مهنية وثقة أمام العملاء."
+                : "Show your official links, verify WhatsApp, and build a more professional and trusted digital presence for customers."}
+            </p>
           </div>
         </section>
 
-        {/* Navigation cards */}
-        <section style={{ marginBottom: "28px" }}>
-          <div style={{ textAlign: "center", marginBottom: "20px" }}>
-            <h2 style={sectionTitleStyle}>
-              {isArabic ? "التنقل بين الصفحات" : "Move between pages"}
+        <section
+          style={{
+            background: "#fff",
+            borderRadius: "22px",
+            padding: "28px 24px",
+            border: "1px solid #e5e7eb",
+            boxShadow: "0 8px 24px rgba(15,23,42,0.05)",
+            marginBottom: "24px",
+          }}
+        >
+          <div style={{ textAlign: "center", marginBottom: "22px" }}>
+            <h2
+              style={{
+                fontSize: "1.55rem",
+                fontWeight: "800",
+                color: "#0f172a",
+                marginBottom: "10px",
+              }}
+            >
+              {isArabic ? "كيف تعمل المنصة" : "How it works"}
             </h2>
-            <p style={sectionTextStyle}>
+            <p
+              style={{
+                color: "#64748b",
+                lineHeight: "1.8",
+                maxWidth: "720px",
+                margin: "0 auto",
+              }}
+            >
               {isArabic
-                ? "كل صفحة داخل TrustedLinks لها وظيفة واضحة لتسهيل الإدارة والمتابعة."
-                : "Each page inside TrustedLinks has a clear purpose to make navigation and management easier."}
+                ? "تجربة بسيطة تساعد المستخدمين على الوصول، وتساعد الشركات على الإدارة والظهور بشكل أفضل."
+                : "A simple experience that helps users reach businesses and helps companies manage their presence better."}
             </p>
           </div>
 
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
-              gap: "18px",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: "14px",
             }}
           >
             {[
               {
-                title: isArabic ? "Dashboard" : "Dashboard",
-                text: isArabic
-                  ? "عرض سريع للحساب والإحصائيات والحالة العامة."
-                  : "Quick view of account status, stats, and overview.",
-                link: "/dashboard",
+                no: "01",
+                title: isArabic ? "ابحث أو سجّل" : "Search or Register",
               },
               {
-                title: isArabic ? "Manage Links" : "Manage Links",
-                text: isArabic
-                  ? "إدارة روابط النشاط وروابط التواصل الرسمية."
-                  : "Manage business links and official contact links.",
-                link: "/manage-links",
+                no: "02",
+                title: isArabic ? "أضف بياناتك" : "Add Your Details",
               },
               {
-                title: isArabic ? "WhatsApp Verify" : "WhatsApp Verify",
-                text: isArabic
-                  ? "توثيق رقم واتساب وربطه بالنشاط."
-                  : "Verify and connect your WhatsApp number.",
-                link: "/whatsapp-verify",
+                no: "03",
+                title: isArabic ? "فعّل التوثيق" : "Verify WhatsApp",
               },
               {
-                title: isArabic ? "البحث" : "Search",
-                text: isArabic
-                  ? "استكشاف الأنشطة والوصول السريع إلى النتائج."
-                  : "Explore businesses and reach results quickly.",
-                link: "/search",
+                no: "04",
+                title: isArabic ? "ابدأ التواصل" : "Start Connecting",
               },
-            ].map((item) => (
-              <Link
-                key={item.title}
-                to={item.link}
+            ].map((step) => (
+              <div
+                key={step.no}
                 style={{
-                  textDecoration: "none",
-                  color: "inherit",
+                  background: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "16px",
+                  padding: "18px",
+                  textAlign: "center",
                 }}
               >
                 <div
                   style={{
-                    ...cardStyle,
-                    height: "100%",
-                    transition: "0.2s ease",
-                    cursor: "pointer",
+                    color: "#16a34a",
+                    fontWeight: "800",
+                    fontSize: "0.92rem",
+                    marginBottom: "8px",
                   }}
                 >
-                  <h3
-                    style={{
-                      fontSize: "1.08rem",
-                      fontWeight: "700",
-                      color: "#0f172a",
-                      marginBottom: "10px",
-                    }}
-                  >
-                    {item.title}
-                  </h3>
-                  <p
-                    style={{
-                      color: "#64748b",
-                      lineHeight: "1.8",
-                      marginBottom: 0,
-                    }}
-                  >
-                    {item.text}
-                  </p>
+                  {step.no}
+                </div>
+                <div
+                  style={{
+                    color: "#0f172a",
+                    fontWeight: "700",
+                    fontSize: "1rem",
+                  }}
+                >
+                  {step.title}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section
+          style={{
+            background: "#fff",
+            borderRadius: "22px",
+            padding: "24px",
+            border: "1px solid #e5e7eb",
+            boxShadow: "0 8px 24px rgba(15,23,42,0.05)",
+            marginBottom: "24px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: "12px",
+              flexWrap: "wrap",
+              marginBottom: "16px",
+            }}
+          >
+            <div style={{ textAlign: isArabic ? "right" : "left" }}>
+              <h2
+                style={{
+                  fontSize: "1.35rem",
+                  fontWeight: "800",
+                  color: "#0f172a",
+                  marginBottom: "8px",
+                }}
+              >
+                {isArabic ? "تنقل سريع" : "Quick navigation"}
+              </h2>
+              <p
+                style={{
+                  color: "#64748b",
+                  margin: 0,
+                  lineHeight: "1.8",
+                }}
+              >
+                {isArabic
+                  ? "وصول أسهل إلى أهم الصفحات بدون ازدحام بصري."
+                  : "Easy access to key pages without visual clutter."}
+              </p>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: "12px",
+              flexWrap: "wrap",
+            }}
+          >
+            {navItems.map((item) => (
+              <Link
+                key={item.title}
+                to={item.to}
+                style={{
+                  textDecoration: "none",
+                  background: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "14px",
+                  padding: "14px 16px",
+                  minWidth: "200px",
+                  flex: "1 1 220px",
+                  color: "#0f172a",
+                }}
+              >
+                <div
+                  style={{
+                    fontWeight: "700",
+                    marginBottom: "4px",
+                    fontSize: "1rem",
+                  }}
+                >
+                  {item.title}
+                </div>
+                <div
+                  style={{
+                    fontSize: "0.92rem",
+                    color: "#64748b",
+                  }}
+                >
+                  {item.desc}
                 </div>
               </Link>
             ))}
           </div>
         </section>
 
-        {/* Final CTA */}
         <section
           style={{
-            background: "white",
-            borderRadius: "24px",
-            padding: "36px 24px",
+            background: "linear-gradient(180deg, #ffffff, #f8fafc)",
+            borderRadius: "22px",
+            padding: "34px 24px",
             textAlign: "center",
-            boxShadow: "0 8px 24px rgba(15,23,42,0.06)",
             border: "1px solid #e5e7eb",
+            boxShadow: "0 8px 24px rgba(15,23,42,0.05)",
           }}
         >
           <h2
             style={{
-              fontSize: "1.7rem",
+              fontSize: "1.65rem",
               fontWeight: "800",
               color: "#0f172a",
-              marginBottom: "14px",
+              marginBottom: "12px",
             }}
           >
-            {isArabic
-              ? "ابدأ الآن مع TrustedLinks"
-              : "Start now with TrustedLinks"}
+            {isArabic ? "ابدأ الآن مع TrustedLinks" : "Start now with TrustedLinks"}
           </h2>
 
           <p
             style={{
-              fontSize: "1rem",
               color: "#64748b",
               lineHeight: "1.8",
               maxWidth: "760px",
-              margin: "0 auto 24px",
+              margin: "0 auto 22px",
             }}
           >
             {isArabic
-              ? "سواء كنت فردًا يبحث عن جهة موثوقة، أو شركة تريد الظهور بشكل أفضل، TrustedLinks تمنحك طريقة أسهل وأوضح للتواصل."
-              : "Whether you are an individual looking for a trusted contact or a business wanting better visibility, TrustedLinks gives you a clearer and easier way to connect."}
+              ? "سواء كنت تبحث عن شركة موثوقة أو تريد تسجيل نشاطك التجاري، المنصة تمنحك تجربة أوضح وأسهل."
+              : "Whether you are looking for a trusted business or want to register your own, the platform gives you a clearer and easier experience."}
           </p>
 
           <div
             style={{
               display: "flex",
               justifyContent: "center",
-              gap: "14px",
+              gap: "12px",
               flexWrap: "wrap",
             }}
           >
@@ -535,7 +489,7 @@ export default function Home({ lang }) {
               to="/register"
               style={{
                 background: "#16a34a",
-                color: "white",
+                color: "#fff",
                 textDecoration: "none",
                 padding: "12px 22px",
                 borderRadius: "12px",
@@ -548,7 +502,7 @@ export default function Home({ lang }) {
             <Link
               to="/search"
               style={{
-                background: "#f1f5f9",
+                background: "#fff",
                 color: "#0f172a",
                 textDecoration: "none",
                 padding: "12px 22px",
@@ -565,3 +519,4 @@ export default function Home({ lang }) {
     </div>
   );
 }
+```
