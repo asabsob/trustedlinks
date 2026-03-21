@@ -26,6 +26,7 @@ export default function Signup({ lang = "en" }) {
   const [verifiedWhatsApp, setVerifiedWhatsApp] = useState("");
   const [otpToken, setOtpToken] = useState("");
 
+  const [countryCode, setCountryCode] = useState("jo");
   const [locationText, setLocationText] = useState("");
   const [latitude, setLatitude] = useState(null);
   const [longitude, setLongitude] = useState(null);
@@ -65,6 +66,13 @@ export default function Signup({ lang = "en" }) {
     { key: "OTHER", nameEn: "Other", nameAr: "أخرى" },
   ];
 
+  const countries = [
+    { code: "jo", nameEn: "Jordan", nameAr: "الأردن" },
+    { code: "sa", nameEn: "Saudi Arabia", nameAr: "السعودية" },
+    { code: "qa", nameEn: "Qatar", nameAr: "قطر" },
+    { code: "ae", nameEn: "UAE", nameAr: "الإمارات" },
+  ];
+
   useEffect(() => {
     if (!window.google || !window.google.maps || !window.google.maps.places) return;
     if (!locationInputRef.current || autocompleteRef.current) return;
@@ -74,6 +82,7 @@ export default function Signup({ lang = "en" }) {
       {
         fields: ["formatted_address", "geometry", "name"],
         types: ["establishment", "geocode"],
+        componentRestrictions: { country: countryCode },
       }
     );
 
@@ -82,7 +91,10 @@ export default function Signup({ lang = "en" }) {
       if (!place) return;
 
       const formatted =
-        place.formatted_address || place.name || locationInputRef.current.value || "";
+        place.formatted_address ||
+        place.name ||
+        locationInputRef.current?.value ||
+        "";
 
       setLocationText(formatted);
 
@@ -99,9 +111,22 @@ export default function Signup({ lang = "en" }) {
     autocompleteRef.current = autocomplete;
   }, []);
 
+  useEffect(() => {
+    if (autocompleteRef.current) {
+      autocompleteRef.current.setComponentRestrictions({
+        country: countryCode,
+      });
+    }
+  }, [countryCode]);
+
   const getMyLocation = () => {
     if (!navigator.geolocation) {
-      alert(t("Geolocation is not supported on this device.", "تحديد الموقع غير مدعوم على هذا الجهاز."));
+      alert(
+        t(
+          "Geolocation is not supported on this device.",
+          "تحديد الموقع غير مدعوم على هذا الجهاز."
+        )
+      );
       return;
     }
 
@@ -114,7 +139,12 @@ export default function Signup({ lang = "en" }) {
         setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
       },
       () => {
-        alert(t("Failed to get your current location.", "تعذر الحصول على موقعك الحالي."));
+        alert(
+          t(
+            "Failed to get your current location.",
+            "تعذر الحصول على موقعك الحالي."
+          )
+        );
       }
     );
   };
@@ -178,6 +208,8 @@ export default function Signup({ lang = "en" }) {
         ? `https://instagram.com/${cleanInstagram}`
         : "";
 
+      const selectedCountry = countries.find((c) => c.code === countryCode);
+
       const businessPayload = {
         name: businessNameEn.trim() || businessNameAr.trim(),
         name_ar: businessNameAr.trim(),
@@ -185,6 +217,12 @@ export default function Signup({ lang = "en" }) {
         category: [category.key],
         keywords: [],
         whatsapp: verifiedWhatsApp,
+        countryCode,
+        countryName: selectedCountry
+          ? isArabic
+            ? selectedCountry.nameAr
+            : selectedCountry.nameEn
+          : countryCode,
         locationText: locationText.trim(),
         latitude,
         longitude,
@@ -365,6 +403,19 @@ export default function Signup({ lang = "en" }) {
           <h3 style={sectionTitleStyle}>
             {t("Business Location", "موقع النشاط")}
           </h3>
+
+          <label style={labelStyle}>{t("Country", "الدولة")}</label>
+          <select
+            value={countryCode}
+            onChange={(e) => setCountryCode(e.target.value)}
+            style={inputStyle}
+          >
+            {countries.map((country) => (
+              <option key={country.code} value={country.code}>
+                {isArabic ? country.nameAr : country.nameEn}
+              </option>
+            ))}
+          </select>
 
           <label style={labelStyle}>
             {t("Search your business location", "ابحث عن موقع النشاط")}
