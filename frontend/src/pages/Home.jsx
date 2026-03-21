@@ -1,4 +1,3 @@
-```jsx
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -111,7 +110,9 @@ export default function Home({ lang }) {
                 marginBottom: "18px",
               }}
             >
-              {isArabic ? "روابط موثوقة للشركات والعملاء" : "Trusted links for businesses and customers"}
+              {isArabic
+                ? "روابط موثوقة للشركات والعملاء"
+                : "Trusted links for businesses and customers"}
             </div>
 
             <h1
