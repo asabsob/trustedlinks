@@ -1,19 +1,17 @@
 // frontend/src/pages/Signup.jsx
-// ============================================================================
-// TrustedLinks - Signup Page
-// Creates USER only, stores business draft locally until subscribe/publish step
-// ============================================================================
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Listbox, Transition } from "@headlessui/react";
 import WhatsAppVerify from "../components/WhatsAppVerify";
-import LocationPicker from "../components/LocationPicker";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 
 export default function Signup({ lang = "en" }) {
   const navigate = useNavigate();
+  const isArabic = lang === "ar";
+  const locationInputRef = useRef(null);
+  const autocompleteRef = useRef(null);
 
   const [businessNameAr, setBusinessNameAr] = useState("");
   const [businessNameEn, setBusinessNameEn] = useState("");
@@ -27,14 +25,15 @@ export default function Signup({ lang = "en" }) {
 
   const [verifiedWhatsApp, setVerifiedWhatsApp] = useState("");
   const [otpToken, setOtpToken] = useState("");
+
+  const [locationText, setLocationText] = useState("");
+  const [latitude, setLatitude] = useState(null);
+  const [longitude, setLongitude] = useState(null);
   const [mapLink, setMapLink] = useState("");
 
   const [instagram, setInstagram] = useState("");
   const [logo, setLogo] = useState(null);
   const [logoPreview, setLogoPreview] = useState("");
-
-  const [latitude, setLatitude] = useState(null);
-  const [longitude, setLongitude] = useState(null);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -42,8 +41,7 @@ export default function Signup({ lang = "en" }) {
 
   const [loading, setLoading] = useState(false);
 
-  const t = (en, ar) => (lang === "ar" ? ar : en);
-  const isArabic = lang === "ar";
+  const t = (en, ar) => (isArabic ? ar : en);
 
   const metaCategories = [
     { key: "AUTOMOTIVE", nameEn: "Automotive", nameAr: "سيارات" },
@@ -66,6 +64,60 @@ export default function Signup({ lang = "en" }) {
     { key: "RESTAURANT", nameEn: "Restaurant", nameAr: "مطعم / مقهى" },
     { key: "OTHER", nameEn: "Other", nameAr: "أخرى" },
   ];
+
+  useEffect(() => {
+    if (!window.google || !window.google.maps || !window.google.maps.places) return;
+    if (!locationInputRef.current || autocompleteRef.current) return;
+
+    const autocomplete = new window.google.maps.places.Autocomplete(
+      locationInputRef.current,
+      {
+        fields: ["formatted_address", "geometry", "name"],
+        types: ["establishment", "geocode"],
+      }
+    );
+
+    autocomplete.addListener("place_changed", () => {
+      const place = autocomplete.getPlace();
+      if (!place) return;
+
+      const formatted =
+        place.formatted_address || place.name || locationInputRef.current.value || "";
+
+      setLocationText(formatted);
+
+      const lat = place?.geometry?.location?.lat?.();
+      const lng = place?.geometry?.location?.lng?.();
+
+      if (typeof lat === "number" && typeof lng === "number") {
+        setLatitude(lat);
+        setLongitude(lng);
+        setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
+      }
+    });
+
+    autocompleteRef.current = autocomplete;
+  }, []);
+
+  const getMyLocation = () => {
+    if (!navigator.geolocation) {
+      alert(t("Geolocation is not supported on this device.", "تحديد الموقع غير مدعوم على هذا الجهاز."));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setLatitude(lat);
+        setLongitude(lng);
+        setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
+      },
+      () => {
+        alert(t("Failed to get your current location.", "تعذر الحصول على موقعك الحالي."));
+      }
+    );
+  };
 
   const convertLogoToBase64 = async () => {
     if (!logo) return "";
@@ -91,8 +143,8 @@ export default function Signup({ lang = "en" }) {
       return;
     }
 
-    if (latitude == null || longitude == null) {
-      alert(t("Please choose a location on the map.", "يرجى اختيار الموقع على الخريطة."));
+    if (!locationText.trim()) {
+      alert(t("Please enter your business location.", "يرجى إدخال موقع النشاط."));
       return;
     }
 
@@ -133,10 +185,11 @@ export default function Signup({ lang = "en" }) {
         category: [category.key],
         keywords: [],
         whatsapp: verifiedWhatsApp,
-        mapLink: mapLink.trim(),
-        mediaLink: instagramLink,
+        locationText: locationText.trim(),
         latitude,
         longitude,
+        mapLink: mapLink.trim(),
+        mediaLink: instagramLink,
         otpToken,
         logo: logoBase64,
       };
@@ -313,27 +366,27 @@ export default function Signup({ lang = "en" }) {
             {t("Business Location", "موقع النشاط")}
           </h3>
 
-          <label style={{ ...labelStyle, marginBottom: 8 }}>
-            {t("Choose your business location on the map", "اختر موقع النشاط على الخريطة")}
+          <label style={labelStyle}>
+            {t("Search your business location", "ابحث عن موقع النشاط")}
           </label>
+          <input
+            ref={locationInputRef}
+            value={locationText}
+            onChange={(e) => setLocationText(e.target.value)}
+            style={inputStyle}
+            placeholder={t(
+              "Start typing your address or place name",
+              "ابدأ بكتابة العنوان أو اسم المكان"
+            )}
+          />
 
-          <div style={{ marginBottom: 14 }}>
-            <LocationPicker
-              value={
-                latitude != null && longitude != null
-                  ? { lat: latitude, lng: longitude }
-                  : null
-              }
-              onChange={({ lat, lng }) => {
-                setLatitude(lat);
-                setLongitude(lng);
-                setMapLink(
-                  `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`
-                );
-              }}
-              height={320}
-            />
-          </div>
+          <button
+            type="button"
+            onClick={getMyLocation}
+            style={secondaryButtonStyle}
+          >
+            {t("Use my current location", "استخدم موقعي الحالي")}
+          </button>
 
           <div style={locationInfoStyle}>
             <div style={locationBoxStyle}>
@@ -352,7 +405,7 @@ export default function Signup({ lang = "en" }) {
             value={mapLink}
             onChange={(e) => setMapLink(e.target.value)}
             style={inputStyle}
-            placeholder={t("Auto-generated map link", "يتم تعبئته تلقائيًا")}
+            placeholder={t("Auto-filled after selection", "يتم تعبئته بعد اختيار الموقع")}
           />
         </div>
 
@@ -519,6 +572,18 @@ const prefixStyle = {
   color: "#64748b",
   fontWeight: 700,
   zIndex: 1,
+};
+
+const secondaryButtonStyle = {
+  width: "100%",
+  marginBottom: 14,
+  background: "#f1f5f9",
+  color: "#0f172a",
+  border: "1px solid #dbe2ea",
+  padding: "12px 14px",
+  borderRadius: 10,
+  fontWeight: 600,
+  cursor: "pointer",
 };
 
 const locationInfoStyle = {
