@@ -240,18 +240,26 @@ export default function Search({ lang = "en" }) {
     return null;
   };
 
-  const getLogoUrl = (b) => {
-    if (b.logo) return b.logo;
+ const getLogoUrl = (b) => {
+  if (b.logo) return b.logo;
 
-    if (
-      b.mediaLink &&
-      /\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(String(b.mediaLink))
-    ) {
-      return b.mediaLink;
-    }
+  // صورة مباشرة
+  if (
+    b.mediaLink &&
+    /\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(String(b.mediaLink))
+  ) {
+    return b.mediaLink;
+  }
 
-    return "";
-  };
+  // 🔥 fallback ذكي (logo من الاسم)
+  if (b.name) {
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(
+      b.name
+    )}&background=22c55e&color=fff&size=128`;
+  }
+
+  return "";
+};
 
   return (
     <div
