@@ -1,659 +1,682 @@
-import React, { useEffect, useMemo, useState } from "react";
+// frontend/src/pages/Signup.jsx
+
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Listbox, Transition } from "@headlessui/react";
+import WhatsAppVerify from "../components/WhatsAppVerify";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 
-export default function Search({ lang = "en" }) {
-  const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("all");
-  const [businesses, setBusinesses] = useState([]);
-  const [loading, setLoading] = useState(true);
-
+export default function Signup({ lang = "en" }) {
   const navigate = useNavigate();
   const isArabic = lang === "ar";
+  const locationInputRef = useRef(null);
+  const autocompleteRef = useRef(null);
+
+  const [businessNameAr, setBusinessNameAr] = useState("");
+  const [businessNameEn, setBusinessNameEn] = useState("");
+  const [description, setDescription] = useState("");
+
+  const [category, setCategory] = useState({
+    key: "PROFESSIONAL_SERVICES",
+    nameEn: "Professional Services",
+    nameAr: "خدمات مهنية",
+  });
+
+  const [verifiedWhatsApp, setVerifiedWhatsApp] = useState("");
+  const [otpToken, setOtpToken] = useState("");
+
+  const [countryCode, setCountryCode] = useState("jo");
+  const [locationText, setLocationText] = useState("");
+  const [latitude, setLatitude] = useState(null);
+  const [longitude, setLongitude] = useState(null);
+  const [mapLink, setMapLink] = useState("");
+
+  const [instagram, setInstagram] = useState("");
+  const [logo, setLogo] = useState(null);
+  const [logoPreview, setLogoPreview] = useState("");
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [loading, setLoading] = useState(false);
+
   const t = (en, ar) => (isArabic ? ar : en);
 
-  const metaCategories = useMemo(
-    () => [
-      { key: "AUTOMOTIVE", nameEn: "Automotive", nameAr: "سيارات" },
-      { key: "BEAUTY_SPA_SALON", nameEn: "Beauty & Salon", nameAr: "تجميل وصالون" },
-      { key: "CLOTHING_APPAREL", nameEn: "Clothing", nameAr: "ملابس وأزياء" },
-      { key: "EDUCATION", nameEn: "Education", nameAr: "تعليم" },
-      { key: "ENTERTAINMENT", nameEn: "Entertainment", nameAr: "ترفيه" },
-      { key: "EVENT_PLANNING", nameEn: "Events", nameAr: "تنظيم فعاليات" },
-      { key: "FINANCE_BANKING", nameEn: "Finance", nameAr: "تمويل وبنوك" },
-      { key: "FOOD_GROCERY", nameEn: "Food & Grocery", nameAr: "طعام وبقالة" },
-      { key: "BEVERAGES", nameEn: "Beverages", nameAr: "مشروبات" },
-      { key: "PUBLIC_SERVICE", nameEn: "Public Service", nameAr: "خدمات عامة" },
-      { key: "HOTEL_LODGING", nameEn: "Hotel & Lodging", nameAr: "فنادق وإقامة" },
-      { key: "MEDICAL_HEALTH", nameEn: "Medical & Health", nameAr: "صحة وطبية" },
-      { key: "OVER_THE_COUNTER_DRUGS", nameEn: "OTC Drugs", nameAr: "أدوية بدون وصفة" },
-      { key: "NON_PROFIT", nameEn: "Non-profit", nameAr: "غير ربحي" },
-      { key: "PROFESSIONAL_SERVICES", nameEn: "Professional Services", nameAr: "خدمات مهنية" },
-      { key: "SHOPPING_RETAIL", nameEn: "Retail", nameAr: "تسوق وتجزئة" },
-      { key: "TRAVEL_TRANSPORTATION", nameEn: "Travel & Transport", nameAr: "سفر ومواصلات" },
-      { key: "RESTAURANT", nameEn: "Restaurant / Cafe", nameAr: "مطعم / مقهى" },
-      { key: "OTHER", nameEn: "Other", nameAr: "أخرى" },
-    ],
-    []
-  );
+  const metaCategories = [
+    { key: "AUTOMOTIVE", nameEn: "Automotive", nameAr: "سيارات" },
+    { key: "BEAUTY_SPA_SALON", nameEn: "Beauty, Spa and Salon", nameAr: "تجميل وصالون" },
+    { key: "CLOTHING_APPAREL", nameEn: "Clothing and Apparel", nameAr: "ملابس وأزياء" },
+    { key: "EDUCATION", nameEn: "Education", nameAr: "تعليم" },
+    { key: "ENTERTAINMENT", nameEn: "Entertainment", nameAr: "ترفيه" },
+    { key: "EVENT_PLANNING", nameEn: "Event Planning and Service", nameAr: "تنظيم الفعاليات والخدمات" },
+    { key: "FINANCE_BANKING", nameEn: "Finance and Banking", nameAr: "تمويل وبنوك" },
+    { key: "FOOD_GROCERY", nameEn: "Food and Grocery", nameAr: "طعام وبقالة" },
+    { key: "BEVERAGES", nameEn: "Beverages", nameAr: "مشروبات" },
+    { key: "PUBLIC_SERVICE", nameEn: "Public Service", nameAr: "خدمات عامة" },
+    { key: "HOTEL_LODGING", nameEn: "Hotel and Lodging", nameAr: "فنادق وإقامة" },
+    { key: "MEDICAL_HEALTH", nameEn: "Medical and Health", nameAr: "صحة وطبية" },
+    { key: "OVER_THE_COUNTER_DRUGS", nameEn: "Over-the-counter Drugs", nameAr: "أدوية بدون وصفة" },
+    { key: "NON_PROFIT", nameEn: "Non-profit", nameAr: "غير ربحي" },
+    { key: "PROFESSIONAL_SERVICES", nameEn: "Professional Services", nameAr: "خدمات مهنية" },
+    { key: "SHOPPING_RETAIL", nameEn: "Shopping and Retail", nameAr: "تسوق وتجزئة" },
+    { key: "TRAVEL_TRANSPORTATION", nameEn: "Travel and Transportation", nameAr: "سفر ومواصلات" },
+    { key: "RESTAURANT", nameEn: "Restaurant", nameAr: "مطعم / مقهى" },
+    { key: "OTHER", nameEn: "Other", nameAr: "أخرى" },
+  ];
 
-  const metaByKey = useMemo(
-    () => Object.fromEntries(metaCategories.map((c) => [c.key, c])),
-    [metaCategories]
-  );
+  const countries = [
+    { code: "jo", nameEn: "Jordan", nameAr: "الأردن" },
+    { code: "sa", nameEn: "Saudi Arabia", nameAr: "السعودية" },
+    { code: "qa", nameEn: "Qatar", nameAr: "قطر" },
+    { code: "ae", nameEn: "UAE", nameAr: "الإمارات" },
+  ];
 
   useEffect(() => {
-    let cancelled = false;
+    if (!window.google || !window.google.maps || !window.google.maps.places) return;
+    if (!locationInputRef.current || autocompleteRef.current) return;
 
-    async function loadBusinesses() {
-      try {
-        setLoading(true);
-        const res = await fetch(`${API_BASE}/api/businesses`);
-        const data = await res.json().catch(() => []);
-        if (!cancelled) setBusinesses(Array.isArray(data) ? data : []);
-      } catch {
-        if (!cancelled) setBusinesses([]);
-      } finally {
-        if (!cancelled) setLoading(false);
+    const autocomplete = new window.google.maps.places.Autocomplete(
+      locationInputRef.current,
+      {
+        fields: ["formatted_address", "geometry", "name"],
+        types: ["establishment", "geocode"],
+        componentRestrictions: { country: countryCode },
       }
-    }
-
-    loadBusinesses();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const normalize = (value) =>
-    String(value || "")
-      .toLowerCase()
-      .trim()
-      .replace(/[أإآ]/g, "ا")
-      .replace(/ة/g, "ه")
-      .replace(/ى/g, "ي");
-
-  const extractCategoryValues = (b) => {
-    const raw = b.category ?? [];
-    const arr = Array.isArray(raw) ? raw : [raw];
-    return arr
-      .filter(Boolean)
-      .map((v) => (typeof v === "string" ? v : v.key || v.name || ""))
-      .map((v) => String(v).toUpperCase().trim());
-  };
-
-  const getCategoryLabel = (key) => {
-    const hit = metaByKey[key];
-    if (!hit) return key;
-    return isArabic ? hit.nameAr : hit.nameEn;
-  };
-
-  const getBusinessCategoryLabel = (b) => {
-    const vals = extractCategoryValues(b);
-    if (!vals.length) return t("Uncategorized", "غير مصنف");
-    return vals.map((v) => (metaByKey[v] ? getCategoryLabel(v) : v)).join(" • ");
-  };
-
-  const smartCategoryMap = useMemo(
-    () => ({
-      RESTAURANT: [
-        "restaurant",
-        "restaurants",
-        "cafe",
-        "coffee",
-        "burger",
-        "pizza",
-        "shawarma",
-        "مطعم",
-        "مطاعم",
-        "كافيه",
-        "كوفي",
-        "قهوة",
-        "مقهى",
-      ],
-      BEAUTY_SPA_SALON: [
-        "beauty",
-        "salon",
-        "spa",
-        "makeup",
-        "nails",
-        "barber",
-        "تجميل",
-        "صالون",
-        "سبا",
-        "مكياج",
-        "أظافر",
-        "حلاقة",
-      ],
-      SHOPPING_RETAIL: [
-        "shop",
-        "shopping",
-        "store",
-        "retail",
-        "متجر",
-        "محل",
-        "تسوق",
-        "تجزئة",
-      ],
-      PROFESSIONAL_SERVICES: [
-        "services",
-        "service",
-        "office",
-        "agency",
-        "consulting",
-        "خدمات",
-        "خدمه",
-        "مكتب",
-        "استشارات",
-        "شركة",
-      ],
-    }),
-    []
-  );
-
-  const detectSmartCategory = (searchText) => {
-    const normalized = normalize(searchText);
-    for (const [categoryKey, keywords] of Object.entries(smartCategoryMap)) {
-      if (keywords.some((word) => normalized.includes(normalize(word)))) {
-        return categoryKey;
-      }
-    }
-    return null;
-  };
-
-  const getSearchBlob = (b) =>
-    normalize(
-      [
-        b.name,
-        b.name_ar,
-        b.description,
-        b.locationText,
-        b.address,
-        b.city,
-        ...(Array.isArray(b.keywords) ? b.keywords : []),
-        ...extractCategoryValues(b),
-      ].join(" ")
     );
 
-  const filteredBusinesses = useMemo(() => {
-    const typedCategory = detectSmartCategory(query);
-    const selectedCategory = category !== "all" ? category : typedCategory;
-    const q = normalize(query);
+    autocomplete.addListener("place_changed", () => {
+      const place = autocomplete.getPlace();
+      if (!place) return;
 
-    return businesses
-      .map((b) => {
-        const blob = getSearchBlob(b);
-        const categories = extractCategoryValues(b);
-        let score = 0;
+      const formatted =
+        place.formatted_address ||
+        place.name ||
+        locationInputRef.current?.value ||
+        "";
 
-        if (!q) score += 1;
-        if (q && normalize(b.name).includes(q)) score += 10;
-        if (q && normalize(b.name_ar).includes(q)) score += 10;
-        if (q && normalize(b.description).includes(q)) score += 4;
-        if (q && normalize(b.locationText).includes(q)) score += 5;
+      setLocationText(formatted);
 
-        q.split(/\s+/)
-          .filter(Boolean)
-          .forEach((word) => {
-            if (blob.includes(word)) score += 1.2;
-          });
+      const lat = place?.geometry?.location?.lat?.();
+      const lng = place?.geometry?.location?.lng?.();
 
-        if (selectedCategory && categories.includes(selectedCategory)) {
-          score += 6;
-        }
+      if (typeof lat === "number" && typeof lng === "number") {
+        setLatitude(lat);
+        setLongitude(lng);
+        setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
+      }
+    });
 
-        return { ...b, _score: score };
-      })
-      .filter((b) => {
-        const categories = extractCategoryValues(b);
-        const selectedCategory = category !== "all" ? category : detectSmartCategory(query);
+    autocompleteRef.current = autocomplete;
+  }, []);
 
-        const queryOk = !q || b._score > 0;
-        const categoryOk = !selectedCategory || categories.includes(selectedCategory);
+  useEffect(() => {
+    if (autocompleteRef.current) {
+      autocompleteRef.current.setComponentRestrictions({
+        country: countryCode,
+      });
+    }
+  }, [countryCode]);
 
-        return queryOk && categoryOk;
-      })
-      .sort((a, b) => b._score - a._score);
-  }, [businesses, query, category]);
+  const getMyLocation = () => {
+    if (!navigator.geolocation) {
+      alert(
+        t(
+          "Geolocation is not supported on this device.",
+          "تحديد الموقع غير مدعوم على هذا الجهاز."
+        )
+      );
+      return;
+    }
 
-  const trackAction = async (endpoint, businessId) => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setLatitude(lat);
+        setLongitude(lng);
+        setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
+      },
+      () => {
+        alert(
+          t(
+            "Failed to get your current location.",
+            "تعذر الحصول على موقعك الحالي."
+          )
+        );
+      }
+    );
+  };
+
+  const convertLogoToBase64 = async () => {
+    if (!logo) return "";
+
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result || "");
+      reader.onerror = reject;
+      reader.readAsDataURL(logo);
+    });
+  };
+
+  const handleSignup = async (e) => {
+    e.preventDefault();
+
+    if (!businessNameAr.trim() && !businessNameEn.trim()) {
+      alert(t("Please enter a business name.", "يرجى إدخال اسم النشاط."));
+      return;
+    }
+
+    if (!verifiedWhatsApp || !otpToken) {
+      alert(t("Please verify WhatsApp first.", "يرجى توثيق واتساب أولاً."));
+      return;
+    }
+
+    if (!locationText.trim()) {
+      alert(t("Please enter your business location.", "يرجى إدخال موقع النشاط."));
+      return;
+    }
+
+    if (!email.trim()) {
+      alert(t("Please enter your email.", "يرجى إدخال البريد الإلكتروني."));
+      return;
+    }
+
+    if ((password || "").length < 8) {
+      alert(
+        t(
+          "Password must be at least 8 characters.",
+          "كلمة المرور يجب أن تكون 8 أحرف على الأقل."
+        )
+      );
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      alert(t("Passwords do not match.", "كلمتا المرور غير متطابقتين."));
+      return;
+    }
+
+    setLoading(true);
+
     try {
-      await fetch(`${API_BASE}${endpoint}`, {
+      const logoBase64 = await convertLogoToBase64();
+
+      const cleanInstagram = instagram.trim().replace(/^@+/, "");
+      const instagramLink = cleanInstagram
+        ? `https://instagram.com/${cleanInstagram}`
+        : "";
+
+      const selectedCountry = countries.find((c) => c.code === countryCode);
+
+      const businessPayload = {
+        name: businessNameEn.trim() || businessNameAr.trim(),
+        name_ar: businessNameAr.trim(),
+        description: description.trim(),
+        category: [category.key],
+        keywords: [],
+        whatsapp: verifiedWhatsApp,
+        countryCode,
+        countryName: selectedCountry
+          ? isArabic
+            ? selectedCountry.nameAr
+            : selectedCountry.nameEn
+          : countryCode,
+        locationText: locationText.trim(),
+        latitude,
+        longitude,
+        mapLink: mapLink.trim(),
+        mediaLink: instagramLink,
+        otpToken,
+        logo: logoBase64,
+      };
+
+      localStorage.setItem("otpToken", otpToken);
+
+      const res = await fetch(`${API_BASE}/api/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId }),
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+          business: businessPayload,
+        }),
       });
-    } catch {}
-  };
 
-  const getWhatsappUrl = (b) => {
-    if (b.whatsappLink) return b.whatsappLink;
-    const phone = (b.whatsapp || "").toString().replace(/\D/g, "");
-    return phone ? `https://wa.me/${phone}` : "#";
-  };
+      const data = await res.json().catch(() => ({}));
 
-  const getMapUrl = (b) => {
-    if (b.mapLink && String(b.mapLink).startsWith("http")) return b.mapLink;
-    if (b.latitude && b.longitude) {
-      return `https://www.google.com/maps?q=${b.latitude},${b.longitude}`;
+      if (!res.ok) {
+        alert(data?.error || t("Signup failed.", "فشل إنشاء الحساب."));
+        return;
+      }
+
+      alert(
+        t(
+          "Account and business created successfully. Please verify your email, then log in.",
+          "تم إنشاء الحساب والنشاط بنجاح. يرجى تفعيل البريد الإلكتروني ثم تسجيل الدخول."
+        )
+      );
+
+      navigate("/login", { replace: true });
+    } catch (err) {
+      alert(err?.message || t("Unexpected error.", "حدث خطأ غير متوقع."));
+    } finally {
+      setLoading(false);
     }
-    return null;
-  };
-
-  const getLogoUrl = (b) => {
-    if (b.logo) return b.logo;
-
-    if (
-      b.mediaLink &&
-      /\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(String(b.mediaLink))
-    ) {
-      return b.mediaLink;
-    }
-
-    return "";
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#f8fafc",
-        padding: "26px 16px 40px",
-        fontFamily: isArabic ? "Tajawal, Inter, sans-serif" : "Inter, sans-serif",
-        direction: isArabic ? "rtl" : "ltr",
-      }}
-    >
-      <div style={{ maxWidth: 1180, margin: "0 auto" }}>
-        <div
-          style={{
-            background: "linear-gradient(135deg, #16a34a, #22c55e)",
-            borderRadius: 24,
-            padding: "30px 22px",
-            color: "#fff",
-            marginBottom: 18,
-            boxShadow: "0 14px 35px rgba(34,197,94,0.18)",
-          }}
-        >
-          <h1
-            style={{
-              margin: 0,
-              textAlign: "center",
-              fontSize: "clamp(1.9rem, 4vw, 2.8rem)",
-              fontWeight: 800,
-              lineHeight: 1.2,
-            }}
-          >
-            {t("Discover Trusted Businesses", "اكتشف الأنشطة الموثوقة")}
-          </h1>
-
-          <p
-            style={{
-              margin: "12px auto 0",
-              maxWidth: 760,
-              textAlign: "center",
-              lineHeight: 1.9,
-              color: "rgba(255,255,255,0.95)",
-            }}
-          >
+    <div style={containerStyle}>
+      <form onSubmit={handleSignup} style={formStyle(isArabic)}>
+        <div style={headerStyle}>
+          <h2 style={titleStyle}>
+            {t("Create Business Account", "إنشاء حساب النشاط التجاري")}
+          </h2>
+          <p style={subtitleStyle}>
             {t(
-              "Search by business name, category, or city and connect instantly.",
-              "ابحث باسم النشاط أو الفئة أو المدينة وتواصل مباشرة."
+              "Set up your business profile and start building your trusted presence.",
+              "ابدأ بإعداد ملف نشاطك التجاري وبناء حضور موثوق."
             )}
           </p>
         </div>
 
-        <div
-          style={{
-            background: "#fff",
-            borderRadius: 20,
-            padding: 18,
-            border: "1px solid #e5e7eb",
-            boxShadow: "0 8px 24px rgba(15,23,42,0.05)",
-            marginBottom: 18,
-          }}
-        >
-          <div className="search-top-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t(
-                "Search by name, category, or city",
-                "ابحث بالاسم أو الفئة أو المدينة"
-              )}
-              style={{
-                width: "100%",
-                padding: "14px 16px",
-                borderRadius: 12,
-                border: "1px solid #cbd5e1",
-                outline: "none",
-                fontSize: "1rem",
-                boxSizing: "border-box",
-              }}
-            />
+        <div style={sectionStyle}>
+          <h3 style={sectionTitleStyle}>
+            {t("Basic Information", "المعلومات الأساسية")}
+          </h3>
 
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "14px 16px",
-                borderRadius: 12,
-                border: "1px solid #cbd5e1",
-                outline: "none",
-                fontSize: "1rem",
-                background: "#fff",
-                boxSizing: "border-box",
-                direction: isArabic ? "rtl" : "ltr",
-              }}
-            >
-              <option value="all">{t("All Categories", "كل الفئات")}</option>
-              {metaCategories.map((c) => (
-                <option key={c.key} value={c.key}>
-                  {isArabic ? c.nameAr : c.nameEn}
-                </option>
-              ))}
-            </select>
+          <label style={labelStyle}>
+            {t("Business Name (Arabic)", "الاسم التجاري (عربي)")}
+          </label>
+          <input
+            type="text"
+            value={businessNameAr}
+            onChange={(e) => setBusinessNameAr(e.target.value)}
+            style={inputStyle}
+          />
+
+          <label style={labelStyle}>
+            {t("Business Name (English)", "الاسم التجاري (إنجليزي)")}
+          </label>
+          <input
+            type="text"
+            value={businessNameEn}
+            onChange={(e) => setBusinessNameEn(e.target.value)}
+            style={inputStyle}
+          />
+
+          <label style={labelStyle}>{t("Description", "الوصف")}</label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            style={{ ...inputStyle, minHeight: 100, resize: "vertical" }}
+          />
+
+          <label style={labelStyle}>{t("Category", "الفئة")}</label>
+          <div className="relative z-20" style={{ marginBottom: 14 }}>
+            <Listbox value={category} onChange={setCategory}>
+              <>
+                <Listbox.Button
+                  className="w-full border rounded-lg py-3 px-3 bg-white text-left"
+                  style={listboxButtonStyle(isArabic)}
+                >
+                  {isArabic ? category.nameAr : category.nameEn}
+                </Listbox.Button>
+
+                <Transition>
+                  <Listbox.Options className="absolute w-full bg-white border rounded-lg shadow-md max-h-60 overflow-y-auto z-50">
+                    {metaCategories.map((c) => (
+                      <Listbox.Option key={c.key} value={c}>
+                        <div className="p-3 hover:bg-green-50 cursor-pointer">
+                          {isArabic ? c.nameAr : c.nameEn}
+                        </div>
+                      </Listbox.Option>
+                    ))}
+                  </Listbox.Options>
+                </Transition>
+              </>
+            </Listbox>
           </div>
         </div>
 
-        <div
-          style={{
-            marginBottom: 16,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 12,
-            flexWrap: "wrap",
-          }}
-        >
-          <div style={{ color: "#475569", fontWeight: 700 }}>
-            {loading
-              ? t("Loading businesses...", "جارٍ تحميل الأنشطة...")
-              : `${filteredBusinesses.length} ${t("results", "نتيجة")}`}
+        <div style={sectionStyle}>
+          <h3 style={sectionTitleStyle}>
+            {t("Brand & Social", "الهوية والروابط")}
+          </h3>
+
+          <label style={labelStyle}>{t("Company Logo", "شعار الشركة")}</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              setLogo(file);
+              setLogoPreview(URL.createObjectURL(file));
+            }}
+            style={fileInputStyle}
+          />
+
+          {logoPreview ? (
+            <div style={logoPreviewBoxStyle}>
+              <img
+                src={logoPreview}
+                alt="Logo Preview"
+                style={logoPreviewStyle}
+              />
+            </div>
+          ) : null}
+
+          <label style={labelStyle}>
+            {t("Instagram Username", "اسم المستخدم في إنستغرام")}
+          </label>
+          <div style={prefixInputWrapperStyle}>
+            <span style={prefixStyle}>@</span>
+            <input
+              value={instagram}
+              onChange={(e) => setInstagram(e.target.value.replace("@", ""))}
+              style={{ ...inputStyle, marginBottom: 0, paddingInlineStart: 42 }}
+              placeholder={t("yourbusiness", "اسم_الحساب")}
+            />
           </div>
+        </div>
+
+        <div style={sectionStyle}>
+          <h3 style={sectionTitleStyle}>
+            {t("WhatsApp Verification", "توثيق واتساب")}
+          </h3>
+
+          <WhatsAppVerify
+            lang={lang}
+            onVerified={(result) => {
+              setVerifiedWhatsApp(result?.whatsapp || "");
+              setOtpToken(result?.otpToken || "");
+              if (result?.otpToken) {
+                localStorage.setItem("otpToken", result.otpToken);
+              }
+            }}
+          />
+        </div>
+
+        <div style={sectionStyle}>
+          <h3 style={sectionTitleStyle}>
+            {t("Business Location", "موقع النشاط")}
+          </h3>
+
+          <label style={labelStyle}>{t("Country", "الدولة")}</label>
+          <select
+            value={countryCode}
+            onChange={(e) => setCountryCode(e.target.value)}
+            style={inputStyle}
+          >
+            {countries.map((country) => (
+              <option key={country.code} value={country.code}>
+                {isArabic ? country.nameAr : country.nameEn}
+              </option>
+            ))}
+          </select>
+
+          <label style={labelStyle}>
+            {t("Search your business location", "ابحث عن موقع النشاط")}
+          </label>
+          <input
+            ref={locationInputRef}
+            value={locationText}
+            onChange={(e) => setLocationText(e.target.value)}
+            style={inputStyle}
+            placeholder={t(
+              "Start typing your address or place name",
+              "ابدأ بكتابة العنوان أو اسم المكان"
+            )}
+          />
 
           <button
-            onClick={() => {
-              setQuery("");
-              setCategory("all");
-            }}
-            style={{
-              background: "#fff",
-              border: "1px solid #dbe2ea",
-              borderRadius: 12,
-              padding: "10px 14px",
-              cursor: "pointer",
-              fontWeight: 700,
-              color: "#0f172a",
-            }}
+            type="button"
+            onClick={getMyLocation}
+            style={secondaryButtonStyle}
           >
-            {t("Clear Filters", "مسح الفلاتر")}
+            {t("Use my current location", "استخدم موقعي الحالي")}
           </button>
+
+          <div style={locationInfoStyle}>
+            <div style={locationBoxStyle}>
+              <span style={locationLabelStyle}>{t("Latitude", "خط العرض")}</span>
+              <strong>{latitude ?? "--"}</strong>
+            </div>
+
+            <div style={locationBoxStyle}>
+              <span style={locationLabelStyle}>{t("Longitude", "خط الطول")}</span>
+              <strong>{longitude ?? "--"}</strong>
+            </div>
+          </div>
+
+          <label style={labelStyle}>{t("Map Link", "رابط الخريطة")}</label>
+          <input
+            value={mapLink}
+            onChange={(e) => setMapLink(e.target.value)}
+            style={inputStyle}
+            placeholder={t("Auto-filled after selection", "يتم تعبئته بعد اختيار الموقع")}
+          />
         </div>
 
-        {loading ? (
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: 18,
-              padding: "32px 20px",
-              textAlign: "center",
-              border: "1px solid #e5e7eb",
-              color: "#64748b",
-            }}
-          >
-            {t("Loading...", "جارٍ التحميل...")}
-          </div>
-        ) : filteredBusinesses.length === 0 ? (
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: 18,
-              padding: "32px 20px",
-              textAlign: "center",
-              border: "1px solid #e5e7eb",
-              color: "#64748b",
-            }}
-          >
-            {t("No matching businesses found.", "لم يتم العثور على نتائج مطابقة.")}
-          </div>
-        ) : (
-          <div
-            className="cards-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-              gap: 18,
-            }}
-          >
-            {filteredBusinesses.map((b) => {
-              const businessId = b._id || b.id;
-              const logoUrl = getLogoUrl(b);
-              const whatsappUrl = getWhatsappUrl(b);
-              const mapUrl = getMapUrl(b);
+        <div style={sectionStyle}>
+          <h3 style={sectionTitleStyle}>
+            {t("Account Details", "بيانات الحساب")}
+          </h3>
 
-              return (
-                <div
-                  key={businessId}
-                  style={{
-                    background: "#fff",
-                    borderRadius: 22,
-                    border: "1px solid #e5e7eb",
-                    boxShadow: "0 10px 24px rgba(15,23,42,0.06)",
-                    overflow: "hidden",
-                    display: "flex",
-                    flexDirection: "column",
-                    transition: "0.2s ease",
-                  }}
-                >
-                  <div
-                    style={{
-                      padding: "22px 18px 14px",
-                      background: "linear-gradient(180deg, #f8fafc 0%, #ffffff 100%)",
-                      borderBottom: "1px solid #f1f5f9",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 12,
-                      minHeight: 170,
-                    }}
-                  >
-                    {logoUrl ? (
-                      <img
-                        src={logoUrl}
-                        alt={b.name || b.name_ar || "Logo"}
-                        style={{
-                          width: 84,
-                          height: 84,
-                          objectFit: "cover",
-                          borderRadius: 18,
-                          border: "1px solid #e2e8f0",
-                          background: "#fff",
-                          boxShadow: "0 8px 18px rgba(15,23,42,0.08)",
-                        }}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          width: 84,
-                          height: 84,
-                          borderRadius: 18,
-                          border: "1px solid #e2e8f0",
-                          background: "#f1f5f9",
-                          color: "#94a3b8",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontWeight: 800,
-                          fontSize: 22,
-                        }}
-                      >
-                        {(b.name || b.name_ar || "B").charAt(0).toUpperCase()}
-                      </div>
-                    )}
+          <label style={labelStyle}>{t("Email", "البريد الإلكتروني")}</label>
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            style={inputStyle}
+          />
 
-                    <div style={{ textAlign: "center" }}>
-                      <h3
-                        style={{
-                          margin: "0 0 8px",
-                          fontSize: "1.12rem",
-                          fontWeight: 800,
-                          color: "#0f172a",
-                          lineHeight: 1.4,
-                        }}
-                      >
-                        {b.name || b.name_ar || t("Business", "نشاط")}
-                      </h3>
+          <label style={labelStyle}>{t("Password", "كلمة المرور")}</label>
+          <input
+            type="password"
+            required
+            minLength={8}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={inputStyle}
+          />
 
-                      <div
-                        style={{
-                          display: "inline-block",
-                          background: "#16a34a",
-                          color: "#fff",
-                          borderRadius: 999,
-                          padding: "5px 12px",
-                          fontSize: "0.8rem",
-                          fontWeight: 700,
-                        }}
-                      >
-                        {getBusinessCategoryLabel(b)}
-                      </div>
-                    </div>
-                  </div>
+          <label style={labelStyle}>
+            {t("Confirm Password", "تأكيد كلمة المرور")}
+          </label>
+          <input
+            type="password"
+            required
+            minLength={8}
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            style={inputStyle}
+          />
+        </div>
 
-                  <div
-                    style={{
-                      padding: 16,
-                      display: "flex",
-                      flexDirection: "column",
-                      flex: 1,
-                    }}
-                  >
-                    <p
-                      style={{
-                        color: "#475569",
-                        lineHeight: 1.8,
-                        margin: "0 0 10px",
-                        fontSize: "0.95rem",
-                        minHeight: 52,
-                        textAlign: isArabic ? "right" : "left",
-                      }}
-                    >
-                      {b.description || t("No description available.", "لا يوجد وصف متاح.")}
-                    </p>
-
-                    {b.locationText ? (
-                      <div
-                        style={{
-                          color: "#64748b",
-                          fontSize: "0.92rem",
-                          marginBottom: 14,
-                          textAlign: isArabic ? "right" : "left",
-                        }}
-                      >
-                        📍 {b.locationText}
-                      </div>
-                    ) : (
-                      <div
-                        style={{
-                          color: "#94a3b8",
-                          fontSize: "0.92rem",
-                          marginBottom: 14,
-                          textAlign: isArabic ? "right" : "left",
-                        }}
-                      >
-                        📍 {t("Location not added", "الموقع غير مضاف")}
-                      </div>
-                    )}
-
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: mapUrl ? "1fr 1fr" : "1fr 1fr",
-                        gap: 10,
-                        marginTop: "auto",
-                      }}
-                    >
-                      <button
-                        onClick={() => {
-                          navigate(`/business/${businessId}`);
-                          trackAction("/api/track-click", businessId);
-                        }}
-                        style={{
-                          background: "#f1f5f9",
-                          color: "#0f172a",
-                          border: "none",
-                          borderRadius: 12,
-                          padding: "12px 14px",
-                          cursor: "pointer",
-                          fontWeight: 700,
-                        }}
-                      >
-                        {t("View Details", "عرض التفاصيل")}
-                      </button>
-
-                      <a
-                        href={whatsappUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={() => trackAction("/api/track-whatsapp", businessId)}
-                        style={{
-                          textAlign: "center",
-                          background: "#16a34a",
-                          color: "#fff",
-                          borderRadius: 12,
-                          padding: "12px 14px",
-                          textDecoration: "none",
-                          fontWeight: 700,
-                        }}
-                      >
-                        💬 {t("Chat Now", "تواصل الآن")}
-                      </a>
-                    </div>
-
-                    {mapUrl && (
-                      <a
-                        href={mapUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={() => trackAction("/api/track-map", businessId)}
-                        style={{
-                          marginTop: 10,
-                          textAlign: "center",
-                          background: "#eff6ff",
-                          color: "#1d4ed8",
-                          borderRadius: 12,
-                          padding: "11px 14px",
-                          textDecoration: "none",
-                          fontWeight: 700,
-                        }}
-                      >
-                        📍 {t("Open Location", "فتح الموقع")}
-                      </a>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      <style>{`
-        @media (max-width: 820px) {
-          .search-top-grid {
-            grid-template-columns: 1fr !important;
-          }
-        }
-
-        @media (max-width: 640px) {
-          .cards-grid {
-            grid-template-columns: 1fr !important;
-          }
-        }
-      `}</style>
+        <button
+          type="submit"
+          disabled={loading || !verifiedWhatsApp || !otpToken}
+          style={{
+            ...submitButtonStyle,
+            cursor: loading ? "not-allowed" : "pointer",
+            opacity: !verifiedWhatsApp || !otpToken ? 0.6 : 1,
+          }}
+        >
+          {loading
+            ? t("Creating account...", "جارٍ إنشاء الحساب...")
+            : t("Continue", "متابعة")}
+        </button>
+      </form>
     </div>
   );
 }
+
+const containerStyle = {
+  display: "flex",
+  justifyContent: "center",
+  padding: "40px 16px",
+  background: "#f8fafc",
+  minHeight: "100vh",
+};
+
+const formStyle = (isArabic) => ({
+  background: "#ffffff",
+  padding: "32px",
+  borderRadius: "20px",
+  boxShadow: "0 10px 30px rgba(15, 23, 42, 0.08)",
+  maxWidth: "760px",
+  width: "100%",
+  textAlign: isArabic ? "right" : "left",
+  direction: isArabic ? "rtl" : "ltr",
+  fontFamily: isArabic ? "Tajawal, Inter, sans-serif" : "Inter, Tajawal, sans-serif",
+  border: "1px solid #e5e7eb",
+});
+
+const headerStyle = {
+  marginBottom: 24,
+};
+
+const titleStyle = {
+  color: "#16a34a",
+  marginBottom: 8,
+  fontSize: "1.8rem",
+  fontWeight: 800,
+};
+
+const subtitleStyle = {
+  color: "#64748b",
+  margin: 0,
+  lineHeight: 1.8,
+};
+
+const sectionStyle = {
+  background: "#ffffff",
+  border: "1px solid #e5e7eb",
+  borderRadius: "16px",
+  padding: "20px",
+  marginBottom: "18px",
+};
+
+const sectionTitleStyle = {
+  marginTop: 0,
+  marginBottom: 16,
+  fontSize: "1.05rem",
+  fontWeight: 700,
+  color: "#0f172a",
+};
+
+const labelStyle = {
+  display: "block",
+  fontSize: "0.95rem",
+  fontWeight: 600,
+  color: "#334155",
+  marginBottom: 8,
+};
+
+const inputStyle = {
+  width: "100%",
+  padding: "12px 14px",
+  border: "1px solid #cbd5e1",
+  borderRadius: "10px",
+  marginBottom: "14px",
+  boxSizing: "border-box",
+  fontSize: "0.96rem",
+  outline: "none",
+  background: "#fff",
+};
+
+const fileInputStyle = {
+  width: "100%",
+  marginBottom: 12,
+  padding: "10px 0",
+};
+
+const logoPreviewBoxStyle = {
+  marginBottom: 14,
+  display: "flex",
+  alignItems: "center",
+};
+
+const logoPreviewStyle = {
+  width: 84,
+  height: 84,
+  objectFit: "cover",
+  borderRadius: 14,
+  border: "1px solid #e2e8f0",
+  background: "#fff",
+};
+
+const prefixInputWrapperStyle = {
+  position: "relative",
+  marginBottom: 14,
+};
+
+const prefixStyle = {
+  position: "absolute",
+  top: "50%",
+  transform: "translateY(-50%)",
+  left: 14,
+  color: "#64748b",
+  fontWeight: 700,
+  zIndex: 1,
+};
+
+const secondaryButtonStyle = {
+  width: "100%",
+  marginBottom: 14,
+  background: "#f1f5f9",
+  color: "#0f172a",
+  border: "1px solid #dbe2ea",
+  padding: "12px 14px",
+  borderRadius: 10,
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+const locationInfoStyle = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gap: 12,
+  marginBottom: 14,
+};
+
+const locationBoxStyle = {
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
+  borderRadius: 12,
+  padding: "12px 14px",
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+};
+
+const locationLabelStyle = {
+  fontSize: "0.85rem",
+  color: "#64748b",
+};
+
+const submitButtonStyle = {
+  width: "100%",
+  background: "#16a34a",
+  color: "#fff",
+  padding: "14px",
+  borderRadius: 12,
+  fontWeight: 700,
+  border: "none",
+  fontSize: "1rem",
+};
+
+const listboxButtonStyle = (isArabic) => ({
+  width: "100%",
+  border: "1px solid #cbd5e1",
+  borderRadius: "10px",
+  padding: "12px 14px",
+  background: "#fff",
+  textAlign: isArabic ? "right" : "left",
+  direction: isArabic ? "rtl" : "ltr",
+  fontSize: "0.96rem",
+});
