@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
@@ -31,7 +31,7 @@ export default function BusinessDetails({ lang = "en" }) {
 
     return arr
       .map((c) => {
-        const key = String(c).toUpperCase();
+        const key = String(c).toUpperCase().trim();
         return metaCategories[key]
           ? isArabic
             ? metaCategories[key].ar
@@ -44,11 +44,17 @@ export default function BusinessDetails({ lang = "en" }) {
   useEffect(() => {
     let cancelled = false;
 
-    async function load() {
+    async function loadBusiness() {
       try {
         setLoading(true);
-       fetch(`${API_BASE}/api/business/${id}`)
-        const data = await res.json();
+        const res = await fetch(`${API_BASE}/api/business/${id}`);
+        const data = await res.json().catch(() => null);
+
+        if (!res.ok || !data) {
+          if (!cancelled) setBusiness(null);
+          return;
+        }
+
         if (!cancelled) setBusiness(data);
       } catch {
         if (!cancelled) setBusiness(null);
@@ -57,18 +63,15 @@ export default function BusinessDetails({ lang = "en" }) {
       }
     }
 
-    load();
-    return () => (cancelled = true);
+    loadBusiness();
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
-
-  const getLogo = () => {
-    if (business?.logo) return business.logo;
-    return "";
-  };
 
   const whatsappUrl =
     business?.whatsappLink ||
-    `https://wa.me/${(business?.whatsapp || "").replace(/\D/g, "")}`;
+    `https://wa.me/${(business?.whatsapp || "").toString().replace(/\D/g, "")}`;
 
   const mapUrl =
     business?.mapLink ||
@@ -76,57 +79,144 @@ export default function BusinessDetails({ lang = "en" }) {
       ? `https://www.google.com/maps?q=${business.latitude},${business.longitude}`
       : null);
 
-  if (loading) return <p style={{ textAlign: "center" }}>Loading...</p>;
-  if (!business) return <p style={{ textAlign: "center" }}>Not found</p>;
+  if (loading) {
+    return <p style={{ textAlign: "center", padding: 40 }}>Loading...</p>;
+  }
+
+  if (!business) {
+    return <p style={{ textAlign: "center", padding: 40 }}>Business not found.</p>;
+  }
 
   return (
-    <div style={container(isArabic)}>
-      <div style={card}>
-        
-        {/* 🔝 Header */}
-        <div style={header}>
-          <button onClick={() => navigate(-1)} style={backBtn}>
-            ← {t("Back", "رجوع")}
-          </button>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#f8fafc",
+        padding: 20,
+        direction: isArabic ? "rtl" : "ltr",
+        fontFamily: isArabic ? "Tajawal, Inter, sans-serif" : "Inter, sans-serif",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 700,
+          margin: "0 auto",
+          background: "#fff",
+          borderRadius: 20,
+          padding: 30,
+          boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+          textAlign: "center",
+        }}
+      >
+        <button
+          onClick={() => navigate(-1)}
+          style={{
+            border: "none",
+            background: "transparent",
+            cursor: "pointer",
+            marginBottom: 14,
+            color: "#16a34a",
+            fontWeight: 700,
+          }}
+        >
+          ← {t("Back", "رجوع")}
+        </button>
 
-          {getLogo() ? (
-            <img src={getLogo()} style={logo} />
-          ) : (
-            <div style={logoFallback}>
-              {(business.name || "B")[0]}
-            </div>
-          )}
-
-          <h2 style={title}>
-            {business.name_ar || business.name}
-          </h2>
-
-          <div style={category}>
-            {getCategoryLabel(business.category)}
+        {business.logo ? (
+          <img
+            src={business.logo}
+            alt={business.name || "logo"}
+            style={{
+              width: 96,
+              height: 96,
+              borderRadius: 20,
+              objectFit: "cover",
+              marginBottom: 14,
+              border: "1px solid #e5e7eb",
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: 96,
+              height: 96,
+              borderRadius: 20,
+              background: "#f1f5f9",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 14px",
+              fontSize: 28,
+              fontWeight: 800,
+              color: "#64748b",
+            }}
+          >
+            {(business.name || "B")[0]}
           </div>
+        )}
+
+        <h2 style={{ marginBottom: 8 }}>
+          {business.name_ar || business.name}
+        </h2>
+
+        <div
+          style={{
+            background: "#22c55e",
+            color: "#fff",
+            display: "inline-block",
+            padding: "6px 14px",
+            borderRadius: 20,
+            fontSize: 14,
+            marginBottom: 16,
+          }}
+        >
+          {getCategoryLabel(business.category)}
         </div>
 
-        {/* 📄 Description */}
-        <p style={desc}>
+        <p style={{ color: "#555", marginBottom: 14 }}>
           {business.description || t("No description", "لا يوجد وصف")}
         </p>
 
-        {/* 📍 Location */}
         {business.locationText && (
-          <div style={location}>
+          <div style={{ color: "#16a34a", marginBottom: 18 }}>
             📍 {business.locationText}
           </div>
         )}
 
-        {/* 🔘 Actions */}
-        <div style={actions}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           {mapUrl && (
-            <a href={mapUrl} target="_blank" style={btnLight}>
+            <a
+              href={mapUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                flex: 1,
+                background: "#f1f5f9",
+                padding: 12,
+                borderRadius: 10,
+                textDecoration: "none",
+                color: "#111827",
+                fontWeight: 700,
+              }}
+            >
               📍 {t("Location", "الموقع")}
             </a>
           )}
 
-          <a href={whatsappUrl} target="_blank" style={btnPrimary}>
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              flex: 1,
+              background: "#22c55e",
+              color: "#fff",
+              padding: 12,
+              borderRadius: 10,
+              textDecoration: "none",
+              fontWeight: 700,
+            }}
+          >
             💬 {t("Chat", "تواصل")}
           </a>
         </div>
@@ -134,101 +224,3 @@ export default function BusinessDetails({ lang = "en" }) {
     </div>
   );
 }
-
-/* 🎨 Styles */
-
-const container = (rtl) => ({
-  minHeight: "100vh",
-  background: "#f8fafc",
-  padding: 20,
-  direction: rtl ? "rtl" : "ltr",
-});
-
-const card = {
-  maxWidth: 600,
-  margin: "0 auto",
-  background: "#fff",
-  borderRadius: 20,
-  padding: 30,
-  boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
-  textAlign: "center",
-};
-
-const header = {
-  marginBottom: 20,
-};
-
-const backBtn = {
-  border: "none",
-  background: "transparent",
-  cursor: "pointer",
-  marginBottom: 10,
-  color: "#16a34a",
-};
-
-const logo = {
-  width: 90,
-  height: 90,
-  borderRadius: 20,
-  objectFit: "cover",
-  marginBottom: 12,
-};
-
-const logoFallback = {
-  width: 90,
-  height: 90,
-  borderRadius: 20,
-  background: "#eee",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: 28,
-  fontWeight: "bold",
-  margin: "0 auto 12px",
-};
-
-const title = {
-  marginBottom: 6,
-};
-
-const category = {
-  background: "#22c55e",
-  color: "#fff",
-  display: "inline-block",
-  padding: "6px 14px",
-  borderRadius: 20,
-  fontSize: 14,
-};
-
-const desc = {
-  color: "#555",
-  marginTop: 16,
-};
-
-const location = {
-  marginTop: 10,
-  color: "#16a34a",
-};
-
-const actions = {
-  display: "flex",
-  gap: 10,
-  marginTop: 20,
-};
-
-const btnPrimary = {
-  flex: 1,
-  background: "#22c55e",
-  color: "#fff",
-  padding: 12,
-  borderRadius: 10,
-  textDecoration: "none",
-};
-
-const btnLight = {
-  flex: 1,
-  background: "#f1f5f9",
-  padding: 12,
-  borderRadius: 10,
-  textDecoration: "none",
-};
