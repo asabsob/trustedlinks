@@ -122,39 +122,38 @@ export default function BusinessDetails({ lang = "en" }) {
           ← {t("Back", "رجوع")}
         </button>
 
-        {business.logo ? (
-          <img
-            src={business.logo}
-            alt={business.name || "logo"}
-            style={{
-              width: 96,
-              height: 96,
-              borderRadius: 20,
-              objectFit: "cover",
-              marginBottom: 14,
-              border: "1px solid #e5e7eb",
-            }}
-          />
-        ) : (
-          <div
-            style={{
-              width: 96,
-              height: 96,
-              borderRadius: 20,
-              background: "#f1f5f9",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              margin: "0 auto 14px",
-              fontSize: 28,
-              fontWeight: 800,
-              color: "#64748b",
-            }}
-          >
-            {(business.name || "B")[0]}
-          </div>
-        )}
-
+       {getLogoUrl(business) ? (
+  <img
+    src={getLogoUrl(business)}
+    alt={business.name || "logo"}
+    style={{
+      width: 96,
+      height: 96,
+      borderRadius: 20,
+      objectFit: "cover",
+      marginBottom: 14,
+      border: "1px solid #e5e7eb",
+    }}
+  />
+) : (
+  <div
+    style={{
+      width: 96,
+      height: 96,
+      borderRadius: 20,
+      background: "#f1f5f9",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      margin: "0 auto 14px",
+      fontSize: 28,
+      fontWeight: 800,
+      color: "#64748b",
+    }}
+  >
+    {(business.name || "B")[0]}
+  </div>
+)}
         <h2 style={{ marginBottom: 8 }}>
           {business.name_ar || business.name}
         </h2>
