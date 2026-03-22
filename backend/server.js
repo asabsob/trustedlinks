@@ -1179,13 +1179,13 @@ app.get("/api/businesses", async (_req, res) => {
   }
 });
 
-app.get("/api/business/:id", async (req, res) => {
+app.get("/api/businesses/:id", async (req, res) => {
   try {
     const b = await Business.findById(req.params.id).lean();
     if (!b) return res.status(404).json({ error: "Not found" });
-    return res.json(b);
+    res.json(b);
   } catch {
-    return res.status(404).json({ error: "Not found" });
+    res.status(404).json({ error: "Not found" });
   }
 });
 
