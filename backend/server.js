@@ -1179,11 +1179,25 @@ app.get("/api/businesses", async (_req, res) => {
   }
 });
 
-app.get("/api/businesses/:id", async (req, res) => {
+app.get("/api/business/:id", async (req, res) => {
   try {
-    const b = await Business.findById(req.params.id).lean();
-    if (!b) return res.status(404).json({ error: "Not found" });
-    res.json(b);
+    const id = req.params.id;
+
+    let business = null;
+
+    if (id.match(/^[0-9a-fA-F]{24}$/)) {
+      business = await Business.findById(id).lean();
+    }
+
+    if (!business) {
+      business = await Business.findOne({ customId: id }).lean();
+    }
+
+    if (!business) {
+      return res.status(404).json({ error: "Not found" });
+    }
+
+    res.json(business);
   } catch {
     res.status(404).json({ error: "Not found" });
   }
