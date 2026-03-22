@@ -1023,7 +1023,21 @@ app.get("/api/business/me", requireUser, async (req, res) => {
   try {
     const b = await Business.findOne({ ownerUserId: String(req.user.id) }).lean();
     if (!b) return res.status(404).json({ error: "Business not found" });
-    return res.json(b);
+
+    const formatted = {
+      ...b,
+      logo:
+        b.logo ||
+        (b.mediaLink &&
+        /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(String(b.mediaLink))
+          ? b.mediaLink
+          : null),
+      whatsappLink: b.whatsapp
+        ? `https://wa.me/${String(b.whatsapp).replace(/\D/g, "")}`
+        : null,
+    };
+
+    return res.json(formatted);
   } catch (e) {
     console.error("business/me error:", e);
     return res.status(500).json({ error: "Failed" });
@@ -1044,14 +1058,38 @@ app.put("/api/business/update", requireUser, async (req, res) => {
       name_ar,
       latitude,
       longitude,
+      logo,
+      locationText,
+      instagram,
+      whatsapp,
+      website,
+      countryCode,
+      countryName,
     } = req.body || {};
 
     if (name !== undefined) b.name = name;
     if (name_ar !== undefined) b.name_ar = name_ar;
     if (description !== undefined) b.description = description;
-    if (category !== undefined) b.category = Array.isArray(category) ? category : b.category;
+
+    if (category !== undefined) {
+      b.category = Array.isArray(category) ? category : b.category;
+    }
+
     if (mediaLink !== undefined) b.mediaLink = mediaLink;
     if (mapLink !== undefined) b.mapLink = mapLink;
+    if (logo !== undefined) b.logo = logo;
+    if (locationText !== undefined) b.locationText = locationText;
+    if (website !== undefined) b.website = website;
+    if (whatsapp !== undefined) b.whatsapp = whatsapp;
+    if (countryCode !== undefined) b.countryCode = countryCode;
+    if (countryName !== undefined) b.countryName = countryName;
+
+    if (instagram !== undefined) {
+      const cleanInstagram = String(instagram || "").trim().replace(/^@+/, "");
+      b.mediaLink = cleanInstagram
+        ? `https://instagram.com/${cleanInstagram}`
+        : "";
+    }
 
     if (latitude !== undefined) {
       b.latitude =
@@ -1068,7 +1106,21 @@ app.put("/api/business/update", requireUser, async (req, res) => {
     }
 
     await b.save();
-    return res.json({ ok: true, business: b });
+
+    const formatted = {
+      ...b.toObject(),
+      logo:
+        b.logo ||
+        (b.mediaLink &&
+        /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(String(b.mediaLink))
+          ? b.mediaLink
+          : null),
+      whatsappLink: b.whatsapp
+        ? `https://wa.me/${String(b.whatsapp).replace(/\D/g, "")}`
+        : null,
+    };
+
+    return res.json({ ok: true, business: formatted });
   } catch (e) {
     console.error("update business error:", e);
     return res.status(500).json({ error: "Update failed" });
@@ -1087,6 +1139,12 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
 
     return res.json({
       business: b.name || "Business",
+      logo:
+        b.logo ||
+        (b.mediaLink &&
+        /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(String(b.mediaLink))
+          ? b.mediaLink
+          : null),
       category: Array.isArray(b.category)
         ? b.category.join(", ")
         : toSafeCategoryValue(b.category) || "Category",
@@ -1173,7 +1231,21 @@ app.get("/api/search", async (req, res) => {
 app.get("/api/businesses", async (_req, res) => {
   try {
     const list = await Business.find({ status: "Active" }).lean();
-    return res.json(list);
+
+    const formatted = list.map((b) => ({
+      ...b,
+      logo:
+        b.logo ||
+        (b.mediaLink &&
+        /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(String(b.mediaLink))
+          ? b.mediaLink
+          : null),
+      whatsappLink: b.whatsapp
+        ? `https://wa.me/${String(b.whatsapp).replace(/\D/g, "")}`
+        : null,
+    }));
+
+    return res.json(formatted);
   } catch {
     return res.status(500).json({ error: "Failed" });
   }
@@ -1197,9 +1269,22 @@ app.get("/api/business/:id", async (req, res) => {
       return res.status(404).json({ error: "Not found" });
     }
 
-    res.json(business);
+    const formatted = {
+      ...business,
+      logo:
+        business.logo ||
+        (business.mediaLink &&
+        /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(String(business.mediaLink))
+          ? business.mediaLink
+          : null),
+      whatsappLink: business.whatsapp
+        ? `https://wa.me/${String(business.whatsapp).replace(/\D/g, "")}`
+        : null,
+    };
+
+    return res.json(formatted);
   } catch {
-    res.status(404).json({ error: "Not found" });
+    return res.status(404).json({ error: "Not found" });
   }
 });
 
