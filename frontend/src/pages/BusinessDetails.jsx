@@ -47,7 +47,7 @@ export default function BusinessDetails({ lang = "en" }) {
     async function load() {
       try {
         setLoading(true);
-        const res = await fetch(`${API_BASE}/api/businesses/${id}`);
+       fetch(`${API_BASE}/api/business/${id}`)
         const data = await res.json();
         if (!cancelled) setBusiness(data);
       } catch {
