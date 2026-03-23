@@ -59,31 +59,35 @@ export default function App() {
     () => ({
       en: {
         brand: "Trusted Links",
-        nav: {
-          home: "Home",
-          search: "Search",
-          register: "Register Business",
-          dashboard: "Dashboard",
-          manage: "Manage Links",
-          reports: "Reports",
-          logout: "Log Out",
-          login: "Log In",
-          arabic: "عربي",
-        },
+       nav: {
+  home: "Home",
+  search: "Search",
+  register: "Register Business",
+  dashboard: "Dashboard",
+  wallet: "Wallet",            // 👈 أضف هذا
+  transactions: "Transactions",// 👈 أضف هذا
+  manage: "Manage Links",
+  reports: "Reports",
+  logout: "Log Out",
+  login: "Log In",
+  arabic: "عربي",
+},
       },
       ar: {
         brand: "ترستيد لينكس",
-        nav: {
-          home: "الرئيسية",
-          search: "بحث",
-          register: "تسجيل نشاط",
-          dashboard: "لوحة التحكم",
-          manage: "إدارة الروابط",
-          reports: "التقارير",
-          logout: "تسجيل الخروج",
-          login: "تسجيل الدخول",
-          arabic: "EN",
-        },
+       nav: {
+  home: "الرئيسية",
+  search: "بحث",
+  register: "تسجيل نشاط",
+  dashboard: "لوحة التحكم",
+  wallet: "المحفظة",        // 👈 أضف هذا
+  transactions: "الحركات",  // 👈 أضف هذا
+  manage: "إدارة الروابط",
+  reports: "التقارير",
+  logout: "تسجيل الخروج",
+  login: "تسجيل الدخول",
+  arabic: "EN",
+},
       },
     }),
     []
