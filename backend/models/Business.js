@@ -39,6 +39,13 @@ const BusinessSchema = new mongoose.Schema(
     mapLink: { type: String, default: "" },
     mediaLink: { type: String, default: "" },
 
+    // ✅ أضف هذه الحقول
+    logo: { type: String, default: "" },
+    locationText: { type: String, default: "" },
+    countryCode: { type: String, default: "" },
+    countryName: { type: String, default: "" },
+    customId: { type: String, default: "", index: true },
+
     views: { type: [EventSchema], default: [] },
     clicks: { type: [EventSchema], default: [] },
     messages: { type: [EventSchema], default: [] },
