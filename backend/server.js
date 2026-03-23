@@ -34,6 +34,7 @@ import crypto from "crypto";
 import ClickLog from "./models/ClickLog.js";
 import LeadToken from "./models/LeadToken.js";
 import BusinessEvent from "./models/BusinessEvent.js";
+import Transaction from "./models/Transaction.js";
 
 dotenv.config();
 await connectDB();
@@ -42,6 +43,12 @@ const app = express();
 const PORT = process.env.PORT || 5175;
 const PENDING_NEARBY_REQUESTS = new Map();
 
+const EVENT_COSTS = {
+  click: 0.01,
+  whatsapp: 0.25,
+  media: 0.02,
+  view: 0,
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -302,6 +309,119 @@ async function getBusinessOwnerInfo(businessId) {
     ownerUserId: String(business.ownerUserId || ""),
     business,
   };
+}
+
+async function createTransaction({
+  userId,
+  businessId = null,
+  type,
+  amount,
+  currency = "USD",
+  reason = "",
+  eventType = "",
+  reference = "",
+  status = "completed",
+  balanceBefore = 0,
+  balanceAfter = 0,
+  notes = "",
+  meta = {},
+}) {
+  try {
+    return await Transaction.create({
+      userId: String(userId),
+      businessId: businessId || null,
+      type,
+      amount,
+      currency,
+      reason,
+      eventType,
+      reference,
+      status,
+      balanceBefore,
+      balanceAfter,
+      notes,
+      meta,
+    });
+  } catch (e) {
+    console.error("createTransaction error:", e);
+    return null;
+  }
+}
+async function deductWalletBalance({
+  ownerUserId,
+  businessId = null,
+  eventType,
+  reason,
+  reference = "",
+  meta = {},
+}) {
+  try {
+    const amount = Number(EVENT_COSTS[eventType] || 0);
+
+    if (!amount || amount <= 0) {
+      return { ok: true, skipped: true, reason: "No charge for this event" };
+    }
+
+    const user = await User.findById(ownerUserId);
+    if (!user) {
+      return { ok: false, error: "User not found" };
+    }
+
+    const balanceBefore = Number(user.walletBalance || 0);
+
+    if (balanceBefore < amount) {
+      await createTransaction({
+        userId: user._id,
+        businessId,
+        type: "debit",
+        amount,
+        currency: user.currency || "USD",
+        reason,
+        eventType,
+        reference,
+        status: "failed",
+        balanceBefore,
+        balanceAfter: balanceBefore,
+        notes: "Insufficient balance",
+        meta,
+      });
+
+      return {
+        ok: false,
+        insufficient: true,
+        balanceBefore,
+        balanceAfter: balanceBefore,
+      };
+    }
+
+    user.walletBalance = Number((balanceBefore - amount).toFixed(2));
+    await user.save();
+
+    await createTransaction({
+      userId: user._id,
+      businessId,
+      type: "debit",
+      amount,
+      currency: user.currency || "USD",
+      reason,
+      eventType,
+      reference,
+      status: "completed",
+      balanceBefore,
+      balanceAfter: user.walletBalance,
+      meta,
+    });
+
+    return {
+      ok: true,
+      amount,
+      balanceBefore,
+      balanceAfter: user.walletBalance,
+    };
+  } catch (e) {
+    console.error("deductWalletBalance error:", e);
+    return { ok: false, error: "Deduction failed" };
+  }
 }
 // ---------------------------------------------------------------------------
 // URLs
@@ -1307,6 +1427,103 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
   }
 });
 
+app.get("/api/balance", requireUser, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).lean();
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const balance = Number(user.walletBalance || 0);
+
+    let status = "active";
+    if (balance <= 0) status = "out";
+    else if (balance < 5) status = "low";
+
+    return res.json({
+      balance,
+      currency: user.currency || "USD",
+      status,
+    });
+  } catch (e) {
+    console.error("balance error:", e);
+    return res.status(500).json({ error: "Failed to load balance" });
+  }
+});
+
+app.get("/api/transactions", requireUser, async (req, res) => {
+  try {
+    const limit = Math.min(Number(req.query.limit || 50), 100);
+
+    const transactions = await Transaction.find({
+      userId: String(req.user.id),
+    })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+
+    return res.json({
+      transactions: transactions.map((tx) => ({
+        id: String(tx._id),
+        type: tx.type,
+        amount: tx.amount,
+        currency: tx.currency || "USD",
+        reason: tx.reason || "",
+        eventType: tx.eventType || "",
+        reference: tx.reference || "",
+        status: tx.status || "completed",
+        balanceBefore: Number(tx.balanceBefore || 0),
+        balanceAfter: Number(tx.balanceAfter || 0),
+        date: tx.createdAt,
+      })),
+    });
+  } catch (e) {
+    console.error("transactions error:", e);
+    return res.status(500).json({ error: "Failed to load transactions" });
+  }
+});
+
+app.post("/api/topup", requireUser, async (req, res) => {
+  try {
+    const amount = Number(req.body?.amount || 0);
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ error: "Invalid amount" });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const balanceBefore = Number(user.walletBalance || 0);
+    user.walletBalance = Number((balanceBefore + amount).toFixed(2));
+    await user.save();
+
+    await createTransaction({
+      userId: user._id,
+      type: "credit",
+      amount,
+      currency: user.currency || "USD",
+      reason: "Wallet top up",
+      eventType: "topup",
+      reference: `topup_${Date.now()}`,
+      status: "completed",
+      balanceBefore,
+      balanceAfter: user.walletBalance,
+    });
+
+    let status = "active";
+    if (user.walletBalance <= 0) status = "out";
+    else if (user.walletBalance < 5) status = "low";
+
+    return res.json({
+      ok: true,
+      balance: user.walletBalance,
+      currency: user.currency || "USD",
+      status,
+    });
+  } catch (e) {
+    console.error("topup error:", e);
+    return res.status(500).json({ error: "Top up failed" });
+  }
+});
+
 // ============================================================================
 // PUBLIC SEARCH + PUBLIC business endpoints
 // ============================================================================
@@ -1459,7 +1676,7 @@ app.post("/api/track-view", async (req, res) => {
       source: "business_details_page",
     });
 
-    return res.json({ ok: true });
+    return res.json({ ok: true, charged: false });
   } catch (e) {
     console.error("track-view error:", e);
     return res.status(500).json({ error: "Failed" });
@@ -1474,6 +1691,25 @@ app.post("/api/track-click", async (req, res) => {
     const info = await getBusinessOwnerInfo(businessId);
     if (!info) return res.status(404).json({ error: "Business not found" });
 
+    const deduction = await deductWalletBalance({
+      ownerUserId: info.ownerUserId,
+      businessId: info.businessId,
+      eventType: "click",
+      reason: "Business profile click charge",
+      reference: `click_${businessId}_${Date.now()}`,
+      meta: {
+        source: "business_profile_click",
+      },
+    });
+
+    if (deduction.insufficient) {
+      return res.status(402).json({
+        error: "Insufficient balance",
+        code: "INSUFFICIENT_BALANCE",
+        balance: deduction.balanceAfter,
+      });
+    }
+
     await pushEvent(businessId, "clicks");
 
     await logBusinessEvent({
@@ -1483,7 +1719,12 @@ app.post("/api/track-click", async (req, res) => {
       source: "business_profile_click",
     });
 
-    return res.json({ ok: true });
+    return res.json({
+      ok: true,
+      charged: true,
+      amount: deduction.amount || 0,
+      balance: deduction.balanceAfter,
+    });
   } catch (e) {
     console.error("track-click error:", e);
     return res.status(500).json({ error: "Failed" });
@@ -1498,6 +1739,25 @@ app.post("/api/track-media", async (req, res) => {
     const info = await getBusinessOwnerInfo(businessId);
     if (!info) return res.status(404).json({ error: "Business not found" });
 
+    const deduction = await deductWalletBalance({
+      ownerUserId: info.ownerUserId,
+      businessId: info.businessId,
+      eventType: "media",
+      reason: "Media view charge",
+      reference: `media_${businessId}_${Date.now()}`,
+      meta: {
+        source: "media_open",
+      },
+    });
+
+    if (deduction.insufficient) {
+      return res.status(402).json({
+        error: "Insufficient balance",
+        code: "INSUFFICIENT_BALANCE",
+        balance: deduction.balanceAfter,
+      });
+    }
+
     await pushEvent(businessId, "mediaViews");
 
     await logBusinessEvent({
@@ -1507,7 +1767,12 @@ app.post("/api/track-media", async (req, res) => {
       source: "media_open",
     });
 
-    return res.json({ ok: true });
+    return res.json({
+      ok: true,
+      charged: true,
+      amount: deduction.amount || 0,
+      balance: deduction.balanceAfter,
+    });
   } catch (e) {
     console.error("track-media error:", e);
     return res.status(500).json({ error: "Failed" });
@@ -1524,7 +1789,7 @@ app.post("/api/track-map", async (req, res) => {
 
     await pushEvent(businessId, "mapClicks");
 
-    return res.json({ ok: true });
+    return res.json({ ok: true, charged: false });
   } catch (e) {
     console.error("track-map error:", e);
     return res.status(500).json({ error: "Failed" });
@@ -1539,6 +1804,25 @@ app.post("/api/track-whatsapp", async (req, res) => {
     const info = await getBusinessOwnerInfo(businessId);
     if (!info) return res.status(404).json({ error: "Business not found" });
 
+    const deduction = await deductWalletBalance({
+      ownerUserId: info.ownerUserId,
+      businessId: info.businessId,
+      eventType: "whatsapp",
+      reason: "WhatsApp lead charge",
+      reference: `whatsapp_${businessId}_${Date.now()}`,
+      meta: {
+        source: "whatsapp_button",
+      },
+    });
+
+    if (deduction.insufficient) {
+      return res.status(402).json({
+        error: "Insufficient balance",
+        code: "INSUFFICIENT_BALANCE",
+        balance: deduction.balanceAfter,
+      });
+    }
+
     await pushEvent(businessId, "whatsappClicks");
     await pushEvent(businessId, "messages");
 
@@ -1549,7 +1833,12 @@ app.post("/api/track-whatsapp", async (req, res) => {
       source: "whatsapp_button",
     });
 
-    return res.json({ ok: true });
+    return res.json({
+      ok: true,
+      charged: true,
+      amount: deduction.amount || 0,
+      balance: deduction.balanceAfter,
+    });
   } catch (e) {
     console.error("track-whatsapp error:", e);
     return res.status(500).json({ error: "Failed" });
@@ -2287,6 +2576,28 @@ app.get("/l/:token", async (req, res) => {
       return res.status(400).send("Invalid destination");
     }
 
+    const business = await Business.findById(businessId).lean();
+    if (!business) {
+      return res.status(404).send("Business not found");
+    }
+
+    const deduction = await deductWalletBalance({
+      ownerUserId: business.ownerUserId,
+      businessId: business._id,
+      eventType: "whatsapp",
+      reason: "Tracked lead WhatsApp charge",
+      reference: `lead_${token}`,
+      meta: {
+        query,
+        userPhone,
+        source: "tracked_lead_link",
+      },
+    });
+
+    if (deduction.insufficient) {
+      return res.status(402).send("Insufficient balance");
+    }
+
     ClickLog.create({
       businessId,
       businessPhone,
@@ -2295,31 +2606,25 @@ app.get("/l/:token", async (req, res) => {
       timestamp: new Date(),
     }).catch((err) => console.error("CLICK LOG ERROR:", err));
 
-    const business = await Business.findById(businessId).lean();
+    await logBusinessEvent({
+      businessId: business._id,
+      ownerUserId: String(business.ownerUserId || ""),
+      type: "click",
+      source: "tracked_lead_link",
+      meta: { query, userPhone },
+    });
 
-    if (business) {
-      await logBusinessEvent({
-        businessId: business._id,
-        ownerUserId: String(business.ownerUserId || ""),
-        type: "click",
-        source: "tracked_lead_link",
-        meta: {
-          query,
-          userPhone,
-        },
-      });
+    await logBusinessEvent({
+      businessId: business._id,
+      ownerUserId: String(business.ownerUserId || ""),
+      type: "whatsapp",
+      source: "tracked_lead_link",
+      meta: { query, userPhone },
+    });
 
-      await logBusinessEvent({
-        businessId: business._id,
-        ownerUserId: String(business.ownerUserId || ""),
-        type: "whatsapp",
-        source: "tracked_lead_link",
-        meta: {
-          query,
-          userPhone,
-        },
-      });
-    }
+    await pushEvent(businessId, "clicks");
+    await pushEvent(businessId, "whatsappClicks");
+    await pushEvent(businessId, "messages");
 
     const message = encodeURIComponent("Hello, I found you on TrustedLinks");
 
