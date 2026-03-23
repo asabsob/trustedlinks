@@ -15,10 +15,19 @@ export default function BusinessDetails({ lang = "en" }) {
 
   const metaCategories = useMemo(
     () => ({
-      RESTAURANT: { en: "Restaurant", ar: "مطعم" },
+      RESTAURANT: { en: "Restaurant", ar: "مطعم / مقهى" },
       SHOPPING_RETAIL: { en: "Retail", ar: "تجزئة" },
       PROFESSIONAL_SERVICES: { en: "Services", ar: "خدمات" },
       BEAUTY_SPA_SALON: { en: "Beauty", ar: "تجميل" },
+      AUTOMOTIVE: { en: "Automotive", ar: "سيارات" },
+      EDUCATION: { en: "Education", ar: "تعليم" },
+      ENTERTAINMENT: { en: "Entertainment", ar: "ترفيه" },
+      FINANCE_BANKING: { en: "Finance", ar: "تمويل وبنوك" },
+      FOOD_GROCERY: { en: "Food & Grocery", ar: "طعام وبقالة" },
+      BEVERAGES: { en: "Beverages", ar: "مشروبات" },
+      HOTEL_LODGING: { en: "Hotel & Lodging", ar: "فنادق وإقامة" },
+      MEDICAL_HEALTH: { en: "Medical & Health", ar: "صحة وطبية" },
+      TRAVEL_TRANSPORTATION: { en: "Travel & Transport", ar: "سفر ومواصلات" },
       OTHER: { en: "Other", ar: "أخرى" },
     }),
     []
@@ -53,7 +62,18 @@ export default function BusinessDetails({ lang = "en" }) {
       return b.mediaLink;
     }
 
+    if (b.name) {
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(
+        b.name
+      )}&background=22c55e&color=fff&size=128`;
+    }
+
     return "";
+  };
+
+  const fixUrl = (url) => {
+    if (!url) return "";
+    return String(url).startsWith("http") ? url : `https://${url}`;
   };
 
   useEffect(() => {
@@ -94,170 +114,255 @@ export default function BusinessDetails({ lang = "en" }) {
       ? `https://www.google.com/maps?q=${business.latitude},${business.longitude}`
       : null);
 
+  const instagramUrl =
+    business?.mediaLink && String(business.mediaLink).includes("instagram")
+      ? business.mediaLink
+      : null;
+
   if (loading) {
-    return <p style={{ textAlign: "center", padding: 40 }}>Loading...</p>;
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#f8fafc",
+          fontFamily: isArabic ? "Tajawal, Inter, sans-serif" : "Inter, sans-serif",
+        }}
+      >
+        <div style={{ color: "#64748b", fontWeight: 600 }}>
+          {t("Loading...", "جارٍ التحميل...")}
+        </div>
+      </div>
+    );
   }
 
   if (!business) {
-    return <p style={{ textAlign: "center", padding: 40 }}>Business not found.</p>;
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#f8fafc",
+          padding: 20,
+          fontFamily: isArabic ? "Tajawal, Inter, sans-serif" : "Inter, sans-serif",
+        }}
+      >
+        <div
+          style={{
+            background: "#fff",
+            border: "1px solid #e5e7eb",
+            borderRadius: 18,
+            padding: 28,
+            textAlign: "center",
+            color: "#64748b",
+          }}
+        >
+          {t("Business not found.", "لم يتم العثور على النشاط.")}
+        </div>
+      </div>
+    );
   }
-  
-const instagramUrl =
-  business?.mediaLink &&
-  String(business.mediaLink).includes("instagram.com")
-    ? business.mediaLink
-    : null;
-  
+
   return (
     <div
       style={{
         minHeight: "100vh",
         background: "#f8fafc",
-        padding: 20,
+        padding: "24px 16px 40px",
         direction: isArabic ? "rtl" : "ltr",
         fontFamily: isArabic ? "Tajawal, Inter, sans-serif" : "Inter, sans-serif",
       }}
     >
-      <div
-        style={{
-          maxWidth: 700,
-          margin: "0 auto",
-          background: "#fff",
-          borderRadius: 20,
-          padding: 30,
-          boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
-          textAlign: "center",
-        }}
-      >
-        <button
-          onClick={() => navigate(-1)}
+      <div style={{ maxWidth: 820, margin: "0 auto" }}>
+        <div
           style={{
-            border: "none",
-            background: "transparent",
-            cursor: "pointer",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 10,
             marginBottom: 14,
-            color: "#16a34a",
-            fontWeight: 700,
           }}
         >
-          ← {t("Back", "رجوع")}
-        </button>
-
-        {getLogoUrl(business) ? (
-          <img
-            src={getLogoUrl(business)}
-            alt={business.name || "logo"}
+          <button
+            onClick={() => navigate(-1)}
             style={{
-              width: 96,
-              height: 96,
-              borderRadius: 20,
-              objectFit: "cover",
-              marginBottom: 14,
-              border: "1px solid #e5e7eb",
-            }}
-          />
-        ) : (
-          <div
-            style={{
-              width: 96,
-              height: 96,
-              borderRadius: 20,
-              background: "#f1f5f9",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              margin: "0 auto 14px",
-              fontSize: 28,
-              fontWeight: 800,
-              color: "#64748b",
+              border: "1px solid #dbe2ea",
+              background: "#fff",
+              cursor: "pointer",
+              borderRadius: 12,
+              padding: "10px 14px",
+              color: "#0f172a",
+              fontWeight: 700,
             }}
           >
-            {(business.name || "B")[0]}
-          </div>
-        )}
+            ← {t("Back", "رجوع")}
+          </button>
 
-        <h2 style={{ marginBottom: 8 }}>
-          {business.name_ar || business.name}
-        </h2>
+          <div style={{ color: "#64748b", fontSize: 14 }}>
+            {t("Business Details", "تفاصيل النشاط")}
+          </div>
+        </div>
 
         <div
           style={{
-            background: "#22c55e",
-            color: "#fff",
-            display: "inline-block",
-            padding: "6px 14px",
-            borderRadius: 20,
-            fontSize: 14,
-            marginBottom: 16,
+            background: "#fff",
+            borderRadius: 24,
+            padding: "28px 22px",
+            border: "1px solid #e5e7eb",
+            boxShadow: "0 10px 30px rgba(15,23,42,0.06)",
+            textAlign: "center",
           }}
         >
-          {getCategoryLabel(business.category)}
-        </div>
-
-        <p style={{ color: "#555", marginBottom: 14 }}>
-          {business.description || t("No description", "لا يوجد وصف")}
-        </p>
-
-        {business.locationText && (
-          <div style={{ color: "#16a34a", marginBottom: 18 }}>
-            📍 {business.locationText}
+          <div
+            style={{
+              width: 108,
+              height: 108,
+              margin: "0 auto 16px",
+              borderRadius: 24,
+              overflow: "hidden",
+              border: "1px solid #e5e7eb",
+              background: "#fff",
+              boxShadow: "0 10px 24px rgba(15,23,42,0.08)",
+            }}
+          >
+            <img
+              src={getLogoUrl(business)}
+              alt={business.name || "logo"}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                display: "block",
+              }}
+            />
           </div>
-        )}
 
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-  {mapUrl && (
-    <a
-      href={mapUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      style={{
-        flex: 1,
-        background: "#f1f5f9",
-        padding: 12,
-        borderRadius: 10,
-        textDecoration: "none",
-        color: "#111827",
-        fontWeight: 700,
-        textAlign: "center",
-      }}
-    >
-      📍 {t("Location", "الموقع")}
-    </a>
-  )}
+          <h1
+            style={{
+              margin: "0 0 8px",
+              fontSize: "clamp(1.6rem, 4vw, 2rem)",
+              color: "#0f172a",
+              fontWeight: 800,
+              lineHeight: 1.3,
+            }}
+          >
+            {business.name_ar || business.name}
+          </h1>
 
-  <a
-    href={whatsappUrl}
-    target="_blank"
-    rel="noopener noreferrer"
-    style={{
-      flex: 1,
-      background: "#22c55e",
-      color: "#fff",
-      padding: 12,
-      borderRadius: 10,
-      textDecoration: "none",
-      fontWeight: 700,
-      textAlign: "center",
-    }}
-  >
-    💬 {t("Chat", "تواصل")}
-  </a>
+          <div
+            style={{
+              display: "inline-block",
+              background: "#16a34a",
+              color: "#fff",
+              padding: "7px 14px",
+              borderRadius: 999,
+              fontSize: 14,
+              marginBottom: 16,
+              fontWeight: 700,
+            }}
+          >
+            {getCategoryLabel(business.category)}
+          </div>
 
-  {instagramUrl && (
-    <a
-      href={instagramUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      style={{
-        flex: 1,
-        background: "#fdf2f8",
-        color: "#be185d",
-        padding: 12,
-        borderRadius: 10,
-        textDecoration: "none",
-        fontWeight: 700,
-        textAlign: "center",
-      }}
-    >
-      📸 {t("Instagram", "إنستغرام")}
-    </a>
+          <p
+            style={{
+              color: "#475569",
+              margin: "0 auto 16px",
+              maxWidth: 620,
+              lineHeight: 1.9,
+              fontSize: 15,
+            }}
+          >
+            {business.description || t("No description available.", "لا يوجد وصف متاح.")}
+          </p>
+
+          {business.locationText && (
+            <div
+              style={{
+                color: "#0f766e",
+                background: "#ecfeff",
+                border: "1px solid #cffafe",
+                borderRadius: 14,
+                padding: "12px 14px",
+                display: "inline-block",
+                marginBottom: 20,
+                fontWeight: 600,
+              }}
+            >
+              📍 {business.locationText}
+            </div>
+          )}
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: 12,
+              marginTop: 8,
+            }}
+          >
+            {mapUrl && (
+              <a
+                href={fixUrl(mapUrl)}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  background: "#f1f5f9",
+                  padding: 14,
+                  borderRadius: 14,
+                  textDecoration: "none",
+                  color: "#111827",
+                  fontWeight: 700,
+                  textAlign: "center",
+                }}
+              >
+                📍 {t("Location", "الموقع")}
+              </a>
+            )}
+
+            <a
+              href={fixUrl(whatsappUrl)}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                background: "#22c55e",
+                color: "#fff",
+                padding: 14,
+                borderRadius: 14,
+                textDecoration: "none",
+                fontWeight: 700,
+                textAlign: "center",
+              }}
+            >
+              💬 {t("Chat on WhatsApp", "تواصل عبر واتساب")}
+            </a>
+
+            {instagramUrl && (
+              <a
+                href={fixUrl(instagramUrl)}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  background: "#fdf2f8",
+                  color: "#be185d",
+                  padding: 14,
+                  borderRadius: 14,
+                  textDecoration: "none",
+                  fontWeight: 700,
+                  textAlign: "center",
+                }}
+              >
+                📸 {t("Instagram", "إنستغرام")}
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
