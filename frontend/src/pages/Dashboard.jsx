@@ -5,14 +5,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 
 export default function Dashboard({ lang = "en" }) {
   const navigate = useNavigate();
   const isAr = lang === "ar";
-const t = (en, ar) => (isAr ? ar : en);
-  
+  const t = (en, ar) => (isAr ? ar : en);
+
   const [user, setUser] = useState(null);
   const [business, setBusiness] = useState(null);
   const [reports, setReports] = useState(null);
@@ -93,6 +92,23 @@ const t = (en, ar) => (isAr ? ar : en);
     return business.category;
   }, [business, lang]);
 
+  const walletText = useMemo(() => {
+    if (!user) return "0 USD";
+    const balance = typeof user.walletBalance === "number" ? user.walletBalance : 0;
+    const currency = user.currency || "USD";
+    return `${balance} ${currency}`;
+  }, [user]);
+
+  const walletStatus = useMemo(() => {
+    if (!user) return "active";
+
+    const balance = Number(user.walletBalance || 0);
+
+    if (balance <= 0) return "out";
+    if (balance < 5) return "low";
+    return "active";
+  }, [user]);
+
   const shortMapLink = useMemo(() => {
     if (!business?.mapLink) return null;
     try {
@@ -133,9 +149,7 @@ const t = (en, ar) => (isAr ? ar : en);
       {/* Hero */}
       <section style={heroCard}>
         <div>
-          <div style={heroBadge}>
-            {t("Business Dashboard", "لوحة تحكم النشاط")}
-          </div>
+          <div style={heroBadge}>{t("Business Dashboard", "لوحة تحكم النشاط")}</div>
           <h1 style={heroTitle}>
             {t("Welcome back", "مرحبًا بعودتك")} {businessName}
           </h1>
@@ -149,79 +163,77 @@ const t = (en, ar) => (isAr ? ar : en);
       </section>
 
       {walletStatus !== "active" && (
-  <div
-    style={{
-      background: walletStatus === "out" ? "#fef2f2" : "#fff7ed",
-      border: `1px solid ${
-        walletStatus === "out" ? "#fecaca" : "#fed7aa"
-      }`,
-      borderRadius: 16,
-      padding: "16px",
-      marginBottom: 18,
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      flexWrap: "wrap",
-      gap: 10,
-    }}
-  >
-    <div>
-      <strong style={{ color: "#b91c1c" }}>
-        {walletStatus === "out"
-          ? t("No balance available", "لا يوجد رصيد")
-          : t("Low balance warning", "تحذير: الرصيد منخفض")}
-      </strong>
+        <div
+          style={{
+            background: walletStatus === "out" ? "#fef2f2" : "#fff7ed",
+            border: `1px solid ${walletStatus === "out" ? "#fecaca" : "#fed7aa"}`,
+            borderRadius: 16,
+            padding: "16px",
+            marginBottom: 18,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 10,
+          }}
+        >
+          <div>
+            <strong style={{ color: walletStatus === "out" ? "#b91c1c" : "#c2410c" }}>
+              {walletStatus === "out"
+                ? t("No balance available", "لا يوجد رصيد")
+                : t("Low balance warning", "تحذير: الرصيد منخفض")}
+            </strong>
 
-      <div style={{ fontSize: 14, color: "#6b7280" }}>
-        {walletStatus === "out"
-          ? t(
-              "Your business is not receiving leads. Please recharge.",
-              "لن تستقبل طلبات جديدة. يرجى شحن الرصيد."
-            )
-          : t(
-              "Your balance is almost finished. Recharge to continue.",
-              "رصيدك أوشك على الانتهاء. يرجى الشحن."
-            )}
-      </div>
-    </div>
+            <div style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>
+              {walletStatus === "out"
+                ? t(
+                    "Your business is not receiving leads. Please recharge.",
+                    "لن تستقبل طلبات جديدة. يرجى شحن الرصيد."
+                  )
+                : t(
+                    "Your balance is almost finished. Recharge to continue.",
+                    "رصيدك أوشك على الانتهاء. يرجى الشحن."
+                  )}
+            </div>
+          </div>
 
-    <button
-      onClick={() => navigate("/wallet")}
-      style={{
-        background: "#16a34a",
-        color: "#fff",
-        border: "none",
-        borderRadius: 10,
-        padding: "10px 16px",
-        fontWeight: 700,
-        cursor: "pointer",
-      }}
-    >
-      {t("Recharge Now", "اشحن الآن")}
-    </button>
-  </div>
-)}
-      
+          <button
+            onClick={() => navigate("/wallet")}
+            style={{
+              background: "#16a34a",
+              color: "#fff",
+              border: "none",
+              borderRadius: 10,
+              padding: "10px 16px",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            {t("Recharge Now", "اشحن الآن")}
+          </button>
+        </div>
+      )}
+
       {/* Summary Cards */}
       <section style={statsGrid}>
-     <StatCard
-  title={t("Wallet Balance", "الرصيد الحالي")}
-  value={walletText}
-  subtitle={
-    walletStatus === "out"
-      ? t("Out of balance", "لا يوجد رصيد")
-      : walletStatus === "low"
-      ? t("Low balance", "رصيد منخفض")
-      : t("Active", "نشط")
-  }
-  highlight={
-    walletStatus === "out"
-      ? "#ef4444"
-      : walletStatus === "low"
-      ? "#f59e0b"
-      : "#16a34a"
-  }
-/>
+        <StatCard
+          title={t("Wallet Balance", "الرصيد الحالي")}
+          value={walletText}
+          subtitle={
+            walletStatus === "out"
+              ? t("Out of balance", "لا يوجد رصيد")
+              : walletStatus === "low"
+              ? t("Low balance", "رصيد منخفض")
+              : t("Active", "نشط")
+          }
+          highlight={
+            walletStatus === "out"
+              ? "#ef4444"
+              : walletStatus === "low"
+              ? "#f59e0b"
+              : "#16a34a"
+          }
+        />
         <StatCard
           title={t("Total Clicks", "إجمالي النقرات")}
           value={reports?.totalClicks ?? 0}
@@ -258,10 +270,7 @@ const t = (en, ar) => (isAr ? ar : en);
                 label={t("Business Name", "اسم النشاط")}
                 value={business.name_ar || business.name || t("N/A", "غير متوفر")}
               />
-              <InfoItem
-                label={t("Category", "الفئة")}
-                value={categoryText}
-              />
+              <InfoItem label={t("Category", "الفئة")} value={categoryText} />
               <InfoItem
                 label={t("WhatsApp", "واتساب")}
                 value={business.whatsapp || t("N/A", "غير متوفر")}
@@ -321,14 +330,8 @@ const t = (en, ar) => (isAr ? ar : en);
 
           {reports ? (
             <div style={miniStatsGrid}>
-              <MiniStat
-                title={t("Views", "المشاهدات")}
-                value={reports.views ?? 0}
-              />
-              <MiniStat
-                title={t("Clicks", "النقرات")}
-                value={reports.totalClicks ?? 0}
-              />
+              <MiniStat title={t("Views", "المشاهدات")} value={reports.views ?? 0} />
+              <MiniStat title={t("Clicks", "النقرات")} value={reports.totalClicks ?? 0} />
               <MiniStat
                 title={t("Messages", "الرسائل")}
                 value={reports.totalMessages ?? 0}
@@ -361,25 +364,6 @@ function StatCard({ title, value, subtitle, highlight = "#111827" }) {
     marginBottom: "6px",
   };
 
-const walletText = useMemo(() => {
-  if (!user) return "0 USD";
-  const balance = typeof user.walletBalance === "number" ? user.walletBalance : 0;
-  const currency = user.currency || "USD";
-  return `${balance} ${currency}`;
-}, [user]);
-
-// 👇 هنا تضيفه
-const walletStatus = useMemo(() => {
-  if (!user) return "active";
-
-  const balance = Number(user.walletBalance || 0);
-
-  if (balance <= 0) return "out";
-  if (balance < 5) return "low";
-  return "active";
-}, [user]);
-  
-  
   return (
     <div style={statCard}>
       <div style={statTitle}>{title}</div>
@@ -475,13 +459,6 @@ const statTitle = {
   color: "#6b7280",
   fontSize: "14px",
   marginBottom: "10px",
-};
-
-const statValue = {
-  fontSize: "28px",
-  fontWeight: 800,
-  color: "#111827",
-  marginBottom: "6px",
 };
 
 const statSubtitle = {
