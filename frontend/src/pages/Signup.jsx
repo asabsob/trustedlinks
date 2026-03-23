@@ -149,17 +149,42 @@ export default function Signup({ lang = "en" }) {
     );
   };
 
-  const convertLogoToBase64 = async () => {
-    if (!logo) return "";
+ const convertLogoToBase64 = async () => {
+  if (!logo) return "";
 
-    return await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result || "");
-      reader.onerror = reject;
-      reader.readAsDataURL(logo);
-    });
-  };
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
 
+    reader.onloadend = () => {
+      let result = reader.result;
+
+      // 🔥 تقليل الحجم (اختياري بسيط)
+      if (typeof result === "string" && result.length > 500000) {
+        alert(t("Image is too large", "الصورة كبيرة جدًا"));
+        return resolve("");
+      }
+
+      resolve(result);
+    };
+
+    reader.onerror = reject;
+    reader.readAsDataURL(logo);
+  });
+};
+
+  const normalizeNumber = (value) => {
+  const arabicNums = "٠١٢٣٤٥٦٧٨٩";
+  const englishNums = "0123456789";
+
+  return (value || "")
+    .split("")
+    .map((char) => {
+      const index = arabicNums.indexOf(char);
+      return index !== -1 ? englishNums[index] : char;
+    })
+    .join("");
+};
+  
   const handleSignup = async (e) => {
     e.preventDefault();
 
@@ -216,7 +241,7 @@ export default function Signup({ lang = "en" }) {
         description: description.trim(),
         category: [category.key],
         keywords: [],
-        whatsapp: verifiedWhatsApp,
+      whatsapp: normalizeNumber(verifiedWhatsApp),
         countryCode,
         countryName: selectedCountry
           ? isArabic
@@ -346,17 +371,22 @@ export default function Signup({ lang = "en" }) {
           </h3>
 
           <label style={labelStyle}>{t("Company Logo", "شعار الشركة")}</label>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              setLogo(file);
-              setLogoPreview(URL.createObjectURL(file));
-            }}
-            style={fileInputStyle}
-          />
+         <input
+  type="file"
+  accept="image/png, image/jpeg, image/webp"
+  onChange={(e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert(t("Invalid image file", "ملف غير صالح"));
+      return;
+    }
+
+    setLogo(file);
+    setLogoPreview(URL.createObjectURL(file));
+  }}
+/>
 
           {logoPreview ? (
             <div style={logoPreviewBoxStyle}>
