@@ -152,23 +152,44 @@ export default function Signup({ lang = "en" }) {
  const convertLogoToBase64 = async () => {
   if (!logo) return "";
 
-  return await new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
+    const img = new Image();
     const reader = new FileReader();
 
-    reader.onloadend = () => {
-      const result = reader.result;
-
-      if (!result) return resolve("");
-
-      // 🔥 فقط تحذير وليس منع
-      if (result.length > 1500000) {
-        console.warn("Large image");
-      }
-
-      resolve(result);
+    reader.onload = (e) => {
+      img.src = e.target.result;
     };
 
-    reader.onerror = reject;
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+
+      const MAX_SIZE = 300; // 🔥 مهم
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > MAX_SIZE) {
+          height *= MAX_SIZE / width;
+          width = MAX_SIZE;
+        }
+      } else {
+        if (height > MAX_SIZE) {
+          width *= MAX_SIZE / height;
+          height = MAX_SIZE;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const compressed = canvas.toDataURL("image/jpeg", 0.7); // 🔥 ضغط
+
+      resolve(compressed);
+    };
+
     reader.readAsDataURL(logo);
   });
 };
@@ -260,6 +281,8 @@ export default function Signup({ lang = "en" }) {
 
       localStorage.setItem("otpToken", otpToken);
 
+      console.log("FINAL LOGO:", logoBase64?.slice(0, 50));
+      
       const res = await fetch(`${API_BASE}/api/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
