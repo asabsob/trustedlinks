@@ -101,7 +101,13 @@ export default function BusinessDetails({ lang = "en" }) {
   if (!business) {
     return <p style={{ textAlign: "center", padding: 40 }}>Business not found.</p>;
   }
-
+  
+const instagramUrl =
+  business?.mediaLink &&
+  String(business.mediaLink).includes("instagram.com")
+    ? business.mediaLink
+    : null;
+  
   return (
     <div
       style={{
@@ -199,43 +205,61 @@ export default function BusinessDetails({ lang = "en" }) {
         )}
 
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          {mapUrl && (
-            <a
-              href={mapUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                flex: 1,
-                background: "#f1f5f9",
-                padding: 12,
-                borderRadius: 10,
-                textDecoration: "none",
-                color: "#111827",
-                fontWeight: 700,
-              }}
-            >
-              📍 {t("Location", "الموقع")}
-            </a>
-          )}
+  {mapUrl && (
+    <a
+      href={mapUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{
+        flex: 1,
+        background: "#f1f5f9",
+        padding: 12,
+        borderRadius: 10,
+        textDecoration: "none",
+        color: "#111827",
+        fontWeight: 700,
+        textAlign: "center",
+      }}
+    >
+      📍 {t("Location", "الموقع")}
+    </a>
+  )}
 
-          <a
-            href={whatsappUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              flex: 1,
-              background: "#22c55e",
-              color: "#fff",
-              padding: 12,
-              borderRadius: 10,
-              textDecoration: "none",
-              fontWeight: 700,
-            }}
-          >
-            💬 {t("Chat", "تواصل")}
-          </a>
-        </div>
-      </div>
-    </div>
-  );
-}
+  <a
+    href={whatsappUrl}
+    target="_blank"
+    rel="noopener noreferrer"
+    style={{
+      flex: 1,
+      background: "#22c55e",
+      color: "#fff",
+      padding: 12,
+      borderRadius: 10,
+      textDecoration: "none",
+      fontWeight: 700,
+      textAlign: "center",
+    }}
+  >
+    💬 {t("Chat", "تواصل")}
+  </a>
+
+  {instagramUrl && (
+    <a
+      href={instagramUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{
+        flex: 1,
+        background: "#fdf2f8",
+        color: "#be185d",
+        padding: 12,
+        borderRadius: 10,
+        textDecoration: "none",
+        fontWeight: 700,
+        textAlign: "center",
+      }}
+    >
+      📸 {t("Instagram", "إنستغرام")}
+    </a>
+  )}
+</div>
