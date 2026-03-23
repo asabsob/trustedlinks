@@ -361,11 +361,27 @@ const t = (en, ar) => (isAr ? ar : en);
 }
 
 function StatCard({ title, value, subtitle, highlight = "#111827" }) {
-  color: highlight
+  const statValueDynamic = {
+    fontSize: "28px",
+    fontWeight: 800,
+    color: highlight,
+    marginBottom: "6px",
+  };
+
+  const walletStatus = useMemo(() => {
+  if (!user) return "active";
+
+  const balance = Number(user.walletBalance || 0);
+
+  if (balance <= 0) return "out";
+  if (balance < 5) return "low";
+  return "active";
+}, [user]);
+  
   return (
     <div style={statCard}>
       <div style={statTitle}>{title}</div>
-      <div style={statValue}>{value}</div>
+      <div style={statValueDynamic}>{value}</div>
       <div style={statSubtitle}>{subtitle}</div>
     </div>
   );
@@ -462,7 +478,7 @@ const statTitle = {
 const statValue = {
   fontSize: "28px",
   fontWeight: 800,
-  color: highlight,
+  color: "#111827",
   marginBottom: "6px",
 };
 
