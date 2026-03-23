@@ -1142,45 +1142,7 @@ app.put("/api/business/update", requireUser, async (req, res) => {
   }
 });
 
-app.get("/api/business/reports", requireUser, async (req, res) => {
-  try {
-    const b = await Business.findOne({ ownerUserId: String(req.user.id) }).lean();
-    if (!b) return res.status(404).json({ error: "Business not found" });
 
-    const clicksArr = Array.isArray(b.clicks) ? b.clicks : [];
-    const messagesArr = Array.isArray(b.messages) ? b.messages : [];
-    const mediaArr = Array.isArray(b.mediaViews) ? b.mediaViews : [];
-    const viewsArr = Array.isArray(b.views) ? b.views : [];
-
-    return res.json({
-      business: b.name || "Business",
-      logo:
-        b.logo ||
-        (b.mediaLink &&
-        /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(String(b.mediaLink))
-          ? b.mediaLink
-          : null),
-      category: Array.isArray(b.category)
-        ? b.category.join(", ")
-        : toSafeCategoryValue(b.category) || "Category",
-      totalClicks: clicksArr.length,
-      totalMessages: messagesArr.length,
-      mediaViews: mediaArr.length,
-      views: viewsArr.length,
-      weeklyGrowth: 0,
-      activity: [],
-      sources: [
-        { name_en: "WhatsApp", name_ar: "واتساب", value: messagesArr.length },
-        { name_en: "Clicks", name_ar: "نقرات", value: clicksArr.length },
-        { name_en: "Media", name_ar: "وسائط", value: mediaArr.length },
-        { name_en: "Views", name_ar: "مشاهدات", value: viewsArr.length },
-      ],
-    });
-  } catch (e) {
-    console.error("reports error:", e);
-    return res.status(500).json({ error: "Failed" });
-  }
-});
 
 // ============================================================================
 // PUBLIC SEARCH + PUBLIC business endpoints
