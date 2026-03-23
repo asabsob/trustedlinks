@@ -1142,6 +1142,162 @@ app.put("/api/business/update", requireUser, async (req, res) => {
   }
 });
 
+app.get("/api/business/reports", requireUser, async (req, res) => {
+  try {
+    const b = await Business.findOne({ ownerUserId: String(req.user.id) }).lean();
+    if (!b) return res.status(404).json({ error: "Business not found" });
+
+    const clicksArr = Array.isArray(b.clicks) ? b.clicks : [];
+    const messagesArr = Array.isArray(b.messages) ? b.messages : [];
+    const mediaArr = Array.isArray(b.mediaViews) ? b.mediaViews : [];
+    const viewsArr = Array.isArray(b.views) ? b.views : [];
+
+    const getEventDate = (item) => {
+      if (!item) return null;
+
+      if (typeof item === "string" || typeof item === "number") {
+        const d = new Date(item);
+        return Number.isNaN(d.getTime()) ? null : d;
+      }
+
+      if (item.createdAt) {
+        const d = new Date(item.createdAt);
+        return Number.isNaN(d.getTime()) ? null : d;
+      }
+
+      if (item.date) {
+        const d = new Date(item.date);
+        return Number.isNaN(d.getTime()) ? null : d;
+      }
+
+      if (item.timestamp) {
+        const d = new Date(item.timestamp);
+        return Number.isNaN(d.getTime()) ? null : d;
+      }
+
+      return null;
+    };
+
+    const toDayKey = (date) => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const d = String(date.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    };
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const daysBack = 90;
+    const activityMap = {};
+
+    for (let i = daysBack - 1; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const key = toDayKey(d);
+
+      activityMap[key] = {
+        date: key,
+        total: 0,
+        whatsapp: 0,
+        media: 0,
+        messages: 0,
+        views: 0,
+      };
+    }
+
+    const addToActivity = (arr, field) => {
+      for (const item of arr) {
+        const date = getEventDate(item);
+        if (!date) continue;
+
+        const key = toDayKey(date);
+        if (!activityMap[key]) continue;
+
+        activityMap[key][field] += 1;
+
+        if (field === "whatsapp") {
+          activityMap[key].messages += 1;
+        }
+
+        if (field === "total") {
+          activityMap[key].total += 0;
+        }
+      }
+    };
+
+    addToActivity(clicksArr, "total");
+    addToActivity(messagesArr, "whatsapp");
+    addToActivity(mediaArr, "media");
+    addToActivity(viewsArr, "views");
+
+    const activity = Object.values(activityMap).map((row) => ({
+      ...row,
+      total: Number(row.total || 0),
+      whatsapp: Number(row.whatsapp || 0),
+      media: Number(row.media || 0),
+      messages: Number(row.messages || 0),
+      views: Number(row.views || 0),
+    }));
+
+    const sumRange = (rows) =>
+      rows.reduce(
+        (acc, row) => {
+          acc.total += Number(row.total || 0);
+          acc.whatsapp += Number(row.whatsapp || 0);
+          acc.media += Number(row.media || 0);
+          acc.messages += Number(row.messages || 0);
+          acc.views += Number(row.views || 0);
+          return acc;
+        },
+        { total: 0, whatsapp: 0, media: 0, messages: 0, views: 0 }
+      );
+
+    const last7 = activity.slice(-7);
+    const prev7 = activity.slice(-14, -7);
+
+    const currentWeek = sumRange(last7);
+    const previousWeek = sumRange(prev7);
+
+    const weeklyGrowth =
+      previousWeek.total === 0
+        ? currentWeek.total > 0
+          ? 100
+          : 0
+        : Math.round(((currentWeek.total - previousWeek.total) / previousWeek.total) * 100);
+
+    return res.json({
+      business: b.name || "Business",
+      logo:
+        b.logo ||
+        (b.mediaLink &&
+        /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(String(b.mediaLink))
+          ? b.mediaLink
+          : null),
+      category: Array.isArray(b.category)
+        ? b.category.join(", ")
+        : toSafeCategoryValue(b.category) || "Category",
+
+      totalClicks: clicksArr.length,
+      totalMessages: messagesArr.length,
+      mediaViews: mediaArr.length,
+      views: viewsArr.length,
+      weeklyGrowth,
+
+      activity,
+
+      sources: [
+        { name_en: "WhatsApp", name_ar: "واتساب", value: messagesArr.length },
+        { name_en: "Clicks", name_ar: "نقرات", value: clicksArr.length },
+        { name_en: "Media", name_ar: "وسائط", value: mediaArr.length },
+        { name_en: "Views", name_ar: "مشاهدات", value: viewsArr.length },
+      ],
+    });
+  } catch (e) {
+    console.error("reports error:", e);
+    return res.status(500).json({ error: "Failed" });
+  }
+});
 
 
 // ============================================================================
