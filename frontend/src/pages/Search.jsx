@@ -158,12 +158,6 @@ export default function Search({ lang = "en" }) {
         return categoryKey;
       }
     }
-
-    const getBusinessDisplayName = (b) => {
-  if (!b) return "";
-  if (isArabic) return b.name_ar || b.name || "";
-  return b.name || b.name_ar || "";
-};
     
     return null;
   };
@@ -271,6 +265,12 @@ if (displayName) {
     return String(url).startsWith("http") ? url : `https://${url}`;
   };
 
+  const getBusinessDisplayName = (b) => {
+  if (!b) return "";
+  if (isArabic) return b.name_ar || b.name || "";
+  return b.name || b.name_ar || "";
+};
+  
   return (
     <div
       style={{
