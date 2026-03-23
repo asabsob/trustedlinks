@@ -13,6 +13,8 @@ import BusinessDetails from "./pages/BusinessDetails.jsx";
 import ForgotPassword from "./pages/ForgotPassword";
 import LoginPage from "./pages/LoginPage.jsx";
 import ResetPassword from "./pages/ResetPassword.jsx";
+import Wallet from "./pages/Wallet.jsx";
+import Transactions from "./pages/Transactions.jsx";
 
 /* 🧭 Admin Pages */
 import AdminLayout from "./pages/admin/AdminLayout.jsx";
@@ -155,7 +157,23 @@ export default function App() {
             </RequireAuth>
           }
         />
+<Route
+  path="/wallet"
+  element={
+    <RequireAuth>
+      <Wallet lang={lang} />
+    </RequireAuth>
+  }
+/>
 
+<Route
+  path="/transactions"
+  element={
+    <RequireAuth>
+      <Transactions lang={lang} />
+    </RequireAuth>
+  }
+/>
         {/* Admin */}
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route
