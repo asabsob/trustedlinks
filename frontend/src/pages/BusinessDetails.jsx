@@ -14,10 +14,10 @@ export default function BusinessDetails({ lang = "en" }) {
   const t = (en, ar) => (isArabic ? ar : en);
 
   const getBusinessDisplayName = (b) => {
-  if (!b) return "";
-  if (isArabic) return b.name_ar || b.name || "";
-  return b.name || b.name_ar || "";
-};
+    if (!b) return "";
+    if (isArabic) return b.name_ar || b.name || "";
+    return b.name || b.name_ar || "";
+  };
 
   const metaCategories = useMemo(
     () => ({
@@ -43,8 +43,7 @@ export default function BusinessDetails({ lang = "en" }) {
     if (!category) return t("Uncategorized", "غير مصنف");
 
     const arr = Array.isArray(category) ? category : [category];
-    
-    
+
     return arr
       .map((c) => {
         const key = String(c).toUpperCase().trim();
@@ -83,12 +82,38 @@ export default function BusinessDetails({ lang = "en" }) {
     return String(url).startsWith("http") ? url : `https://${url}`;
   };
 
+  const trackEvent = async (endpoint) => {
+    try {
+      const res = await fetch(`${API_BASE}${endpoint}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ businessId: id }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (res.status === 402) {
+        alert(t("Insufficient balance", "الرصيد غير كافي"));
+        navigate("/wallet");
+        return { blocked: true };
+      }
+
+      return data || {};
+    } catch (e) {
+      console.error("track error:", e);
+      return {};
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
 
     async function loadBusiness() {
       try {
         setLoading(true);
+
         const res = await fetch(`${API_BASE}/api/business/${id}`);
         const data = await res.json().catch(() => null);
 
@@ -98,7 +123,8 @@ export default function BusinessDetails({ lang = "en" }) {
         }
 
         if (!cancelled) setBusiness(data);
-      } catch {
+      } catch (e) {
+        console.error("Business load error:", e);
         if (!cancelled) setBusiness(null);
       } finally {
         if (!cancelled) setLoading(false);
@@ -106,10 +132,25 @@ export default function BusinessDetails({ lang = "en" }) {
     }
 
     loadBusiness();
+
     return () => {
       cancelled = true;
     };
   }, [id]);
+
+  useEffect(() => {
+    if (!business) return;
+
+    fetch(`${API_BASE}/api/track-view`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ businessId: id }),
+    }).catch((e) => {
+      console.error("track-view error:", e);
+    });
+  }, [business, id]);
 
   const whatsappUrl =
     business?.whatsappLink ||
@@ -125,6 +166,36 @@ export default function BusinessDetails({ lang = "en" }) {
     business?.mediaLink && String(business.mediaLink).includes("instagram")
       ? business.mediaLink
       : null;
+
+  const handleWhatsAppClick = async (e) => {
+    e.preventDefault();
+
+    const result = await trackEvent("/api/track-whatsapp");
+    if (result?.blocked) return;
+
+    window.open(fixUrl(whatsappUrl), "_blank", "noopener,noreferrer");
+  };
+
+  const handleMapClick = async (e) => {
+    e.preventDefault();
+
+    await trackEvent("/api/track-map");
+
+    if (mapUrl) {
+      window.open(fixUrl(mapUrl), "_blank", "noopener,noreferrer");
+    }
+  };
+
+  const handleMediaClick = async (e) => {
+    e.preventDefault();
+
+    const result = await trackEvent("/api/track-media");
+    if (result?.blocked) return;
+
+    if (instagramUrl) {
+      window.open(fixUrl(instagramUrl), "_blank", "noopener,noreferrer");
+    }
+  };
 
   if (loading) {
     return (
@@ -250,16 +321,16 @@ export default function BusinessDetails({ lang = "en" }) {
           </div>
 
           <h1
-  style={{
-    margin: "0 0 8px",
-    fontSize: "clamp(1.6rem, 4vw, 2rem)",
-    color: "#0f172a",
-    fontWeight: 800,
-    lineHeight: 1.3,
-  }}
->
-  {getBusinessDisplayName(business)}
-</h1>
+            style={{
+              margin: "0 0 8px",
+              fontSize: "clamp(1.6rem, 4vw, 2rem)",
+              color: "#0f172a",
+              fontWeight: 800,
+              lineHeight: 1.3,
+            }}
+          >
+            {getBusinessDisplayName(business)}
+          </h1>
 
           <div
             style={{
@@ -316,6 +387,7 @@ export default function BusinessDetails({ lang = "en" }) {
             {mapUrl && (
               <a
                 href={fixUrl(mapUrl)}
+                onClick={handleMapClick}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
@@ -334,8 +406,7 @@ export default function BusinessDetails({ lang = "en" }) {
 
             <a
               href={fixUrl(whatsappUrl)}
-              target="_blank"
-              rel="noopener noreferrer"
+              onClick={handleWhatsAppClick}
               style={{
                 background: "#22c55e",
                 color: "#fff",
@@ -352,6 +423,7 @@ export default function BusinessDetails({ lang = "en" }) {
             {instagramUrl && (
               <a
                 href={fixUrl(instagramUrl)}
+                onClick={handleMediaClick}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
