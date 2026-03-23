@@ -93,13 +93,6 @@ const t = (en, ar) => (isAr ? ar : en);
     return business.category;
   }, [business, lang]);
 
-  const walletText = useMemo(() => {
-    if (!user) return "0 USD";
-    const balance = typeof user.walletBalance === "number" ? user.walletBalance : 0;
-    const currency = user.currency || "USD";
-    return `${balance} ${currency}`;
-  }, [user]);
-
   const shortMapLink = useMemo(() => {
     if (!business?.mapLink) return null;
     try {
