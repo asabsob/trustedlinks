@@ -156,12 +156,13 @@ export default function Signup({ lang = "en" }) {
     const reader = new FileReader();
 
     reader.onloadend = () => {
-      let result = reader.result;
+      const result = reader.result;
 
-      // 🔥 تقليل الحجم (اختياري بسيط)
-      if (typeof result === "string" && result.length > 500000) {
-        alert(t("Image is too large", "الصورة كبيرة جدًا"));
-        return resolve("");
+      if (!result) return resolve("");
+
+      // 🔥 فقط تحذير وليس منع
+      if (result.length > 1500000) {
+        console.warn("Large image");
       }
 
       resolve(result);
