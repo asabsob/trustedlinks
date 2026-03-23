@@ -37,7 +37,13 @@ export default function BusinessDetails({ lang = "en" }) {
     if (!category) return t("Uncategorized", "غير مصنف");
 
     const arr = Array.isArray(category) ? category : [category];
-
+    
+const getBusinessDisplayName = (b) => {
+  if (!b) return "";
+  if (isArabic) return b.name_ar || b.name || "";
+  return b.name || b.name_ar || "";
+};
+    
     return arr
       .map((c) => {
         const key = String(c).toUpperCase().trim();
@@ -243,16 +249,16 @@ export default function BusinessDetails({ lang = "en" }) {
           </div>
 
           <h1
-            style={{
-              margin: "0 0 8px",
-              fontSize: "clamp(1.6rem, 4vw, 2rem)",
-              color: "#0f172a",
-              fontWeight: 800,
-              lineHeight: 1.3,
-            }}
-          >
-            {business.name_ar || business.name}
-          </h1>
+  style={{
+    margin: "0 0 8px",
+    fontSize: "clamp(1.6rem, 4vw, 2rem)",
+    color: "#0f172a",
+    fontWeight: 800,
+    lineHeight: 1.3,
+  }}
+>
+  {getBusinessDisplayName(business)}
+</h1>
 
           <div
             style={{
