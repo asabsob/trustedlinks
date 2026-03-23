@@ -261,5 +261,3 @@ const instagramUrl =
     >
       📸 {t("Instagram", "إنستغرام")}
     </a>
-  )}
-</div>
