@@ -24,13 +24,13 @@ export default function Reports({ lang = "en" }) {
   const [data, setData] = useState(null);
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(true);
-  const [range, setRange] = useState("30d"); // 7d | 30d | 90d
+  const [range, setRange] = useState("30d");
 
   const t = useMemo(
     () => ({
       en: {
         title: "Performance Reports",
-        subtitle: "Track your activity, engagement, and performance trends",
+        subtitle: "Track your business activity, engagement, and trends",
         business: "Business",
         category: "Category",
         loading: "Loading reports...",
@@ -63,10 +63,14 @@ export default function Reports({ lang = "en" }) {
         to: "To",
         periodSummary: "Period Summary",
         currentVsPrevious: "Current vs Previous",
+        estimatedValue: "Estimated Value",
+        noBusiness: "Business",
+        noCategory: "Category",
+        vsPrevious: "vs previous",
       },
       ar: {
         title: "تقارير الأداء",
-        subtitle: "تابع النشاط والتفاعل واتجاهات الأداء",
+        subtitle: "تابع نشاط عملك والتفاعل واتجاهات الأداء",
         business: "النشاط",
         category: "الفئة",
         loading: "جارٍ تحميل التقارير...",
@@ -99,6 +103,10 @@ export default function Reports({ lang = "en" }) {
         to: "إلى",
         periodSummary: "ملخص الفترة",
         currentVsPrevious: "الحالي مقابل السابق",
+        estimatedValue: "القيمة التقديرية",
+        noBusiness: "النشاط",
+        noCategory: "الفئة",
+        vsPrevious: "مقارنة بالسابق",
       },
     }),
     [isAr]
@@ -201,13 +209,26 @@ export default function Reports({ lang = "en" }) {
   const currentTotals = useMemo(() => sumActivity(filteredActivity), [filteredActivity]);
   const previousTotals = useMemo(() => sumActivity(previousActivity), [previousActivity]);
 
-  const totalClicks = currentTotals.total || Number(data?.totalClicks || 0);
-  const totalMessages = currentTotals.messages || Number(data?.totalMessages || 0);
-  const mediaViews = currentTotals.media || Number(data?.mediaViews || 0);
-  const totalViews = currentTotals.views || Number(data?.views || 0);
+  const totalClicks = filteredActivity.length
+    ? currentTotals.total
+    : Number(data?.totalClicks || 0);
+
+  const totalMessages = filteredActivity.length
+    ? currentTotals.messages
+    : Number(data?.totalMessages || 0);
+
+  const mediaViews = filteredActivity.length
+    ? currentTotals.media
+    : Number(data?.mediaViews || 0);
+
+  const totalViews = filteredActivity.length
+    ? currentTotals.views
+    : Number(data?.views || 0);
 
   const convRate =
-    totalClicks && totalMessages ? `${Math.round((totalMessages / totalClicks) * 100)}%` : "0%";
+    totalClicks > 0 ? `${Math.round((totalMessages / totalClicks) * 100)}%` : "-";
+
+  const estimatedValue = `${(totalMessages * 0.25).toFixed(2)} JOD`;
 
   const periodStart = filteredActivity[0]?.date || null;
   const periodEnd = filteredActivity[filteredActivity.length - 1]?.date || null;
@@ -266,6 +287,10 @@ export default function Reports({ lang = "en" }) {
           <div>
             <h1 className="text-2xl font-bold text-slate-900 md:text-3xl">{t.title}</h1>
             <p className="mt-2 text-sm text-slate-600 md:text-base">{t.subtitle}</p>
+            <p className="mt-2 text-sm text-slate-500">
+              {t.from}: {periodStart ? formatDate(periodStart, isAr) : "-"} {" — "}
+              {t.to}: {periodEnd ? formatDate(periodEnd, isAr) : "-"}
+            </p>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -290,8 +315,8 @@ export default function Reports({ lang = "en" }) {
         <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <InfoItem label={t.business} value={data.business || "Business"} />
-              <InfoItem label={t.category} value={data.category || "Category"} />
+              <InfoItem label={t.business} value={data.business || t.noBusiness} />
+              <InfoItem label={t.category} value={data.category || t.noCategory} />
               <InfoItem
                 label={t.from}
                 value={periodStart ? formatDate(periodStart, isAr) : "-"}
@@ -313,7 +338,7 @@ export default function Reports({ lang = "en" }) {
           </div>
         </div>
 
-        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <SummaryCard label={t.totalClicks} value={totalClicks} colorClass="text-green-600" />
           <SummaryCard label={t.totalMessages} value={totalMessages} colorClass="text-emerald-500" />
           <SummaryCard label={t.totalMediaViews} value={mediaViews} colorClass="text-lime-500" />
@@ -324,14 +349,17 @@ export default function Reports({ lang = "en" }) {
             value={`${Number(data.weeklyGrowth || 0)}%`}
             colorClass="text-teal-600"
           />
+          <SummaryCard
+            label={t.estimatedValue}
+            value={estimatedValue}
+            colorClass="text-green-700"
+          />
         </div>
 
         <div className="mb-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-          <div className="mb-5 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900">{t.currentVsPrevious}</h2>
-              <p className="text-sm text-slate-500">{t.comparedToPrevious}</p>
-            </div>
+          <div className="mb-5">
+            <h2 className="text-lg font-semibold text-slate-900">{t.currentVsPrevious}</h2>
+            <p className="text-sm text-slate-500">{t.comparedToPrevious}</p>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -372,7 +400,8 @@ export default function Reports({ lang = "en" }) {
                       type="monotone"
                       dataKey="total"
                       stroke="#22c55e"
-                      strokeWidth={2}
+                      strokeWidth={3}
+                      dot={false}
                       name={t.totalClicks}
                     />
                     <Line
@@ -380,6 +409,7 @@ export default function Reports({ lang = "en" }) {
                       dataKey="whatsapp"
                       stroke="#10b981"
                       strokeWidth={2}
+                      dot={false}
                       name={t.whatsapp}
                     />
                     <Line
@@ -387,6 +417,7 @@ export default function Reports({ lang = "en" }) {
                       dataKey="media"
                       stroke="#f59e0b"
                       strokeWidth={2}
+                      dot={false}
                       name={t.media}
                     />
                     <Line
@@ -394,6 +425,7 @@ export default function Reports({ lang = "en" }) {
                       dataKey="messages"
                       stroke="#3b82f6"
                       strokeWidth={2}
+                      dot={false}
                       name={t.messages}
                     />
                   </LineChart>
@@ -479,10 +511,10 @@ export default function Reports({ lang = "en" }) {
 function normalizeActivity(activity = []) {
   return activity.map((item) => ({
     date: normalizeDate(item.date),
-    total: Number(item.total || 0),
+    total: Number(item.total || item.clicks || 0),
     whatsapp: Number(item.whatsapp || 0),
-    media: Number(item.media || 0),
-    messages: Number(item.messages || 0),
+    media: Number(item.media || item.mediaViews || 0),
+    messages: Number(item.messages || item.totalMessages || 0),
     views: Number(item.views || 0),
   }));
 }
@@ -558,9 +590,9 @@ function RangeButton({ active, onClick, label }) {
 
 function SummaryCard({ label, value, colorClass = "text-slate-900" }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
       <p className="text-sm text-slate-500">{label}</p>
-      <h3 className={`mt-3 text-2xl font-bold ${colorClass}`}>{value}</h3>
+      <h3 className={`mt-2 text-3xl font-bold ${colorClass}`}>{value || 0}</h3>
     </div>
   );
 }
@@ -588,29 +620,23 @@ function ComparisonCard({ label, current, previous, isAr, t }) {
   const isPositive = change >= 0;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <p className="text-sm text-slate-500">{label}</p>
 
-      <div className="mt-3 space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-slate-500">{t.currentPeriod}</span>
-          <span className="font-semibold text-slate-900">{current}</span>
-        </div>
+      <div className="mt-3">
+        <p className="text-2xl font-bold text-slate-900">{current || 0}</p>
 
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-slate-500">{t.previousPeriod}</span>
-          <span className="font-semibold text-slate-700">{previous}</span>
-        </div>
-
-        <div className="pt-2">
+        <div className="mt-2 flex items-center gap-2">
           <span
-            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+            className={`rounded-full px-2 py-1 text-xs font-semibold ${
               isPositive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
             }`}
           >
             {isPositive ? "+" : ""}
-            {change}% {isAr ? t.change : t.change}
+            {change}%
           </span>
+
+          <span className="text-xs text-slate-500">{t.vsPrevious}</span>
         </div>
       </div>
     </div>
