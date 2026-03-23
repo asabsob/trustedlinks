@@ -361,6 +361,7 @@ const t = (en, ar) => (isAr ? ar : en);
 }
 
 function StatCard({ title, value, subtitle, highlight = "#111827" }) {
+  color: highlight
   return (
     <div style={statCard}>
       <div style={statTitle}>{title}</div>
