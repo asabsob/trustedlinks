@@ -453,48 +453,60 @@ app.post("/api/auth/signup", async (req, res) => {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-
     const verifyToken = crypto.randomBytes(32).toString("hex");
 
     const user = await User.create({
-  email: String(email).trim().toLowerCase(),
-  passwordHash,
-  emailVerified: false,
-  verifyToken,
+      email: String(email).trim().toLowerCase(),
+      passwordHash,
+      emailVerified: false,
+      verifyToken,
+      subscriptionPlan: null,
+      planActivatedAt: null,
+      walletBalance: 5,
+      currency: "USD",
+      freeCreditGranted: true,
+    });
 
-  // ❌ أوقف الاشتراك
-  subscriptionPlan: null,
-  planActivatedAt: null,
+    console.log("SIGNUP BUSINESS LOGO EXISTS:", !!business.logo);
+    console.log("SIGNUP BUSINESS LOGO SAMPLE:", String(business.logo || "").slice(0, 50));
+    console.log("SIGNUP BUSINESS KEYS:", Object.keys(business || {}));
 
-  // ✅ رصيد مجاني
-  walletBalance: 5,
-  currency: "USD",
-  freeCreditGranted: true,
-});
-    
-   const createdBusiness = await Business.create({
-  ownerUserId: String(user._id),
+    const createdBusiness = await Business.create({
+      ownerUserId: String(user._id),
+      name: business.name || "",
+      name_ar: business.name_ar || "",
+      description: business.description || "",
+      category: Array.isArray(business.category) ? business.category : [],
+      keywords: Array.isArray(business.keywords) ? business.keywords : [],
+      whatsapp: business.whatsapp || "",
+      status: "Active",
+      latitude: typeof business.latitude === "number" ? business.latitude : null,
+      longitude: typeof business.longitude === "number" ? business.longitude : null,
+      mapLink: business.mapLink || "",
+      mediaLink: business.mediaLink || "",
+      logo: business.logo || "",
+      locationText: business.locationText || "",
+      countryCode: business.countryCode || "",
+      countryName: business.countryName || "",
+    });
 
-  name: business.name || "",
-  name_ar: business.name_ar || "",
-  description: business.description || "",
-  category: Array.isArray(business.category) ? business.category : [],
-  keywords: Array.isArray(business.keywords) ? business.keywords : [],
+    console.log("CREATED BUSINESS LOGO:", createdBusiness.logo);
 
-  whatsapp: business.whatsapp || "",
-  status: "Active",
+    const verifyUrl =
+      `${API_BASE_URL}/api/auth/verify-email` +
+      `?email=${encodeURIComponent(String(email).trim().toLowerCase())}` +
+      `&token=${encodeURIComponent(verifyToken)}`;
 
-  latitude: typeof business.latitude === "number" ? business.latitude : null,
-  longitude: typeof business.longitude === "number" ? business.longitude : null,
-  mapLink: business.mapLink || "",
-  mediaLink: business.mediaLink || "",
-  logo: business.logo || "",
-  locationText: business.locationText || "",
-  countryCode: business.countryCode || "",
-  countryName: business.countryName || "",
-});
-
-    // إذا عندك إرسال إيميل تفعيل، خله كما هو هنا
+    try {
+      await sendEmail({
+        to: String(email).trim().toLowerCase(),
+        subject: "Verify your email",
+        text: `Verify your email using this link: ${verifyUrl}`,
+        html: `<p>Verify your email:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
+      });
+    } catch (mailErr) {
+      console.error("signup verification email error:", mailErr);
+    }
 
     return res.status(201).json({
       ok: true,
@@ -507,7 +519,6 @@ app.post("/api/auth/signup", async (req, res) => {
     return res.status(500).json({ error: "Signup failed" });
   }
 });
-
 // Login only after email verification
 app.post("/api/auth/login", async (req, res) => {
   try {
