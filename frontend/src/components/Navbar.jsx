@@ -50,47 +50,25 @@ export default function Navbar({ lang, t, token, toggleLang, handleLogout }) {
             </>
           ) : (
             <>
-         {token ? (
-  <>
-    <NavLink
-      to={dashboardPath}
-      className={mobileNavLinkClass}
-      onClick={closeMobileMenu}
-    >
-      {t.nav.dashboard}
-    </NavLink>
+              <NavLink to={dashboardPath} className={navLinkClass}>
+                {t.nav.dashboard}
+              </NavLink>
 
-    <NavLink
-      to="/wallet"
-      className={mobileNavLinkClass}
-      onClick={closeMobileMenu}
-    >
-      {t.nav.wallet}
-    </NavLink>
+              <NavLink to="/wallet" className={navLinkClass}>
+                {t.nav.wallet}
+              </NavLink>
 
-    <NavLink
-      to="/transactions"
-      className={mobileNavLinkClass}
-      onClick={closeMobileMenu}
-    >
-      {t.nav.transactions}
-    </NavLink>
+              <NavLink to="/transactions" className={navLinkClass}>
+                {t.nav.transactions}
+              </NavLink>
 
-    <NavLink
-      to="/manage"
-      className={mobileNavLinkClass}
-      onClick={closeMobileMenu}
-    >
-      {t.nav.manage}
-    </NavLink>
+              <NavLink to="/manage" className={navLinkClass}>
+                {t.nav.manage}
+              </NavLink>
 
-    <NavLink
-      to="/reports"
-      className={mobileNavLinkClass}
-      onClick={closeMobileMenu}
-    >
-      {t.nav.reports}
-    </NavLink>
+              <NavLink to="/reports" className={navLinkClass}>
+                {t.nav.reports}
+              </NavLink>
             </>
           )}
         </div>
@@ -171,6 +149,22 @@ export default function Navbar({ lang, t, token, toggleLang, handleLogout }) {
                   onClick={closeMobileMenu}
                 >
                   {t.nav.dashboard}
+                </NavLink>
+
+                <NavLink
+                  to="/wallet"
+                  className={mobileNavLinkClass}
+                  onClick={closeMobileMenu}
+                >
+                  {t.nav.wallet}
+                </NavLink>
+
+                <NavLink
+                  to="/transactions"
+                  className={mobileNavLinkClass}
+                  onClick={closeMobileMenu}
+                >
+                  {t.nav.transactions}
                 </NavLink>
 
                 <NavLink
