@@ -124,7 +124,7 @@ export default function App() {
         <Route path="/search" element={<Search lang={lang} />} />
         <Route path="/signup" element={<Signup lang={lang} />} />
         <Route path="/subscribe" element={<Subscribe lang={lang} />} />
-        <Route path="/business/:id" element={<BusinessDetails />} />
+      <Route path="/business/:id" element={<BusinessDetails lang={lang} />} />
         <Route path="/register" element={<Navigate to="/signup" replace />} />
         <Route path="/login" element={<LoginPage lang={lang} />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
