@@ -155,13 +155,80 @@ const t = (en, ar) => (isAr ? ar : en);
         </div>
       </section>
 
+      {walletStatus !== "active" && (
+  <div
+    style={{
+      background: walletStatus === "out" ? "#fef2f2" : "#fff7ed",
+      border: `1px solid ${
+        walletStatus === "out" ? "#fecaca" : "#fed7aa"
+      }`,
+      borderRadius: 16,
+      padding: "16px",
+      marginBottom: 18,
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      flexWrap: "wrap",
+      gap: 10,
+    }}
+  >
+    <div>
+      <strong style={{ color: "#b91c1c" }}>
+        {walletStatus === "out"
+          ? t("No balance available", "لا يوجد رصيد")
+          : t("Low balance warning", "تحذير: الرصيد منخفض")}
+      </strong>
+
+      <div style={{ fontSize: 14, color: "#6b7280" }}>
+        {walletStatus === "out"
+          ? t(
+              "Your business is not receiving leads. Please recharge.",
+              "لن تستقبل طلبات جديدة. يرجى شحن الرصيد."
+            )
+          : t(
+              "Your balance is almost finished. Recharge to continue.",
+              "رصيدك أوشك على الانتهاء. يرجى الشحن."
+            )}
+      </div>
+    </div>
+
+    <button
+      onClick={() => navigate("/wallet")}
+      style={{
+        background: "#16a34a",
+        color: "#fff",
+        border: "none",
+        borderRadius: 10,
+        padding: "10px 16px",
+        fontWeight: 700,
+        cursor: "pointer",
+      }}
+    >
+      {t("Recharge Now", "اشحن الآن")}
+    </button>
+  </div>
+)}
+      
       {/* Summary Cards */}
       <section style={statsGrid}>
-        <StatCard
-          title={t("Wallet Balance", "الرصيد الحالي")}
-          value={walletText}
-          subtitle={t("Starter credit included", "يشمل الرصيد المجاني المبدئي")}
-        />
+     <StatCard
+  title={t("Wallet Balance", "الرصيد الحالي")}
+  value={walletText}
+  subtitle={
+    walletStatus === "out"
+      ? t("Out of balance", "لا يوجد رصيد")
+      : walletStatus === "low"
+      ? t("Low balance", "رصيد منخفض")
+      : t("Active", "نشط")
+  }
+  highlight={
+    walletStatus === "out"
+      ? "#ef4444"
+      : walletStatus === "low"
+      ? "#f59e0b"
+      : "#16a34a"
+  }
+/>
         <StatCard
           title={t("Total Clicks", "إجمالي النقرات")}
           value={reports?.totalClicks ?? 0}
@@ -293,7 +360,7 @@ const t = (en, ar) => (isAr ? ar : en);
   );
 }
 
-function StatCard({ title, value, subtitle }) {
+function StatCard({ title, value, subtitle, highlight = "#111827" }) {
   return (
     <div style={statCard}>
       <div style={statTitle}>{title}</div>
@@ -394,7 +461,7 @@ const statTitle = {
 const statValue = {
   fontSize: "28px",
   fontWeight: 800,
-  color: "#111827",
+  color: highlight,
   marginBottom: "6px",
 };
 
