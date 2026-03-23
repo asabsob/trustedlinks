@@ -33,6 +33,7 @@ import SearchCache from "./models/SearchCache.js";
 import crypto from "crypto";
 import ClickLog from "./models/ClickLog.js";
 import LeadToken from "./models/LeadToken.js";
+import BusinessEvent from "./models/BusinessEvent.js";
 
 dotenv.config();
 await connectDB();
@@ -277,6 +278,20 @@ async function createLeadTrackedLink({ phone }) {
   const safePhone = String(phone || "").replace(/\D/g, "");
   if (!safePhone) return "";
   return `https://wa.me/${safePhone}`;
+}
+
+async function logBusinessEvent({ businessId, ownerUserId, type, source = "", meta = {} }) {
+  try {
+    await BusinessEvent.create({
+      businessId,
+      ownerUserId: String(ownerUserId || ""),
+      type,
+      source,
+      meta,
+    });
+  } catch (e) {
+    console.error("logBusinessEvent error:", e);
+  }
 }
 // ---------------------------------------------------------------------------
 // URLs
@@ -1147,51 +1162,53 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
     const b = await Business.findOne({ ownerUserId: String(req.user.id) }).lean();
     if (!b) return res.status(404).json({ error: "Business not found" });
 
-    const clicksArr = Array.isArray(b.clicks) ? b.clicks : [];
-    const messagesArr = Array.isArray(b.messages) ? b.messages : [];
-    const mediaArr = Array.isArray(b.mediaViews) ? b.mediaViews : [];
-    const viewsArr = Array.isArray(b.views) ? b.views : [];
-
-    const getEventDate = (item) => {
-      if (!item) return null;
-
-      if (typeof item === "string" || typeof item === "number") {
-        const d = new Date(item);
-        return Number.isNaN(d.getTime()) ? null : d;
-      }
-
-      if (item.createdAt) {
-        const d = new Date(item.createdAt);
-        return Number.isNaN(d.getTime()) ? null : d;
-      }
-
-      if (item.date) {
-        const d = new Date(item.date);
-        return Number.isNaN(d.getTime()) ? null : d;
-      }
-
-      if (item.timestamp) {
-        const d = new Date(item.timestamp);
-        return Number.isNaN(d.getTime()) ? null : d;
-      }
-
-      return null;
-    };
-
-    const toDayKey = (date) => {
-      const y = date.getFullYear();
-      const m = String(date.getMonth() + 1).padStart(2, "0");
-      const d = String(date.getDate()).padStart(2, "0");
-      return `${y}-${m}-${d}`;
-    };
-
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    const daysBack = 90;
+    const start90 = new Date(today);
+    start90.setDate(start90.getDate() - 89);
+
+    const events = await BusinessEvent.find({
+      businessId: b._id,
+      createdAt: { $gte: start90 },
+    })
+      .sort({ createdAt: 1 })
+      .lean();
+
+    const allTimeCounts = await BusinessEvent.aggregate([
+      { $match: { businessId: b._id } },
+      {
+        $group: {
+          _id: "$type",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const countMap = {
+      click: 0,
+      whatsapp: 0,
+      media: 0,
+      view: 0,
+    };
+
+    for (const row of allTimeCounts) {
+      if (row?._id && countMap[row._id] !== undefined) {
+        countMap[row._id] = Number(row.count || 0);
+      }
+    }
+
+    const toDayKey = (date) => {
+      const d = new Date(date);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    };
+
     const activityMap = {};
 
-    for (let i = daysBack - 1; i >= 0; i--) {
+    for (let i = 89; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(today.getDate() - i);
       const key = toDayKey(d);
@@ -1206,39 +1223,20 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
       };
     }
 
-    const addToActivity = (arr, field) => {
-      for (const item of arr) {
-        const date = getEventDate(item);
-        if (!date) continue;
+    for (const ev of events) {
+      const key = toDayKey(ev.createdAt);
+      if (!activityMap[key]) continue;
 
-        const key = toDayKey(date);
-        if (!activityMap[key]) continue;
-
-        activityMap[key][field] += 1;
-
-        if (field === "whatsapp") {
-          activityMap[key].messages += 1;
-        }
-
-        if (field === "total") {
-          activityMap[key].total += 0;
-        }
+      if (ev.type === "click") activityMap[key].total += 1;
+      if (ev.type === "whatsapp") {
+        activityMap[key].whatsapp += 1;
+        activityMap[key].messages += 1;
       }
-    };
+      if (ev.type === "media") activityMap[key].media += 1;
+      if (ev.type === "view") activityMap[key].views += 1;
+    }
 
-    addToActivity(clicksArr, "total");
-    addToActivity(messagesArr, "whatsapp");
-    addToActivity(mediaArr, "media");
-    addToActivity(viewsArr, "views");
-
-    const activity = Object.values(activityMap).map((row) => ({
-      ...row,
-      total: Number(row.total || 0),
-      whatsapp: Number(row.whatsapp || 0),
-      media: Number(row.media || 0),
-      messages: Number(row.messages || 0),
-      views: Number(row.views || 0),
-    }));
+    const activity = Object.values(activityMap);
 
     const sumRange = (rows) =>
       rows.reduce(
@@ -1278,19 +1276,19 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
         ? b.category.join(", ")
         : toSafeCategoryValue(b.category) || "Category",
 
-      totalClicks: clicksArr.length,
-      totalMessages: messagesArr.length,
-      mediaViews: mediaArr.length,
-      views: viewsArr.length,
+      totalClicks: countMap.click,
+      totalMessages: countMap.whatsapp,
+      mediaViews: countMap.media,
+      views: countMap.view,
       weeklyGrowth,
 
       activity,
 
       sources: [
-        { name_en: "WhatsApp", name_ar: "واتساب", value: messagesArr.length },
-        { name_en: "Clicks", name_ar: "نقرات", value: clicksArr.length },
-        { name_en: "Media", name_ar: "وسائط", value: mediaArr.length },
-        { name_en: "Views", name_ar: "مشاهدات", value: viewsArr.length },
+        { name_en: "WhatsApp", name_ar: "واتساب", value: countMap.whatsapp },
+        { name_en: "Clicks", name_ar: "نقرات", value: countMap.click },
+        { name_en: "Media", name_ar: "وسائط", value: countMap.media },
+        { name_en: "Views", name_ar: "مشاهدات", value: countMap.view },
       ],
     });
   } catch (e) {
@@ -1298,7 +1296,6 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
     return res.status(500).json({ error: "Failed" });
   }
 });
-
 
 // ============================================================================
 // PUBLIC SEARCH + PUBLIC business endpoints
