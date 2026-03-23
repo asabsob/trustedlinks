@@ -25,8 +25,39 @@ async function post(path, body) {
   return data;
 }
 
+function normalizeArabicDigits(v = "") {
+  const arabicNums = "٠١٢٣٤٥٦٧٨٩";
+  const englishNums = "0123456789";
+
+  return String(v)
+    .split("")
+    .map((char) => {
+      const index = arabicNums.indexOf(char);
+      return index !== -1 ? englishNums[index] : char;
+    })
+    .join("");
+}
+
 function digitsOnly(v = "") {
-  return String(v).replace(/\D/g, "");
+  return normalizeArabicDigits(v).replace(/\D/g, "");
+}
+
+function sanitizePhoneInput(v = "") {
+  return digitsOnly(v).slice(0, 15);
+}
+
+function formatPhoneForDisplay(v = "") {
+  const digits = sanitizePhoneInput(v);
+
+  if (!digits) return "";
+
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)} ${digits.slice(3)}`;
+  if (digits.length <= 10) {
+    return `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`;
+  }
+
+  return `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6, 10)} ${digits.slice(10)}`;
 }
 
 function buildInternational(dial, localInput) {
@@ -44,7 +75,7 @@ export default function WhatsAppVerify({
   const isAr = lang === "ar";
   const t = (en, ar) => (isAr ? ar : en);
 
-  const [whatsapp, setWhatsapp] = useState(currentWhatsapp || "");
+  const [whatsapp, setWhatsapp] = useState(formatPhoneForDisplay(currentWhatsapp || ""));
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
@@ -89,6 +120,11 @@ export default function WhatsAppVerify({
     }, 1000);
     return () => clearInterval(id);
   }, [timer]);
+
+  const handleWhatsappChange = (e) => {
+    const sanitized = sanitizePhoneInput(e.target.value);
+    setWhatsapp(formatPhoneForDisplay(sanitized));
+  };
 
   const sendOtp = async () => {
     if (loading) return;
@@ -150,7 +186,7 @@ export default function WhatsAppVerify({
 
       const data = await post("/api/whatsapp/verify-otp", {
         whatsapp: fullNumber,
-        code: otp.trim(),
+        code: digitsOnly(otp),
       });
 
       const digits = fullNumber.replace(/\D/g, "");
@@ -175,9 +211,7 @@ export default function WhatsAppVerify({
     } catch (e) {
       setMessage({
         type: "error",
-        text:
-          e.message ||
-          t("Verification failed.", "فشل التحقق."),
+        text: e.message || t("Verification failed.", "فشل التحقق."),
       });
     } finally {
       setLoading(false);
@@ -237,10 +271,18 @@ export default function WhatsAppVerify({
         <div style={{ ...fieldStyle, flex: 1 }}>
           <label style={labelStyle}>{t("Phone Number", "رقم الهاتف")}</label>
           <input
+            type="tel"
+            inputMode="numeric"
+            autoComplete="tel"
+            dir="ltr"
             value={whatsapp}
-            onChange={(e) => setWhatsapp(e.target.value)}
+            onChange={handleWhatsappChange}
             placeholder={t("Phone number", "رقم الهاتف")}
-            style={inputStyle(isAr)}
+            style={{
+              ...inputStyle,
+              direction: "ltr",
+              textAlign: "left",
+            }}
           />
         </div>
       </div>
@@ -270,10 +312,17 @@ export default function WhatsAppVerify({
           <div style={fieldStyle}>
             <label style={labelStyle}>{t("OTP Code", "رمز التحقق")}</label>
             <input
+              type="tel"
+              inputMode="numeric"
+              dir="ltr"
               value={otp}
-              onChange={(e) => setOtp(e.target.value)}
+              onChange={(e) => setOtp(digitsOnly(e.target.value).slice(0, 8))}
               placeholder="OTP"
-              style={inputStyle(isAr)}
+              style={{
+                ...inputStyle,
+                direction: "ltr",
+                textAlign: "left",
+              }}
             />
           </div>
 
@@ -349,16 +398,15 @@ const labelStyle = {
   color: "#111827",
 };
 
-const inputStyle = (isAr) => ({
+const inputStyle = {
   width: "100%",
   padding: "12px 14px",
   borderRadius: "12px",
   border: "1px solid #d1d5db",
   background: "#fff",
   boxSizing: "border-box",
-  textAlign: isAr ? "right" : "left",
   fontSize: "15px",
-});
+};
 
 const dropdownButtonStyle = {
   width: "100%",
