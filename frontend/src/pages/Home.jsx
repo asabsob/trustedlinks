@@ -38,18 +38,19 @@ export default function Home({ lang }) {
         direction: isArabic ? "rtl" : "ltr",
         background: "#f8fafc",
         minHeight: "100vh",
-        padding: "28px 18px 50px",
+        padding: "20px 14px 40px",
       }}
     >
       <div style={{ maxWidth: "1120px", margin: "0 auto" }}>
         <div
+          className="home-topbar"
           style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
             gap: "12px",
             flexWrap: "wrap",
-            marginBottom: "20px",
+            marginBottom: "18px",
           }}
         >
           <button
@@ -84,10 +85,10 @@ export default function Home({ lang }) {
           style={{
             background: "linear-gradient(135deg, #16a34a, #22c55e)",
             color: "#fff",
-            borderRadius: "26px",
-            padding: "56px 26px",
+            borderRadius: "24px",
+            padding: "42px 20px",
             boxShadow: "0 16px 35px rgba(34,197,94,0.18)",
-            marginBottom: "24px",
+            marginBottom: "20px",
             overflow: "hidden",
           }}
         >
@@ -105,9 +106,9 @@ export default function Home({ lang }) {
                 borderRadius: "999px",
                 background: "rgba(255,255,255,0.14)",
                 border: "1px solid rgba(255,255,255,0.18)",
-                fontSize: "0.9rem",
+                fontSize: "0.88rem",
                 fontWeight: "600",
-                marginBottom: "18px",
+                marginBottom: "16px",
               }}
             >
               {isArabic
@@ -117,10 +118,10 @@ export default function Home({ lang }) {
 
             <h1
               style={{
-                fontSize: "clamp(2rem, 4vw, 3.1rem)",
+                fontSize: "clamp(1.8rem, 5vw, 3rem)",
                 fontWeight: "800",
                 lineHeight: "1.2",
-                marginBottom: "16px",
+                marginBottom: "14px",
               }}
             >
               {isArabic
@@ -130,11 +131,11 @@ export default function Home({ lang }) {
 
             <p
               style={{
-                fontSize: "1.06rem",
+                fontSize: "1rem",
                 lineHeight: "1.9",
                 color: "rgba(255,255,255,0.95)",
                 maxWidth: "760px",
-                margin: "0 auto 28px",
+                margin: "0 auto 24px",
               }}
             >
               {isArabic
@@ -143,6 +144,7 @@ export default function Home({ lang }) {
             </p>
 
             <div
+              className="hero-actions"
               style={{
                 display: "flex",
                 justifyContent: "center",
@@ -183,28 +185,29 @@ export default function Home({ lang }) {
         </section>
 
         <section
+          className="benefits-grid"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-            gap: "18px",
-            marginBottom: "24px",
+            gap: "16px",
+            marginBottom: "20px",
           }}
         >
           <div
             style={{
               background: "#fff",
               borderRadius: "20px",
-              padding: "24px",
+              padding: "22px",
               border: "1px solid #e5e7eb",
               boxShadow: "0 8px 24px rgba(15,23,42,0.05)",
             }}
           >
             <h2
               style={{
-                fontSize: "1.25rem",
+                fontSize: "1.18rem",
                 fontWeight: "700",
                 color: "#0f172a",
-                marginBottom: "12px",
+                marginBottom: "10px",
                 textAlign: isArabic ? "right" : "left",
               }}
             >
@@ -229,17 +232,17 @@ export default function Home({ lang }) {
             style={{
               background: "#fff",
               borderRadius: "20px",
-              padding: "24px",
+              padding: "22px",
               border: "1px solid #e5e7eb",
               boxShadow: "0 8px 24px rgba(15,23,42,0.05)",
             }}
           >
             <h2
               style={{
-                fontSize: "1.25rem",
+                fontSize: "1.18rem",
                 fontWeight: "700",
                 color: "#0f172a",
-                marginBottom: "12px",
+                marginBottom: "10px",
                 textAlign: isArabic ? "right" : "left",
               }}
             >
@@ -265,16 +268,16 @@ export default function Home({ lang }) {
           style={{
             background: "#fff",
             borderRadius: "22px",
-            padding: "28px 24px",
+            padding: "24px 18px",
             border: "1px solid #e5e7eb",
             boxShadow: "0 8px 24px rgba(15,23,42,0.05)",
-            marginBottom: "24px",
+            marginBottom: "20px",
           }}
         >
-          <div style={{ textAlign: "center", marginBottom: "22px" }}>
+          <div style={{ textAlign: "center", marginBottom: "20px" }}>
             <h2
               style={{
-                fontSize: "1.55rem",
+                fontSize: "1.45rem",
                 fontWeight: "800",
                 color: "#0f172a",
                 marginBottom: "10px",
@@ -297,6 +300,7 @@ export default function Home({ lang }) {
           </div>
 
           <div
+            className="steps-grid"
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
@@ -359,10 +363,10 @@ export default function Home({ lang }) {
           style={{
             background: "#fff",
             borderRadius: "22px",
-            padding: "24px",
+            padding: "24px 18px",
             border: "1px solid #e5e7eb",
             boxShadow: "0 8px 24px rgba(15,23,42,0.05)",
-            marginBottom: "24px",
+            marginBottom: "20px",
           }}
         >
           <div
@@ -378,7 +382,7 @@ export default function Home({ lang }) {
             <div style={{ textAlign: isArabic ? "right" : "left" }}>
               <h2
                 style={{
-                  fontSize: "1.35rem",
+                  fontSize: "1.3rem",
                   fontWeight: "800",
                   color: "#0f172a",
                   marginBottom: "8px",
@@ -401,10 +405,11 @@ export default function Home({ lang }) {
           </div>
 
           <div
+            className="nav-grid"
             style={{
-              display: "flex",
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
               gap: "12px",
-              flexWrap: "wrap",
             }}
           >
             {navItems.map((item) => (
@@ -416,9 +421,7 @@ export default function Home({ lang }) {
                   background: "#f8fafc",
                   border: "1px solid #e2e8f0",
                   borderRadius: "14px",
-                  padding: "14px 16px",
-                  minWidth: "200px",
-                  flex: "1 1 220px",
+                  padding: "16px",
                   color: "#0f172a",
                 }}
               >
@@ -448,7 +451,7 @@ export default function Home({ lang }) {
           style={{
             background: "linear-gradient(180deg, #ffffff, #f8fafc)",
             borderRadius: "22px",
-            padding: "34px 24px",
+            padding: "30px 20px",
             textAlign: "center",
             border: "1px solid #e5e7eb",
             boxShadow: "0 8px 24px rgba(15,23,42,0.05)",
@@ -456,7 +459,7 @@ export default function Home({ lang }) {
         >
           <h2
             style={{
-              fontSize: "1.65rem",
+              fontSize: "1.5rem",
               fontWeight: "800",
               color: "#0f172a",
               marginBottom: "12px",
@@ -479,6 +482,7 @@ export default function Home({ lang }) {
           </p>
 
           <div
+            className="cta-actions"
             style={{
               display: "flex",
               justifyContent: "center",
@@ -517,6 +521,27 @@ export default function Home({ lang }) {
           </div>
         </section>
       </div>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .home-topbar {
+            align-items: stretch !important;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .hero-actions,
+          .cta-actions {
+            flex-direction: column;
+          }
+
+          .hero-actions a,
+          .cta-actions a {
+            width: 100%;
+            text-align: center;
+          }
+        }
+      `}</style>
     </div>
   );
 }
