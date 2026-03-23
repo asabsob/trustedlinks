@@ -158,6 +158,13 @@ export default function Search({ lang = "en" }) {
         return categoryKey;
       }
     }
+
+    const getBusinessDisplayName = (b) => {
+  if (!b) return "";
+  if (isArabic) return b.name_ar || b.name || "";
+  return b.name || b.name_ar || "";
+};
+    
     return null;
   };
 
@@ -249,13 +256,13 @@ export default function Search({ lang = "en" }) {
     ) {
       return b.mediaLink;
     }
+const displayName = isArabic ? (b.name_ar || b.name) : (b.name || b.name_ar);
 
-    if (b.name) {
-      return `https://ui-avatars.com/api/?name=${encodeURIComponent(
-        b.name
-      )}&background=22c55e&color=fff&size=128`;
-    }
-
+if (displayName) {
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(
+    displayName
+  )}&background=22c55e&color=fff&size=128`;
+}
     return "";
   };
 
@@ -497,17 +504,17 @@ export default function Search({ lang = "en" }) {
                     />
 
                     <div style={{ textAlign: "center" }}>
-                      <h3
-                        style={{
-                          margin: "0 0 8px",
-                          fontSize: "1.12rem",
-                          fontWeight: 800,
-                          color: "#0f172a",
-                          lineHeight: 1.4,
-                        }}
-                      >
-                        {b.name || b.name_ar || t("Business", "نشاط")}
-                      </h3>
+                    <h3
+  style={{
+    margin: "0 0 8px",
+    fontSize: "1.12rem",
+    fontWeight: 800,
+    color: "#0f172a",
+    lineHeight: 1.4,
+  }}
+>
+  {getBusinessDisplayName(b) || t("Business", "نشاط")}
+</h3>
 
                       <div
                         style={{
