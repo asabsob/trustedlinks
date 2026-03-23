@@ -293,6 +293,16 @@ async function logBusinessEvent({ businessId, ownerUserId, type, source = "", me
     console.error("logBusinessEvent error:", e);
   }
 }
+async function getBusinessOwnerInfo(businessId) {
+  const business = await Business.findById(businessId).lean();
+  if (!business) return null;
+
+  return {
+    businessId: business._id,
+    ownerUserId: String(business.ownerUserId || ""),
+    business,
+  };
+}
 // ---------------------------------------------------------------------------
 // URLs
 // ---------------------------------------------------------------------------
@@ -1436,9 +1446,22 @@ app.post("/api/track-view", async (req, res) => {
   try {
     const { businessId } = req.body || {};
     if (!businessId) return res.status(400).json({ error: "businessId required" });
+
+    const info = await getBusinessOwnerInfo(businessId);
+    if (!info) return res.status(404).json({ error: "Business not found" });
+
     await pushEvent(businessId, "views");
+
+    await logBusinessEvent({
+      businessId: info.businessId,
+      ownerUserId: info.ownerUserId,
+      type: "view",
+      source: "business_details_page",
+    });
+
     return res.json({ ok: true });
-  } catch {
+  } catch (e) {
+    console.error("track-view error:", e);
     return res.status(500).json({ error: "Failed" });
   }
 });
@@ -1447,9 +1470,22 @@ app.post("/api/track-click", async (req, res) => {
   try {
     const { businessId } = req.body || {};
     if (!businessId) return res.status(400).json({ error: "businessId required" });
+
+    const info = await getBusinessOwnerInfo(businessId);
+    if (!info) return res.status(404).json({ error: "Business not found" });
+
     await pushEvent(businessId, "clicks");
+
+    await logBusinessEvent({
+      businessId: info.businessId,
+      ownerUserId: info.ownerUserId,
+      type: "click",
+      source: "business_profile_click",
+    });
+
     return res.json({ ok: true });
-  } catch {
+  } catch (e) {
+    console.error("track-click error:", e);
     return res.status(500).json({ error: "Failed" });
   }
 });
@@ -1458,9 +1494,22 @@ app.post("/api/track-media", async (req, res) => {
   try {
     const { businessId } = req.body || {};
     if (!businessId) return res.status(400).json({ error: "businessId required" });
+
+    const info = await getBusinessOwnerInfo(businessId);
+    if (!info) return res.status(404).json({ error: "Business not found" });
+
     await pushEvent(businessId, "mediaViews");
+
+    await logBusinessEvent({
+      businessId: info.businessId,
+      ownerUserId: info.ownerUserId,
+      type: "media",
+      source: "media_open",
+    });
+
     return res.json({ ok: true });
-  } catch {
+  } catch (e) {
+    console.error("track-media error:", e);
     return res.status(500).json({ error: "Failed" });
   }
 });
@@ -1469,9 +1518,15 @@ app.post("/api/track-map", async (req, res) => {
   try {
     const { businessId } = req.body || {};
     if (!businessId) return res.status(400).json({ error: "businessId required" });
+
+    const info = await getBusinessOwnerInfo(businessId);
+    if (!info) return res.status(404).json({ error: "Business not found" });
+
     await pushEvent(businessId, "mapClicks");
+
     return res.json({ ok: true });
-  } catch {
+  } catch (e) {
+    console.error("track-map error:", e);
     return res.status(500).json({ error: "Failed" });
   }
 });
@@ -1480,18 +1535,26 @@ app.post("/api/track-whatsapp", async (req, res) => {
   try {
     const { businessId } = req.body || {};
     if (!businessId) return res.status(400).json({ error: "businessId required" });
+
+    const info = await getBusinessOwnerInfo(businessId);
+    if (!info) return res.status(404).json({ error: "Business not found" });
+
     await pushEvent(businessId, "whatsappClicks");
     await pushEvent(businessId, "messages");
+
+    await logBusinessEvent({
+      businessId: info.businessId,
+      ownerUserId: info.ownerUserId,
+      type: "whatsapp",
+      source: "whatsapp_button",
+    });
+
     return res.json({ ok: true });
-  } catch {
+  } catch (e) {
+    console.error("track-whatsapp error:", e);
     return res.status(500).json({ error: "Failed" });
   }
 });
-
-app.get("/api/instagram-profile/:username", async (_req, res) => {
-  return res.json({ profilePic: null });
-});
-
 // ============================================================================
 // Admin Auth + Admin endpoints
 // ============================================================================
@@ -2224,13 +2287,39 @@ app.get("/l/:token", async (req, res) => {
       return res.status(400).send("Invalid destination");
     }
 
-   ClickLog.create({
-  businessId,
-  businessPhone,
-  userPhone,
-  query,
-  timestamp: new Date(),
-}).catch((err) => console.error("CLICK LOG ERROR:", err));
+    ClickLog.create({
+      businessId,
+      businessPhone,
+      userPhone,
+      query,
+      timestamp: new Date(),
+    }).catch((err) => console.error("CLICK LOG ERROR:", err));
+
+    const business = await Business.findById(businessId).lean();
+
+    if (business) {
+      await logBusinessEvent({
+        businessId: business._id,
+        ownerUserId: String(business.ownerUserId || ""),
+        type: "click",
+        source: "tracked_lead_link",
+        meta: {
+          query,
+          userPhone,
+        },
+      });
+
+      await logBusinessEvent({
+        businessId: business._id,
+        ownerUserId: String(business.ownerUserId || ""),
+        type: "whatsapp",
+        source: "tracked_lead_link",
+        meta: {
+          query,
+          userPhone,
+        },
+      });
+    }
 
     const message = encodeURIComponent("Hello, I found you on TrustedLinks");
 
