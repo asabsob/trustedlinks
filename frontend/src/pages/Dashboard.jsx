@@ -368,7 +368,15 @@ function StatCard({ title, value, subtitle, highlight = "#111827" }) {
     marginBottom: "6px",
   };
 
-  const walletStatus = useMemo(() => {
+const walletText = useMemo(() => {
+  if (!user) return "0 USD";
+  const balance = typeof user.walletBalance === "number" ? user.walletBalance : 0;
+  const currency = user.currency || "USD";
+  return `${balance} ${currency}`;
+}, [user]);
+
+// 👇 هنا تضيفه
+const walletStatus = useMemo(() => {
   if (!user) return "active";
 
   const balance = Number(user.walletBalance || 0);
@@ -377,6 +385,7 @@ function StatCard({ title, value, subtitle, highlight = "#111827" }) {
   if (balance < 5) return "low";
   return "active";
 }, [user]);
+  
   
   return (
     <div style={statCard}>
