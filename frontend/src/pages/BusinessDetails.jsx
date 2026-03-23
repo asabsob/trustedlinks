@@ -13,6 +13,12 @@ export default function BusinessDetails({ lang = "en" }) {
 
   const t = (en, ar) => (isArabic ? ar : en);
 
+  const getBusinessDisplayName = (b) => {
+  if (!b) return "";
+  if (isArabic) return b.name_ar || b.name || "";
+  return b.name || b.name_ar || "";
+};
+
   const metaCategories = useMemo(
     () => ({
       RESTAURANT: { en: "Restaurant", ar: "مطعم / مقهى" },
@@ -38,11 +44,6 @@ export default function BusinessDetails({ lang = "en" }) {
 
     const arr = Array.isArray(category) ? category : [category];
     
-const getBusinessDisplayName = (b) => {
-  if (!b) return "";
-  if (isArabic) return b.name_ar || b.name || "";
-  return b.name || b.name_ar || "";
-};
     
     return arr
       .map((c) => {
