@@ -180,6 +180,11 @@ export default function Search({ lang = "en" }) {
     const selectedCategory = category !== "all" ? category : typedCategory;
     const q = normalize(query);
 
+    const instagramUrl =
+  b.mediaLink && String(b.mediaLink).includes("instagram.com")
+    ? b.mediaLink
+    : null;
+    
     return businesses
       .map((b) => {
         const blob = getSearchBlob(b);
@@ -649,6 +654,28 @@ export default function Search({ lang = "en" }) {
         )}
       </div>
 
+      {instagramUrl && (
+  <a
+    href={instagramUrl}
+    target="_blank"
+    rel="noopener noreferrer"
+    onClick={() => trackAction("/api/track-media", businessId)}
+    style={{
+      marginTop: 10,
+      textAlign: "center",
+      background: "#fdf2f8",
+      color: "#be185d",
+      borderRadius: 12,
+      padding: "11px 14px",
+      textDecoration: "none",
+      fontWeight: 700,
+      display: "block",
+    }}
+  >
+    📸 {t("Instagram", "إنستغرام")}
+  </a>
+)}
+      
       <style>{`
         @media (max-width: 820px) {
           .search-top-grid {
