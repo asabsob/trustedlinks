@@ -472,23 +472,27 @@ app.post("/api/auth/signup", async (req, res) => {
   freeCreditGranted: true,
 });
     
-    const createdBusiness = await Business.create({
-      ownerUserId: String(user._id),
+   const createdBusiness = await Business.create({
+  ownerUserId: String(user._id),
 
-      name: business.name || "",
-      name_ar: business.name_ar || "",
-      description: business.description || "",
-      category: Array.isArray(business.category) ? business.category : [],
-      keywords: Array.isArray(business.keywords) ? business.keywords : [],
+  name: business.name || "",
+  name_ar: business.name_ar || "",
+  description: business.description || "",
+  category: Array.isArray(business.category) ? business.category : [],
+  keywords: Array.isArray(business.keywords) ? business.keywords : [],
 
-      whatsapp: business.whatsapp,
-      status: "Active",
+  whatsapp: business.whatsapp || "",
+  status: "Active",
 
-      latitude: typeof business.latitude === "number" ? business.latitude : null,
-      longitude: typeof business.longitude === "number" ? business.longitude : null,
-      mapLink: business.mapLink || "",
-      mediaLink: business.mediaLink || "",
-    });
+  latitude: typeof business.latitude === "number" ? business.latitude : null,
+  longitude: typeof business.longitude === "number" ? business.longitude : null,
+  mapLink: business.mapLink || "",
+  mediaLink: business.mediaLink || "",
+  logo: business.logo || "",
+  locationText: business.locationText || "",
+  countryCode: business.countryCode || "",
+  countryName: business.countryName || "",
+});
 
     // إذا عندك إرسال إيميل تفعيل، خله كما هو هنا
 
