@@ -180,11 +180,6 @@ export default function Search({ lang = "en" }) {
     const selectedCategory = category !== "all" ? category : typedCategory;
     const q = normalize(query);
 
-    const instagramUrl =
-  b.mediaLink && String(b.mediaLink).includes("instagram.com")
-    ? b.mediaLink
-    : null;
-    
     return businesses
       .map((b) => {
         const blob = getSearchBlob(b);
@@ -245,26 +240,29 @@ export default function Search({ lang = "en" }) {
     return null;
   };
 
- const getLogoUrl = (b) => {
-  if (b.logo) return b.logo;
+  const getLogoUrl = (b) => {
+    if (b.logo) return b.logo;
 
-  // صورة مباشرة
-  if (
-    b.mediaLink &&
-    /\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(String(b.mediaLink))
-  ) {
-    return b.mediaLink;
-  }
+    if (
+      b.mediaLink &&
+      /\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(String(b.mediaLink))
+    ) {
+      return b.mediaLink;
+    }
 
-  // 🔥 fallback ذكي (logo من الاسم)
-  if (b.name) {
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(
-      b.name
-    )}&background=22c55e&color=fff&size=128`;
-  }
+    if (b.name) {
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(
+        b.name
+      )}&background=22c55e&color=fff&size=128`;
+    }
 
-  return "";
-};
+    return "";
+  };
+
+  const fixUrl = (url) => {
+    if (!url) return "";
+    return String(url).startsWith("http") ? url : `https://${url}`;
+  };
 
   return (
     <div
@@ -325,7 +323,14 @@ export default function Search({ lang = "en" }) {
             marginBottom: 18,
           }}
         >
-          <div className="search-top-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
+          <div
+            className="search-top-grid"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "2fr 1fr",
+              gap: 12,
+            }}
+          >
             <input
               type="text"
               value={query}
@@ -445,6 +450,10 @@ export default function Search({ lang = "en" }) {
               const logoUrl = getLogoUrl(b);
               const whatsappUrl = getWhatsappUrl(b);
               const mapUrl = getMapUrl(b);
+              const instagramUrl =
+                b.mediaLink && String(b.mediaLink).includes("instagram")
+                  ? b.mediaLink
+                  : null;
 
               return (
                 <div
@@ -473,39 +482,19 @@ export default function Search({ lang = "en" }) {
                       minHeight: 170,
                     }}
                   >
-                    {logoUrl ? (
-                      <img
-                        src={logoUrl}
-                        alt={b.name || b.name_ar || "Logo"}
-                        style={{
-                          width: 84,
-                          height: 84,
-                          objectFit: "cover",
-                          borderRadius: 18,
-                          border: "1px solid #e2e8f0",
-                          background: "#fff",
-                          boxShadow: "0 8px 18px rgba(15,23,42,0.08)",
-                        }}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          width: 84,
-                          height: 84,
-                          borderRadius: 18,
-                          border: "1px solid #e2e8f0",
-                          background: "#f1f5f9",
-                          color: "#94a3b8",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontWeight: 800,
-                          fontSize: 22,
-                        }}
-                      >
-                        {(b.name || b.name_ar || "B").charAt(0).toUpperCase()}
-                      </div>
-                    )}
+                    <img
+                      src={logoUrl}
+                      alt={b.name || b.name_ar || "Logo"}
+                      style={{
+                        width: 84,
+                        height: 84,
+                        objectFit: "cover",
+                        borderRadius: 18,
+                        border: "1px solid #e2e8f0",
+                        background: "#fff",
+                        boxShadow: "0 8px 18px rgba(15,23,42,0.08)",
+                      }}
+                    />
 
                     <div style={{ textAlign: "center" }}>
                       <h3
@@ -584,7 +573,7 @@ export default function Search({ lang = "en" }) {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: mapUrl ? "1fr 1fr" : "1fr 1fr",
+                        gridTemplateColumns: "1fr 1fr",
                         gap: 10,
                         marginTop: "auto",
                       }}
@@ -608,7 +597,7 @@ export default function Search({ lang = "en" }) {
                       </button>
 
                       <a
-                        href={whatsappUrl}
+                        href={fixUrl(whatsappUrl)}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={() => trackAction("/api/track-whatsapp", businessId)}
@@ -628,7 +617,7 @@ export default function Search({ lang = "en" }) {
 
                     {mapUrl && (
                       <a
-                        href={mapUrl}
+                        href={fixUrl(mapUrl)}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={() => trackAction("/api/track-map", businessId)}
@@ -641,9 +630,32 @@ export default function Search({ lang = "en" }) {
                           padding: "11px 14px",
                           textDecoration: "none",
                           fontWeight: 700,
+                          display: "block",
                         }}
                       >
                         📍 {t("Open Location", "فتح الموقع")}
+                      </a>
+                    )}
+
+                    {instagramUrl && (
+                      <a
+                        href={fixUrl(instagramUrl)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => trackAction("/api/track-media", businessId)}
+                        style={{
+                          marginTop: 10,
+                          textAlign: "center",
+                          background: "#fdf2f8",
+                          color: "#be185d",
+                          borderRadius: 12,
+                          padding: "11px 14px",
+                          textDecoration: "none",
+                          fontWeight: 700,
+                          display: "block",
+                        }}
+                      >
+                        📸 {t("Instagram", "إنستغرام")}
                       </a>
                     )}
                   </div>
@@ -654,28 +666,6 @@ export default function Search({ lang = "en" }) {
         )}
       </div>
 
-      {instagramUrl && (
-  <a
-    href={instagramUrl}
-    target="_blank"
-    rel="noopener noreferrer"
-    onClick={() => trackAction("/api/track-media", businessId)}
-    style={{
-      marginTop: 10,
-      textAlign: "center",
-      background: "#fdf2f8",
-      color: "#be185d",
-      borderRadius: 12,
-      padding: "11px 14px",
-      textDecoration: "none",
-      fontWeight: 700,
-      display: "block",
-    }}
-  >
-    📸 {t("Instagram", "إنستغرام")}
-  </a>
-)}
-      
       <style>{`
         @media (max-width: 820px) {
           .search-top-grid {
