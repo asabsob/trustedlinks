@@ -268,14 +268,6 @@ export default function Wallet({ lang = "en" }) {
   }
 };
 
-    <h3 className="text-lg font-semibold text-slate-900">
-      {lang === "ar" ? "تأكيد الدفع" : "Confirm Payment"}
-    </h3>
-    <p className="mt-2 text-sm text-slate-600">
-      {lang === "ar"
-        ? `طلب شحن بقيمة ${pendingOrder.amount} ${pendingOrder.currency}`
-        : `Top-up order for ${pendingOrder.amount} ${pendingOrder.currency}`}
-    </p>
 
     <div className="mt-4 flex flex-col gap-3 sm:flex-row">
       <button
