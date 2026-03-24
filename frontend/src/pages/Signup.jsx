@@ -40,6 +40,7 @@ export default function Signup({ lang = "en" }) {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const t = (en, ar) => (isArabic ? ar : en);
@@ -149,64 +150,63 @@ export default function Signup({ lang = "en" }) {
     );
   };
 
- const convertLogoToBase64 = async () => {
-  if (!logo) return "";
+  const convertLogoToBase64 = async () => {
+    if (!logo) return "";
 
-  return new Promise((resolve) => {
-    const img = new Image();
-    const reader = new FileReader();
+    return new Promise((resolve) => {
+      const img = new Image();
+      const reader = new FileReader();
 
-    reader.onload = (e) => {
-      img.src = e.target.result;
-    };
+      reader.onload = (e) => {
+        img.src = e.target.result;
+      };
 
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
 
-      const MAX_SIZE = 300; // 🔥 مهم
-      let width = img.width;
-      let height = img.height;
+        const MAX_SIZE = 300;
+        let width = img.width;
+        let height = img.height;
 
-      if (width > height) {
-        if (width > MAX_SIZE) {
-          height *= MAX_SIZE / width;
-          width = MAX_SIZE;
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
+          }
         }
-      } else {
-        if (height > MAX_SIZE) {
-          width *= MAX_SIZE / height;
-          height = MAX_SIZE;
-        }
-      }
 
-      canvas.width = width;
-      canvas.height = height;
+        canvas.width = width;
+        canvas.height = height;
 
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0, width, height);
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
 
-      const compressed = canvas.toDataURL("image/jpeg", 0.7); // 🔥 ضغط
+        const compressed = canvas.toDataURL("image/jpeg", 0.7);
+        resolve(compressed);
+      };
 
-      resolve(compressed);
-    };
-
-    reader.readAsDataURL(logo);
-  });
-};
+      reader.readAsDataURL(logo);
+    });
+  };
 
   const normalizeNumber = (value) => {
-  const arabicNums = "٠١٢٣٤٥٦٧٨٩";
-  const englishNums = "0123456789";
+    const arabicNums = "٠١٢٣٤٥٦٧٨٩";
+    const englishNums = "0123456789";
 
-  return (value || "")
-    .split("")
-    .map((char) => {
-      const index = arabicNums.indexOf(char);
-      return index !== -1 ? englishNums[index] : char;
-    })
-    .join("");
-};
-  
+    return (value || "")
+      .split("")
+      .map((char) => {
+        const index = arabicNums.indexOf(char);
+        return index !== -1 ? englishNums[index] : char;
+      })
+      .join("");
+  };
+
   const handleSignup = async (e) => {
     e.preventDefault();
 
@@ -245,6 +245,16 @@ export default function Signup({ lang = "en" }) {
       return;
     }
 
+    if (!agreedToTerms) {
+      alert(
+        t(
+          "Please agree to the Terms and Conditions first.",
+          "يرجى الموافقة على الشروط والأحكام أولاً."
+        )
+      );
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -263,7 +273,7 @@ export default function Signup({ lang = "en" }) {
         description: description.trim(),
         category: [category.key],
         keywords: [],
-      whatsapp: normalizeNumber(verifiedWhatsApp),
+        whatsapp: normalizeNumber(verifiedWhatsApp),
         countryCode,
         countryName: selectedCountry
           ? isArabic
@@ -281,14 +291,13 @@ export default function Signup({ lang = "en" }) {
 
       localStorage.setItem("otpToken", otpToken);
 
-      console.log("FINAL LOGO:", logoBase64?.slice(0, 50));
-      
       const res = await fetch(`${API_BASE}/api/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: email.trim(),
           password,
+          agreedToTerms: true,
           business: businessPayload,
         }),
       });
@@ -395,22 +404,23 @@ export default function Signup({ lang = "en" }) {
           </h3>
 
           <label style={labelStyle}>{t("Company Logo", "شعار الشركة")}</label>
-         <input
-  type="file"
-  accept="image/png, image/jpeg, image/webp"
-  onChange={(e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+          <input
+            type="file"
+            accept="image/png, image/jpeg, image/webp"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
-      alert(t("Invalid image file", "ملف غير صالح"));
-      return;
-    }
+              if (!file.type.startsWith("image/")) {
+                alert(t("Invalid image file", "ملف غير صالح"));
+                return;
+              }
 
-    setLogo(file);
-    setLogoPreview(URL.createObjectURL(file));
-  }}
-/>
+              setLogo(file);
+              setLogoPreview(URL.createObjectURL(file));
+            }}
+            style={fileInputStyle}
+          />
 
           {logoPreview ? (
             <div style={logoPreviewBoxStyle}>
@@ -551,13 +561,35 @@ export default function Signup({ lang = "en" }) {
           />
         </div>
 
+        <div style={termsWrapperStyle(isArabic)}>
+          <label style={termsLabelStyle(isArabic)}>
+            <input
+              type="checkbox"
+              checked={agreedToTerms}
+              onChange={(e) => setAgreedToTerms(e.target.checked)}
+              style={termsCheckboxStyle}
+            />
+            <span>
+              {t("I agree to the ", "أوافق على ")}
+              <a
+                href="/terms"
+                target="_blank"
+                rel="noreferrer"
+                style={termsLinkStyle}
+              >
+                {t("Terms and Conditions", "الشروط والأحكام")}
+              </a>
+            </span>
+          </label>
+        </div>
+
         <button
           type="submit"
-          disabled={loading || !verifiedWhatsApp || !otpToken}
+          disabled={loading || !verifiedWhatsApp || !otpToken || !agreedToTerms}
           style={{
             ...submitButtonStyle,
             cursor: loading ? "not-allowed" : "pointer",
-            opacity: !verifiedWhatsApp || !otpToken ? 0.6 : 1,
+            opacity: !verifiedWhatsApp || !otpToken || !agreedToTerms ? 0.6 : 1,
           }}
         >
           {loading
@@ -734,3 +766,34 @@ const listboxButtonStyle = (isArabic) => ({
   direction: isArabic ? "rtl" : "ltr",
   fontSize: "0.96rem",
 });
+
+const termsWrapperStyle = (isArabic) => ({
+  marginBottom: 18,
+  direction: isArabic ? "rtl" : "ltr",
+});
+
+const termsLabelStyle = (isArabic) => ({
+  display: "flex",
+  alignItems: "flex-start",
+  gap: 10,
+  fontSize: "0.95rem",
+  color: "#334155",
+  lineHeight: 1.8,
+  cursor: "pointer",
+  textAlign: isArabic ? "right" : "left",
+});
+
+const termsCheckboxStyle = {
+  marginTop: 4,
+  width: 16,
+  height: 16,
+  accentColor: "#16a34a",
+  cursor: "pointer",
+  flexShrink: 0,
+};
+
+const termsLinkStyle = {
+  color: "#16a34a",
+  fontWeight: 700,
+  textDecoration: "none",
+};
