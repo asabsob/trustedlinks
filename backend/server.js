@@ -35,6 +35,7 @@ import ClickLog from "./models/ClickLog.js";
 import LeadToken from "./models/LeadToken.js";
 import BusinessEvent from "./models/BusinessEvent.js";
 import Transaction from "./models/Transaction.js";
+import TopupOrder from "./models/TopupOrder.js";
 
 dotenv.config();
 await connectDB();
@@ -421,6 +422,52 @@ async function deductWalletBalance({
   } catch (e) {
     console.error("deductWalletBalance error:", e);
     return { ok: false, error: "Deduction failed" };
+  }
+}
+
+async function creditWalletBalance({
+  userId,
+  amount,
+  currency = "USD",
+  reason = "Wallet top up",
+  reference = "",
+  notes = "",
+  meta = {},
+}) {
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      return { ok: false, error: "User not found" };
+    }
+
+    const balanceBefore = Number(user.walletBalance || 0);
+    user.walletBalance = Number((balanceBefore + Number(amount)).toFixed(2));
+    await user.save();
+
+    await createTransaction({
+      userId: user._id,
+      type: "credit",
+      amount: Number(amount),
+      currency: currency || user.currency || "USD",
+      reason,
+      eventType: "topup",
+      reference,
+      status: "completed",
+      balanceBefore,
+      balanceAfter: user.walletBalance,
+      notes,
+      meta,
+    });
+
+    return {
+      ok: true,
+      balanceBefore,
+      balanceAfter: user.walletBalance,
+      currency: user.currency || currency || "USD",
+    };
+  } catch (e) {
+    console.error("creditWalletBalance error:", e);
+    return { ok: false, error: "Failed to credit wallet" };
   }
 }
 // ---------------------------------------------------------------------------
@@ -1040,6 +1087,135 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
       ok: false,
       error: "Internal server error",
     });
+  }
+});
+
+app.post("/api/payments/create-topup-order", requireUser, async (req, res) => {
+  try {
+    const amount = Number(req.body?.amount || 0);
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ error: "Invalid amount" });
+    }
+
+    const user = await User.findById(req.user.id).lean();
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const order = await TopupOrder.create({
+      userId: String(user._id),
+      amount,
+      currency: user.currency || "USD",
+      status: "pending",
+      paymentMethod: "manual_demo",
+      reference: `topup_order_${Date.now()}`,
+    });
+
+    return res.json({
+      ok: true,
+      orderId: String(order._id),
+      amount: order.amount,
+      currency: order.currency,
+      status: order.status,
+      reference: order.reference,
+    });
+  } catch (e) {
+    console.error("create-topup-order error:", e);
+    return res.status(500).json({ error: "Failed to create topup order" });
+  }
+});
+
+app.get("/api/payments/topup-orders/:id", requireUser, async (req, res) => {
+  try {
+    const order = await TopupOrder.findById(req.params.id).lean();
+    if (!order) return res.status(404).json({ error: "Order not found" });
+
+    if (String(order.userId) !== String(req.user.id)) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    return res.json({
+      id: String(order._id),
+      amount: order.amount,
+      currency: order.currency,
+      status: order.status,
+      paymentMethod: order.paymentMethod,
+      reference: order.reference,
+      paidAt: order.paidAt,
+      createdAt: order.createdAt,
+    });
+  } catch (e) {
+    console.error("get-topup-order error:", e);
+    return res.status(500).json({ error: "Failed to load order" });
+  }
+});
+
+app.post("/api/payments/confirm-topup-order", requireUser, async (req, res) => {
+  try {
+    const orderId = req.body?.orderId;
+    if (!orderId) {
+      return res.status(400).json({ error: "orderId required" });
+    }
+
+    const order = await TopupOrder.findById(orderId);
+    if (!order) return res.status(404).json({ error: "Order not found" });
+
+    if (String(order.userId) !== String(req.user.id)) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    if (order.status === "paid") {
+      const user = await User.findById(req.user.id).lean();
+      const balance = Number(user?.walletBalance || 0);
+
+      return res.json({
+        ok: true,
+        alreadyPaid: true,
+        balance,
+        currency: user?.currency || order.currency || "USD",
+      });
+    }
+
+    if (order.status !== "pending") {
+      return res.status(400).json({ error: "Order is not payable" });
+    }
+
+    const credit = await creditWalletBalance({
+      userId: req.user.id,
+      amount: order.amount,
+      currency: order.currency,
+      reason: "Wallet top up",
+      reference: order.reference,
+      notes: "Simulated payment confirmation",
+      meta: {
+        orderId: String(order._id),
+        paymentMethod: order.paymentMethod,
+      },
+    });
+
+    if (!credit.ok) {
+      order.status = "failed";
+      await order.save();
+      return res.status(500).json({ error: "Failed to credit wallet" });
+    }
+
+    order.status = "paid";
+    order.paidAt = new Date();
+    await order.save();
+
+    const balanceAfter = Number(credit.balanceAfter || 0);
+    let status = "active";
+    if (balanceAfter <= 0) status = "out";
+    else if (balanceAfter < 5) status = "low";
+
+    return res.json({
+      ok: true,
+      balance: balanceAfter,
+      currency: credit.currency || order.currency || "USD",
+      status,
+      orderId: String(order._id),
+    });
+  } catch (e) {
+    console.error("confirm-topup-order error:", e);
+    return res.status(500).json({ error: "Failed to confirm payment" });
   }
 });
 
