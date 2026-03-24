@@ -15,6 +15,7 @@ import LoginPage from "./pages/LoginPage.jsx";
 import ResetPassword from "./pages/ResetPassword.jsx";
 import Wallet from "./pages/Wallet.jsx";
 import Transactions from "./pages/Transactions.jsx";
+import Terms from "./pages/Terms";
 
 /* 🧭 Admin Pages */
 import AdminLayout from "./pages/admin/AdminLayout.jsx";
@@ -135,6 +136,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage lang={lang} />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword lang={lang} />} />
+        <Route path="/terms" element={<Terms lang={lang} />} />
         
         {/* User Private */}
         <Route
