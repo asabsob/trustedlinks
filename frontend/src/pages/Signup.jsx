@@ -10,8 +10,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 let googleMapsPromise = null;
 
 function loadGoogleMaps() {
-  if (window.google?.maps?.places?.Autocomplete) {
-    console.log("Google already loaded");
+  if (window.google?.maps?.places?.PlaceAutocompleteElement) {
     return Promise.resolve(window.google);
   }
 
@@ -22,44 +21,48 @@ function loadGoogleMaps() {
   googleMapsPromise = new Promise((resolve, reject) => {
     const key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
-    console.log("ENV KEY EXISTS:", !!key);
-    console.log("ENV KEY VALUE:", key ? `${key.slice(0, 8)}...` : "MISSING");
-
     if (!key) {
       reject(new Error("Missing VITE_GOOGLE_MAPS_API_KEY"));
       return;
     }
 
-    const scriptUrl = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&loading=async&v=weekly`;
-    console.log("GOOGLE MAPS SCRIPT URL:", scriptUrl);
+    const existing = document.getElementById("googleMapsScript");
+    if (existing) {
+      existing.addEventListener(
+        "load",
+        () => {
+          if (window.google?.maps?.places?.PlaceAutocompleteElement) {
+            resolve(window.google);
+          } else {
+            reject(new Error("Google Maps Places widget is unavailable"));
+          }
+        },
+        { once: true }
+      );
 
-    const oldScript = document.getElementById("googleMapsScript");
-    if (oldScript) {
-      oldScript.remove();
+      existing.addEventListener(
+        "error",
+        () => reject(new Error("Failed to load Google Maps")),
+        { once: true }
+      );
+      return;
     }
 
     const script = document.createElement("script");
     script.id = "googleMapsScript";
-    script.src = scriptUrl;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&loading=async&v=weekly`;
     script.async = true;
     script.defer = true;
 
     script.onload = () => {
-      console.log("AFTER LOAD - GOOGLE:", !!window.google);
-      console.log("AFTER LOAD - MAPS:", !!window.google?.maps);
-      console.log("AFTER LOAD - PLACES:", !!window.google?.maps?.places);
-      console.log("AFTER LOAD - AUTOCOMPLETE:", !!window.google?.maps?.places?.Autocomplete);
-
-      if (window.google?.maps?.places?.Autocomplete) {
+      if (window.google?.maps?.places?.PlaceAutocompleteElement) {
         resolve(window.google);
       } else {
-        reject(new Error("Google script loaded but window.google.maps.places.Autocomplete is unavailable"));
+        reject(new Error("Google Maps Places widget is unavailable"));
       }
     };
 
-    script.onerror = () => {
-      reject(new Error("Failed to load Google Maps script"));
-    };
+    script.onerror = () => reject(new Error("Failed to load Google Maps"));
 
     document.body.appendChild(script);
   });
@@ -70,8 +73,9 @@ function loadGoogleMaps() {
 export default function Signup({ lang = "en" }) {
   const navigate = useNavigate();
   const isArabic = lang === "ar";
-  const locationInputRef = useRef(null);
-  const autocompleteRef = useRef(null);
+
+  const autocompleteContainerRef = useRef(null);
+  const autocompleteElementRef = useRef(null);
 
   const [businessNameAr, setBusinessNameAr] = useState("");
   const [businessNameEn, setBusinessNameEn] = useState("");
@@ -134,78 +138,142 @@ export default function Signup({ lang = "en" }) {
     { code: "ae", nameEn: "UAE", nameAr: "الإمارات" },
   ];
 
-useEffect(() => {
-  if (!window.google?.maps) return;
+  useEffect(() => {
+    let cancelled = false;
 
-  const input = locationInputRef.current;
-  if (!input) return;
+    async function initPlaceAutocomplete() {
+      try {
+        await loadGoogleMaps();
 
-  const autocomplete = new window.google.maps.places.PlaceAutocompleteElement({
-    inputElement: input,
-  });
+        if (cancelled) return;
+        if (!autocompleteContainerRef.current) return;
+        if (autocompleteElementRef.current) return;
 
-  autocomplete.addEventListener("placechange", async (event) => {
-    const place = event.detail.place;
+        const PlaceAutocompleteElement =
+          window.google?.maps?.places?.PlaceAutocompleteElement;
 
-    await place.fetchFields({
-      fields: ["displayName", "formattedAddress", "location"],
-    });
+        if (!PlaceAutocompleteElement) {
+          throw new Error("PlaceAutocompleteElement is unavailable");
+        }
 
-    const name = place.displayName || "";
-    const address = place.formattedAddress || name;
+        const element = new PlaceAutocompleteElement({
+          componentRestrictions: { country: countryCode },
+        });
 
-    setLocationText(address);
+        element.style.width = "100%";
 
-    const lat = place.location?.lat();
-    const lng = place.location?.lng();
+        element.setAttribute(
+          "placeholder",
+          t(
+            "Start typing your address or place name",
+            "ابدأ بكتابة العنوان أو اسم المكان"
+          )
+        );
 
-    if (lat && lng) {
-      setLatitude(lat);
-      setLongitude(lng);
-      setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
-    }
-  });
-}, []);
+        element.addEventListener("gmp-select", async (event) => {
+          try {
+            const place = event.placePrediction?.toPlace?.();
+            if (!place) return;
 
-const getMyLocation = () => {
-  if (!navigator.geolocation) {
-    alert(
-      t(
-        "Geolocation is not supported on this device.",
-        "تحديد الموقع غير مدعوم على هذا الجهاز."
-      )
-    );
-    return;
-  }
+            await place.fetchFields({
+              fields: ["displayName", "formattedAddress", "location"],
+            });
 
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
+            const formatted =
+              place.formattedAddress ||
+              place.displayName ||
+              "";
 
-      setLatitude(lat);
-      setLongitude(lng);
-      setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
+            setLocationText(formatted);
 
-      if (window.google?.maps?.Geocoder) {
-        const geocoder = new window.google.maps.Geocoder();
-        geocoder.geocode({ location: { lat, lng } }, (results) => {
-          if (results && results[0]) {
-            setLocationText(results[0].formatted_address);
+            const lat =
+              typeof place.location?.lat === "function"
+                ? place.location.lat()
+                : null;
+            const lng =
+              typeof place.location?.lng === "function"
+                ? place.location.lng()
+                : null;
+
+            if (typeof lat === "number" && typeof lng === "number") {
+              setLatitude(lat);
+              setLongitude(lng);
+              setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
+            }
+          } catch (err) {
+            console.error("Place select error:", err);
           }
         });
+
+        autocompleteContainerRef.current.innerHTML = "";
+        autocompleteContainerRef.current.appendChild(element);
+        autocompleteElementRef.current = element;
+      } catch (err) {
+        console.error("Google Maps load error:", err);
       }
-    },
-    () => {
+    }
+
+    initPlaceAutocomplete();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [countryCode, lang]);
+
+  useEffect(() => {
+    const el = autocompleteElementRef.current;
+    if (!el) return;
+
+    try {
+      el.componentRestrictions = { country: countryCode };
+    } catch (err) {
+      console.error("Failed to update country restriction:", err);
+    }
+  }, [countryCode]);
+
+  const getMyLocation = () => {
+    if (!navigator.geolocation) {
       alert(
         t(
-          "Failed to get your current location.",
-          "تعذر الحصول على موقعك الحالي."
+          "Geolocation is not supported on this device.",
+          "تحديد الموقع غير مدعوم على هذا الجهاز."
         )
       );
+      return;
     }
-  );
-};
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+
+        setLatitude(lat);
+        setLongitude(lng);
+        setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
+
+        try {
+          await loadGoogleMaps();
+
+          const geocoder = new window.google.maps.Geocoder();
+          geocoder.geocode({ location: { lat, lng } }, (results) => {
+            if (results && results[0]) {
+              setLocationText(results[0].formatted_address);
+            }
+          });
+        } catch (err) {
+          console.error("Geocode error:", err);
+        }
+      },
+      () => {
+        alert(
+          t(
+            "Failed to get your current location.",
+            "تعذر الحصول على موقعك الحالي."
+          )
+        );
+      }
+    );
+  };
 
   const convertLogoToBase64 = async () => {
     if (!logo) return "";
@@ -539,16 +607,16 @@ const getMyLocation = () => {
           <label style={labelStyle}>
             {t("Search your business location", "ابحث عن موقع النشاط")}
           </label>
-          <input
-            ref={locationInputRef}
-            value={locationText}
-            onChange={(e) => setLocationText(e.target.value)}
-            style={inputStyle}
-            placeholder={t(
-              "Start typing your address or place name",
-              "ابدأ بكتابة العنوان أو اسم المكان"
-            )}
-          />
+
+          <div style={autocompleteShellStyle}>
+            <div ref={autocompleteContainerRef} style={autocompleteContainerStyle} />
+          </div>
+
+          {locationText ? (
+            <div style={selectedLocationStyle}>
+              <strong>{t("Selected address", "العنوان المختار")}:</strong> {locationText}
+            </div>
+          ) : null}
 
           <button
             type="button"
@@ -731,6 +799,26 @@ const inputStyle = {
   fontSize: "0.96rem",
   outline: "none",
   background: "#fff",
+};
+
+const autocompleteShellStyle = {
+  width: "100%",
+  marginBottom: "14px",
+};
+
+const autocompleteContainerStyle = {
+  width: "100%",
+};
+
+const selectedLocationStyle = {
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
+  borderRadius: 10,
+  padding: "12px 14px",
+  marginBottom: "14px",
+  color: "#334155",
+  fontSize: "0.95rem",
+  lineHeight: 1.7,
 };
 
 const fileInputStyle = {
