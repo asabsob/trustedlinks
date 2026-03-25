@@ -14,25 +14,6 @@ function loadGoogleMaps() {
   if (window.google?.maps?.places?.PlaceAutocompleteElement) {
     return Promise.resolve(window.google);
   }
-function getCountryBounds(code) {
-  switch (code) {
-    case "jo":
-      return { north: 33.5, south: 29.0, east: 39.3, west: 34.8 };
-
-    case "sa":
-      return { north: 32.2, south: 16.0, east: 55.7, west: 34.5 };
-
-    case "qa":
-      return { north: 26.2, south: 24.4, east: 51.7, west: 50.7 };
-
-    case "ae":
-      return { north: 26.1, south: 22.6, east: 56.4, west: 51.5 };
-
-    default:
-      return null;
-  }
-}
-
 
   if (googleMapsPromise) {
     return googleMapsPromise;
@@ -43,28 +24,6 @@ function getCountryBounds(code) {
 
     if (!key) {
       reject(new Error("Missing VITE_GOOGLE_MAPS_API_KEY"));
-      return;
-    }
-
-    const existing = document.getElementById("googleMapsScript");
-    if (existing) {
-      existing.addEventListener(
-        "load",
-        () => {
-          if (window.google?.maps?.places?.PlaceAutocompleteElement) {
-            resolve(window.google);
-          } else {
-            reject(new Error("Google Maps Places widget is unavailable"));
-          }
-        },
-        { once: true }
-      );
-
-      existing.addEventListener(
-        "error",
-        () => reject(new Error("Failed to load Google Maps")),
-        { once: true }
-      );
       return;
     }
 
@@ -89,7 +48,24 @@ function getCountryBounds(code) {
 
   return googleMapsPromise;
 }
+function getCountryBounds(code) {
+  switch (code) {
+    case "jo":
+      return { north: 33.5, south: 29.0, east: 39.3, west: 34.8 };
 
+    case "sa":
+      return { north: 32.2, south: 16.0, east: 55.7, west: 34.5 };
+
+    case "qa":
+      return { north: 26.2, south: 24.4, east: 51.7, west: 50.7 };
+
+    case "ae":
+      return { north: 26.1, south: 22.6, east: 56.4, west: 51.5 };
+
+    default:
+      return null;
+  }
+}
 export default function Signup({ lang = "en" }) {
   const navigate = useNavigate();
   const isArabic = lang === "ar";
