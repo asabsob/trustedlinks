@@ -143,8 +143,8 @@ export default function Signup({ lang = "en" }) {
 
         if (cancelled) return;
         if (!autocompleteContainerRef.current) return;
-        if (autocompleteElementRef.current) return;
-
+       if (autocompleteElementRef.current && autocompleteContainerRef.current?.hasChildNodes()) return;
+        
         const PlaceAutocompleteElement =
           window.google?.maps?.places?.PlaceAutocompleteElement;
 
@@ -158,7 +158,6 @@ const bounds = getCountryBounds(countryCode);
 
 if (bounds) {
   element.locationRestriction = bounds; // قفل النتائج داخل الدولة
-  element.locationBias = bounds;        // توجيه النتائج بقوة لنفس الدولة
 }
         element.style.width = "100%";
 
@@ -185,6 +184,7 @@ if (bounds) {
               "";
 
             setLocationText(formatted);
+            element.value = formatted;
 
             const lat =
               typeof place.location?.lat === "function"
@@ -218,8 +218,8 @@ if (bounds) {
     return () => {
       cancelled = true;
     };
-  }, [countryCode, lang]);
-
+}, [lang]);
+  
 useEffect(() => {
   const el = autocompleteElementRef.current;
   if (!el) return;
@@ -228,7 +228,6 @@ useEffect(() => {
 
   if (bounds) {
     el.locationRestriction = bounds;
-    el.locationBias = bounds;
   }
 }, [countryCode]);
 
