@@ -10,60 +10,56 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 let googleMapsPromise = null;
 
 function loadGoogleMaps() {
-  console.log("GOOGLE:", !!window.google);
-  console.log("MAPS:", !!window.google?.maps);
-  console.log("PLACES:", !!window.google?.maps?.places);
-  console.log("AUTOCOMPLETE:", !!window.google?.maps?.places?.Autocomplete);
-
   if (window.google?.maps?.places?.Autocomplete) {
+    console.log("Google already loaded");
     return Promise.resolve(window.google);
   }
 
-  if (googleMapsPromise) return googleMapsPromise;
+  if (googleMapsPromise) {
+    return googleMapsPromise;
+  }
 
   googleMapsPromise = new Promise((resolve, reject) => {
     const key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
+    console.log("ENV KEY EXISTS:", !!key);
+    console.log("ENV KEY VALUE:", key ? `${key.slice(0, 8)}...` : "MISSING");
+
     if (!key) {
       reject(new Error("Missing VITE_GOOGLE_MAPS_API_KEY"));
       return;
     }
 
-    const existing = document.getElementById("googleMapsScript");
-    if (existing) {
-      existing.addEventListener(
-        "load",
-        () => {
-          if (window.google?.maps?.places?.Autocomplete) {
-            resolve(window.google);
-          } else {
-            reject(new Error("Places loaded failed: Autocomplete unavailable"));
-          }
-        },
-        { once: true }
-      );
-      existing.addEventListener(
-        "error",
-        () => reject(new Error("Failed to load Google Maps script")),
-        { once: true }
-      );
-      return;
+    const scriptUrl = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&loading=async&v=weekly`;
+    console.log("GOOGLE MAPS SCRIPT URL:", scriptUrl);
+
+    const oldScript = document.getElementById("googleMapsScript");
+    if (oldScript) {
+      oldScript.remove();
     }
 
     const script = document.createElement("script");
     script.id = "googleMapsScript";
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&loading=async&v=weekly`;
+    script.src = scriptUrl;
     script.async = true;
     script.defer = true;
 
     script.onload = () => {
+      console.log("AFTER LOAD - GOOGLE:", !!window.google);
+      console.log("AFTER LOAD - MAPS:", !!window.google?.maps);
+      console.log("AFTER LOAD - PLACES:", !!window.google?.maps?.places);
+      console.log("AFTER LOAD - AUTOCOMPLETE:", !!window.google?.maps?.places?.Autocomplete);
+
       if (window.google?.maps?.places?.Autocomplete) {
         resolve(window.google);
       } else {
-        reject(new Error("Places library not available after script load"));
+        reject(new Error("Google script loaded but window.google.maps.places.Autocomplete is unavailable"));
       }
     };
 
-    script.onerror = () => reject(new Error("Failed to load Google Maps"));
+    script.onerror = () => {
+      reject(new Error("Failed to load Google Maps script"));
+    };
 
     document.body.appendChild(script);
   });
