@@ -10,6 +10,11 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 let googleMapsPromise = null;
 
 function loadGoogleMaps() {
+  console.log("GOOGLE:", !!window.google);
+  console.log("MAPS:", !!window.google?.maps);
+  console.log("PLACES:", !!window.google?.maps?.places);
+  console.log("AUTOCOMPLETE:", !!window.google?.maps?.places?.Autocomplete);
+
   if (window.google?.maps?.places?.Autocomplete) {
     return Promise.resolve(window.google);
   }
