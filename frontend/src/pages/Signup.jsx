@@ -7,6 +7,49 @@ import WhatsAppVerify from "../components/WhatsAppVerify";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 
+let googleMapsPromise = null;
+
+function loadGoogleMaps() {
+  if (window.google?.maps) {
+    return Promise.resolve(window.google);
+  }
+
+  if (googleMapsPromise) {
+    return googleMapsPromise;
+  }
+
+  googleMapsPromise = new Promise((resolve, reject) => {
+    const key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
+    if (!key) {
+      reject(new Error("Missing VITE_GOOGLE_MAPS_API_KEY"));
+      return;
+    }
+
+    const existing = document.getElementById("googleMapsScript");
+    if (existing) {
+      existing.addEventListener("load", () => resolve(window.google), { once: true });
+      existing.addEventListener("error", () => reject(new Error("Failed to load Google Maps")), {
+        once: true,
+      });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = "googleMapsScript";
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&loading=async`;
+    script.async = true;
+    script.defer = true;
+
+    script.onload = () => resolve(window.google);
+    script.onerror = () => reject(new Error("Failed to load Google Maps"));
+
+    document.body.appendChild(script);
+  });
+
+  return googleMapsPromise;
+}
+
 export default function Signup({ lang = "en" }) {
   const navigate = useNavigate();
   const isArabic = lang === "ar";
@@ -74,136 +117,116 @@ export default function Signup({ lang = "en" }) {
     { code: "ae", nameEn: "UAE", nameAr: "الإمارات" },
   ];
 
-const loadGoogleMaps = () => {
-  return new Promise((resolve, reject) => {
-    if (window.google?.maps?.places) {
-      resolve(window.google);
-      return;
-    }
+  useEffect(() => {
+    let cancelled = false;
 
-    const existing = document.getElementById("googleMapsScript");
-
-    if (existing) {
-      existing.onload = () => resolve(window.google);
-      existing.onerror = reject;
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.id = "googleMapsScript";
-
-    const key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&loading=async`;
-    script.async = true;
-    script.defer = true;
-
-    script.onload = () => resolve(window.google);
-    script.onerror = reject;
-
-    document.body.appendChild(script);
-  });
-};
-
-useEffect(() => {
-  let cancelled = false;
-
-  async function initAutocomplete() {
-    try {
-      await loadGoogleMaps();
-
-      if (cancelled) return;
-      if (!locationInputRef.current) return;
-      if (autocompleteRef.current) return;
-
-      const autocomplete = new window.google.maps.places.Autocomplete(
-        locationInputRef.current,
-        {
-          fields: ["formatted_address", "geometry", "name"],
-          types: ["establishment", "geocode"],
-          componentRestrictions: { country: countryCode },
-        }
-      );
-
-      autocomplete.addListener("place_changed", () => {
-        const place = autocomplete.getPlace();
-        if (!place) return;
-
-        const formatted =
-          place.formatted_address ||
-          place.name ||
-          locationInputRef.current?.value ||
-          "";
-
-        setLocationText(formatted);
-
-        const lat = place?.geometry?.location?.lat?.();
-        const lng = place?.geometry?.location?.lng?.();
-
-        if (typeof lat === "number" && typeof lng === "number") {
-          setLatitude(lat);
-          setLongitude(lng);
-          setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
-        }
-      });
-
-      autocompleteRef.current = autocomplete;
-    } catch (err) {
-      console.error("Google Maps load error:", err);
-    }
-  }
-
-  initAutocomplete();
-
-  return () => {
-    cancelled = true;
-  };
-}, [countryCode]);
-
-const getMyLocation = () => {
-  if (!navigator.geolocation) {
-    alert(
-      t(
-        "Geolocation is not supported on this device.",
-        "تحديد الموقع غير مدعوم على هذا الجهاز."
-      )
-    );
-    return;
-  }
-
-  navigator.geolocation.getCurrentPosition(
-    async (pos) => {
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
-
-      setLatitude(lat);
-      setLongitude(lng);
-      setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
-
+    async function initAutocomplete() {
       try {
         await loadGoogleMaps();
+        if (!window.google?.maps) return;
 
-        const geocoder = new window.google.maps.Geocoder();
+        await window.google.maps.importLibrary("places");
 
-        geocoder.geocode({ location: { lat, lng } }, (results) => {
-          if (results && results[0]) {
-            setLocationText(results[0].formatted_address);
+        if (cancelled) return;
+        if (!locationInputRef.current || autocompleteRef.current) return;
+        if (!window.google?.maps?.places?.Autocomplete) return;
+
+        const autocomplete = new window.google.maps.places.Autocomplete(
+          locationInputRef.current,
+          {
+            fields: ["formatted_address", "geometry", "name"],
+            types: ["establishment", "geocode"],
+            componentRestrictions: { country: countryCode },
+          }
+        );
+
+        autocomplete.addListener("place_changed", () => {
+          const place = autocomplete.getPlace();
+          if (!place) return;
+
+          const formatted =
+            place.formatted_address ||
+            place.name ||
+            locationInputRef.current?.value ||
+            "";
+
+          setLocationText(formatted);
+
+          const lat = place?.geometry?.location?.lat?.();
+          const lng = place?.geometry?.location?.lng?.();
+
+          if (typeof lat === "number" && typeof lng === "number") {
+            setLatitude(lat);
+            setLongitude(lng);
+            setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
           }
         });
+
+        autocompleteRef.current = autocomplete;
       } catch (err) {
-        console.log("Geocode error");
+        console.error("Google Maps load error:", err);
       }
-    },
-    () => {
+    }
+
+    initAutocomplete();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [countryCode]);
+
+  useEffect(() => {
+    if (autocompleteRef.current) {
+      autocompleteRef.current.setComponentRestrictions({
+        country: countryCode,
+      });
+    }
+  }, [countryCode]);
+
+  const getMyLocation = () => {
+    if (!navigator.geolocation) {
       alert(
         t(
-          "Failed to get your current location.",
-          "تعذر الحصول على موقعك الحالي."
+          "Geolocation is not supported on this device.",
+          "تحديد الموقع غير مدعوم على هذا الجهاز."
         )
       );
+      return;
     }
-  );
-};
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+
+        setLatitude(lat);
+        setLongitude(lng);
+        setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
+
+        try {
+          await loadGoogleMaps();
+
+          const geocoder = new window.google.maps.Geocoder();
+
+          geocoder.geocode({ location: { lat, lng } }, (results) => {
+            if (results && results[0]) {
+              setLocationText(results[0].formatted_address);
+            }
+          });
+        } catch (err) {
+          console.error("Geocode error:", err);
+        }
+      },
+      () => {
+        alert(
+          t(
+            "Failed to get your current location.",
+            "تعذر الحصول على موقعك الحالي."
+          )
+        );
+      }
+    );
+  };
 
   const convertLogoToBase64 = async () => {
     if (!logo) return "";
@@ -228,11 +251,9 @@ const getMyLocation = () => {
             height *= MAX_SIZE / width;
             width = MAX_SIZE;
           }
-        } else {
-          if (height > MAX_SIZE) {
-            width *= MAX_SIZE / height;
-            height = MAX_SIZE;
-          }
+        } else if (height > MAX_SIZE) {
+          width *= MAX_SIZE / height;
+          height = MAX_SIZE;
         }
 
         canvas.width = width;
@@ -438,10 +459,10 @@ const getMyLocation = () => {
                 </Listbox.Button>
 
                 <Transition>
-                  <Listbox.Options className="absolute w-full bg-white border rounded-lg shadow-md max-h-60 overflow-y-auto z-50">
+                  <Listbox.Options className="absolute z-50 max-h-60 w-full overflow-y-auto rounded-lg border bg-white shadow-md">
                     {metaCategories.map((c) => (
                       <Listbox.Option key={c.key} value={c}>
-                        <div className="p-3 hover:bg-green-50 cursor-pointer">
+                        <div className="cursor-pointer p-3 hover:bg-green-50">
                           {isArabic ? c.nameAr : c.nameEn}
                         </div>
                       </Listbox.Option>
@@ -575,7 +596,10 @@ const getMyLocation = () => {
             value={mapLink}
             onChange={(e) => setMapLink(e.target.value)}
             style={inputStyle}
-            placeholder={t("Auto-filled after selection", "يتم تعبئته بعد اختيار الموقع")}
+            placeholder={t(
+              "Auto-filled after selection",
+              "يتم تعبئته بعد اختيار الموقع"
+            )}
           />
         </div>
 
