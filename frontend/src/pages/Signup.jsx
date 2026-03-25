@@ -9,6 +9,81 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 
 let googleMapsPromise = null;
 
+function getCountryBounds(code) {
+  switch (code) {
+    case "jo": // Jordan
+      return {
+        north: 33.5,
+        south: 29.0,
+        east: 39.3,
+        west: 34.8,
+      };
+
+    case "sa": // Saudi
+      return {
+        north: 32.2,
+        south: 16.0,
+        east: 55.7,
+        west: 34.5,
+      };
+
+    case "qa": // Qatar
+      return {
+        north: 26.2,
+        south: 24.4,
+        east: 51.7,
+        west: 50.7,
+      };
+
+    case "ae": // UAE
+      return {
+        north: 26.1,
+        south: 22.6,
+        east: 56.4,
+        west: 51.5,
+      };
+
+    default:
+      return null;
+  }
+}function getCountryBounds(code) {
+  switch (code) {
+    case "jo": // Jordan
+      return {
+        north: 33.5,
+        south: 29.0,
+        east: 39.3,
+        west: 34.8,
+      };
+
+    case "sa": // Saudi
+      return {
+        north: 32.2,
+        south: 16.0,
+        east: 55.7,
+        west: 34.5,
+      };
+
+    case "qa": // Qatar
+      return {
+        north: 26.2,
+        south: 24.4,
+        east: 51.7,
+        west: 50.7,
+      };
+
+    case "ae": // UAE
+      return {
+        north: 26.1,
+        south: 22.6,
+        east: 56.4,
+        west: 51.5,
+      };
+
+    default:
+      return null;
+  }
+}
 function loadGoogleMaps() {
   if (window.google?.maps?.places?.PlaceAutocompleteElement) {
     return Promise.resolve(window.google);
@@ -156,10 +231,19 @@ export default function Signup({ lang = "en" }) {
           throw new Error("PlaceAutocompleteElement is unavailable");
         }
 
-        const element = new PlaceAutocompleteElement({
-          componentRestrictions: { country: countryCode },
-        });
+     const element = new PlaceAutocompleteElement();
 
+const bounds = getCountryBounds(countryCode);
+
+if (bounds) {
+  element.locationRestriction = bounds; // قفل النتائج داخل الدولة
+  element.locationBias = bounds;        // توجيه النتائج بقوة لنفس الدولة
+}
+const countryBounds = getCountryBounds(countryCode);
+
+if (countryBounds) {
+  element.locationRestriction = countryBounds;
+}
         element.style.width = "100%";
 
         element.setAttribute(
@@ -220,16 +304,17 @@ export default function Signup({ lang = "en" }) {
     };
   }, [countryCode, lang]);
 
-  useEffect(() => {
-    const el = autocompleteElementRef.current;
-    if (!el) return;
+useEffect(() => {
+  const el = autocompleteElementRef.current;
+  if (!el) return;
 
-    try {
-      el.componentRestrictions = { country: countryCode };
-    } catch (err) {
-      console.error("Failed to update country restriction:", err);
-    }
-  }, [countryCode]);
+  const bounds = getCountryBounds(countryCode);
+
+  if (bounds) {
+    el.locationRestriction = bounds;
+    el.locationBias = bounds;
+  }
+}, [countryCode]);
 
   const getMyLocation = () => {
     if (!navigator.geolocation) {
