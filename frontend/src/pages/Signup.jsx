@@ -74,62 +74,114 @@ export default function Signup({ lang = "en" }) {
     { code: "ae", nameEn: "UAE", nameAr: "الإمارات" },
   ];
 
-  useEffect(() => {
-    if (!window.google || !window.google.maps || !window.google.maps.places) return;
-    if (!locationInputRef.current || autocompleteRef.current) return;
-
-    const autocomplete = new window.google.maps.places.Autocomplete(
-      locationInputRef.current,
-      {
-        fields: ["formatted_address", "geometry", "name"],
-        types: ["establishment", "geocode"],
-        componentRestrictions: { country: countryCode },
-      }
-    );
-
-    autocomplete.addListener("place_changed", () => {
-      const place = autocomplete.getPlace();
-      if (!place) return;
-
-      const formatted =
-        place.formatted_address ||
-        place.name ||
-        locationInputRef.current?.value ||
-        "";
-
-      setLocationText(formatted);
-
-      const lat = place?.geometry?.location?.lat?.();
-      const lng = place?.geometry?.location?.lng?.();
-
-      if (typeof lat === "number" && typeof lng === "number") {
-        setLatitude(lat);
-        setLongitude(lng);
-        setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
-      }
-    });
-
-    autocompleteRef.current = autocomplete;
-  }, []);
-
-  useEffect(() => {
-    if (autocompleteRef.current) {
-      autocompleteRef.current.setComponentRestrictions({
-        country: countryCode,
-      });
-    }
-  }, [countryCode]);
-
-  const getMyLocation = () => {
-    if (!navigator.geolocation) {
-      alert(
-        t(
-          "Geolocation is not supported on this device.",
-          "تحديد الموقع غير مدعوم على هذا الجهاز."
-        )
-      );
+  const loadGoogleMaps = () => {
+  return new Promise((resolve, reject) => {
+    if (window.google?.maps?.places) {
+      resolve(window.google);
       return;
     }
+
+    const existing = document.getElementById("googleMapsScript");
+
+    if (existing) {
+      existing.onload = () => resolve(window.google);
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = "googleMapsScript";
+
+    const key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&loading=async`;
+    script.async = true;
+
+    script.onload = () => resolve(window.google);
+    script.onerror = reject;
+
+    document.body.appendChild(script);
+  });
+};
+  
+  useEffect(() => {
+  let cancelled = false;
+
+  async function initAutocomplete() {
+    try {
+      await loadGoogleMaps();
+
+      if (cancelled) return;
+      if (!locationInputRef.current) return;
+      if (autocompleteRef.current) return;
+
+      const autocomplete = new window.google.maps.places.Autocomplete(
+        locationInputRef.current,
+        {
+          fields: ["formatted_address", "geometry", "name"],
+          types: ["establishment", "geocode"],
+          componentRestrictions: { country: countryCode },
+        }
+      );
+
+      autocomplete.addListener("place_changed", () => {
+        const place = autocomplete.getPlace();
+        if (!place) return;
+
+        const formatted =
+          place.formatted_address ||
+          place.name ||
+          locationInputRef.current.value;
+
+        setLocationText(formatted);
+
+        const lat = place?.geometry?.location?.lat?.();
+        const lng = place?.geometry?.location?.lng?.();
+
+        if (lat && lng) {
+          setLatitude(lat);
+          setLongitude(lng);
+          setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
+        }
+      });
+
+      autocompleteRef.current = autocomplete;
+    } catch (err) {
+      console.error("Google Maps load error:", err);
+    }
+  }
+
+  initAutocomplete();
+
+  return () => {
+    cancelled = true;
+  };
+}, [countryCode]);
+  
+
+const getMyLocation = async () => {
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+
+    setLatitude(lat);
+    setLongitude(lng);
+    setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
+
+    try {
+      await loadGoogleMaps();
+
+      const geocoder = new window.google.maps.Geocoder();
+
+      geocoder.geocode({ location: { lat, lng } }, (results) => {
+        if (results && results[0]) {
+          setLocationText(results[0].formatted_address);
+        }
+      });
+    } catch (err) {
+      console.log("Geocode error");
+    }
+  });
+};
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
