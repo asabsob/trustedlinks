@@ -10,17 +10,14 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 let googleMapsPromise = null;
 
 function loadGoogleMaps() {
-  if (window.google?.maps?.places) {
+  if (window.google?.maps?.places?.Autocomplete) {
     return Promise.resolve(window.google);
   }
 
-  if (googleMapsPromise) {
-    return googleMapsPromise;
-  }
+  if (googleMapsPromise) return googleMapsPromise;
 
   googleMapsPromise = new Promise((resolve, reject) => {
     const key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-
     if (!key) {
       reject(new Error("Missing VITE_GOOGLE_MAPS_API_KEY"));
       return;
@@ -31,14 +28,17 @@ function loadGoogleMaps() {
       existing.addEventListener(
         "load",
         () => {
-          if (window.google?.maps?.places) resolve(window.google);
-          else reject(new Error("Google Maps Places library not available"));
+          if (window.google?.maps?.places?.Autocomplete) {
+            resolve(window.google);
+          } else {
+            reject(new Error("Places loaded failed: Autocomplete unavailable"));
+          }
         },
         { once: true }
       );
       existing.addEventListener(
         "error",
-        () => reject(new Error("Failed to load Google Maps")),
+        () => reject(new Error("Failed to load Google Maps script")),
         { once: true }
       );
       return;
@@ -51,10 +51,10 @@ function loadGoogleMaps() {
     script.defer = true;
 
     script.onload = () => {
-      if (window.google?.maps?.places) {
+      if (window.google?.maps?.places?.Autocomplete) {
         resolve(window.google);
       } else {
-        reject(new Error("Google Maps Places library not available"));
+        reject(new Error("Places library not available after script load"));
       }
     };
 
