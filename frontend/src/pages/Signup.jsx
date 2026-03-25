@@ -135,42 +135,37 @@ export default function Signup({ lang = "en" }) {
   ];
 
 useEffect(() => {
-  if (!window.google?.maps?.places?.Autocomplete) return;
-  if (!locationInputRef.current || autocompleteRef.current) return;
+  if (!window.google?.maps) return;
 
-  const autocomplete = new window.google.maps.places.Autocomplete(
-    locationInputRef.current,
-    {
-      fields: ["formatted_address", "geometry", "name"],
-      types: ["establishment", "geocode"],
-      componentRestrictions: { country: countryCode },
-    }
-  );
+  const input = locationInputRef.current;
+  if (!input) return;
 
-  autocomplete.addListener("place_changed", () => {
-    const place = autocomplete.getPlace();
-    if (!place) return;
+  const autocomplete = new window.google.maps.places.PlaceAutocompleteElement({
+    inputElement: input,
+  });
 
-    const formatted =
-      place.formatted_address ||
-      place.name ||
-      locationInputRef.current?.value ||
-      "";
+  autocomplete.addEventListener("placechange", async (event) => {
+    const place = event.detail.place;
 
-    setLocationText(formatted);
+    await place.fetchFields({
+      fields: ["displayName", "formattedAddress", "location"],
+    });
 
-    const lat = place?.geometry?.location?.lat?.();
-    const lng = place?.geometry?.location?.lng?.();
+    const name = place.displayName || "";
+    const address = place.formattedAddress || name;
 
-    if (typeof lat === "number" && typeof lng === "number") {
+    setLocationText(address);
+
+    const lat = place.location?.lat();
+    const lng = place.location?.lng();
+
+    if (lat && lng) {
       setLatitude(lat);
       setLongitude(lng);
       setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
     }
   });
-
-  autocompleteRef.current = autocomplete;
-}, [countryCode]);
+}, []);
 
 const getMyLocation = () => {
   if (!navigator.geolocation) {
