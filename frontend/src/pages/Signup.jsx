@@ -9,6 +9,11 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 
 let googleMapsPromise = null;
 
+
+function loadGoogleMaps() {
+  if (window.google?.maps?.places?.PlaceAutocompleteElement) {
+    return Promise.resolve(window.google);
+  }
 function getCountryBounds(code) {
   switch (code) {
     case "jo": // Jordan
@@ -84,11 +89,6 @@ function getCountryBounds(code) {
       return null;
   }
 }
-function loadGoogleMaps() {
-  if (window.google?.maps?.places?.PlaceAutocompleteElement) {
-    return Promise.resolve(window.google);
-  }
-
   if (googleMapsPromise) {
     return googleMapsPromise;
   }
@@ -308,13 +308,6 @@ useEffect(() => {
   const el = autocompleteElementRef.current;
   if (!el) return;
 
-  const bounds = getCountryBounds(countryCode);
-
-  if (bounds) {
-    el.locationRestriction = bounds;
-    el.locationBias = bounds;
-  }
-}, [countryCode]);
 
   const getMyLocation = () => {
     if (!navigator.geolocation) {
