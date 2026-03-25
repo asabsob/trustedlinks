@@ -137,7 +137,7 @@ export default function Signup({ lang = "en" }) {
         const lat = place?.geometry?.location?.lat?.();
         const lng = place?.geometry?.location?.lng?.();
 
-        if (lat && lng) {
+      if (typeof lat === "number" && typeof lng === "number")
           setLatitude(lat);
           setLongitude(lng);
           setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
@@ -183,24 +183,50 @@ const getMyLocation = async () => {
   });
 };
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        setLatitude(lat);
-        setLongitude(lng);
-        setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
-      },
-      () => {
-        alert(
-          t(
-            "Failed to get your current location.",
-            "تعذر الحصول على موقعك الحالي."
-          )
-        );
-      }
+  const getMyLocation = () => {
+  if (!navigator.geolocation) {
+    alert(
+      t(
+        "Geolocation is not supported on this device.",
+        "تحديد الموقع غير مدعوم على هذا الجهاز."
+      )
     );
-  };
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+
+      setLatitude(lat);
+      setLongitude(lng);
+      setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
+
+      try {
+        await loadGoogleMaps();
+
+        const geocoder = new window.google.maps.Geocoder();
+
+        geocoder.geocode({ location: { lat, lng } }, (results) => {
+          if (results && results[0]) {
+            setLocationText(results[0].formatted_address);
+          }
+        });
+      } catch (err) {
+        console.log("Geocode error");
+      }
+    },
+    () => {
+      alert(
+        t(
+          "Failed to get your current location.",
+          "تعذر الحصول على موقعك الحالي."
+        )
+      );
+    }
+  );
+};
 
   const convertLogoToBase64 = async () => {
     if (!logo) return "";
