@@ -10,7 +10,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 let googleMapsPromise = null;
 
 function loadGoogleMaps() {
-  if (window.google?.maps) {
+  if (window.google?.maps?.places) {
     return Promise.resolve(window.google);
   }
 
@@ -28,20 +28,36 @@ function loadGoogleMaps() {
 
     const existing = document.getElementById("googleMapsScript");
     if (existing) {
-      existing.addEventListener("load", () => resolve(window.google), { once: true });
-      existing.addEventListener("error", () => reject(new Error("Failed to load Google Maps")), {
-        once: true,
-      });
+      existing.addEventListener(
+        "load",
+        () => {
+          if (window.google?.maps?.places) resolve(window.google);
+          else reject(new Error("Google Maps Places library not available"));
+        },
+        { once: true }
+      );
+      existing.addEventListener(
+        "error",
+        () => reject(new Error("Failed to load Google Maps")),
+        { once: true }
+      );
       return;
     }
 
     const script = document.createElement("script");
     script.id = "googleMapsScript";
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&loading=async`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&loading=async&v=weekly`;
     script.async = true;
     script.defer = true;
 
-    script.onload = () => resolve(window.google);
+    script.onload = () => {
+      if (window.google?.maps?.places) {
+        resolve(window.google);
+      } else {
+        reject(new Error("Google Maps Places library not available"));
+      }
+    };
+
     script.onerror = () => reject(new Error("Failed to load Google Maps"));
 
     document.body.appendChild(script);
@@ -117,116 +133,104 @@ export default function Signup({ lang = "en" }) {
     { code: "ae", nameEn: "UAE", nameAr: "الإمارات" },
   ];
 
-  useEffect(() => {
-    let cancelled = false;
+useEffect(() => {
+  let cancelled = false;
 
-    async function initAutocomplete() {
+  async function initAutocomplete() {
+    try {
+      await loadGoogleMaps();
+
+      if (cancelled) return;
+      if (!locationInputRef.current || autocompleteRef.current) return;
+      if (!window.google?.maps?.places?.Autocomplete) return;
+
+      const autocomplete = new window.google.maps.places.Autocomplete(
+        locationInputRef.current,
+        {
+          fields: ["formatted_address", "geometry", "name"],
+          types: ["establishment", "geocode"],
+          componentRestrictions: { country: countryCode },
+        }
+      );
+
+      autocomplete.addListener("place_changed", () => {
+        const place = autocomplete.getPlace();
+        if (!place) return;
+
+        const formatted =
+          place.formatted_address ||
+          place.name ||
+          locationInputRef.current?.value ||
+          "";
+
+        setLocationText(formatted);
+
+        const lat = place?.geometry?.location?.lat?.();
+        const lng = place?.geometry?.location?.lng?.();
+
+        if (typeof lat === "number" && typeof lng === "number") {
+          setLatitude(lat);
+          setLongitude(lng);
+          setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
+        }
+      });
+
+      autocompleteRef.current = autocomplete;
+    } catch (err) {
+      console.error("Google Maps load error:", err);
+    }
+  }
+
+  initAutocomplete();
+
+  return () => {
+    cancelled = true;
+  };
+}, [countryCode]);
+
+const getMyLocation = () => {
+  if (!navigator.geolocation) {
+    alert(
+      t(
+        "Geolocation is not supported on this device.",
+        "تحديد الموقع غير مدعوم على هذا الجهاز."
+      )
+    );
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+
+      setLatitude(lat);
+      setLongitude(lng);
+      setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
+
       try {
         await loadGoogleMaps();
-        if (!window.google?.maps) return;
 
-        await window.google.maps.importLibrary("places");
-
-        if (cancelled) return;
-        if (!locationInputRef.current || autocompleteRef.current) return;
-        if (!window.google?.maps?.places?.Autocomplete) return;
-
-        const autocomplete = new window.google.maps.places.Autocomplete(
-          locationInputRef.current,
-          {
-            fields: ["formatted_address", "geometry", "name"],
-            types: ["establishment", "geocode"],
-            componentRestrictions: { country: countryCode },
-          }
-        );
-
-        autocomplete.addListener("place_changed", () => {
-          const place = autocomplete.getPlace();
-          if (!place) return;
-
-          const formatted =
-            place.formatted_address ||
-            place.name ||
-            locationInputRef.current?.value ||
-            "";
-
-          setLocationText(formatted);
-
-          const lat = place?.geometry?.location?.lat?.();
-          const lng = place?.geometry?.location?.lng?.();
-
-          if (typeof lat === "number" && typeof lng === "number") {
-            setLatitude(lat);
-            setLongitude(lng);
-            setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
+        const geocoder = new window.google.maps.Geocoder();
+        geocoder.geocode({ location: { lat, lng } }, (results) => {
+          if (results && results[0]) {
+            setLocationText(results[0].formatted_address);
           }
         });
-
-        autocompleteRef.current = autocomplete;
       } catch (err) {
-        console.error("Google Maps load error:", err);
+        console.error("Geocode error:", err);
       }
-    }
-
-    initAutocomplete();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [countryCode]);
-
-  useEffect(() => {
-    if (autocompleteRef.current) {
-      autocompleteRef.current.setComponentRestrictions({
-        country: countryCode,
-      });
-    }
-  }, [countryCode]);
-
-  const getMyLocation = () => {
-    if (!navigator.geolocation) {
+    },
+    () => {
       alert(
         t(
-          "Geolocation is not supported on this device.",
-          "تحديد الموقع غير مدعوم على هذا الجهاز."
+          "Failed to get your current location.",
+          "تعذر الحصول على موقعك الحالي."
         )
       );
-      return;
     }
-
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-
-        setLatitude(lat);
-        setLongitude(lng);
-        setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
-
-        try {
-          await loadGoogleMaps();
-
-          const geocoder = new window.google.maps.Geocoder();
-
-          geocoder.geocode({ location: { lat, lng } }, (results) => {
-            if (results && results[0]) {
-              setLocationText(results[0].formatted_address);
-            }
-          });
-        } catch (err) {
-          console.error("Geocode error:", err);
-        }
-      },
-      () => {
-        alert(
-          t(
-            "Failed to get your current location.",
-            "تعذر الحصول على موقعك الحالي."
-          )
-        );
-      }
-    );
-  };
+  );
+};
 
   const convertLogoToBase64 = async () => {
     if (!logo) return "";
