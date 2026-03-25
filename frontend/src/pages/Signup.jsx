@@ -135,58 +135,41 @@ export default function Signup({ lang = "en" }) {
   ];
 
 useEffect(() => {
-  let cancelled = false;
+  if (!window.google?.maps?.places?.Autocomplete) return;
+  if (!locationInputRef.current || autocompleteRef.current) return;
 
-  async function initAutocomplete() {
-    try {
-      await loadGoogleMaps();
-
-      if (cancelled) return;
-      if (!locationInputRef.current || autocompleteRef.current) return;
-      if (!window.google?.maps?.places?.Autocomplete) return;
-
-      const autocomplete = new window.google.maps.places.Autocomplete(
-        locationInputRef.current,
-        {
-          fields: ["formatted_address", "geometry", "name"],
-          types: ["establishment", "geocode"],
-          componentRestrictions: { country: countryCode },
-        }
-      );
-
-      autocomplete.addListener("place_changed", () => {
-        const place = autocomplete.getPlace();
-        if (!place) return;
-
-        const formatted =
-          place.formatted_address ||
-          place.name ||
-          locationInputRef.current?.value ||
-          "";
-
-        setLocationText(formatted);
-
-        const lat = place?.geometry?.location?.lat?.();
-        const lng = place?.geometry?.location?.lng?.();
-
-        if (typeof lat === "number" && typeof lng === "number") {
-          setLatitude(lat);
-          setLongitude(lng);
-          setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
-        }
-      });
-
-      autocompleteRef.current = autocomplete;
-    } catch (err) {
-      console.error("Google Maps load error:", err);
+  const autocomplete = new window.google.maps.places.Autocomplete(
+    locationInputRef.current,
+    {
+      fields: ["formatted_address", "geometry", "name"],
+      types: ["establishment", "geocode"],
+      componentRestrictions: { country: countryCode },
     }
-  }
+  );
 
-  initAutocomplete();
+  autocomplete.addListener("place_changed", () => {
+    const place = autocomplete.getPlace();
+    if (!place) return;
 
-  return () => {
-    cancelled = true;
-  };
+    const formatted =
+      place.formatted_address ||
+      place.name ||
+      locationInputRef.current?.value ||
+      "";
+
+    setLocationText(formatted);
+
+    const lat = place?.geometry?.location?.lat?.();
+    const lng = place?.geometry?.location?.lng?.();
+
+    if (typeof lat === "number" && typeof lng === "number") {
+      setLatitude(lat);
+      setLongitude(lng);
+      setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
+    }
+  });
+
+  autocompleteRef.current = autocomplete;
 }, [countryCode]);
 
 const getMyLocation = () => {
@@ -201,7 +184,7 @@ const getMyLocation = () => {
   }
 
   navigator.geolocation.getCurrentPosition(
-    async (pos) => {
+    (pos) => {
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
 
@@ -209,17 +192,13 @@ const getMyLocation = () => {
       setLongitude(lng);
       setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
 
-      try {
-        await loadGoogleMaps();
-
+      if (window.google?.maps?.Geocoder) {
         const geocoder = new window.google.maps.Geocoder();
         geocoder.geocode({ location: { lat, lng } }, (results) => {
           if (results && results[0]) {
             setLocationText(results[0].formatted_address);
           }
         });
-      } catch (err) {
-        console.error("Geocode error:", err);
       }
     },
     () => {
