@@ -2891,6 +2891,11 @@ app.get("/l/:token", async (req, res) => {
     const message = encodeURIComponent("Hello, I found you on TrustedLinks");
 
     return res.redirect(`https://wa.me/${businessPhone}?text=${message}`);
+      } catch (err) {
+    console.error("LEAD CLICK ERROR:", err);
+    return res.status(500).send("Error");
+  }
+});
 // ---------------------------------------------------------------------------
 // Debug
 // ---------------------------------------------------------------------------
