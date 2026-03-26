@@ -36,6 +36,7 @@ import LeadToken from "./models/LeadToken.js";
 import BusinessEvent from "./models/BusinessEvent.js";
 import Transaction from "./models/Transaction.js";
 import TopupOrder from "./models/TopupOrder.js";
+import { topupWallet } from "./services/walletService.js";
 
 dotenv.config();
 await connectDB();
@@ -1090,9 +1091,18 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
   }
 });
 
+// =========================
+// CREATE BUSINESS TOPUP ORDER
+// =========================
 app.post("/api/payments/create-topup-order", requireUser, async (req, res) => {
   try {
     const amount = Number(req.body?.amount || 0);
+    const businessId = req.body?.businessId;
+
+    if (!businessId) {
+      return res.status(400).json({ error: "businessId required" });
+    }
+
     if (!amount || amount <= 0) {
       return res.status(400).json({ error: "Invalid amount" });
     }
@@ -1100,10 +1110,18 @@ app.post("/api/payments/create-topup-order", requireUser, async (req, res) => {
     const user = await User.findById(req.user.id).lean();
     if (!user) return res.status(404).json({ error: "User not found" });
 
+    const business = await Business.findById(businessId).lean();
+    if (!business) return res.status(404).json({ error: "Business not found" });
+
+    if (business.ownerUserId && String(business.ownerUserId) !== String(req.user.id)) {
+      return res.status(403).json({ error: "Unauthorized business" });
+    }
+
     const order = await TopupOrder.create({
+      businessId: business._id,
       userId: String(user._id),
       amount,
-      currency: user.currency || "USD",
+      currency: business.wallet?.currency || "USD",
       status: "pending",
       paymentMethod: "manual_demo",
       reference: `topup_order_${Date.now()}`,
@@ -1112,6 +1130,7 @@ app.post("/api/payments/create-topup-order", requireUser, async (req, res) => {
     return res.json({
       ok: true,
       orderId: String(order._id),
+      businessId: String(order.businessId),
       amount: order.amount,
       currency: order.currency,
       status: order.status,
@@ -1122,7 +1141,47 @@ app.post("/api/payments/create-topup-order", requireUser, async (req, res) => {
     return res.status(500).json({ error: "Failed to create topup order" });
   }
 });
+// =========================
+// BUSINESS WALLET TOPUP
+// =========================
+app.post("/api/business/topup", async (req, res) => {
+  try {
+    const { businessId, amount } = req.body;
 
+    if (!businessId) {
+      return res.status(400).json({ error: "businessId required" });
+    }
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ error: "Invalid amount" });
+    }
+
+    // تنفيذ الشحن
+    const result = await topupWallet({
+      businessId,
+      amount: Number(amount),
+      note: "Manual topup",
+    });
+
+    return res.json({
+      success: true,
+      balance: result.balanceAfter,
+      transaction: result.transaction,
+    });
+
+  } catch (e) {
+    console.error("business topup error:", e);
+
+    return res.status(400).json({
+      success: false,
+      message: e.message,
+    });
+  }
+});
+
+// =========================
+// GET BUSINESS TOPUP ORDER
+// =========================
 app.get("/api/payments/topup-orders/:id", requireUser, async (req, res) => {
   try {
     const order = await TopupOrder.findById(req.params.id).lean();
@@ -1134,6 +1193,7 @@ app.get("/api/payments/topup-orders/:id", requireUser, async (req, res) => {
 
     return res.json({
       id: String(order._id),
+      businessId: order.businessId ? String(order.businessId) : null,
       amount: order.amount,
       currency: order.currency,
       status: order.status,
@@ -1148,9 +1208,13 @@ app.get("/api/payments/topup-orders/:id", requireUser, async (req, res) => {
   }
 });
 
+// =========================
+// CONFIRM BUSINESS TOPUP ORDER
+// =========================
 app.post("/api/payments/confirm-topup-order", requireUser, async (req, res) => {
   try {
     const orderId = req.body?.orderId;
+
     if (!orderId) {
       return res.status(400).json({ error: "orderId required" });
     }
@@ -1163,14 +1227,13 @@ app.post("/api/payments/confirm-topup-order", requireUser, async (req, res) => {
     }
 
     if (order.status === "paid") {
-      const user = await User.findById(req.user.id).lean();
-      const balance = Number(user?.walletBalance || 0);
+      const business = await Business.findById(order.businessId).lean();
 
       return res.json({
         ok: true,
         alreadyPaid: true,
-        balance,
-        currency: user?.currency || order.currency || "USD",
+        balance: business?.wallet?.balance || 0,
+        currency: business?.wallet?.currency || order.currency || "USD",
       });
     }
 
@@ -1178,41 +1241,30 @@ app.post("/api/payments/confirm-topup-order", requireUser, async (req, res) => {
       return res.status(400).json({ error: "Order is not payable" });
     }
 
-    const credit = await creditWalletBalance({
-      userId: req.user.id,
+    // =========================
+    // تنفيذ الشحن للـ Business
+    // =========================
+    const result = await topupWallet({
+      businessId: order.businessId,
       amount: order.amount,
-      currency: order.currency,
-      reason: "Wallet top up",
-      reference: order.reference,
-      notes: "Simulated payment confirmation",
+      note: "Topup via order",
       meta: {
         orderId: String(order._id),
         paymentMethod: order.paymentMethod,
       },
     });
 
-    if (!credit.ok) {
-      order.status = "failed";
-      await order.save();
-      return res.status(500).json({ error: "Failed to credit wallet" });
-    }
-
     order.status = "paid";
     order.paidAt = new Date();
     await order.save();
 
-    const balanceAfter = Number(credit.balanceAfter || 0);
-    let status = "active";
-    if (balanceAfter <= 0) status = "out";
-    else if (balanceAfter < 5) status = "low";
-
     return res.json({
       ok: true,
-      balance: balanceAfter,
-      currency: credit.currency || order.currency || "USD",
-      status,
+      balance: result.balanceAfter,
+      currency: result.transaction?.currency || order.currency || "USD",
       orderId: String(order._id),
     });
+
   } catch (e) {
     console.error("confirm-topup-order error:", e);
     return res.status(500).json({ error: "Failed to confirm payment" });
@@ -2774,13 +2826,15 @@ app.get("/l/:token", async (req, res) => {
       return res.status(402).send("Insufficient balance");
     }
 
-    ClickLog.create({
+      ClickLog.create({
       businessId,
       businessPhone,
       userPhone,
       query,
       timestamp: new Date(),
     }).catch((err) => console.error("CLICK LOG ERROR:", err));
+
+    await pushEvent(businessId, "messages");
 
     await logBusinessEvent({
       businessId: business._id,
@@ -2802,15 +2856,41 @@ app.get("/l/:token", async (req, res) => {
     await pushEvent(businessId, "whatsappClicks");
     await pushEvent(businessId, "messages");
 
+    // =========================
+    // Wallet Deduction
+    // =========================
+    try {
+      const clickCost = Number(business?.billing?.clickCost || 0);
+      const whatsappCost = Number(business?.billing?.whatsappCost || 0);
+      const totalCost = Number((clickCost + whatsappCost).toFixed(2));
+
+      if (totalCost > 0) {
+        await deductWallet({
+          businessId: business._id,
+          amount: totalCost,
+          eventType: "whatsapp",
+          note: "Tracked lead click + WhatsApp redirect",
+          meta: {
+            query,
+            userPhone,
+            source: "tracked_lead_link",
+            clickCost,
+            whatsappCost,
+          },
+        });
+      }
+    } catch (walletErr) {
+      if (walletErr.message === "INSUFFICIENT_BALANCE") {
+        return res.status(402).send("Business wallet balance is insufficient");
+      }
+
+      console.error("WALLET DEDUCTION ERROR:", walletErr);
+      return res.status(500).send("Wallet deduction failed");
+    }
+
     const message = encodeURIComponent("Hello, I found you on TrustedLinks");
 
     return res.redirect(`https://wa.me/${businessPhone}?text=${message}`);
-  } catch (err) {
-    console.error("LEAD CLICK ERROR:", err);
-    return res.status(500).send("Error");
-  }
-});
-
 // ---------------------------------------------------------------------------
 // Debug
 // ---------------------------------------------------------------------------
