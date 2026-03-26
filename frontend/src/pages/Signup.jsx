@@ -9,7 +9,6 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 
 let googleMapsPromise = null;
 
-
 function loadGoogleMaps() {
   if (window.google?.maps?.places?.PlaceAutocompleteElement) {
     return Promise.resolve(window.google);
@@ -24,6 +23,27 @@ function loadGoogleMaps() {
 
     if (!key) {
       reject(new Error("Missing VITE_GOOGLE_MAPS_API_KEY"));
+      return;
+    }
+
+    const existing = document.getElementById("googleMapsScript");
+    if (existing) {
+      existing.addEventListener(
+        "load",
+        () => {
+          if (window.google?.maps?.places?.PlaceAutocompleteElement) {
+            resolve(window.google);
+          } else {
+            reject(new Error("Google Maps Places widget is unavailable"));
+          }
+        },
+        { once: true }
+      );
+      existing.addEventListener(
+        "error",
+        () => reject(new Error("Failed to load Google Maps")),
+        { once: true }
+      );
       return;
     }
 
@@ -48,20 +68,17 @@ function loadGoogleMaps() {
 
   return googleMapsPromise;
 }
+
 function getCountryBounds(code) {
   switch (code) {
     case "jo":
       return { north: 33.5, south: 29.0, east: 39.3, west: 34.8 };
-
     case "sa":
       return { north: 32.2, south: 16.0, east: 55.7, west: 34.5 };
-
     case "qa":
       return { north: 26.2, south: 24.4, east: 51.7, west: 50.7 };
-
     case "ae":
       return { north: 26.1, south: 22.6, east: 56.4, west: 51.5 };
-
     default:
       return null;
   }
@@ -121,6 +138,7 @@ function isWhatsappMatchingCountry(whatsappNumber, countryCode) {
   const digitsOnly = normalized.replace(/^\+/, "");
   return digitsOnly.startsWith(dialCode);
 }
+
 export default function Signup({ lang = "en" }) {
   const navigate = useNavigate();
   const isArabic = lang === "ar";
@@ -198,8 +216,13 @@ export default function Signup({ lang = "en" }) {
 
         if (cancelled) return;
         if (!autocompleteContainerRef.current) return;
-       if (autocompleteElementRef.current && autocompleteContainerRef.current?.hasChildNodes()) return;
-        
+        if (
+          autocompleteElementRef.current &&
+          autocompleteContainerRef.current?.hasChildNodes()
+        ) {
+          return;
+        }
+
         const PlaceAutocompleteElement =
           window.google?.maps?.places?.PlaceAutocompleteElement;
 
@@ -207,18 +230,16 @@ export default function Signup({ lang = "en" }) {
           throw new Error("PlaceAutocompleteElement is unavailable");
         }
 
-     const element = new PlaceAutocompleteElement();
+        const element = new PlaceAutocompleteElement();
 
         element.style.width = "100%";
-element.style.maxWidth = "100%";
-element.style.boxSizing = "border-box";
+        element.style.maxWidth = "100%";
+        element.style.boxSizing = "border-box";
 
-const bounds = getCountryBounds(countryCode);
-
-if (bounds) {
-  element.locationRestriction = bounds; // قفل النتائج داخل الدولة
-}
-        element.style.width = "100%";
+        const bounds = getCountryBounds(countryCode);
+        if (bounds) {
+          element.locationRestriction = bounds;
+        }
 
         element.setAttribute(
           "placeholder",
@@ -237,13 +258,9 @@ if (bounds) {
               fields: ["displayName", "formattedAddress", "location"],
             });
 
-            const formatted =
-              place.formattedAddress ||
-              place.displayName ||
-              "";
+            const formatted = place.formattedAddress || place.displayName || "";
 
             setLocationText(formatted);
-            element.value = formatted;
 
             const lat =
               typeof place.location?.lat === "function"
@@ -277,91 +294,88 @@ if (bounds) {
     return () => {
       cancelled = true;
     };
-}, [lang]);
-  
-useEffect(() => {
-  const el = autocompleteElementRef.current;
-  if (!el) return;
+  }, [lang, countryCode]);
 
-  const bounds = getCountryBounds(countryCode);
+  useEffect(() => {
+    const el = autocompleteElementRef.current;
+    if (!el) return;
 
-  if (bounds) {
-    el.locationRestriction = bounds;
-  }
-}, [countryCode]);
-
-  const detectCountryCodeFromResults = (results = []) => {
-  for (const result of results) {
-    const components = result.address_components || [];
-    const countryComponent = components.find((c) =>
-      Array.isArray(c.types) && c.types.includes("country")
-    );
-
-    if (countryComponent?.short_name) {
-      return String(countryComponent.short_name).toLowerCase();
+    const bounds = getCountryBounds(countryCode);
+    if (bounds) {
+      el.locationRestriction = bounds;
     }
-  }
+  }, [countryCode]);
 
-  return null;
-};
-const getMyLocation = () => {
-  if (!navigator.geolocation) {
-    alert(
-      t(
-        "Geolocation is not supported on this device.",
-        "تحديد الموقع غير مدعوم على هذا الجهاز."
-      )
-    );
-    return;
-  }
+  useEffect(() => {
+    setVerifiedWhatsApp("");
+    setOtpToken("");
+  }, [countryCode]);
 
-  navigator.geolocation.getCurrentPosition(
-    async (pos) => {
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
-
-      setLatitude(lat);
-      setLongitude(lng);
-      setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
-
-      try {
-        await loadGoogleMaps();
-
-        const geocoder = new window.google.maps.Geocoder();
-
-        geocoder.geocode({ location: { lat, lng } }, (results, status) => {
-          if (status === "OK" && Array.isArray(results) && results.length > 0) {
-            const formattedAddress = results[0]?.formatted_address || "";
-            if (formattedAddress) {
-              setLocationText(formattedAddress);
-            }
-
-            const detectedCountry = detectCountryCodeFromResults(results);
-
-            if (
-              detectedCountry &&
-              countries.some((c) => c.code === detectedCountry)
-            ) {
-              setCountryCode(detectedCountry);
-            }
-          } else {
-            console.error("Geocoder failed:", status);
-          }
-        });
-      } catch (err) {
-        console.error("Geocode error:", err);
-      }
-    },
-    () => {
+  const getMyLocation = () => {
+    if (!navigator.geolocation) {
       alert(
         t(
-          "Failed to get your current location.",
-          "تعذر الحصول على موقعك الحالي."
+          "Geolocation is not supported on this device.",
+          "تحديد الموقع غير مدعوم على هذا الجهاز."
         )
       );
+      return;
     }
-  );
-};
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+
+        setLatitude(lat);
+        setLongitude(lng);
+        setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
+
+        try {
+          await loadGoogleMaps();
+
+          const geocoder = new window.google.maps.Geocoder();
+
+          geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+            if (status === "OK" && Array.isArray(results) && results.length > 0) {
+              const formattedAddress = results[0]?.formatted_address || "";
+              if (formattedAddress) {
+                setLocationText(formattedAddress);
+              }
+
+              const detectedCountry = detectCountryCodeFromResults(results);
+
+              if (
+                detectedCountry &&
+                countries.some((c) => c.code === detectedCountry)
+              ) {
+                setCountryCode(detectedCountry);
+
+                alert(
+                  t(
+                    `Country detected automatically: ${detectedCountry.toUpperCase()}`,
+                    `تم تحديد الدولة تلقائيًا: ${detectedCountry.toUpperCase()}`
+                  )
+                );
+              }
+            } else {
+              console.error("Geocoder failed:", status);
+            }
+          });
+        } catch (err) {
+          console.error("Geocode error:", err);
+        }
+      },
+      () => {
+        alert(
+          t(
+            "Failed to get your current location.",
+            "تعذر الحصول على موقعك الحالي."
+          )
+        );
+      }
+    );
+  };
 
   const convertLogoToBase64 = async () => {
     if (!logo) return "";
@@ -405,19 +419,6 @@ const getMyLocation = () => {
     });
   };
 
-  const normalizeNumber = (value) => {
-    const arabicNums = "٠١٢٣٤٥٦٧٨٩";
-    const englishNums = "0123456789";
-
-    return (value || "")
-      .split("")
-      .map((char) => {
-        const index = arabicNums.indexOf(char);
-        return index !== -1 ? englishNums[index] : char;
-      })
-      .join("");
-  };
-
   const handleSignup = async (e) => {
     e.preventDefault();
 
@@ -432,14 +433,14 @@ const getMyLocation = () => {
     }
 
     if (!isWhatsappMatchingCountry(verifiedWhatsApp, countryCode)) {
-  alert(
-    t(
-      "The verified WhatsApp number does not match the selected country.",
-      "رقم الواتساب الموثق لا يطابق الدولة المختارة."
-    )
-  );
-  return;
-}
+      alert(
+        t(
+          "The verified WhatsApp number does not match the selected country.",
+          "رقم الواتساب الموثق لا يطابق الدولة المختارة."
+        )
+      );
+      return;
+    }
 
     if (!locationText.trim()) {
       alert(t("Please enter your business location.", "يرجى إدخال موقع النشاط."));
@@ -494,7 +495,7 @@ const getMyLocation = () => {
         description: description.trim(),
         category: [category.key],
         keywords: [],
-        whatsapp: normalizeNumber(verifiedWhatsApp),
+        whatsapp: normalizePhone(verifiedWhatsApp),
         countryCode,
         countryName: selectedCountry
           ? isArabic
@@ -685,18 +686,29 @@ const getMyLocation = () => {
         </div>
 
         {verifiedWhatsApp ? (
-  <div style={helperNoteStyle}>
-    {isWhatsappMatchingCountry(verifiedWhatsApp, countryCode)
-      ? t(
-          "WhatsApp number matches the selected country.",
-          "رقم الواتساب يطابق الدولة المختارة."
-        )
-      : t(
-          "WhatsApp number does not match the selected country.",
-          "رقم الواتساب لا يطابق الدولة المختارة."
-        )}
-  </div>
-) : null}
+          <>
+            <div style={helperNoteStyle}>
+              {isWhatsappMatchingCountry(verifiedWhatsApp, countryCode)
+                ? t(
+                    "WhatsApp number matches the selected country.",
+                    "رقم الواتساب يطابق الدولة المختارة."
+                  )
+                : t(
+                    "WhatsApp number does not match the selected country.",
+                    "رقم الواتساب لا يطابق الدولة المختارة."
+                  )}
+            </div>
+
+            {!isWhatsappMatchingCountry(verifiedWhatsApp, countryCode) && (
+              <div style={{ ...helperNoteStyle, color: "#dc2626" }}>
+                {t(
+                  `Expected country code: +${getCountryDialCode(countryCode)}`,
+                  `رمز الدولة المطلوب: +${getCountryDialCode(countryCode)}`
+                )}
+              </div>
+            )}
+          </>
+        ) : null}
 
         <div style={sectionStyle}>
           <h3 style={sectionTitleStyle}>
@@ -716,24 +728,25 @@ const getMyLocation = () => {
             ))}
           </select>
 
-         <label style={labelStyle}>
-  {t("Search your business location", "ابحث عن موقع النشاط")}
-</label>
+          <label style={labelStyle}>
+            {t("Search your business location", "ابحث عن موقع النشاط")}
+          </label>
+
           <div style={fieldHintStyle}>
-  {t("Search within the selected country", "البحث داخل الدولة المختارة")}
-</div>
+            {t("Search within the selected country", "البحث داخل الدولة المختارة")}
+          </div>
 
-<div style={addressFieldWrapperStyle}>
-  <div style={addressFieldInnerStyle}>
-    <div ref={autocompleteContainerRef} style={autocompleteContainerStyle} />
-  </div>
-</div>
+          <div style={addressFieldWrapperStyle}>
+            <div style={addressFieldInnerStyle}>
+              <div ref={autocompleteContainerRef} style={autocompleteContainerStyle} />
+            </div>
+          </div>
 
-{locationText ? (
-  <div style={selectedLocationStyle}>
-    <strong>{t("Selected address", "العنوان المختار")}:</strong> {locationText}
-  </div>
-) : null}
+          {locationText ? (
+            <div style={selectedLocationStyle}>
+              <strong>{t("Selected address", "العنوان المختار")}:</strong> {locationText}
+            </div>
+          ) : null}
 
           <button
             type="button"
@@ -828,17 +841,24 @@ const getMyLocation = () => {
 
         <button
           type="submit"
-         disabled={
-  loading ||
-  !verifiedWhatsApp ||
-  !otpToken ||
-  !agreedToTerms ||
-  !isWhatsappMatchingCountry(verifiedWhatsApp, countryCode)
-}
+          disabled={
+            loading ||
+            !verifiedWhatsApp ||
+            !otpToken ||
+            !agreedToTerms ||
+            !isWhatsappMatchingCountry(verifiedWhatsApp, countryCode)
+          }
           style={{
             ...submitButtonStyle,
             cursor: loading ? "not-allowed" : "pointer",
-            opacity: !verifiedWhatsApp || !otpToken || !agreedToTerms ? 0.6 : 1,
+            opacity:
+              loading ||
+              !verifiedWhatsApp ||
+              !otpToken ||
+              !agreedToTerms ||
+              !isWhatsappMatchingCountry(verifiedWhatsApp, countryCode)
+                ? 0.6
+                : 1,
           }}
         >
           {loading
@@ -922,11 +942,6 @@ const inputStyle = {
   fontSize: "0.96rem",
   outline: "none",
   background: "#fff",
-};
-
-const autocompleteShellStyle = {
-  width: "100%",
-  marginBottom: "14px",
 };
 
 const addressFieldWrapperStyle = {
@@ -1090,11 +1105,13 @@ const termsLinkStyle = {
   fontWeight: 700,
   textDecoration: "none",
 };
+
 const fieldHintStyle = {
   fontSize: "0.85rem",
   color: "#64748b",
   marginBottom: 8,
 };
+
 const helperNoteStyle = {
   fontSize: "0.9rem",
   color: "#475569",
