@@ -2,11 +2,18 @@ import mongoose from "mongoose";
 
 const TopupOrderSchema = new mongoose.Schema(
   {
-    userId: {
-      type: String,
-      required: true,
-      index: true,
-    },
+   businessId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Business",
+  required: true,
+  index: true,
+},
+
+userId: {
+  type: String,
+  default: null,
+  index: true,
+},
     amount: {
       type: Number,
       required: true,
@@ -47,6 +54,7 @@ const TopupOrderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+TopupOrderSchema.index({ businessId: 1, createdAt: -1 });
 TopupOrderSchema.index({ userId: 1, createdAt: -1 });
 
 export default mongoose.model("TopupOrder", TopupOrderSchema);
