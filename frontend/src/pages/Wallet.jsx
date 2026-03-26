@@ -13,6 +13,7 @@ export default function Wallet({ lang = "en" }) {
   const [messageType, setMessageType] = useState("info");
   const [submitting, setSubmitting] = useState(false);
   const [pendingOrder, setPendingOrder] = useState(null);
+  const businessId = localStorage.getItem("businessId") || "";
 
   const t = useMemo(
     () => ({
@@ -189,6 +190,11 @@ export default function Wallet({ lang = "en" }) {
   const submitTopup = async (amountValue) => {
     const amount = Number(amountValue);
 
+    if (!businessId) {
+  setMessage("businessId missing");
+  setMessageType("error");
+  return;
+}
     if (!amount || amount <= 0) {
       setMessage(t.invalidAmount);
       setMessageType("error");
@@ -208,7 +214,7 @@ export default function Wallet({ lang = "en" }) {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ amount }),
+      body: JSON.stringify({ amount, businessId }),
       }).catch(() => null);
 
       if (res && res.ok) {
