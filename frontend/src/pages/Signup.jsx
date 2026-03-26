@@ -66,6 +66,61 @@ function getCountryBounds(code) {
       return null;
   }
 }
+
+function detectCountryCodeFromResults(results = []) {
+  for (const result of results) {
+    const components = result.address_components || [];
+    const countryComponent = components.find(
+      (c) => Array.isArray(c.types) && c.types.includes("country")
+    );
+
+    if (countryComponent?.short_name) {
+      return String(countryComponent.short_name).toLowerCase();
+    }
+  }
+
+  return null;
+}
+
+function normalizePhone(value = "") {
+  const arabicNums = "٠١٢٣٤٥٦٧٨٩";
+  const englishNums = "0123456789";
+
+  return String(value)
+    .split("")
+    .map((char) => {
+      const index = arabicNums.indexOf(char);
+      return index !== -1 ? englishNums[index] : char;
+    })
+    .join("")
+    .replace(/[^\d+]/g, "")
+    .replace(/^00/, "+");
+}
+
+function getCountryDialCode(code) {
+  switch (code) {
+    case "jo":
+      return "962";
+    case "sa":
+      return "966";
+    case "qa":
+      return "974";
+    case "ae":
+      return "971";
+    default:
+      return "";
+  }
+}
+
+function isWhatsappMatchingCountry(whatsappNumber, countryCode) {
+  const normalized = normalizePhone(whatsappNumber);
+  const dialCode = getCountryDialCode(countryCode);
+
+  if (!normalized || !dialCode) return false;
+
+  const digitsOnly = normalized.replace(/^\+/, "");
+  return digitsOnly.startsWith(dialCode);
+}
 export default function Signup({ lang = "en" }) {
   const navigate = useNavigate();
   const isArabic = lang === "ar";
@@ -235,49 +290,78 @@ useEffect(() => {
   }
 }, [countryCode]);
 
-  const getMyLocation = () => {
-    if (!navigator.geolocation) {
+  const detectCountryCodeFromResults = (results = []) => {
+  for (const result of results) {
+    const components = result.address_components || [];
+    const countryComponent = components.find((c) =>
+      Array.isArray(c.types) && c.types.includes("country")
+    );
+
+    if (countryComponent?.short_name) {
+      return String(countryComponent.short_name).toLowerCase();
+    }
+  }
+
+  return null;
+};
+const getMyLocation = () => {
+  if (!navigator.geolocation) {
+    alert(
+      t(
+        "Geolocation is not supported on this device.",
+        "تحديد الموقع غير مدعوم على هذا الجهاز."
+      )
+    );
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+
+      setLatitude(lat);
+      setLongitude(lng);
+      setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
+
+      try {
+        await loadGoogleMaps();
+
+        const geocoder = new window.google.maps.Geocoder();
+
+        geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+          if (status === "OK" && Array.isArray(results) && results.length > 0) {
+            const formattedAddress = results[0]?.formatted_address || "";
+            if (formattedAddress) {
+              setLocationText(formattedAddress);
+            }
+
+            const detectedCountry = detectCountryCodeFromResults(results);
+
+            if (
+              detectedCountry &&
+              countries.some((c) => c.code === detectedCountry)
+            ) {
+              setCountryCode(detectedCountry);
+            }
+          } else {
+            console.error("Geocoder failed:", status);
+          }
+        });
+      } catch (err) {
+        console.error("Geocode error:", err);
+      }
+    },
+    () => {
       alert(
         t(
-          "Geolocation is not supported on this device.",
-          "تحديد الموقع غير مدعوم على هذا الجهاز."
+          "Failed to get your current location.",
+          "تعذر الحصول على موقعك الحالي."
         )
       );
-      return;
     }
-
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-
-        setLatitude(lat);
-        setLongitude(lng);
-        setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
-
-        try {
-          await loadGoogleMaps();
-
-          const geocoder = new window.google.maps.Geocoder();
-          geocoder.geocode({ location: { lat, lng } }, (results) => {
-            if (results && results[0]) {
-              setLocationText(results[0].formatted_address);
-            }
-          });
-        } catch (err) {
-          console.error("Geocode error:", err);
-        }
-      },
-      () => {
-        alert(
-          t(
-            "Failed to get your current location.",
-            "تعذر الحصول على موقعك الحالي."
-          )
-        );
-      }
-    );
-  };
+  );
+};
 
   const convertLogoToBase64 = async () => {
     if (!logo) return "";
@@ -346,6 +430,16 @@ useEffect(() => {
       alert(t("Please verify WhatsApp first.", "يرجى توثيق واتساب أولاً."));
       return;
     }
+
+    if (!isWhatsappMatchingCountry(verifiedWhatsApp, countryCode)) {
+  alert(
+    t(
+      "The verified WhatsApp number does not match the selected country.",
+      "رقم الواتساب الموثق لا يطابق الدولة المختارة."
+    )
+  );
+  return;
+}
 
     if (!locationText.trim()) {
       alert(t("Please enter your business location.", "يرجى إدخال موقع النشاط."));
@@ -590,6 +684,20 @@ useEffect(() => {
           />
         </div>
 
+        {verifiedWhatsApp ? (
+  <div style={helperNoteStyle}>
+    {isWhatsappMatchingCountry(verifiedWhatsApp, countryCode)
+      ? t(
+          "WhatsApp number matches the selected country.",
+          "رقم الواتساب يطابق الدولة المختارة."
+        )
+      : t(
+          "WhatsApp number does not match the selected country.",
+          "رقم الواتساب لا يطابق الدولة المختارة."
+        )}
+  </div>
+) : null}
+
         <div style={sectionStyle}>
           <h3 style={sectionTitleStyle}>
             {t("Business Location", "موقع النشاط")}
@@ -720,7 +828,13 @@ useEffect(() => {
 
         <button
           type="submit"
-          disabled={loading || !verifiedWhatsApp || !otpToken || !agreedToTerms}
+         disabled={
+  loading ||
+  !verifiedWhatsApp ||
+  !otpToken ||
+  !agreedToTerms ||
+  !isWhatsappMatchingCountry(verifiedWhatsApp, countryCode)
+}
           style={{
             ...submitButtonStyle,
             cursor: loading ? "not-allowed" : "pointer",
@@ -980,4 +1094,10 @@ const fieldHintStyle = {
   fontSize: "0.85rem",
   color: "#64748b",
   marginBottom: 8,
+};
+const helperNoteStyle = {
+  fontSize: "0.9rem",
+  color: "#475569",
+  marginTop: "8px",
+  lineHeight: 1.7,
 };
