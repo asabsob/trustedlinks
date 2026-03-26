@@ -60,6 +60,9 @@ export default function Dashboard({ lang = "en" }) {
         if (cancelled) return;
 
         setBusiness(bizRes.ok ? bizData : null);
+        if (bizRes.ok && bizData?._id) {
+  localStorage.setItem("businessId", bizData._id);
+}
         setReports(repRes.ok ? repData : null);
       } catch (e) {
         if (cancelled) return;
