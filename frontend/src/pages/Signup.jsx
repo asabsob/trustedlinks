@@ -234,6 +234,7 @@ export default function Signup({ lang = "en" }) {
 
         element.style.width = "100%";
         element.style.maxWidth = "100%";
+        element.style.display = "block";
         element.style.boxSizing = "border-box";
 
         const bounds = getCountryBounds(countryCode);
@@ -914,6 +915,8 @@ const sectionStyle = {
   borderRadius: "16px",
   padding: "20px",
   marginBottom: "18px",
+  overflow: "visible",
+  position: "relative",
 };
 
 const sectionTitleStyle = {
@@ -959,7 +962,9 @@ const addressFieldInnerStyle = {
   boxSizing: "border-box",
   display: "flex",
   alignItems: "center",
-  overflow: "hidden",
+  position: "relative",
+  overflow: "visible",
+  zIndex: 20,
 };
 
 const autocompleteContainerStyle = {
@@ -967,6 +972,8 @@ const autocompleteContainerStyle = {
   minHeight: 36,
   display: "flex",
   alignItems: "center",
+  position: "relative",
+  zIndex: 30,
 };
 
 const selectedLocationStyle = {
