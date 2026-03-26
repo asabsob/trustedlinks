@@ -154,6 +154,10 @@ export default function Signup({ lang = "en" }) {
 
      const element = new PlaceAutocompleteElement();
 
+        element.style.width = "100%";
+element.style.maxWidth = "100%";
+element.style.boxSizing = "border-box";
+
 const bounds = getCountryBounds(countryCode);
 
 if (bounds) {
@@ -604,19 +608,24 @@ useEffect(() => {
             ))}
           </select>
 
-          <label style={labelStyle}>
-            {t("Search your business location", "ابحث عن موقع النشاط")}
-          </label>
+         <label style={labelStyle}>
+  {t("Search your business location", "ابحث عن موقع النشاط")}
+</label>
+          <div style={fieldHintStyle}>
+  {t("Search within the selected country", "البحث داخل الدولة المختارة")}
+</div>
 
-          <div style={autocompleteShellStyle}>
-            <div ref={autocompleteContainerRef} style={autocompleteContainerStyle} />
-          </div>
+<div style={addressFieldWrapperStyle}>
+  <div style={addressFieldInnerStyle}>
+    <div ref={autocompleteContainerRef} style={autocompleteContainerStyle} />
+  </div>
+</div>
 
-          {locationText ? (
-            <div style={selectedLocationStyle}>
-              <strong>{t("Selected address", "العنوان المختار")}:</strong> {locationText}
-            </div>
-          ) : null}
+{locationText ? (
+  <div style={selectedLocationStyle}>
+    <strong>{t("Selected address", "العنوان المختار")}:</strong> {locationText}
+  </div>
+) : null}
 
           <button
             type="button"
@@ -806,19 +815,41 @@ const autocompleteShellStyle = {
   marginBottom: "14px",
 };
 
+const addressFieldWrapperStyle = {
+  width: "100%",
+  marginBottom: "14px",
+};
+
+const addressFieldInnerStyle = {
+  width: "100%",
+  minHeight: 56,
+  border: "1px solid #cbd5e1",
+  borderRadius: 12,
+  background: "#ffffff",
+  padding: "10px 12px",
+  boxSizing: "border-box",
+  display: "flex",
+  alignItems: "center",
+  overflow: "hidden",
+};
+
 const autocompleteContainerStyle = {
   width: "100%",
+  minHeight: 36,
+  display: "flex",
+  alignItems: "center",
 };
 
 const selectedLocationStyle = {
   background: "#f8fafc",
   border: "1px solid #e2e8f0",
-  borderRadius: 10,
+  borderRadius: 12,
   padding: "12px 14px",
   marginBottom: "14px",
   color: "#334155",
   fontSize: "0.95rem",
   lineHeight: 1.7,
+  wordBreak: "break-word",
 };
 
 const fileInputStyle = {
@@ -860,18 +891,20 @@ const prefixStyle = {
 const secondaryButtonStyle = {
   width: "100%",
   marginBottom: 14,
-  background: "#f1f5f9",
+  background: "#f8fafc",
   color: "#0f172a",
-  border: "1px solid #dbe2ea",
-  padding: "12px 14px",
-  borderRadius: 10,
-  fontWeight: 600,
+  border: "1px solid #cbd5e1",
+  padding: "14px 16px",
+  borderRadius: 12,
+  fontWeight: 700,
   cursor: "pointer",
+  fontSize: "0.96rem",
+  minHeight: 52,
 };
 
 const locationInfoStyle = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
   gap: 12,
   marginBottom: 14,
 };
@@ -942,4 +975,9 @@ const termsLinkStyle = {
   color: "#16a34a",
   fontWeight: 700,
   textDecoration: "none",
+};
+const fieldHintStyle = {
+  fontSize: "0.85rem",
+  color: "#64748b",
+  marginBottom: 8,
 };
