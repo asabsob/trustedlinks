@@ -2,11 +2,11 @@ import mongoose from "mongoose";
 
 const TransactionSchema = new mongoose.Schema(
   {
-    userId: {
-      type: String,
-      required: true,
-      index: true,
-    },
+   userId: {
+  type: String,
+  default: null,
+  index: true,
+},
     businessId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Business",
@@ -33,11 +33,21 @@ const TransactionSchema = new mongoose.Schema(
       default: "",
       index: true,
     },
-    eventType: {
-      type: String,
-      enum: ["topup", "click", "whatsapp", "media", "view", "manual", ""],
-      default: "",
-    },
+   eventType: {
+  type: String,
+  enum: [
+    "topup",
+    "click",
+    "whatsapp",
+    "media",
+    "view",
+    "manual",
+    "refund",
+    "adjustment",
+    ""
+  ],
+  default: "",
+},
     reference: {
       type: String,
       default: "",
