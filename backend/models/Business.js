@@ -46,6 +46,19 @@ const BusinessSchema = new mongoose.Schema(
     countryName: { type: String, default: "" },
     customId: { type: String, default: "", index: true },
 
+        wallet: {
+      balance: { type: Number, default: 0 },
+      currency: { type: String, default: "USD" },
+      status: { type: String, default: "active" }, // active | suspended
+      allowNegative: { type: Boolean, default: false },
+      lowBalanceThreshold: { type: Number, default: 5 },
+    },
+
+    billing: {
+      clickCost: { type: Number, default: 0.05 },
+      whatsappCost: { type: Number, default: 0.1 },
+    },
+
     views: { type: [EventSchema], default: [] },
     clicks: { type: [EventSchema], default: [] },
     messages: { type: [EventSchema], default: [] },
