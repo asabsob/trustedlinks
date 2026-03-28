@@ -1752,7 +1752,7 @@ app.get("/api/business/transactions/:businessId", requireUser, async (req, res) 
       })),
     });
   } catch (e) {
-    console.error("business transactions error:", e);
+    console.error("business transactions error:", e?.message, e);
     return res.status(500).json({ error: "Failed to load business transactions" });
   }
 });
