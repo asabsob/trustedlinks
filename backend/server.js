@@ -1655,34 +1655,61 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
   }
 });
 
-app.get("/api/balance", requireUser, async (req, res) => {
+// =========================
+// BUSINESS BALANCE
+// =========================
+app.get("/api/business/balance/:businessId", requireUser, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).lean();
-    if (!user) return res.status(404).json({ error: "User not found" });
+    const { businessId } = req.params;
 
-    const balance = Number(user.walletBalance || 0);
+    const business = await Business.findById(businessId).lean();
+    if (!business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+
+    if (business.ownerUserId && String(business.ownerUserId) !== String(req.user.id)) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    const balance = Number(business.wallet?.balance || 0);
+    const currency = business.wallet?.currency || "USD";
 
     let status = "active";
     if (balance <= 0) status = "out";
     else if (balance < 5) status = "low";
 
     return res.json({
-      balance,
-      currency: user.currency || "USD",
-      status,
+      wallet: {
+        balance,
+        currency,
+        status,
+      },
     });
   } catch (e) {
-    console.error("balance error:", e);
-    return res.status(500).json({ error: "Failed to load balance" });
+    console.error("business balance error:", e);
+    return res.status(500).json({ error: "Failed to load business balance" });
   }
 });
 
-app.get("/api/transactions", requireUser, async (req, res) => {
+// =========================
+// BUSINESS TRANSACTIONS
+// =========================
+app.get("/api/business/transactions/:businessId", requireUser, async (req, res) => {
   try {
-    const limit = Math.min(Number(req.query.limit || 50), 100);
+    const { businessId } = req.params;
+    const limit = Math.min(Number(req.query.limit || 10), 100);
+
+    const business = await Business.findById(businessId).lean();
+    if (!business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+
+    if (business.ownerUserId && String(business.ownerUserId) !== String(req.user.id)) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
 
     const transactions = await Transaction.find({
-      userId: String(req.user.id),
+      businessId: business._id,
     })
       .sort({ createdAt: -1 })
       .limit(limit)
@@ -1704,8 +1731,8 @@ app.get("/api/transactions", requireUser, async (req, res) => {
       })),
     });
   } catch (e) {
-    console.error("transactions error:", e);
-    return res.status(500).json({ error: "Failed to load transactions" });
+    console.error("business transactions error:", e);
+    return res.status(500).json({ error: "Failed to load business transactions" });
   }
 });
 
