@@ -5,6 +5,7 @@ export default function Transactions({ lang = "en" }) {
   const [transactions, setTransactions] = useState([]);
   const [filter, setFilter] = useState("all");
   const [message, setMessage] = useState("");
+  const businessId = localStorage.getItem("businessId") || "";
 
   const t = useMemo(
     () => ({
@@ -54,8 +55,15 @@ export default function Transactions({ lang = "en" }) {
       setLoading(true);
       setMessage("");
 
+      if (!businessId) {
+  setMessage("businessId missing");
+  setTransactions([]);
+  setLoading(false);
+  return;
+}
+
       const token = localStorage.getItem("token");
-      const res = await fetch("/api/transactions", {
+     const res = await fetch(`/api/business/transactions/${businessId}?limit=100`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       }).catch(() => null);
 
@@ -167,7 +175,7 @@ export default function Transactions({ lang = "en" }) {
                         </span>
                       </td>
                       <td className="px-3 py-3 font-medium">
-                        {Number(tx.amount || 0).toFixed(2)} JOD
+                       {Number(tx.amount || 0).toFixed(2)} {tx.currency || "USD"}
                       </td>
                       <td className="px-3 py-3 text-slate-600">{tx.reason || "-"}</td>
                       <td className="px-3 py-3 text-slate-500">{tx.reference || tx.id || "-"}</td>
