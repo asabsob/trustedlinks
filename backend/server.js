@@ -2836,22 +2836,6 @@ app.get("/l/:token", async (req, res) => {
       return res.status(404).send("Business not found");
     }
 
-    const deduction = await deductWalletBalance({
-      ownerUserId: business.ownerUserId,
-      businessId: business._id,
-      eventType: "whatsapp",
-      reason: "Tracked lead WhatsApp charge",
-      reference: `lead_${token}`,
-      meta: {
-        query,
-        userPhone,
-        source: "tracked_lead_link",
-      },
-    });
-
-    if (deduction.insufficient) {
-      return res.status(402).send("Insufficient balance");
-    }
 
       ClickLog.create({
       businessId,
@@ -2887,8 +2871,8 @@ app.get("/l/:token", async (req, res) => {
     // Wallet Deduction
     // =========================
     try {
-      const clickCost = Number(business?.billing?.clickCost || 0);
-      const whatsappCost = Number(business?.billing?.whatsappCost || 0);
+          const clickCost = Number(business?.billing?.clickCost ?? 0.05);
+      const whatsappCost = Number(business?.billing?.whatsappCost ?? 0.10);
       const totalCost = Number((clickCost + whatsappCost).toFixed(2));
 
       if (totalCost > 0) {
