@@ -95,6 +95,9 @@ export default function Reports({ lang = "en" }) {
           "Your business is performing well. Keep monitoring peak times and top-performing keywords.",
         score: "Performance Score",
         averageDaily: "Avg Daily Activity",
+        peakHour: "Peak Hour",
+hourlyTrend: "Hourly Search Trend",
+searchCount: "Search Count",
       },
       ar: {
         title: "تقارير الأداء",
@@ -161,6 +164,9 @@ export default function Reports({ lang = "en" }) {
           "أداء النشاط جيد. استمر بمراقبة أوقات الذروة والكلمات الأفضل أداءً.",
         score: "تقييم الأداء",
         averageDaily: "متوسط النشاط اليومي",
+        peakHour: "ساعة الذروة",
+hourlyTrend: "اتجاه البحث حسب الساعة",
+searchCount: "عدد مرات البحث",
       },
     }),
     [isAr]
@@ -265,6 +271,10 @@ export default function Reports({ lang = "en" }) {
     return (data?.keywords || []).slice(0, 5);
   }, [data?.keywords]);
 
+  const hourlyData = useMemo(() => {
+  return Array.isArray(data?.hourly) ? data.hourly : [];
+}, [data?.hourly]);
+
   const currentTotals = useMemo(() => sumActivity(filteredActivity), [filteredActivity]);
   const previousTotals = useMemo(() => sumActivity(previousActivity), [previousActivity]);
 
@@ -319,25 +329,33 @@ export default function Reports({ lang = "en" }) {
     },
   ];
 
-  const peakDay = getPeakDay(filteredActivity, isAr);
-  const bestSource = getBestSource(pieData);
+  const peakDay = data?.peakDay ? formatDate(data.peakDay, isAr) : getPeakDay(filteredActivity, isAr);
+const peakHour = data?.peakHour ? `${data.peakHour}:00` : "-";
+const bestSource = getBestSource(pieData);
   const performanceScore = getPerformanceScore({
     totalClicks,
     totalMessages,
     totalViews,
     mediaViews,
   });
+  
+const recommendations = getRecommendations({
+  totalClicks,
+  totalMessages,
+  totalViews,
+  mediaViews,
+  keywordData,
+  peakHour,
+  t,
+});
 
-  const recommendations = getRecommendations({
-    isAr,
-    totalClicks,
-    totalMessages,
-    totalViews,
-    mediaViews,
-    keywordData,
-    t,
-  });
-
+  if (peakHour && peakHour !== "-") {
+  recommendations.unshift(
+    isAr
+      ? `ركّز العروض أو التفاعل في وقت الذروة: ${peakHour}`
+      : `Focus promotions and responsiveness around peak hour: ${peakHour}`
+  );
+}
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 px-4 py-10 md:px-8">
@@ -457,6 +475,10 @@ export default function Reports({ lang = "en" }) {
               label={t.peakDay}
               value={peakDay}
             />
+            <InsightCard
+  label={t.peakHour}
+  value={peakHour}
+/>
             <InsightCard
               label={t.bestSource}
               value={bestSource}
@@ -583,77 +605,113 @@ export default function Reports({ lang = "en" }) {
           </div>
         </div>
 
-        <div className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-2">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-            <h2 className="mb-4 text-lg font-semibold text-slate-900">{t.topKeywords}</h2>
+   <div className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-2">
+  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+    <h2 className="mb-4 text-lg font-semibold text-slate-900">{t.topKeywords}</h2>
 
-            {keywordData.length ? (
-              <div className="h-[320px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={keywordData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="keyword" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="searches" fill="#22c55e" name={t.searches} radius={[6, 6, 0, 0]} />
-                    <Bar dataKey="clicks" fill="#3b82f6" name={t.clicks} radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <EmptyState text={t.noKeywords} />
-            )}
-          </div>
+    {keywordData.length ? (
+      <div className="h-[320px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={keywordData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="keyword" />
+            <YAxis />
+            <Tooltip />
+            <Legend />
+            <Bar
+              dataKey="searches"
+              fill="#22c55e"
+              name={t.searches}
+              radius={[6, 6, 0, 0]}
+            />
+            <Bar
+              dataKey="clicks"
+              fill="#3b82f6"
+              name={t.clicks}
+              radius={[6, 6, 0, 0]}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    ) : (
+      <EmptyState text={t.noKeywords} />
+    )}
+  </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-            <h2 className="mb-4 text-lg font-semibold text-slate-900">{t.recommendations}</h2>
+  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+    <h2 className="mb-4 text-lg font-semibold text-slate-900">{t.recommendations}</h2>
 
-            <div className="space-y-3">
-              {recommendations.map((item, idx) => (
-                <div
-                  key={`${item}-${idx}`}
-                  className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700"
-                >
-                  {item}
-                </div>
-              ))}
-            </div>
-          </div>
+    <div className="space-y-3">
+      {recommendations.map((item, idx) => (
+        <div
+          key={`${item}-${idx}`}
+          className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700"
+        >
+          {item}
         </div>
+      ))}
+    </div>
+  </div>
+</div>
 
-        <div className="mb-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900">{t.topKeywords}</h2>
-          </div>
+<div className="mb-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+  <h2 className="mb-4 text-lg font-semibold text-slate-900">{t.hourlyTrend}</h2>
 
-          {keywordData.length ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 text-slate-500">
-                    <th className="px-3 py-3 font-medium">{t.keyword}</th>
-                    <th className="px-3 py-3 font-medium">{t.searches}</th>
-                    <th className="px-3 py-3 font-medium">{t.clicks}</th>
-                    <th className="px-3 py-3 font-medium">{t.conversion}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {keywordData.map((row, idx) => (
-                    <tr key={`${row.keyword}-${idx}`} className="border-b border-slate-100">
-                      <td className="px-3 py-3 text-slate-700">{row.keyword}</td>
-                      <td className="px-3 py-3 font-medium text-slate-900">{row.searches}</td>
-                      <td className="px-3 py-3 text-slate-700">{row.clicks}</td>
-                      <td className="px-3 py-3 text-slate-700">{row.conversion}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <EmptyState text={t.noKeywords} />
-          )}
-        </div>
+  {hourlyData.length ? (
+    <div className="h-[320px] w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={hourlyData}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="hour" />
+          <YAxis />
+          <Tooltip />
+          <Legend />
+          <Bar
+            dataKey="count"
+            fill="#22c55e"
+            name={t.searchCount}
+            radius={[6, 6, 0, 0]}
+          />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  ) : (
+    <EmptyState text={t.noActivity} />
+  )}
+</div>
+
+<div className="mb-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+  <div className="mb-4 flex items-center justify-between">
+    <h2 className="text-lg font-semibold text-slate-900">{t.topKeywords}</h2>
+  </div>
+
+  {keywordData.length ? (
+    <div className="overflow-x-auto">
+      <table className="min-w-full text-left text-sm">
+        <thead>
+          <tr className="border-b border-slate-200 text-slate-500">
+            <th className="px-3 py-3 font-medium">{t.keyword}</th>
+            <th className="px-3 py-3 font-medium">{t.searches}</th>
+            <th className="px-3 py-3 font-medium">{t.clicks}</th>
+            <th className="px-3 py-3 font-medium">{t.conversion}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {keywordData.map((row, idx) => (
+            <tr key={`${row.keyword}-${idx}`} className="border-b border-slate-100">
+              <td className="px-3 py-3 text-slate-700">{row.keyword}</td>
+              <td className="px-3 py-3 font-medium text-slate-900">{row.searches}</td>
+              <td className="px-3 py-3 text-slate-700">{row.clicks}</td>
+              <td className="px-3 py-3 text-slate-700">{row.conversion}%</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  ) : (
+    <EmptyState text={t.noKeywords} />
+  )}
+</div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
           <div className="mb-4 flex items-center justify-between">
@@ -797,7 +855,7 @@ function getPerformanceScore({ totalClicks, totalMessages, totalViews, mediaView
   return Math.min(100, clicksScore + leadsScore + viewsScore + mediaScore);
 }
 
-function getRecommendations({ isAr, totalClicks, totalMessages, totalViews, mediaViews, keywordData, t }) {
+function getRecommendations({ totalClicks, totalMessages, totalViews, mediaViews, keywordData, peakHour, t }) {
   const items = [];
 
   if (keywordData?.length > 0) {
@@ -816,11 +874,21 @@ function getRecommendations({ isAr, totalClicks, totalMessages, totalViews, medi
     items.push(t.recommendationLocation);
   }
 
+  if (peakHour && peakHour !== "-") {
+    items.push(
+      t === undefined
+        ? ""
+        : typeof peakHour === "string"
+        ? ""
+        : ""
+    );
+  }
+
   if (!items.length) {
     items.push(t.recommendationStrong);
   }
 
-  return items;
+  return items.slice(0, 4);
 }
 
 function RangeButton({ active, onClick, label }) {
