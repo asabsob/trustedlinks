@@ -568,7 +568,7 @@ export default function Signup({ lang = "en" }) {
           </h3>
 
           <label style={labelStyle}>
-            {t("Business Name (Arabic)", "الاسم التجاري (عربي)")}
+            {t("Business Name (Arabic)", "الاسم التجاري (عربي)")}<span style={requiredStarStyle}>*</span>
           </label>
           <input
             type="text"
@@ -578,7 +578,7 @@ export default function Signup({ lang = "en" }) {
           />
 
           <label style={labelStyle}>
-            {t("Business Name (English)", "الاسم التجاري (إنجليزي)")}
+            {t("Business Name (English)", "الاسم التجاري (إنجليزي)")}<span style={requiredStarStyle}>*</span>
           </label>
           <input
             type="text"
@@ -594,7 +594,7 @@ export default function Signup({ lang = "en" }) {
             style={{ ...inputStyle, minHeight: 100, resize: "vertical" }}
           />
 
-          <label style={labelStyle}>{t("Category", "الفئة")}</label>
+          <label style={labelStyle}>{t("Category", "الفئة")}<span style={requiredStarStyle}>*</span></label>
           <div className="relative z-20" style={{ marginBottom: 14 }}>
             <Listbox value={category} onChange={setCategory}>
               <>
@@ -669,6 +669,26 @@ export default function Signup({ lang = "en" }) {
           </div>
         </div>
 
+         <label style={labelStyle}>{t("Country", "الدولة")}</label>
+          <select
+            value={countryCode}
+            onChange={(e) => setCountryCode(e.target.value)}
+            style={inputStyle}
+          >
+            {countries.map((country) => (
+              <option key={country.code} value={country.code}>
+                {isArabic ? country.nameAr : country.nameEn}
+              </option>
+            ))}
+          </select>
+
+        <div style={fieldHintStyle}>
+  {t(
+    `WhatsApp number must start with +${getCountryDialCode(countryCode)}`,
+    `يجب أن يبدأ رقم الواتساب بـ +${getCountryDialCode(countryCode)}`
+  )}
+</div>
+
         <div style={sectionStyle}>
           <h3 style={sectionTitleStyle}>
             {t("WhatsApp Verification", "توثيق واتساب")}
@@ -716,18 +736,7 @@ export default function Signup({ lang = "en" }) {
             {t("Business Location", "موقع النشاط")}
           </h3>
 
-          <label style={labelStyle}>{t("Country", "الدولة")}</label>
-          <select
-            value={countryCode}
-            onChange={(e) => setCountryCode(e.target.value)}
-            style={inputStyle}
-          >
-            {countries.map((country) => (
-              <option key={country.code} value={country.code}>
-                {isArabic ? country.nameAr : country.nameEn}
-              </option>
-            ))}
-          </select>
+         
 
           <label style={labelStyle}>
             {t("Search your business location", "ابحث عن موقع النشاط")}
@@ -786,7 +795,10 @@ export default function Signup({ lang = "en" }) {
             {t("Account Details", "بيانات الحساب")}
           </h3>
 
-          <label style={labelStyle}>{t("Email", "البريد الإلكتروني")}</label>
+         <label style={labelStyle}>
+  {t("Email", "البريد الإلكتروني")}
+  <span style={requiredStarStyle}>*</span>
+</label>
           <input
             type="email"
             required
@@ -795,7 +807,7 @@ export default function Signup({ lang = "en" }) {
             style={inputStyle}
           />
 
-          <label style={labelStyle}>{t("Password", "كلمة المرور")}</label>
+          <label style={labelStyle}>{t("Password", "كلمة المرور")}<span style={requiredStarStyle}>*</span></label>
           <input
             type="password"
             required
@@ -806,7 +818,7 @@ export default function Signup({ lang = "en" }) {
           />
 
           <label style={labelStyle}>
-            {t("Confirm Password", "تأكيد كلمة المرور")}
+            {t("Confirm Password", "تأكيد كلمة المرور")}<span style={requiredStarStyle}>*</span>
           </label>
           <input
             type="password"
@@ -938,7 +950,7 @@ const labelStyle = {
 const inputStyle = {
   width: "100%",
   padding: "12px 14px",
-  border: "1px solid #cbd5e1",
+border: "1px solid #e2e8f0",
   borderRadius: "10px",
   marginBottom: "14px",
   boxSizing: "border-box",
@@ -1124,4 +1136,9 @@ const helperNoteStyle = {
   color: "#475569",
   marginTop: "8px",
   lineHeight: 1.7,
+};
+
+const requiredStarStyle = {
+  color: "#dc2626",
+  marginInlineStart: 4,
 };
