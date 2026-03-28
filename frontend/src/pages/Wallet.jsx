@@ -111,15 +111,15 @@ export default function Wallet({ lang = "en" }) {
 
       const token = localStorage.getItem("token");
 
-      const [balanceRes, txRes] = await Promise.all([
+     const [balanceRes, txRes] = await Promise.all([
   fetch(`${API_BASE}/api/business/balance/${businessId}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   }).catch(() => null),
-  fetch(`${API_BASE}/api/business/transactions/${businessId}`, {
+  fetch(`${API_BASE}/api/business/transactions/${businessId}?limit=10`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   }).catch(() => null),
 ]);
-
+      
       let balanceData = null;
       let txData = null;
 
@@ -131,12 +131,12 @@ export default function Wallet({ lang = "en" }) {
         txData = await txRes.json();
       }
 
-     if (balanceData?.wallet) {
+   if (balanceData?.wallet) {
   const nextBalance = Number(balanceData.wallet.balance || 0);
   setBalance(nextBalance);
   setCurrency(balanceData.wallet.currency || "USD");
-  setStatus(inferStatus(nextBalance));
-}else {
+  setStatus(balanceData.wallet.status || inferStatus(nextBalance));
+} else {
         const demoBalance = Number(localStorage.getItem("demo_balance") || 12.5);
         const demoCurrency = localStorage.getItem("demo_currency") || "USD";
         setBalance(demoBalance);
