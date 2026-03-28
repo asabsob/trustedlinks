@@ -45,14 +45,15 @@ const BusinessSchema = new mongoose.Schema(
     countryCode: { type: String, default: "" },
     countryName: { type: String, default: "" },
     customId: { type: String, default: "", index: true },
-
-        wallet: {
-      balance: { type: Number, default: 0 },
-      currency: { type: String, default: "USD" },
-      status: { type: String, default: "active" }, // active | suspended
-      allowNegative: { type: Boolean, default: false },
-      lowBalanceThreshold: { type: Number, default: 5 },
-    },
+    
+wallet: {
+  balance: { type: Number, default: 0 },
+  currency: { type: String, default: "USD" },
+  status: { type: String, default: "active" }, // active | suspended
+  allowNegative: { type: Boolean, default: true },
+  negativeLimit: { type: Number, default: -5 },
+  lowBalanceThreshold: { type: Number, default: 5 },
+},
 
     billing: {
       clickCost: { type: Number, default: 0.05 },
