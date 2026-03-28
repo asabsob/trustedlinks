@@ -621,6 +621,67 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 
+// =========================
+// Send WhatsApp List Message
+// =========================
+async function javnaSendList({ to, header, body, footer, buttonText, rows }) {
+  if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
+  if (!JAVNA_FROM) throw new Error("Missing JAVNA_FROM");
+
+  const headers = {
+    "Content-Type": "application/json",
+    "X-API-Key": JAVNA_API_KEY,
+  };
+
+  const from = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
+  const toNumber = to.startsWith("+") ? to : `+${to}`;
+
+  const payload = {
+    from,
+    to: toNumber,
+    content: {
+      type: "interactive",
+      interactive: {
+        type: "list",
+        header: {
+          type: "text",
+          text: header,
+        },
+        body: {
+          text: body,
+        },
+        footer: {
+          text: footer,
+        },
+        action: {
+          button: buttonText,
+          sections: [
+            {
+              title: "Results",
+              rows: rows,
+            },
+          ],
+        },
+      },
+    },
+  };
+
+  const r = await fetch(JAVNA_SEND_TEXT_URL, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  const txt = await r.text();
+  if (!r.ok) throw new Error(`Javna list failed (${r.status}): ${txt}`);
+
+  try {
+    return JSON.parse(txt);
+  } catch {
+    return { ok: true, raw: txt };
+  }
+}
+
 // ============================================================================
 // Health
 // ============================================================================
@@ -2771,14 +2832,28 @@ const enrichedResults = await Promise.all(
   })
 );
 
-const reply = formatSearchResults(enrichedResults, query, lang, {
-  userPhone: from,
-});
+    // =========================
+// Send Interactive List
+// =========================
+const rows = enrichedResults.map((item, index) => ({
+  id: `biz_${item._id}`,
+  title: item.name_ar || item.name || "Business",
+  description: (item.category || []).join(", ").slice(0, 60),
+}));
 
-// أرسل الرد أولاً
-const sendResp = await javnaSendText({
+await javnaSendList({
   to: from,
-  body: reply,
+  header: lang === "ar" ? "نتائج البحث" : "Search Results",
+  body:
+    lang === "ar"
+      ? `نتائج البحث عن "${query}"`
+      : `Results for "${query}"`,
+  footer:
+    lang === "ar"
+      ? "اختر نشاطًا لعرض التفاصيل"
+      : "Select a business to view details",
+  buttonText: lang === "ar" ? "عرض النتائج" : "View Results",
+  rows,
 });
 
 // ثم التخزين في الخلفية
