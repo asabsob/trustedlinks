@@ -63,7 +63,7 @@ export default function Transactions({ lang = "en" }) {
 }
 
       const token = localStorage.getItem("token");
-    const res = await fetch(`/api/transactions?businessId=${businessId}&limit=100`, {
+  const res = await fetch(`/api/business/transactions/${businessId}?limit=100`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       }).catch(() => null);
 
@@ -177,12 +177,15 @@ export default function Transactions({ lang = "en" }) {
                       <td className="px-3 py-3 font-medium">
                        {Number(tx.amount || 0).toFixed(2)} {tx.currency || "USD"}
                       </td>
-                      <td className="px-3 py-3 text-slate-600">{
-  tx.eventType === "topup" ? "Top up" :
-  tx.eventType === "whatsapp" ? "WhatsApp Lead" :
-  tx.eventType === "click" ? "Click" :
-  tx.eventType || "-"
-}</td>
+                    <td className="px-3 py-3 text-slate-600">
+  {tx.eventType === "topup"
+    ? "Top up"
+    : tx.eventType === "whatsapp"
+    ? "WhatsApp Lead"
+    : tx.eventType === "click"
+    ? "Click"
+    : tx.reason || "-"}
+</td>
                       <td className="px-3 py-3 text-slate-500">{tx.reference || tx.id || "-"}</td>
                       <td className="px-3 py-3 text-slate-500">
                         {tx.date ? new Date(tx.date).toLocaleString() : "-"}
