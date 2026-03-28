@@ -96,22 +96,23 @@ export default function Dashboard({ lang = "en" }) {
   }, [business, lang]);
 
   const walletText = useMemo(() => {
-    if (!user) return "0 USD";
-    const balance = typeof user.walletBalance === "number" ? user.walletBalance : 0;
-    const currency = user.currency || "USD";
-    return `${balance} ${currency}`;
-  }, [user]);
+  if (!business?.wallet) return "0 USD";
+  const balance =
+    typeof business.wallet.balance === "number" ? business.wallet.balance : 0;
+  const currency = business.wallet.currency || "USD";
+  return `${balance} ${currency}`;
+}, [business]);
+  
+const walletStatus = useMemo(() => {
+  if (!business?.wallet) return "active";
 
-  const walletStatus = useMemo(() => {
-    if (!user) return "active";
+  const balance = Number(business.wallet.balance || 0);
 
-    const balance = Number(user.walletBalance || 0);
-
-    if (balance <= 0) return "out";
-    if (balance < 5) return "low";
-    return "active";
-  }, [user]);
-
+  if (balance <= 0) return "out";
+  if (balance < 5) return "low";
+  return "active";
+}, [business]);
+  
   const shortMapLink = useMemo(() => {
     if (!business?.mapLink) return null;
     try {
