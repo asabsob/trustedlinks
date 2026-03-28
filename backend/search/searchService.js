@@ -1,5 +1,6 @@
 import Business from "../models/Business.js";
 import { expandTerms } from "./synonyms.js";
+import LeadToken from "../models/LeadToken.js";
 
 export async function searchBusinesses(query){
 
@@ -19,6 +20,19 @@ export async function searchBusinesses(query){
   })
   .limit(10)
   .lean();
+const enrichedResults = await Promise.all(
+  results.map(async (item) => {
+    const token = await LeadToken.create({
+      businessId: String(item._id),
+      businessPhone: item.whatsapp,
+      query,
+    });
 
-  return results;
-}
+    return {
+      ...item,
+      trackedLink: `${process.env.BASE_URL}/l/${token._id}`,
+    };
+  })
+);
+
+return enrichedResults;
