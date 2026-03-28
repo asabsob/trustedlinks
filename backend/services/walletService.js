@@ -24,17 +24,33 @@ export async function deductWallet({
   const business = await Business.findById(businessId);
   if (!business) throw new Error("Business not found");
 
-  if (business.wallet?.status !== "active") {
+  if (!business.wallet) {
+    business.wallet = {
+      balance: 0,
+      currency: "USD",
+      status: "active",
+      allowNegative: true,
+      negativeLimit: -5,
+      lowBalanceThreshold: 5,
+    };
+  }
+
+  if (business.wallet.status !== "active") {
     throw new Error("Wallet not active");
   }
 
-  const balanceBefore = business.wallet.balance || 0;
+  const balanceBefore = Number(business.wallet.balance || 0);
+  const allowNegative = business.wallet.allowNegative === true;
+  const negativeLimit = Number(business.wallet.negativeLimit ?? -5);
+  const balanceAfter = Number((balanceBefore - amount).toFixed(2));
 
-  if (!business.wallet.allowNegative && balanceBefore < amount) {
+  if (!allowNegative && balanceBefore < amount) {
     throw new Error("INSUFFICIENT_BALANCE");
   }
 
-  const balanceAfter = balanceBefore - amount;
+  if (allowNegative && balanceAfter < negativeLimit) {
+    throw new Error("INSUFFICIENT_BALANCE");
+  }
 
   business.wallet.balance = balanceAfter;
   await business.save();
@@ -44,7 +60,7 @@ export async function deductWallet({
     businessId: business._id,
     type: "debit",
     amount,
-    currency: business.wallet.currency,
+    currency: business.wallet.currency || "USD",
     reason: "wallet_deduction",
     eventType,
     reference: generateReference("DED"),
