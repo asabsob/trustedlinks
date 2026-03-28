@@ -35,6 +35,7 @@ import LeadToken from "./models/LeadToken.js";
 import BusinessEvent from "./models/BusinessEvent.js";
 import TopupOrder from "./models/TopupOrder.js";
 import { topupWallet, deductWallet } from "./services/walletService.js";
+import Business from "../models/Business.js";
 
 dotenv.config();
 await connectDB();
