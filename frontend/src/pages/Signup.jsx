@@ -669,7 +669,7 @@ export default function Signup({ lang = "en" }) {
           </div>
         </div>
 
-         <label style={labelStyle}>{t("Country", "الدولة")}</label>
+         <label style={labelStyle}>{t("Country", "الدولة")}<span style={requiredStarStyle}>*</span></label>
           <select
             value={countryCode}
             onChange={(e) => setCountryCode(e.target.value)}
@@ -717,7 +717,7 @@ export default function Signup({ lang = "en" }) {
                 : t(
                     "WhatsApp number does not match the selected country.",
                     "رقم الواتساب لا يطابق الدولة المختارة."
-                  )}
+                  )}<span style={requiredStarStyle}>*</span>
             </div>
 
             {!isWhatsappMatchingCountry(verifiedWhatsApp, countryCode) && (
@@ -739,11 +739,11 @@ export default function Signup({ lang = "en" }) {
          
 
           <label style={labelStyle}>
-            {t("Search your business location", "ابحث عن موقع النشاط")}
+            {t("Search your business location", "ابحث عن موقع النشاط")}<span style={requiredStarStyle}>*</span>
           </label>
 
           <div style={fieldHintStyle}>
-            {t("Search within the selected country", "البحث داخل الدولة المختارة")}
+            {t("Search within the selected country", "البحث داخل الدولة المختارة")}<span style={requiredStarStyle}>*</span>
           </div>
 
           <div style={addressFieldWrapperStyle}>
