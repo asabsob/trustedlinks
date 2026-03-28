@@ -282,10 +282,28 @@ function isMoreCommand(text) {
   ].includes(t);
 }
 
-async function createLeadTrackedLink({ phone }) {
+// =========================
+// Create Lead Tracked Link
+// =========================
+async function createLeadTrackedLink({
+  businessId = "",
+  phone = "",
+  query = "",
+  userPhone = "",
+}) {
   const safePhone = String(phone || "").replace(/\D/g, "");
-  if (!safePhone) return "";
-  return `https://wa.me/${safePhone}`;
+  const safeBusinessId = String(businessId || "").trim();
+
+  if (!safePhone || !safeBusinessId) return "";
+
+  const token = await LeadToken.create({
+    businessId: safeBusinessId,
+    businessPhone: safePhone,
+    userPhone: String(userPhone || "").trim(),
+    query: String(query || "").trim(),
+  });
+
+  return `${process.env.BASE_URL}/l/${token._id}`;
 }
 
 async function logBusinessEvent({ businessId, ownerUserId, type, source = "", meta = {} }) {
