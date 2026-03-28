@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 export default function Transactions({ lang = "en" }) {
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState([]);
@@ -63,7 +63,7 @@ export default function Transactions({ lang = "en" }) {
 }
 
       const token = localStorage.getItem("token");
-  const res = await fetch(`/api/business/transactions/${businessId}?limit=100`, {
+  const res = await fetch(`${API_BASE}/api/business/transactions/${businessId}?limit=100`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       }).catch(() => null);
 
