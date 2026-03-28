@@ -1534,6 +1534,24 @@ app.put("/api/business/update", requireUser, async (req, res) => {
   }
 });
 
+app.get("/api/transactions", requireUser, async (req, res) => {
+  const { businessId } = req.query;
+
+  const filter = {
+    userId: String(req.user.id),
+  };
+
+  if (businessId) {
+    filter.businessId = businessId;
+  }
+
+  const transactions = await Transaction.find(filter)
+    .sort({ createdAt: -1 })
+    .limit(100)
+    .lean();
+
+  return res.json({ transactions });
+});
 app.get("/api/business/reports", requireUser, async (req, res) => {
   try {
     const b = await Business.findOne({ ownerUserId: String(req.user.id) }).lean();
