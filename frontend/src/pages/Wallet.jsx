@@ -112,13 +112,13 @@ export default function Wallet({ lang = "en" }) {
       const token = localStorage.getItem("token");
 
       const [balanceRes, txRes] = await Promise.all([
-        fetch(`${API_BASE}/api/balance`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        }).catch(() => null),
-        fetch(`${API_BASE}/api/transactions?limit=10`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        }).catch(() => null),
-      ]);
+  fetch(`${API_BASE}/api/business/balance/${businessId}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  }).catch(() => null),
+  fetch(`${API_BASE}/api/business/transactions/${businessId}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  }).catch(() => null),
+]);
 
       let balanceData = null;
       let txData = null;
@@ -131,12 +131,12 @@ export default function Wallet({ lang = "en" }) {
         txData = await txRes.json();
       }
 
-      if (balanceData) {
-        const nextBalance = Number(balanceData.balance || 0);
-        setBalance(nextBalance);
-        setCurrency(balanceData.currency || "USD");
-        setStatus(balanceData.status || inferStatus(nextBalance));
-      } else {
+     if (balanceData?.wallet) {
+  const nextBalance = Number(balanceData.wallet.balance || 0);
+  setBalance(nextBalance);
+  setCurrency(balanceData.wallet.currency || "USD");
+  setStatus(inferStatus(nextBalance));
+}else {
         const demoBalance = Number(localStorage.getItem("demo_balance") || 12.5);
         const demoCurrency = localStorage.getItem("demo_currency") || "USD";
         setBalance(demoBalance);
@@ -145,11 +145,9 @@ export default function Wallet({ lang = "en" }) {
       }
 
       if (txData) {
-        const txList = Array.isArray(txData)
-          ? txData
-          : Array.isArray(txData.transactions)
-          ? txData.transactions
-          : [];
+    const txList = Array.isArray(txData?.transactions)
+  ? txData.transactions
+  : [];
         setTransactions(txList);
       } else {
         const demoTx = JSON.parse(localStorage.getItem("demo_transactions") || "[]");
