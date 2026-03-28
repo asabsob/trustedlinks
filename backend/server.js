@@ -19,7 +19,6 @@ import { nanoid } from "nanoid";
 
 import { connectDB } from "./db.js";
 import User from "./models/User.js";
-import Business from "./models/Business.js";
 
 import Otp from "./models/Otp.js";
 import { parseSearchIntent } from "./server/utils/aiSearchParser.js";
@@ -34,9 +33,8 @@ import crypto from "crypto";
 import ClickLog from "./models/ClickLog.js";
 import LeadToken from "./models/LeadToken.js";
 import BusinessEvent from "./models/BusinessEvent.js";
-import Transaction from "./models/Transaction.js";
 import TopupOrder from "./models/TopupOrder.js";
-import { topupWallet } from "./services/walletService.js";
+import { topupWallet, deductWallet } from "./services/walletService.js";
 
 dotenv.config();
 await connectDB();
