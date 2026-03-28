@@ -1547,6 +1547,9 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
     const start90 = new Date(today);
     start90.setDate(start90.getDate() - 89);
 
+    const start30 = new Date(today);
+    start30.setDate(start30.getDate() - 29);
+
     const events = await BusinessEvent.find({
       businessId: b._id,
       createdAt: { $gte: start90 },
@@ -1643,6 +1646,114 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
           : 0
         : Math.round(((currentWeek.total - previousWeek.total) / previousWeek.total) * 100);
 
+    // =========================
+    // Search Logs (last 30 days)
+    // =========================
+    const searchLogs = await SearchLog.find({
+      query: { $exists: true, $ne: null, $ne: "" },
+      createdAt: { $gte: start30 },
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const businessNameEn = String(b.name || "").toLowerCase().trim();
+    const businessNameAr = String(b.name_ar || "").toLowerCase().trim();
+    const businessCategories = Array.isArray(b.category)
+      ? b.category.map((c) => String(c).toLowerCase().trim())
+      : [String(toSafeCategoryValue(b.category) || "").toLowerCase().trim()].filter(Boolean);
+
+    const relevantLogs = searchLogs.filter((log) => {
+      const q = String(log.normalizedQuery || log.query || "").toLowerCase().trim();
+      if (!q) return false;
+
+      if (businessNameEn && q.includes(businessNameEn)) return true;
+      if (businessNameAr && q.includes(businessNameAr)) return true;
+      if (businessCategories.some((c) => c && q.includes(c))) return true;
+
+      return false;
+    });
+
+    // =========================
+    // Keyword analytics
+    // =========================
+    const keywordMap = {};
+
+    for (const log of relevantLogs) {
+      const key = String(log.normalizedQuery || log.query || "").trim().toLowerCase();
+      if (!key) continue;
+
+      if (!keywordMap[key]) {
+        keywordMap[key] = {
+          keyword: key,
+          searches: 0,
+          clicks: 0,
+        };
+      }
+
+      keywordMap[key].searches += 1;
+    }
+
+    for (const ev of events) {
+      if (ev.type !== "click" && ev.type !== "whatsapp") continue;
+
+      const q = String(ev.meta?.query || "").trim().toLowerCase();
+      if (!q) continue;
+
+      if (!keywordMap[q]) {
+        keywordMap[q] = {
+          keyword: q,
+          searches: 0,
+          clicks: 0,
+        };
+      }
+
+      if (ev.type === "click" || ev.type === "whatsapp") {
+        keywordMap[q].clicks += 1;
+      }
+    }
+
+    const keywords = Object.values(keywordMap)
+      .map((row) => ({
+        keyword: row.keyword,
+        searches: Number(row.searches || 0),
+        clicks: Number(row.clicks || 0),
+      }))
+      .sort((a, b) => b.searches - a.searches)
+      .slice(0, 10);
+
+    // =========================
+    // Hourly distribution
+    // =========================
+    const hourlyMap = {};
+    for (let i = 0; i < 24; i++) {
+      const key = String(i).padStart(2, "0");
+      hourlyMap[key] = 0;
+    }
+
+    for (const log of relevantLogs) {
+      const d = new Date(log.createdAt || log.timestamp || Date.now());
+      const hour = String(d.getHours()).padStart(2, "0");
+      hourlyMap[hour] += 1;
+    }
+
+    const hourly = Object.entries(hourlyMap).map(([hour, count]) => ({
+      hour,
+      count,
+    }));
+
+    const peakHourEntry = hourly.reduce(
+      (max, item) => (item.count > max.count ? item : max),
+      { hour: "00", count: 0 }
+    );
+
+    // =========================
+    // Peak day
+    // =========================
+    const peakDayEntry = activity.reduce(
+      (max, item) => (Number(item.total || 0) > Number(max.total || 0) ? item : max),
+      { date: null, total: 0 }
+    );
+
     return res.json({
       business: b.name || "Business",
       logo:
@@ -1661,7 +1772,13 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
       views: countMap.view,
       weeklyGrowth,
 
+      peakHour: peakHourEntry.hour,
+      peakHourCount: peakHourEntry.count,
+      peakDay: peakDayEntry.date,
+
       activity,
+      hourly,
+      keywords,
 
       sources: [
         { name_en: "WhatsApp", name_ar: "واتساب", value: countMap.whatsapp },
@@ -1671,7 +1788,7 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
       ],
     });
   } catch (e) {
-    console.error("reports error:", e);
+    console.error("reports error:", e?.message, e);
     return res.status(500).json({ error: "Failed" });
   }
 });
