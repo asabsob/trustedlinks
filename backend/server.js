@@ -37,6 +37,7 @@ import TopupOrder from "./models/TopupOrder.js";
 import { topupWallet, deductWallet } from "./services/walletService.js";
 import Business from "./models/Business.js";
 import Transaction from "./models/Transaction.js";
+import { optimizeBusinessProfile } from "./services/aiOptimizer.js";
 
 dotenv.config();
 await connectDB();
@@ -1535,6 +1536,81 @@ app.put("/api/business/update", requireUser, async (req, res) => {
   }
 });
 
+// =========================
+// AI OPTIMIZE BUSINESS PROFILE
+// =========================
+app.post("/api/business/ai-optimize", requireUser, async (req, res) => {
+  try {
+    const business = await Business.findOne({ ownerUserId: String(req.user.id) }).lean();
+    if (!business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+
+    const {
+      topSearchKeywords = [],
+      lowConversionKeywords = [],
+      lang = "en",
+    } = req.body || {};
+
+    const result = await optimizeBusinessProfile({
+      businessName: business.name || "",
+      businessNameAr: business.name_ar || "",
+      category: Array.isArray(business.category)
+        ? business.category.join(", ")
+        : toSafeCategoryValue(business.category),
+      description: business.description || "",
+      keywords: Array.isArray(business.keywords) ? business.keywords : [],
+      topSearchKeywords,
+      lowConversionKeywords,
+      locationText: business.locationText || "",
+      countryName: business.countryName || "",
+      lang,
+    });
+
+    return res.json({
+      ok: true,
+      businessId: String(business._id),
+      result,
+    });
+  } catch (e) {
+    console.error("ai optimize error:", e?.message, e);
+    return res.status(500).json({
+      error: "AI optimization failed",
+    });
+  }
+});
+
+// =========================
+// APPLY AI OPTIMIZATION
+// =========================
+app.post("/api/business/apply-ai-optimization", requireUser, async (req, res) => {
+  try {
+    const business = await Business.findOne({ ownerUserId: String(req.user.id) });
+    if (!business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+
+    const {
+      description = "",
+      keywords = [],
+    } = req.body || {};
+
+    business.description = String(description || "").trim();
+    business.keywords = Array.isArray(keywords)
+      ? keywords.map((k) => String(k).trim()).filter(Boolean)
+      : business.keywords;
+
+    await business.save();
+
+    return res.json({
+      ok: true,
+      message: "AI suggestions applied successfully",
+    });
+  } catch (e) {
+    console.error("apply ai optimization error:", e?.message, e);
+    return res.status(500).json({ error: "Failed to apply AI suggestions" });
+  }
+});
 
 app.get("/api/business/reports", requireUser, async (req, res) => {
   try {
