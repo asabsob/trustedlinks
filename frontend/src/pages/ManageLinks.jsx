@@ -422,36 +422,43 @@ aiCorrectionNotes: "ملاحظات أو تصحيح للذكاء الاصطناع
     }
   };
 
-  const runAIOptimization = async () => {
-    try {
-      setAiLoading(true);
-      setFeedback({ type: "", text: "" });
+ const runAIOptimization = async () => {
+  try {
+    setAiLoading(true);
+    setFeedback({ type: "", text: "" });
 
-      const res = await fetch(`${API_BASE}/api/business/ai-optimize`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+    const autoNotes =
+      form.name?.toLowerCase().includes("bubble") ||
+      form.description?.toLowerCase().includes("bubble")
+        ? "This is Taiwanese bubble tea. Do NOT mention Arabic tea."
+        : "";
+
+    const res = await fetch(`${API_BASE}/api/business/ai-optimize`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({
-  lang,
-  topSearchKeywords,
-  lowConversionKeywords,
-  correctionNotes: aiCorrectionNotes,
-}),
+        lang: isAr ? "ar" : "en",
+        topSearchKeywords,
+        lowConversionKeywords,
+        correctionNotes: `${autoNotes} ${aiCorrectionNotes || ""}`,
+      }),
+    });
 
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || "Failed");
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Failed");
 
-      setAiResult(data.result || null);
-      setActiveTab("ai");
-    } catch (err) {
-      console.error(err);
-      setFeedback({ type: "error", text: t.aiFailed });
-    } finally {
-      setAiLoading(false);
-    }
-  };
+    setAiResult(data.result || null);
+    setActiveTab("ai");
+  } catch (err) {
+    console.error(err);
+    setFeedback({ type: "error", text: t.aiFailed });
+  } finally {
+    setAiLoading(false);
+  }
+};
 
  const applyAiSuggestions = () => {
   if (!aiResult) return;
@@ -459,15 +466,20 @@ aiCorrectionNotes: "ملاحظات أو تصحيح للذكاء الاصطناع
   setForm((prev) => ({
     ...prev,
     description: aiResult.optimizedDescription || prev.description || "",
-    keywords: Array.isArray(aiResult.suggestedKeywords)
-      ? aiResult.suggestedKeywords
-      : prev.keywords || [],
+  keywords: Array.isArray(aiResult.suggestedKeywords)
+  ? aiResult.suggestedKeywords.flatMap(k =>
+      String(k).split(",").map(x => x.trim())
+    ).filter(Boolean)
+  : prev.keywords || [],
   }));
 
-  setFeedback({
-    type: "success",
-    text: t.saveFirst,
-  });
+ setFeedback({
+  type: "success",
+  text: isAr
+    ? "✅ تم تطبيق التحسين — اضغط حفظ لتثبيت التغييرات"
+    : "✅ AI applied — click Save to confirm changes",
+});
+
   setActiveTab("details");
 };
   
