@@ -5,15 +5,27 @@ import LocationPicker from "../components/LocationPicker";
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 
 export default function ManageLinks({ lang = "en" }) {
+  // =========================
+  // Basic config
+  // =========================
   const isAr = lang === "ar";
   const dir = isAr ? "rtl" : "ltr";
   const token = localStorage.getItem("token") || "";
 
+  // =========================
+  // State
+  // =========================
   const [business, setBusiness] = useState(null);
   const [form, setForm] = useState({});
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState({ type: "", text: "" });
 
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState(null);
+
+  // =========================
+  // Static data
+  // =========================
   const metaCategories = useMemo(
     () => [
       { key: "AUTOMOTIVE", en: "Automotive", ar: "سيارات" },
@@ -38,12 +50,15 @@ export default function ManageLinks({ lang = "en" }) {
     []
   );
 
+  // =========================
+  // Translations
+  // =========================
   const t = useMemo(
     () =>
       ({
         en: {
           title: "Manage Your Business Information",
-          desc: "Update your business profile, category, media link, map location, and WhatsApp details.",
+          desc: "Update your business profile, category, media link, description, keywords, map location, and WhatsApp details.",
           statusTitle: "Visibility Status",
           visible_yes: "✅ Live and visible in search",
           visible_pending: "🕓 Pending review",
@@ -53,6 +68,8 @@ export default function ManageLinks({ lang = "en" }) {
           detailsDesc: "Edit the core information displayed for your business profile.",
           name: "Business Name",
           category: "Category",
+          description: "Description",
+          keywords: "Keywords",
           media: "Media / Instagram Link",
           map: "Business Location",
           mapLink: "Map Link",
@@ -72,10 +89,22 @@ export default function ManageLinks({ lang = "en" }) {
           confirmDelete: "Are you sure?",
           loading: "Loading...",
           selectCategory: "Select category",
+          aiTitle: "AI Optimization",
+          aiDesc: "Use AI to improve your description, keywords, and call-to-action based on your business profile.",
+          aiButton: "✨ Optimize with AI",
+          aiLoading: "Optimizing...",
+          aiResult: "AI Optimization Result",
+          aiHeadline: "Headline",
+          aiDescription: "Optimized Description",
+          aiKeywords: "Suggested Keywords",
+          aiCta: "CTA",
+          aiScore: "Score",
+          aiApply: "Apply Suggestions",
+          aiFailed: "AI optimization failed",
         },
         ar: {
           title: "إدارة معلومات نشاطك",
-          desc: "قم بتحديث ملف نشاطك، الفئة، رابط الوسائط، موقع الخريطة، وتفاصيل واتساب.",
+          desc: "قم بتحديث ملف نشاطك، الفئة، الرابط الإعلامي، الوصف، الكلمات المفتاحية، موقع الخريطة، وتفاصيل واتساب.",
           statusTitle: "حالة الظهور",
           visible_yes: "✅ ظاهر ومتاح في البحث",
           visible_pending: "🕓 قيد المراجعة",
@@ -85,6 +114,8 @@ export default function ManageLinks({ lang = "en" }) {
           detailsDesc: "عدّل المعلومات الأساسية الظاهرة في ملف نشاطك.",
           name: "اسم النشاط",
           category: "الفئة",
+          description: "الوصف",
+          keywords: "الكلمات المفتاحية",
           media: "رابط الوسائط أو إنستغرام",
           map: "موقع النشاط",
           mapLink: "رابط الخريطة",
@@ -104,11 +135,26 @@ export default function ManageLinks({ lang = "en" }) {
           confirmDelete: "هل أنت متأكد؟",
           loading: "جارٍ التحميل...",
           selectCategory: "اختر الفئة",
+          aiTitle: "التحسين بالذكاء الاصطناعي",
+          aiDesc: "استخدم الذكاء الاصطناعي لتحسين الوصف والكلمات المفتاحية والدعوة إلى الإجراء حسب ملف نشاطك.",
+          aiButton: "✨ تحسين بالذكاء",
+          aiLoading: "جارٍ التحسين...",
+          aiResult: "نتائج التحسين الذكي",
+          aiHeadline: "عنوان مقترح",
+          aiDescription: "وصف محسّن",
+          aiKeywords: "كلمات مفتاحية مقترحة",
+          aiCta: "دعوة للإجراء",
+          aiScore: "التقييم",
+          aiApply: "تطبيق التحسين",
+          aiFailed: "فشل التحسين بالذكاء الاصطناعي",
         },
       }[lang] || {}),
     [lang]
   );
 
+  // =========================
+  // Load business
+  // =========================
   useEffect(() => {
     let cancelled = false;
 
@@ -129,7 +175,10 @@ export default function ManageLinks({ lang = "en" }) {
 
         if (cancelled) return;
         setBusiness(data);
-        setForm(data || {});
+        setForm({
+          ...data,
+          keywords: Array.isArray(data?.keywords) ? data.keywords : [],
+        });
       } catch (err) {
         console.error("❌ Failed to load business info:", err);
         if (!cancelled) {
@@ -155,8 +204,51 @@ export default function ManageLinks({ lang = "en" }) {
     };
   }, [token, t.load_failed]);
 
+  // =========================
+  // Derived values
+  // =========================
+  const visibilityText =
+    business?.status === "Active"
+      ? t.visible_yes
+      : business?.status === "Pending"
+      ? t.visible_pending
+      : t.visible_no;
+
+  const categoryValue = Array.isArray(form.category)
+    ? form.category[0] || ""
+    : typeof form.category === "object"
+    ? form.category.key || ""
+    : form.category || "";
+
+  const categoryLabel = useMemo(() => {
+    const current = metaCategories.find((c) => c.key === categoryValue);
+    return current ? (isAr ? current.ar : current.en) : categoryValue || "-";
+  }, [categoryValue, metaCategories, isAr]);
+
+  const currentLocation =
+    form.latitude != null && form.longitude != null
+      ? {
+          lat: Number(form.latitude),
+          lng: Number(form.longitude),
+        }
+      : null;
+
+  // =========================
+  // Handlers
+  // =========================
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleKeywordsChange = (e) => {
+    const value = e.target.value || "";
+    setForm((prev) => ({
+      ...prev,
+      keywords: value
+        .split(",")
+        .map((k) => k.trim())
+        .filter(Boolean),
+    }));
   };
 
   const updateBusiness = async () => {
@@ -173,6 +265,9 @@ export default function ManageLinks({ lang = "en" }) {
             : form.category
             ? [form.category]
             : [],
+        keywords: Array.isArray(form.keywords)
+          ? form.keywords.map((k) => String(k).trim()).filter(Boolean)
+          : [],
         latitude:
           typeof form.latitude === "number"
             ? form.latitude
@@ -197,12 +292,64 @@ export default function ManageLinks({ lang = "en" }) {
 
       const updatedBusiness = data.business || data;
       setBusiness(updatedBusiness);
-      setForm(updatedBusiness);
+      setForm({
+        ...updatedBusiness,
+        keywords: Array.isArray(updatedBusiness?.keywords) ? updatedBusiness.keywords : [],
+      });
       setFeedback({ type: "success", text: t.success });
     } catch (err) {
       console.error(err);
       setFeedback({ type: "error", text: t.update_failed });
     }
+  };
+
+  const runAIOptimization = async () => {
+    try {
+      setAiLoading(true);
+      setFeedback({ type: "", text: "" });
+
+      const res = await fetch(`${API_BASE}/api/business/ai-optimize`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          lang,
+          topSearchKeywords: [],
+          lowConversionKeywords: [],
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "Failed");
+
+      setAiResult(data.result || null);
+    } catch (err) {
+      console.error(err);
+      setFeedback({ type: "error", text: t.aiFailed });
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const applyAiSuggestions = () => {
+    if (!aiResult) return;
+
+    setForm((prev) => ({
+      ...prev,
+      description: aiResult.optimizedDescription || prev.description || "",
+      keywords: Array.isArray(aiResult.suggestedKeywords)
+        ? aiResult.suggestedKeywords
+        : prev.keywords || [],
+    }));
+
+    setFeedback({
+      type: "success",
+      text: isAr
+        ? "✅ تم تطبيق اقتراحات الذكاء الاصطناعي على النموذج."
+        : "✅ AI suggestions applied to the form.",
+    });
   };
 
   const deleteBusiness = async () => {
@@ -245,32 +392,9 @@ export default function ManageLinks({ lang = "en" }) {
     }
   };
 
-  const visibilityText =
-    business?.status === "Active"
-      ? t.visible_yes
-      : business?.status === "Pending"
-      ? t.visible_pending
-      : t.visible_no;
-
-  const categoryValue = Array.isArray(form.category)
-    ? form.category[0] || ""
-    : typeof form.category === "object"
-    ? form.category.key || ""
-    : form.category || "";
-
-  const categoryLabel = useMemo(() => {
-    const current = metaCategories.find((c) => c.key === categoryValue);
-    return current ? (isAr ? current.ar : current.en) : categoryValue || "-";
-  }, [categoryValue, metaCategories, isAr]);
-
-  const currentLocation =
-    form.latitude != null && form.longitude != null
-      ? {
-          lat: Number(form.latitude),
-          lng: Number(form.longitude),
-        }
-      : null;
-
+  // =========================
+  // Loading
+  // =========================
   if (loading) {
     return (
       <div style={pageWrap(dir)}>
@@ -279,20 +403,32 @@ export default function ManageLinks({ lang = "en" }) {
     );
   }
 
+  // =========================
+  // Render
+  // =========================
   return (
     <div style={pageWrap(dir)}>
+      {/* =========================
+          Hero
+      ========================= */}
       <section style={heroCard}>
         <div style={heroBadge}>{t.details}</div>
         <h1 style={heroTitle}>{t.title}</h1>
         <p style={heroSubtitle}>{t.desc}</p>
       </section>
 
+      {/* =========================
+          Feedback
+      ========================= */}
       {feedback.text ? (
         <div style={feedback.type === "success" ? successBox : errorBox}>
           {feedback.text}
         </div>
       ) : null}
 
+      {/* =========================
+          Status
+      ========================= */}
       <section style={statusCard}>
         <div style={{ fontWeight: 700, color: "#166534" }}>
           {t.statusTitle}: {visibilityText}
@@ -304,7 +440,13 @@ export default function ManageLinks({ lang = "en" }) {
         )}
       </section>
 
+      {/* =========================
+          Main Grid
+      ========================= */}
       <section style={mainGrid}>
+        {/* =========================
+            Business Details
+        ========================= */}
         <div style={panelCard}>
           <div style={panelHeader}>
             <h3 style={panelTitle}>{t.details}</h3>
@@ -323,6 +465,7 @@ export default function ManageLinks({ lang = "en" }) {
           </div>
 
           <div style={formGrid}>
+            {/* Name */}
             <div style={fieldBlock}>
               <label style={labelStyle}>{t.name}</label>
               <input
@@ -334,6 +477,7 @@ export default function ManageLinks({ lang = "en" }) {
               />
             </div>
 
+            {/* Category */}
             <div style={fieldBlock}>
               <label style={labelStyle}>{t.category}</label>
               <select
@@ -358,6 +502,39 @@ export default function ManageLinks({ lang = "en" }) {
               </select>
             </div>
 
+            {/* Description */}
+            <div style={{ ...fieldBlock, gridColumn: "1 / -1" }}>
+              <label style={labelStyle}>{t.description}</label>
+              <textarea
+                name="description"
+                value={form.description || ""}
+                onChange={handleChange}
+                placeholder={isAr ? "اكتب وصف النشاط" : "Write your business description"}
+                style={{
+                  ...inputStyle(isAr),
+                  minHeight: "110px",
+                  resize: "vertical",
+                }}
+              />
+            </div>
+
+            {/* Keywords */}
+            <div style={{ ...fieldBlock, gridColumn: "1 / -1" }}>
+              <label style={labelStyle}>{t.keywords}</label>
+              <input
+                name="keywords"
+                value={Array.isArray(form.keywords) ? form.keywords.join(", ") : ""}
+                onChange={handleKeywordsChange}
+                placeholder={
+                  isAr
+                    ? "مثال: قهوة, مشروبات, بابل تي"
+                    : "Example: coffee, drinks, bubble tea"
+                }
+                style={inputStyle(isAr)}
+              />
+            </div>
+
+            {/* Media */}
             <div style={fieldBlock}>
               <label style={labelStyle}>{t.media}</label>
               <input
@@ -369,6 +546,7 @@ export default function ManageLinks({ lang = "en" }) {
               />
             </div>
 
+            {/* Map Link */}
             <div style={fieldBlock}>
               <label style={labelStyle}>{t.mapLink}</label>
               <input
@@ -391,6 +569,7 @@ export default function ManageLinks({ lang = "en" }) {
             </div>
           </div>
 
+          {/* Location Picker */}
           <div style={{ marginTop: 18 }}>
             <label style={{ ...labelStyle, marginBottom: 10 }}>{t.map}</label>
 
@@ -419,13 +598,70 @@ export default function ManageLinks({ lang = "en" }) {
             </div>
           </div>
 
-          <div style={{ marginTop: 18 }}>
+          {/* Action Buttons */}
+          <div style={{ marginTop: 18, display: "flex", gap: "10px", flexWrap: "wrap" }}>
             <button onClick={updateBusiness} style={primaryBtn}>
               {t.save}
             </button>
+
+            <button
+              onClick={runAIOptimization}
+              style={{
+                ...primaryBtn,
+                background: "#111827",
+              }}
+            >
+              {aiLoading ? t.aiLoading : t.aiButton}
+            </button>
           </div>
+
+          {/* AI Result */}
+          {aiResult && (
+            <div style={aiCardStyle}>
+              <div style={aiCardTitleStyle}>{t.aiResult}</div>
+
+              <div style={aiSectionStyle}>
+                <strong>{t.aiHeadline}:</strong>
+                <div>{aiResult.headline || "-"}</div>
+              </div>
+
+              <div style={aiSectionStyle}>
+                <strong>{t.aiDescription}:</strong>
+                <div>{aiResult.optimizedDescription || "-"}</div>
+              </div>
+
+              <div style={aiSectionStyle}>
+                <strong>{t.aiKeywords}:</strong>
+                <div>{Array.isArray(aiResult.suggestedKeywords) ? aiResult.suggestedKeywords.join(", ") : "-"}</div>
+              </div>
+
+              <div style={aiSectionStyle}>
+                <strong>{t.aiCta}:</strong>
+                <div>{aiResult.cta || "-"}</div>
+              </div>
+
+              <div style={aiSectionStyle}>
+                <strong>{t.aiScore}:</strong>
+                <div>{aiResult.score || 0}/100</div>
+              </div>
+
+              <button
+                onClick={applyAiSuggestions}
+                style={{
+                  ...primaryBtn,
+                  marginTop: 10,
+                  background: "#2563eb",
+                }}
+              >
+                {t.aiApply}
+              </button>
+            </div>
+          )}
         </div>
 
+        {/* =========================
+            WhatsApp Update
+        ========================= */}
         <div style={panelCard}>
           <div style={panelHeader}>
             <h3 style={panelTitle}>{t.whatsappTitle}</h3>
@@ -453,6 +689,9 @@ export default function ManageLinks({ lang = "en" }) {
         </div>
       </section>
 
+      {/* =========================
+          Actions
+      ========================= */}
       <section style={panelCard}>
         <div style={panelHeader}>
           <h3 style={panelTitle}>{t.actions}</h3>
@@ -473,6 +712,9 @@ export default function ManageLinks({ lang = "en" }) {
   );
 }
 
+// =========================
+// Styles
+// =========================
 const pageWrap = (dir) => ({
   maxWidth: "1280px",
   margin: "0 auto",
@@ -692,4 +934,24 @@ const errorBox = {
   padding: "12px 14px",
   fontSize: "14px",
   fontWeight: 600,
+};
+
+const aiCardStyle = {
+  marginTop: "18px",
+  background: "#f9fafb",
+  border: "1px solid #e5e7eb",
+  borderRadius: "16px",
+  padding: "16px",
+};
+
+const aiCardTitleStyle = {
+  fontWeight: 700,
+  marginBottom: 10,
+  color: "#111827",
+};
+
+const aiSectionStyle = {
+  marginBottom: 10,
+  color: "#334155",
+  lineHeight: 1.7,
 };
