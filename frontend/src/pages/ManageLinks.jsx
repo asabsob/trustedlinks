@@ -52,7 +52,7 @@ export default function ManageLinks({ lang = "en" }) {
       ({
         en: {
           title: "Manage Your Business Information",
-          desc: "Update your business profile, category, description, keywords, media link, location, and WhatsApp details.",
+          desc: "Update your business profile, category, localized descriptions, localized keywords, media link, location, and WhatsApp details.",
           statusTitle: "Visibility Status",
           visible_yes: "✅ Live and visible in search",
           visible_pending: "🕓 Pending review",
@@ -61,9 +61,12 @@ export default function ManageLinks({ lang = "en" }) {
           details: "Business Details",
           detailsDesc: "Edit the core information displayed for your business profile.",
           name: "Business Name",
+          nameAr: "Business Name (Arabic)",
           category: "Category",
           description: "Description",
+          descriptionAr: "Arabic Description",
           keywords: "Keywords",
+          keywordsAr: "Arabic Keywords",
           media: "Media / Instagram Link",
           map: "Business Location",
           mapLink: "Map Link",
@@ -117,7 +120,7 @@ export default function ManageLinks({ lang = "en" }) {
         },
         ar: {
           title: "إدارة معلومات نشاطك",
-          desc: "قم بتحديث ملف نشاطك، الفئة، الوصف، الكلمات المفتاحية، الرابط الإعلامي، الموقع، وتفاصيل واتساب.",
+          desc: "قم بتحديث ملف نشاطك، الفئة، الأوصاف الثنائية، الكلمات المفتاحية الثنائية، الرابط الإعلامي، الموقع، وتفاصيل واتساب.",
           statusTitle: "حالة الظهور",
           visible_yes: "✅ ظاهر ومتاح في البحث",
           visible_pending: "🕓 قيد المراجعة",
@@ -126,9 +129,12 @@ export default function ManageLinks({ lang = "en" }) {
           details: "بيانات النشاط",
           detailsDesc: "عدّل المعلومات الأساسية الظاهرة في ملف نشاطك.",
           name: "اسم النشاط",
+          nameAr: "اسم النشاط بالعربية",
           category: "الفئة",
           description: "الوصف",
+          descriptionAr: "الوصف العربي",
           keywords: "الكلمات المفتاحية",
+          keywordsAr: "الكلمات المفتاحية العربية",
           media: "رابط الوسائط أو إنستغرام",
           map: "موقع النشاط",
           mapLink: "رابط الخريطة",
@@ -186,13 +192,16 @@ export default function ManageLinks({ lang = "en" }) {
 
   const normalizeFormForCompare = (value) => ({
     name: value?.name || "",
+    name_ar: value?.name_ar || "",
     category: Array.isArray(value?.category)
       ? value.category
       : value?.category
       ? [value.category]
       : [],
     description: value?.description || "",
+    description_ar: value?.description_ar || "",
     keywords: Array.isArray(value?.keywords) ? value.keywords : [],
+    keywords_ar: Array.isArray(value?.keywords_ar) ? value.keywords_ar : [],
     mediaLink: value?.mediaLink || "",
     mapLink: value?.mapLink || "",
     latitude: value?.latitude ?? null,
@@ -224,6 +233,7 @@ export default function ManageLinks({ lang = "en" }) {
         const prepared = {
           ...businessData,
           keywords: Array.isArray(businessData?.keywords) ? businessData.keywords : [],
+          keywords_ar: Array.isArray(businessData?.keywords_ar) ? businessData.keywords_ar : [],
         };
 
         setBusiness(businessData);
@@ -322,6 +332,18 @@ export default function ManageLinks({ lang = "en" }) {
       : [];
   }, [reportsData]);
 
+  const currentDescription = isAr
+    ? form.description_ar || ""
+    : form.description || "";
+
+  const currentKeywords = isAr
+    ? Array.isArray(form.keywords_ar)
+      ? form.keywords_ar
+      : []
+    : Array.isArray(form.keywords)
+    ? form.keywords
+    : [];
+
   const isDirty = useMemo(() => {
     if (!originalForm) return false;
     return JSON.stringify(normalizeFormForCompare(form)) !== JSON.stringify(originalForm);
@@ -331,14 +353,24 @@ export default function ManageLinks({ lang = "en" }) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleKeywordsChange = (e) => {
-    const value = e.target.value || "";
+  const handleDescriptionChange = (e) => {
+    const value = e.target.value;
     setForm((prev) => ({
       ...prev,
-      keywords: value
-        .split(",")
-        .map((k) => k.trim())
-        .filter(Boolean),
+      [isAr ? "description_ar" : "description"]: value,
+    }));
+  };
+
+  const handleLocalizedKeywordsChange = (e) => {
+    const value = e.target.value || "";
+    const parsed = value
+      .split(",")
+      .map((k) => k.trim())
+      .filter(Boolean);
+
+    setForm((prev) => ({
+      ...prev,
+      [isAr ? "keywords_ar" : "keywords"]: parsed,
     }));
   };
 
@@ -368,6 +400,12 @@ export default function ManageLinks({ lang = "en" }) {
         keywords: Array.isArray(form.keywords)
           ? form.keywords.map((k) => String(k).trim()).filter(Boolean)
           : [],
+        keywords_ar: Array.isArray(form.keywords_ar)
+          ? form.keywords_ar.map((k) => String(k).trim()).filter(Boolean)
+          : [],
+        description: typeof form.description === "string" ? form.description.trim() : "",
+        description_ar:
+          typeof form.description_ar === "string" ? form.description_ar.trim() : "",
         latitude:
           typeof form.latitude === "number"
             ? form.latitude
@@ -394,6 +432,9 @@ export default function ManageLinks({ lang = "en" }) {
       const prepared = {
         ...updatedBusiness,
         keywords: Array.isArray(updatedBusiness?.keywords) ? updatedBusiness.keywords : [],
+        keywords_ar: Array.isArray(updatedBusiness?.keywords_ar)
+          ? updatedBusiness.keywords_ar
+          : [],
       };
 
       setBusiness(updatedBusiness);
@@ -413,9 +454,13 @@ export default function ManageLinks({ lang = "en" }) {
       setAiLoading(true);
       setFeedback({ type: "", text: "" });
 
+      const sourceDescription = isAr
+        ? form.description_ar || form.description || ""
+        : form.description || "";
+
       const autoNotes =
         form.name?.toLowerCase().includes("bubble") ||
-        form.description?.toLowerCase().includes("bubble")
+        sourceDescription?.toLowerCase().includes("bubble")
           ? "This is Taiwanese bubble tea. Do NOT mention Arabic tea."
           : "";
 
@@ -449,14 +494,22 @@ export default function ManageLinks({ lang = "en" }) {
   const applyAiSuggestions = () => {
     if (!aiResult) return;
 
+    const parsedKeywords = Array.isArray(aiResult.suggestedKeywords)
+      ? aiResult.suggestedKeywords
+          .flatMap((k) => String(k).split(",").map((x) => x.trim()))
+          .filter(Boolean)
+      : [];
+
     setForm((prev) => ({
       ...prev,
-      description: aiResult.optimizedDescription || prev.description || "",
-      keywords: Array.isArray(aiResult.suggestedKeywords)
-        ? aiResult.suggestedKeywords
-            .flatMap((k) => String(k).split(",").map((x) => x.trim()))
-            .filter(Boolean)
-        : prev.keywords || [],
+      [isAr ? "description_ar" : "description"]:
+        aiResult.optimizedDescription ||
+        prev[isAr ? "description_ar" : "description"] ||
+        "",
+      [isAr ? "keywords_ar" : "keywords"]:
+        parsedKeywords.length
+          ? parsedKeywords
+          : prev[isAr ? "keywords_ar" : "keywords"] || [],
     }));
 
     setFeedback({
@@ -594,6 +647,17 @@ export default function ManageLinks({ lang = "en" }) {
               </div>
 
               <div style={fieldBlock}>
+                <label style={labelStyle}>{t.nameAr}</label>
+                <input
+                  name="name_ar"
+                  value={form.name_ar || ""}
+                  onChange={handleChange}
+                  placeholder={t.nameAr}
+                  style={inputStyle(isAr)}
+                />
+              </div>
+
+              <div style={fieldBlock}>
                 <label style={labelStyle}>
                   {t.category} <span style={requiredStarStyle}>*</span>
                 </label>
@@ -620,12 +684,16 @@ export default function ManageLinks({ lang = "en" }) {
               </div>
 
               <div style={{ ...fieldBlock, gridColumn: "1 / -1" }}>
-                <label style={labelStyle}>{t.description}</label>
+                <label style={labelStyle}>{isAr ? t.descriptionAr : t.description}</label>
                 <textarea
-                  name="description"
-                  value={form.description || ""}
-                  onChange={handleChange}
-                  placeholder={isAr ? "اكتب وصف النشاط" : "Write your business description"}
+                  name={isAr ? "description_ar" : "description"}
+                  value={currentDescription}
+                  onChange={handleDescriptionChange}
+                  placeholder={
+                    isAr
+                      ? "اكتب وصف النشاط بالعربية"
+                      : "Write your business description in English"
+                  }
                   style={{
                     ...inputStyle(isAr),
                     minHeight: "110px",
@@ -635,21 +703,21 @@ export default function ManageLinks({ lang = "en" }) {
               </div>
 
               <div style={{ ...fieldBlock, gridColumn: "1 / -1" }}>
-                <label style={labelStyle}>{t.keywords}</label>
+                <label style={labelStyle}>{isAr ? t.keywordsAr : t.keywords}</label>
                 <input
-                  name="keywords"
-                  value={Array.isArray(form.keywords) ? form.keywords.join(", ") : ""}
-                  onChange={handleKeywordsChange}
+                  name={isAr ? "keywords_ar" : "keywords"}
+                  value={currentKeywords.join(", ")}
+                  onChange={handleLocalizedKeywordsChange}
                   placeholder={
                     isAr
-                      ? "مثال: قهوة, مشروبات, بابل تي"
-                      : "Example: coffee, drinks, bubble tea"
+                      ? "مثال: شاي الفقاعات, مشروبات, شاي تايواني"
+                      : "Example: bubble tea, drinks, Taiwanese tea"
                   }
                   style={inputStyle(isAr)}
                 />
-                {Array.isArray(form.keywords) && form.keywords.length > 0 && (
+                {currentKeywords.length > 0 && (
                   <div style={tagsWrapStyle}>
-                    {form.keywords.map((tag, idx) => (
+                    {currentKeywords.map((tag, idx) => (
                       <span key={`${tag}-${idx}`} style={tagStyle}>
                         {tag}
                       </span>
@@ -766,16 +834,12 @@ export default function ManageLinks({ lang = "en" }) {
             <div style={summaryRow}>
               <div style={summaryChip}>
                 <span style={summaryChipLabel}>{t.currentTopKeywords}</span>
-                <strong style={chipTextStyle}>
-                  {topSearchKeywords.join(", ") || "-"}
-                </strong>
+                <strong style={chipTextStyle}>{topSearchKeywords.join(", ") || "-"}</strong>
               </div>
 
               <div style={summaryChip}>
                 <span style={summaryChipLabel}>{t.lowConversionKeywords}</span>
-                <strong style={chipTextStyle}>
-                  {lowConversionKeywords.join(", ") || "-"}
-                </strong>
+                <strong style={chipTextStyle}>{lowConversionKeywords.join(", ") || "-"}</strong>
               </div>
             </div>
 
