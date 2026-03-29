@@ -61,11 +61,12 @@ Rules:
 export async function optimizeBusinessProfile(input) {
   const prompt = buildPrompt(input);
 
-  const response = await client.responses.create({
-    model: "gpt-5.1-mini",
-    input: prompt,
-    temperature: 0.4,
-  });
+ const response = await client.responses.create({
+  model: "gpt-4.1-mini",
+  input: prompt,
+  temperature: 0.4,
+  response_format: { type: "json_object" },
+});
 
   const text = response.output_text?.trim() || "";
 
