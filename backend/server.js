@@ -1462,8 +1462,10 @@ app.put("/api/business/update", requireUser, async (req, res) => {
       name,
       name_ar,
       description,
+      description_ar,
       category,
       keywords,
+      keywords_ar,
       mediaLink,
       mapLink,
       latitude,
@@ -1489,12 +1491,20 @@ app.put("/api/business/update", requireUser, async (req, res) => {
       b.description = description.trim();
     }
 
+    if (typeof description_ar === "string") {
+      b.description_ar = description_ar.trim();
+    }
+
     if (Array.isArray(category)) {
       b.category = category.map((x) => String(x).trim()).filter(Boolean);
     }
 
     if (Array.isArray(keywords)) {
       b.keywords = keywords.map((x) => String(x).trim()).filter(Boolean);
+    }
+
+    if (Array.isArray(keywords_ar)) {
+      b.keywords_ar = keywords_ar.map((x) => String(x).trim()).filter(Boolean);
     }
 
     if (typeof mediaLink === "string") {
@@ -1582,28 +1592,38 @@ app.post("/api/business/ai-optimize", requireUser, async (req, res) => {
       return res.status(404).json({ error: "Business not found" });
     }
 
-    const {
+  const {
   topSearchKeywords = [],
   lowConversionKeywords = [],
   correctionNotes = "",
   lang = "en",
 } = req.body || {};
 
-    const result = await optimizeBusinessProfile({
-      businessName: business.name || "",
-      businessNameAr: business.name_ar || "",
-      category: Array.isArray(business.category)
-        ? business.category.join(", ")
-        : toSafeCategoryValue(business.category),
-      description: business.description || "",
-      keywords: Array.isArray(business.keywords) ? business.keywords : [],
-      topSearchKeywords,
-      lowConversionKeywords,
-      locationText: business.locationText || "",
-      countryName: business.countryName || "",
-        correctionNotes,
-      lang,
-    });
+const result = await optimizeBusinessProfile({
+  businessName: business.name || "",
+  businessNameAr: business.name_ar || "",
+  category: Array.isArray(business.category)
+    ? business.category.join(", ")
+    : toSafeCategoryValue(business.category),
+  description:
+    lang === "ar"
+      ? business.description_ar || business.description || ""
+      : business.description || "",
+  keywords:
+    lang === "ar"
+      ? (Array.isArray(business.keywords_ar) && business.keywords_ar.length
+          ? business.keywords_ar
+          : Array.isArray(business.keywords)
+          ? business.keywords
+          : [])
+      : (Array.isArray(business.keywords) ? business.keywords : []),
+  topSearchKeywords,
+  lowConversionKeywords,
+  locationText: business.locationText || "",
+  countryName: business.countryName || "",
+  correctionNotes,
+  lang,
+});
 
     return res.json({
       ok: true,
