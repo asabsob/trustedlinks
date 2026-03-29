@@ -12,11 +12,16 @@ const BusinessSchema = new mongoose.Schema(
   {
     ownerUserId: { type: String, index: true, default: null },
 
-    name: { type: String, required: true },
-    name_ar: { type: String, default: "" },
-    description: { type: String, default: "" },
-    category: { type: [String], default: [] },
-    keywords: { type: [String], default: [] },
+  name: { type: String, required: true },
+name_ar: { type: String, default: "" },
+
+description: { type: String, default: "" },
+description_ar: { type: String, default: "" },
+
+category: { type: [String], default: [] },
+
+keywords: { type: [String], default: [] },
+keywords_ar: { type: [String], default: [] },
 
     whatsapp: { type: String, required: true, unique: true },
     status: { type: String, default: "Active", index: true },
