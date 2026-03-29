@@ -19,6 +19,7 @@ function buildPrompt({
   locationText = "",
   countryName = "",
   lang = "en",
+  correctionNotes = "",
 }) {
   return `
 You are an expert business listing optimizer for a WhatsApp business discovery platform.
@@ -37,16 +38,19 @@ Business data:
 - Location: ${locationText}
 - Country: ${countryName}
 - Output language: ${lang}
+- User correction notes: ${correctionNotes}
 
-Rules:
-1. Keep suggestions practical and marketable.
-2. Do not invent false claims.
-3. Description should be concise and strong.
-4. Suggested keywords should be highly relevant for search visibility.
-5. CTA should be short and action-oriented.
-6. Score should be from 0 to 100.
-7. Return strict JSON only.
-8. JSON keys must be exactly:
+Strict rules:
+1. Do NOT invent facts.
+2. Do NOT mention products/services unless strongly supported by the business name, current description, category, keywords, or correction notes.
+3. If user correction notes say something is wrong, correct it and avoid repeating it.
+4. Keep suggestions practical and marketable.
+5. Description should be concise and strong.
+6. Suggested keywords should be highly relevant for search visibility.
+7. CTA should be short and action-oriented.
+8. Score should be from 0 to 100.
+9. Return strict JSON only.
+10. JSON keys must be exactly:
 {
   "headline": string,
   "optimizedDescription": string,
@@ -64,7 +68,7 @@ export async function optimizeBusinessProfile(input) {
   const response = await client.responses.create({
     model: "gpt-4.1-mini",
     input: prompt,
-    temperature: 0.4,
+    temperature: 0.3,
     text: {
       format: {
         type: "json_schema",
@@ -108,7 +112,7 @@ export async function optimizeBusinessProfile(input) {
   let parsed;
   try {
     parsed = JSON.parse(text);
-  } catch (err) {
+  } catch {
     console.error("AI raw output:", text);
     throw new Error("AI returned invalid JSON");
   }
