@@ -1460,11 +1460,12 @@ app.put("/api/business/update", requireUser, async (req, res) => {
 
     const {
       name,
+      name_ar,
+      description,
       category,
+      keywords,
       mediaLink,
       mapLink,
-      description,
-      name_ar,
       latitude,
       longitude,
       logo,
@@ -1476,37 +1477,58 @@ app.put("/api/business/update", requireUser, async (req, res) => {
       countryName,
     } = req.body || {};
 
-    if (name !== undefined) b.name = name;
-    if (name_ar !== undefined) b.name_ar = name_ar;
-    if (description !== undefined) b.description = description;
-
-    if (category !== undefined) {
-      b.category = Array.isArray(category) ? category : b.category;
+    if (typeof name === "string") {
+      b.name = name.trim();
     }
 
-    if (mediaLink !== undefined) b.mediaLink = mediaLink;
-    if (mapLink !== undefined) b.mapLink = mapLink;
-    if (logo !== undefined) b.logo = logo;
-    if (locationText !== undefined) b.locationText = locationText;
-    if (website !== undefined) b.website = website;
-    if (whatsapp !== undefined) b.whatsapp = whatsapp;
-    if (countryCode !== undefined) b.countryCode = countryCode;
-    if (countryName !== undefined) b.countryName = countryName;
-if (typeof description === "string") business.description = description.trim();
+    if (typeof name_ar === "string") {
+      b.name_ar = name_ar.trim();
+    }
 
-if (Array.isArray(category)) {
-  business.category = category.map((x) => String(x).trim()).filter(Boolean);
-}
+    if (typeof description === "string") {
+      b.description = description.trim();
+    }
 
-if (Array.isArray(keywords)) {
-  business.keywords = keywords.map((x) => String(x).trim()).filter(Boolean);
-}
+    if (Array.isArray(category)) {
+      b.category = category.map((x) => String(x).trim()).filter(Boolean);
+    }
 
-if (typeof mediaLink === "string") business.mediaLink = mediaLink.trim();
-if (typeof mapLink === "string") business.mapLink = mapLink.trim();
+    if (Array.isArray(keywords)) {
+      b.keywords = keywords.map((x) => String(x).trim()).filter(Boolean);
+    }
 
-if (latitude !== undefined) business.latitude = latitude;
-if (longitude !== undefined) business.longitude = longitude;
+    if (typeof mediaLink === "string") {
+      b.mediaLink = mediaLink.trim();
+    }
+
+    if (typeof mapLink === "string") {
+      b.mapLink = mapLink.trim();
+    }
+
+    if (logo !== undefined) {
+      b.logo = logo;
+    }
+
+    if (typeof locationText === "string") {
+      b.locationText = locationText.trim();
+    }
+
+    if (typeof website === "string") {
+      b.website = website.trim();
+    }
+
+    if (typeof whatsapp === "string") {
+      b.whatsapp = whatsapp.trim();
+    }
+
+    if (typeof countryCode === "string") {
+      b.countryCode = countryCode.trim();
+    }
+
+    if (typeof countryName === "string") {
+      b.countryName = countryName.trim();
+    }
+
     if (instagram !== undefined) {
       const cleanInstagram = String(instagram || "").trim().replace(/^@+/, "");
       b.mediaLink = cleanInstagram
