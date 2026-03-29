@@ -5,16 +5,10 @@ import LocationPicker from "../components/LocationPicker";
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 
 export default function ManageLinks({ lang = "en" }) {
-  // =========================
-  // Basic config
-  // =========================
   const isAr = lang === "ar";
   const dir = isAr ? "rtl" : "ltr";
   const token = localStorage.getItem("token") || "";
 
-  // =========================
-  // State
-  // =========================
   const [business, setBusiness] = useState(null);
   const [originalForm, setOriginalForm] = useState(null);
   const [form, setForm] = useState({});
@@ -29,9 +23,6 @@ export default function ManageLinks({ lang = "en" }) {
 
   const [activeTab, setActiveTab] = useState("details");
 
-  // =========================
-  // Static data
-  // =========================
   const metaCategories = useMemo(
     () => [
       { key: "AUTOMOTIVE", en: "Automotive", ar: "سيارات" },
@@ -56,9 +47,6 @@ export default function ManageLinks({ lang = "en" }) {
     []
   );
 
-  // =========================
-  // Translations
-  // =========================
   const t = useMemo(
     () =>
       ({
@@ -96,6 +84,7 @@ export default function ManageLinks({ lang = "en" }) {
           confirmDelete: "Are you sure you want to delete this business?",
           loading: "Loading...",
           selectCategory: "Select category",
+
           aiTitle: "AI Optimization",
           aiDesc: "Use AI to improve your description, keywords, and call-to-action based on your business data.",
           aiButton: "✨ Optimize with AI",
@@ -106,9 +95,13 @@ export default function ManageLinks({ lang = "en" }) {
           aiKeywords: "Suggested Keywords",
           aiCta: "CTA",
           aiScore: "Score",
-          aiApply: "Apply Suggestions",
+          aiApply: "🚀 Apply & Improve My Business",
           aiFailed: "AI optimization failed",
           aiRecommendations: "Recommendations",
+          aiStart: "Start AI optimization",
+          aiCorrectionNotes: "AI correction notes",
+          aiCorrectionPlaceholder:
+            "Example: Do not mention Arabic tea, we serve Taiwanese bubble tea",
           currentTopKeywords: "Current top search keywords",
           lowConversionKeywords: "Low conversion keywords",
           tabs_details: "Details",
@@ -117,10 +110,10 @@ export default function ManageLinks({ lang = "en" }) {
           tabs_settings: "Settings",
           noChanges: "No changes to save",
           confirmSave: "Do you want to save these changes?",
-          required: "Required",
-          saveFirst: "Save the changes after applying AI suggestions",
+          saveFirst: "✅ AI suggestions applied — please save changes",
           reoptimize: "🔄 Re-optimize",
-aiCorrectionNotes: "AI correction notes",
+          unsavedChanges: "⚠️ Unsaved changes",
+          aiPoweredHint: "💡 Optimized using real user search data",
         },
         ar: {
           title: "إدارة معلومات نشاطك",
@@ -156,6 +149,7 @@ aiCorrectionNotes: "AI correction notes",
           confirmDelete: "هل أنت متأكد من حذف النشاط؟",
           loading: "جارٍ التحميل...",
           selectCategory: "اختر الفئة",
+
           aiTitle: "التحسين بالذكاء الاصطناعي",
           aiDesc: "استخدم الذكاء الاصطناعي لتحسين الوصف والكلمات المفتاحية والدعوة إلى الإجراء بناءً على بيانات نشاطك.",
           aiButton: "✨ تحسين بالذكاء",
@@ -166,9 +160,13 @@ aiCorrectionNotes: "AI correction notes",
           aiKeywords: "كلمات مفتاحية مقترحة",
           aiCta: "دعوة للإجراء",
           aiScore: "التقييم",
-          aiApply: "تطبيق التحسين",
+          aiApply: "🚀 تطبيق التحسين وزيادة العملاء",
           aiFailed: "فشل التحسين بالذكاء الاصطناعي",
           aiRecommendations: "التوصيات",
+          aiStart: "ابدأ التحسين الذكي",
+          aiCorrectionNotes: "ملاحظات أو تصحيح للذكاء الاصطناعي",
+          aiCorrectionPlaceholder:
+            "مثال: لا تذكر شاي عربي، نحن نقدم bubble tea تايواني",
           currentTopKeywords: "أهم كلمات البحث الحالية",
           lowConversionKeywords: "الكلمات ضعيفة التحويل",
           tabs_details: "البيانات",
@@ -177,18 +175,15 @@ aiCorrectionNotes: "AI correction notes",
           tabs_settings: "الإعدادات",
           noChanges: "لا توجد تغييرات للحفظ",
           confirmSave: "هل تريد حفظ هذه التغييرات؟",
-          required: "مطلوب",
-          saveFirst: "احفظ التغييرات بعد تطبيق اقتراحات الذكاء الاصطناعي",
+          saveFirst: "✅ تم تطبيق التحسين — يرجى حفظ التغييرات",
           reoptimize: "🔄 إعادة التحسين",
-aiCorrectionNotes: "ملاحظات أو تصحيح للذكاء الاصطناعي",
+          unsavedChanges: "⚠️ لديك تغييرات غير محفوظة",
+          aiPoweredHint: "💡 تم تحسين النص اعتمادًا على بيانات البحث الفعلية",
         },
       }[lang] || {}),
     [lang]
   );
 
-  // =========================
-  // Helpers
-  // =========================
   const normalizeFormForCompare = (value) => ({
     name: value?.name || "",
     category: Array.isArray(value?.category)
@@ -206,9 +201,6 @@ aiCorrectionNotes: "ملاحظات أو تصحيح للذكاء الاصطناع
     status: value?.status || "",
   });
 
-  // =========================
-  // Load data
-  // =========================
   useEffect(() => {
     let cancelled = false;
 
@@ -280,9 +272,6 @@ aiCorrectionNotes: "ملاحظات أو تصحيح للذكاء الاصطناع
     };
   }, [token, t.load_failed]);
 
-  // =========================
-  // Derived values
-  // =========================
   const visibilityText =
     business?.status === "Active"
       ? t.visible_yes
@@ -338,9 +327,6 @@ aiCorrectionNotes: "ملاحظات أو تصحيح للذكاء الاصطناع
     return JSON.stringify(normalizeFormForCompare(form)) !== JSON.stringify(originalForm);
   }, [form, originalForm]);
 
-  // =========================
-  // Handlers
-  // =========================
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
@@ -422,67 +408,65 @@ aiCorrectionNotes: "ملاحظات أو تصحيح للذكاء الاصطناع
     }
   };
 
- const runAIOptimization = async () => {
-  try {
-    setAiLoading(true);
-    setFeedback({ type: "", text: "" });
+  const runAIOptimization = async () => {
+    try {
+      setAiLoading(true);
+      setFeedback({ type: "", text: "" });
 
-    const autoNotes =
-      form.name?.toLowerCase().includes("bubble") ||
-      form.description?.toLowerCase().includes("bubble")
-        ? "This is Taiwanese bubble tea. Do NOT mention Arabic tea."
-        : "";
+      const autoNotes =
+        form.name?.toLowerCase().includes("bubble") ||
+        form.description?.toLowerCase().includes("bubble")
+          ? "This is Taiwanese bubble tea. Do NOT mention Arabic tea."
+          : "";
 
-    const res = await fetch(`${API_BASE}/api/business/ai-optimize`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        lang: isAr ? "ar" : "en",
-        topSearchKeywords,
-        lowConversionKeywords,
-        correctionNotes: `${autoNotes} ${aiCorrectionNotes || ""}`,
-      }),
+      const res = await fetch(`${API_BASE}/api/business/ai-optimize`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          lang: isAr ? "ar" : "en",
+          topSearchKeywords,
+          lowConversionKeywords,
+          correctionNotes: `${autoNotes} ${aiCorrectionNotes || ""}`.trim(),
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "Failed");
+
+      setAiResult(data.result || null);
+      setActiveTab("ai");
+    } catch (err) {
+      console.error(err);
+      setFeedback({ type: "error", text: t.aiFailed });
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const applyAiSuggestions = () => {
+    if (!aiResult) return;
+
+    setForm((prev) => ({
+      ...prev,
+      description: aiResult.optimizedDescription || prev.description || "",
+      keywords: Array.isArray(aiResult.suggestedKeywords)
+        ? aiResult.suggestedKeywords
+            .flatMap((k) => String(k).split(",").map((x) => x.trim()))
+            .filter(Boolean)
+        : prev.keywords || [],
+    }));
+
+    setFeedback({
+      type: "success",
+      text: t.saveFirst,
     });
 
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data?.error || "Failed");
+    setActiveTab("details");
+  };
 
-    setAiResult(data.result || null);
-    setActiveTab("ai");
-  } catch (err) {
-    console.error(err);
-    setFeedback({ type: "error", text: t.aiFailed });
-  } finally {
-    setAiLoading(false);
-  }
-};
-
- const applyAiSuggestions = () => {
-  if (!aiResult) return;
-
-  setForm((prev) => ({
-    ...prev,
-    description: aiResult.optimizedDescription || prev.description || "",
-  keywords: Array.isArray(aiResult.suggestedKeywords)
-  ? aiResult.suggestedKeywords.flatMap(k =>
-      String(k).split(",").map(x => x.trim())
-    ).filter(Boolean)
-  : prev.keywords || [],
-  }));
-
- setFeedback({
-  type: "success",
-  text: isAr
-    ? "✅ تم تطبيق التحسين — اضغط حفظ لتثبيت التغييرات"
-    : "✅ AI applied — click Save to confirm changes",
-});
-
-  setActiveTab("details");
-};
-  
   const deleteBusiness = async () => {
     if (!window.confirm(t.confirmDelete)) return;
 
@@ -524,9 +508,6 @@ aiCorrectionNotes: "ملاحظات أو تصحيح للذكاء الاصطناع
     }
   };
 
-  // =========================
-  // Loading
-  // =========================
   if (loading) {
     return (
       <div style={pageWrap(dir)}>
@@ -535,9 +516,6 @@ aiCorrectionNotes: "ملاحظات أو تصحيح للذكاء الاصطناع
     );
   }
 
-  // =========================
-  // Render
-  // =========================
   return (
     <div style={pageWrap(dir)}>
       <section style={heroCard}>
@@ -563,7 +541,6 @@ aiCorrectionNotes: "ملاحظات أو تصحيح للذكاء الاصطناع
         )}
       </section>
 
-      {/* Tabs */}
       <section style={tabsWrap}>
         {[
           { key: "details", label: t.tabs_details },
@@ -581,7 +558,6 @@ aiCorrectionNotes: "ملاحظات أو تصحيح للذكاء الاصطناع
         ))}
       </section>
 
-      {/* Details */}
       {activeTab === "details" && (
         <section style={singlePanelWrap}>
           <div style={panelCard}>
@@ -600,6 +576,8 @@ aiCorrectionNotes: "ملاحظات أو تصحيح للذكاء الاصطناع
                 <strong>{business?.status || "-"}</strong>
               </div>
             </div>
+
+            {isDirty && <div style={unsavedNoticeStyle}>{t.unsavedChanges}</div>}
 
             <div style={formGrid}>
               <div style={fieldBlock}>
@@ -669,6 +647,15 @@ aiCorrectionNotes: "ملاحظات أو تصحيح للذكاء الاصطناع
                   }
                   style={inputStyle(isAr)}
                 />
+                {Array.isArray(form.keywords) && form.keywords.length > 0 && (
+                  <div style={tagsWrapStyle}>
+                    {form.keywords.map((tag, idx) => (
+                      <span key={`${tag}-${idx}`} style={tagStyle}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div style={fieldBlock}>
@@ -745,8 +732,7 @@ aiCorrectionNotes: "ملاحظات أو تصحيح للذكاء الاصطناع
                 onClick={runAIOptimization}
                 disabled={aiLoading}
                 style={{
-                  ...primaryBtn,
-                  background: "#111827",
+                  ...darkBtnStyle,
                   opacity: aiLoading ? 0.7 : 1,
                 }}
               >
@@ -757,13 +743,24 @@ aiCorrectionNotes: "ملاحظات أو تصحيح للذكاء الاصطناع
         </section>
       )}
 
-      {/* AI */}
       {activeTab === "ai" && (
         <section style={singlePanelWrap}>
           <div style={panelCard}>
             <div style={panelHeader}>
               <h3 style={panelTitle}>{t.aiTitle}</h3>
               <p style={panelDesc}>{t.aiDesc}</p>
+            </div>
+
+            <div style={aiHeroStyle}>
+              <div style={aiHeroTitleStyle}>
+                ✨ {isAr ? "تحسين ذكي لنشاطك" : "Smart AI Optimization"}
+              </div>
+              <div style={aiHeroSubtitleStyle}>
+                {isAr
+                  ? "حسّن الظهور والوصف والكلمات المفتاحية بناءً على بيانات البحث"
+                  : "Improve visibility, description, and keywords based on real search data"}
+              </div>
+              <div style={aiPoweredHintStyle}>{t.aiPoweredHint}</div>
             </div>
 
             <div style={summaryRow}>
@@ -782,36 +779,28 @@ aiCorrectionNotes: "ملاحظات أو تصحيح للذكاء الاصطناع
               </div>
             </div>
 
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>{t.aiCorrectionNotes}</label>
+              <textarea
+                value={aiCorrectionNotes}
+                onChange={(e) => setAiCorrectionNotes(e.target.value)}
+                placeholder={t.aiCorrectionPlaceholder}
+                style={{
+                  ...inputStyle(isAr),
+                  minHeight: "90px",
+                  resize: "vertical",
+                }}
+              />
+            </div>
+
             {!aiResult ? (
               <div style={emptyAiStyle}>
-                <div style={{ marginBottom: 12, fontWeight: 700 }}>
-                  {isAr ? "ابدأ التحسين الذكي" : "Start AI optimization"}
-                </div>
-                <div style={{ marginBottom: 14 }}>
-  <label style={labelStyle}>
-    {isAr ? "ملاحظات أو تصحيح للذكاء الاصطناعي" : "AI correction notes"}
-  </label>
-  <textarea
-    value={aiCorrectionNotes}
-    onChange={(e) => setAiCorrectionNotes(e.target.value)}
-    placeholder={
-      isAr
-        ? "مثال: لا تذكر شاي عربي، نحن نقدم bubble tea تايواني"
-        : "Example: Do not mention Arabic tea, we serve Taiwanese bubble tea"
-    }
-    style={{
-      ...inputStyle(isAr),
-      minHeight: "90px",
-      resize: "vertical",
-    }}
-  />
-</div>
+                <div style={{ marginBottom: 12, fontWeight: 700 }}>{t.aiStart}</div>
                 <button
                   onClick={runAIOptimization}
                   disabled={aiLoading}
                   style={{
-                    ...primaryBtn,
-                    background: "#111827",
+                    ...darkBtnStyle,
                     opacity: aiLoading ? 0.7 : 1,
                   }}
                 >
@@ -849,31 +838,28 @@ aiCorrectionNotes: "ملاحظات أو تصحيح للذكاء الاصطناع
                     <div>{aiResult.cta || "-"}</div>
                   </div>
 
-                  <button
-  onClick={runAIOptimization}
-  style={{
-    ...primaryBtn,
-    marginTop: 10,
-    background: "#111827",
-    marginInlineStart: 10,
-  }}
->
-  {aiLoading
-    ? t.aiLoading
-    : isAr
-    ? "🔄 إعادة التحسين"
-    : "🔄 Re-optimize"}
-</button>
-                  <button
-                    onClick={applyAiSuggestions}
-                    style={{
-                      ...primaryBtn,
-                      marginTop: 10,
-                      background: "#2563eb",
-                    }}
-                  >
-                    {t.aiApply}
-                  </button>
+                  <div style={aiButtonsRowStyle}>
+                    <button
+                      onClick={applyAiSuggestions}
+                      style={{
+                        ...primaryBtn,
+                        background: "#2563eb",
+                      }}
+                    >
+                      {t.aiApply}
+                    </button>
+
+                    <button
+                      onClick={runAIOptimization}
+                      disabled={aiLoading}
+                      style={{
+                        ...darkBtnStyle,
+                        opacity: aiLoading ? 0.7 : 1,
+                      }}
+                    >
+                      {aiLoading ? t.aiLoading : t.reoptimize}
+                    </button>
+                  </div>
                 </div>
 
                 <div style={aiSideCardStyle}>
@@ -894,7 +880,6 @@ aiCorrectionNotes: "ملاحظات أو تصحيح للذكاء الاصطناع
         </section>
       )}
 
-      {/* WhatsApp */}
       {activeTab === "whatsapp" && (
         <section style={singlePanelWrap}>
           <div style={panelCard}>
@@ -925,7 +910,6 @@ aiCorrectionNotes: "ملاحظات أو تصحيح للذكاء الاصطناع
         </section>
       )}
 
-      {/* Settings */}
       {activeTab === "settings" && (
         <section style={singlePanelWrap}>
           <div style={panelCard}>
@@ -950,9 +934,6 @@ aiCorrectionNotes: "ملاحظات أو تصحيح للذكاء الاصطناع
   );
 }
 
-// =========================
-// Styles
-// =========================
 const pageWrap = (dir) => ({
   maxWidth: "1280px",
   margin: "0 auto",
@@ -1153,11 +1134,24 @@ const primaryBtn = {
   padding: "12px 18px",
   fontWeight: 700,
   cursor: "pointer",
+  transition: "0.2s",
+};
+
+const darkBtnStyle = {
+  background: "#111827",
+  color: "#fff",
+  border: "none",
+  borderRadius: "12px",
+  padding: "12px 18px",
+  fontWeight: 700,
+  cursor: "pointer",
+  transition: "0.2s",
 };
 
 const primaryBtnDisabled = (disabled) => ({
   ...primaryBtn,
-  opacity: disabled ? 0.6 : 1,
+  background: disabled ? "#9ca3af" : "#16a34a",
+  opacity: disabled ? 0.7 : 1,
   cursor: disabled ? "not-allowed" : "pointer",
 });
 
@@ -1213,6 +1207,12 @@ const errorBox = {
   fontWeight: 600,
 };
 
+const unsavedNoticeStyle = {
+  marginBottom: 12,
+  color: "#f59e0b",
+  fontWeight: 700,
+};
+
 const emptyAiStyle = {
   background: "#f8fafc",
   border: "1px dashed #cbd5e1",
@@ -1220,6 +1220,31 @@ const emptyAiStyle = {
   padding: "20px",
   textAlign: "center",
   color: "#334155",
+};
+
+const aiHeroStyle = {
+  marginBottom: 16,
+  padding: 16,
+  borderRadius: 16,
+  background: "linear-gradient(135deg, #111827, #1f2937)",
+  color: "#fff",
+};
+
+const aiHeroTitleStyle = {
+  fontWeight: 800,
+  marginBottom: 8,
+  fontSize: 18,
+};
+
+const aiHeroSubtitleStyle = {
+  fontSize: 14,
+  opacity: 0.92,
+  marginBottom: 8,
+};
+
+const aiPoweredHintStyle = {
+  fontSize: 13,
+  opacity: 0.9,
 };
 
 const aiGridStyle = {
@@ -1254,6 +1279,13 @@ const aiSectionStyle = {
   lineHeight: 1.7,
 };
 
+const aiButtonsRowStyle = {
+  display: "flex",
+  gap: "10px",
+  flexWrap: "wrap",
+  marginTop: 10,
+};
+
 const aiScoreBox = (score = 0) => ({
   marginBottom: 14,
   background: score >= 80 ? "#dcfce7" : score >= 60 ? "#fef9c3" : "#fee2e2",
@@ -1277,4 +1309,20 @@ const recommendationItemStyle = {
 const mutedTextStyle = {
   color: "#64748b",
   fontSize: "14px",
+};
+
+const tagsWrapStyle = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "6px",
+  marginTop: "10px",
+};
+
+const tagStyle = {
+  background: "#22c55e",
+  color: "#fff",
+  padding: "4px 8px",
+  borderRadius: "8px",
+  fontSize: "12px",
+  fontWeight: 600,
 };
