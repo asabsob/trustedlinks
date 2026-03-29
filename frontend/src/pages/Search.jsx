@@ -176,39 +176,41 @@ export default function Search({ lang = "en" }) {
     return null;
   };
 
- const getDisplayName = (b) => {
-  if (isArabic) return b.name_ar || "";
-  return b.name || "";
+const getDisplayName = (b) => {
+  if (isArabic) return String(b.name_ar || "").trim();
+  return String(b.name || "").trim();
 };
 
 const getDisplayDescription = (b) => {
-  if (isArabic) return b.description_ar || "";
-  return b.description || "";
+  if (isArabic) return String(b.description_ar || "").trim();
+  return String(b.description || "").trim();
 };
 
 const getDisplayKeywords = (b) => {
   if (isArabic) {
-    return Array.isArray(b.keywords_ar) ? b.keywords_ar : [];
+    return Array.isArray(b.keywords_ar)
+      ? b.keywords_ar.map((x) => String(x).trim()).filter(Boolean)
+      : [];
   }
-  return Array.isArray(b.keywords) ? b.keywords : [];
+
+  return Array.isArray(b.keywords)
+    ? b.keywords.map((x) => String(x).trim()).filter(Boolean)
+    : [];
 };
 
   const getSearchBlob = (b) =>
-    normalize(
-      [
-        b.name,
-        b.name_ar,
-        b.description,
-        b.description_ar,
-        b.locationText,
-        b.address,
-        b.city,
-        ...getDisplayKeywords(b),
-        ...(Array.isArray(b.keywords) ? b.keywords : []),
-        ...(Array.isArray(b.keywords_ar) ? b.keywords_ar : []),
-        ...extractCategoryValues(b),
-      ].join(" ")
-    );
+  normalize(
+    [
+      getDisplayName(b),
+      getDisplayDescription(b),
+      ...getDisplayKeywords(b),
+      ...extractCategoryValues(b),
+      isArabic ? "" : String(b.city_en || b.city || ""),
+      isArabic ? String(b.city || "") : "",
+      isArabic ? "" : String(b.locationText_en || ""),
+      isArabic ? String(b.locationText || "") : "",
+    ].join(" ")
+  );
 
   const filteredBusinesses = useMemo(() => {
     const typedCategory = detectSmartCategory(query);
@@ -224,12 +226,16 @@ const getDisplayKeywords = (b) => {
         let score = 0;
 
         if (!q) score += 1;
-        if (q && normalize(displayName).includes(q)) score += 10;
-        if (q && normalize(b.name).includes(q)) score += 6;
-        if (q && normalize(b.name_ar).includes(q)) score += 6;
-        if (q && normalize(displayDescription).includes(q)) score += 4;
-        if (q && normalize(b.locationText).includes(q)) score += 5;
+       if (q && normalize(displayName).includes(q)) score += 10;
+if (q && normalize(displayDescription).includes(q)) score += 4;
 
+if (isArabic) {
+  if (q && normalize(b.name_ar).includes(q)) score += 6;
+  if (q && normalize(b.description_ar).includes(q)) score += 4;
+} else {
+  if (q && normalize(b.name).includes(q)) score += 6;
+  if (q && normalize(b.description).includes(q)) score += 4;
+}
         q.split(/\s+/)
           .filter(Boolean)
           .forEach((word) => {
@@ -302,6 +308,11 @@ const getDisplayKeywords = (b) => {
     if (!url) return "";
     return String(url).startsWith("http") ? url : `https://${url}`;
   };
+
+  const getDisplayLocation = (b) => {
+  if (isArabic) return String(b.locationText_ar || b.locationText || "").trim();
+  return String(b.locationText_en || "").trim();
+};
 
   return (
     <div
@@ -578,30 +589,29 @@ const getDisplayKeywords = (b) => {
                       {displayDescription}
                     </p>
 
-                    {b.locationText ? (
-                      <div
-                        style={{
-                          color: "#64748b",
-                          fontSize: "0.92rem",
-                          marginBottom: 14,
-                          textAlign: isArabic ? "right" : "left",
-                        }}
-                      >
-                        📍 {b.locationText}
-                      </div>
-                    ) : (
-                      <div
-                        style={{
-                          color: "#94a3b8",
-                          fontSize: "0.92rem",
-                          marginBottom: 14,
-                          textAlign: isArabic ? "right" : "left",
-                        }}
-                      >
-                        📍 {t("Location not added", "الموقع غير مضاف")}
-                      </div>
-                    )}
-
+                  {getDisplayLocation(b) ? (
+  <div
+    style={{
+      color: "#64748b",
+      fontSize: "0.92rem",
+      marginBottom: 14,
+      textAlign: isArabic ? "right" : "left",
+    }}
+  >
+    📍 {getDisplayLocation(b)}
+  </div>
+) : (
+  <div
+    style={{
+      color: "#94a3b8",
+      fontSize: "0.92rem",
+      marginBottom: 14,
+      textAlign: isArabic ? "right" : "left",
+    }}
+  >
+    📍 {t("Location not added", "الموقع غير مضاف")}
+  </div>
+)}
                     <div
                       style={{
                         display: "grid",
