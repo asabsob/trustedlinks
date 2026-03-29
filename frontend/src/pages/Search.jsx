@@ -176,26 +176,22 @@ export default function Search({ lang = "en" }) {
     return null;
   };
 
-  const getDisplayName = (b) => {
-    if (isArabic) return b.name_ar || b.name || "";
-    return b.name || b.name_ar || "";
-  };
+ const getDisplayName = (b) => {
+  if (isArabic) return b.name_ar || "";
+  return b.name || "";
+};
 
-  const getDisplayDescription = (b) => {
-    if (isArabic) return b.description_ar || b.description || "";
-    return b.description || b.description_ar || "";
-  };
+const getDisplayDescription = (b) => {
+  if (isArabic) return b.description_ar || "";
+  return b.description || "";
+};
 
-  const getDisplayKeywords = (b) => {
-    if (isArabic) {
-      if (Array.isArray(b.keywords_ar) && b.keywords_ar.length) return b.keywords_ar;
-      if (Array.isArray(b.keywords) && b.keywords.length) return b.keywords;
-      return [];
-    }
-    if (Array.isArray(b.keywords) && b.keywords.length) return b.keywords;
-    if (Array.isArray(b.keywords_ar) && b.keywords_ar.length) return b.keywords_ar;
-    return [];
-  };
+const getDisplayKeywords = (b) => {
+  if (isArabic) {
+    return Array.isArray(b.keywords_ar) ? b.keywords_ar : [];
+  }
+  return Array.isArray(b.keywords) ? b.keywords : [];
+};
 
   const getSearchBlob = (b) =>
     normalize(
@@ -483,11 +479,9 @@ export default function Search({ lang = "en" }) {
                 b.mediaLink && String(b.mediaLink).includes("instagram")
                   ? b.mediaLink
                   : null;
-
-              const displayName = getDisplayName(b) || t("Business", "نشاط");
-              const displayDescription =
-                getDisplayDescription(b) || t("No description available.", "لا يوجد وصف متاح.");
-
+              const displayName = getDisplayName(b) || (isArabic ? "نشاط" : "Business");
+            const displayDescription =
+  getDisplayDescription(b) || (isArabic ? "لا يوجد وصف متاح." : "No description available.");
               return (
                 <div
                   key={businessId}
