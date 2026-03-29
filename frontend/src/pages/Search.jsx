@@ -182,10 +182,10 @@ const getDisplayName = (b) => {
 };
 
 const getDisplayDescription = (b) => {
-  if (isArabic) return String(b.description_ar || "").trim();
-  return String(b.description || "").trim();
+  if (isArabic) return b.description_ar || "";
+  return b.description || "";
 };
-
+  
 const getDisplayKeywords = (b) => {
   if (isArabic) {
     return Array.isArray(b.keywords_ar)
@@ -198,17 +198,12 @@ const getDisplayKeywords = (b) => {
     : [];
 };
 
-  const getSearchBlob = (b) =>
+ const getSearchBlob = (b) =>
   normalize(
     [
       getDisplayName(b),
       getDisplayDescription(b),
       ...getDisplayKeywords(b),
-      ...extractCategoryValues(b),
-      isArabic ? "" : String(b.city_en || b.city || ""),
-      isArabic ? String(b.city || "") : "",
-      isArabic ? "" : String(b.locationText_en || ""),
-      isArabic ? String(b.locationText || "") : "",
     ].join(" ")
   );
 
@@ -257,6 +252,13 @@ if (isArabic) {
 
         return queryOk && categoryOk;
       })
+  .filter((b) => {
+  if (isArabic) {
+    return Boolean(b.name_ar || b.description_ar);
+  } else {
+    return Boolean(b.name || b.description);
+  }
+})
       .sort((a, b) => b._score - a._score);
   }, [businesses, query, category, isArabic]);
 
@@ -491,8 +493,11 @@ if (isArabic) {
                   ? b.mediaLink
                   : null;
               const displayName = getDisplayName(b) || (isArabic ? "نشاط" : "Business");
-            const displayDescription =
-  getDisplayDescription(b) || (isArabic ? "لا يوجد وصف متاح." : "No description available.");
+       const displayDescription =
+  getDisplayDescription(b) ||
+  (isArabic
+    ? "⚠️ لا يوجد وصف عربي — يرجى التحديث"
+    : "⚠️ No English description — please update");
               return (
                 <div
                   key={businessId}
