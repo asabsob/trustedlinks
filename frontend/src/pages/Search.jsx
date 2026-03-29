@@ -4,13 +4,15 @@ import { useNavigate } from "react-router-dom";
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 
 export default function Search({ lang = "en" }) {
+  const navigate = useNavigate();
+  const isArabic = lang === "ar";
+  const dir = isArabic ? "rtl" : "ltr";
+
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
   const [businesses, setBusinesses] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const navigate = useNavigate();
-  const isArabic = lang === "ar";
   const t = (en, ar) => (isArabic ? ar : en);
 
   const metaCategories = useMemo(
@@ -147,6 +149,19 @@ export default function Search({ lang = "en" }) {
         "استشارات",
         "شركة",
       ],
+      BEVERAGES: [
+        "bubble tea",
+        "tea",
+        "drinks",
+        "juice",
+        "smoothie",
+        "beverage",
+        "شاي",
+        "مشروبات",
+        "عصير",
+        "بوبل تي",
+        "بابل تي",
+      ],
     }),
     []
   );
@@ -158,8 +173,28 @@ export default function Search({ lang = "en" }) {
         return categoryKey;
       }
     }
-    
     return null;
+  };
+
+  const getDisplayName = (b) => {
+    if (isArabic) return b.name_ar || b.name || "";
+    return b.name || b.name_ar || "";
+  };
+
+  const getDisplayDescription = (b) => {
+    if (isArabic) return b.description_ar || b.description || "";
+    return b.description || b.description_ar || "";
+  };
+
+  const getDisplayKeywords = (b) => {
+    if (isArabic) {
+      if (Array.isArray(b.keywords_ar) && b.keywords_ar.length) return b.keywords_ar;
+      if (Array.isArray(b.keywords) && b.keywords.length) return b.keywords;
+      return [];
+    }
+    if (Array.isArray(b.keywords) && b.keywords.length) return b.keywords;
+    if (Array.isArray(b.keywords_ar) && b.keywords_ar.length) return b.keywords_ar;
+    return [];
   };
 
   const getSearchBlob = (b) =>
@@ -168,10 +203,13 @@ export default function Search({ lang = "en" }) {
         b.name,
         b.name_ar,
         b.description,
+        b.description_ar,
         b.locationText,
         b.address,
         b.city,
+        ...getDisplayKeywords(b),
         ...(Array.isArray(b.keywords) ? b.keywords : []),
+        ...(Array.isArray(b.keywords_ar) ? b.keywords_ar : []),
         ...extractCategoryValues(b),
       ].join(" ")
     );
@@ -185,12 +223,15 @@ export default function Search({ lang = "en" }) {
       .map((b) => {
         const blob = getSearchBlob(b);
         const categories = extractCategoryValues(b);
+        const displayName = getDisplayName(b);
+        const displayDescription = getDisplayDescription(b);
         let score = 0;
 
         if (!q) score += 1;
-        if (q && normalize(b.name).includes(q)) score += 10;
-        if (q && normalize(b.name_ar).includes(q)) score += 10;
-        if (q && normalize(b.description).includes(q)) score += 4;
+        if (q && normalize(displayName).includes(q)) score += 10;
+        if (q && normalize(b.name).includes(q)) score += 6;
+        if (q && normalize(b.name_ar).includes(q)) score += 6;
+        if (q && normalize(displayDescription).includes(q)) score += 4;
         if (q && normalize(b.locationText).includes(q)) score += 5;
 
         q.split(/\s+/)
@@ -215,7 +256,7 @@ export default function Search({ lang = "en" }) {
         return queryOk && categoryOk;
       })
       .sort((a, b) => b._score - a._score);
-  }, [businesses, query, category]);
+  }, [businesses, query, category, isArabic]);
 
   const trackAction = async (endpoint, businessId) => {
     try {
@@ -250,13 +291,14 @@ export default function Search({ lang = "en" }) {
     ) {
       return b.mediaLink;
     }
-const displayName = isArabic ? (b.name_ar || b.name) : (b.name || b.name_ar);
 
-if (displayName) {
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(
-    displayName
-  )}&background=22c55e&color=fff&size=128`;
-}
+    const displayName = getDisplayName(b);
+
+    if (displayName) {
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(
+        displayName
+      )}&background=22c55e&color=fff&size=128`;
+    }
     return "";
   };
 
@@ -265,38 +307,32 @@ if (displayName) {
     return String(url).startsWith("http") ? url : `https://${url}`;
   };
 
-  const getBusinessDisplayName = (b) => {
-  if (!b) return "";
-  if (isArabic) return b.name_ar || b.name || "";
-  return b.name || b.name_ar || "";
-};
-  
   return (
     <div
       style={{
         minHeight: "100vh",
         background: "#f8fafc",
-        padding: "26px 16px 40px",
+        padding: "20px 14px 40px",
         fontFamily: isArabic ? "Tajawal, Inter, sans-serif" : "Inter, sans-serif",
-        direction: isArabic ? "rtl" : "ltr",
+        direction: dir,
       }}
     >
-      <div style={{ maxWidth: 1180, margin: "0 auto" }}>
+      <div style={{ maxWidth: 1220, margin: "0 auto" }}>
         <div
           style={{
             background: "linear-gradient(135deg, #16a34a, #22c55e)",
-            borderRadius: 24,
-            padding: "30px 22px",
+            borderRadius: 26,
+            padding: "30px 20px",
             color: "#fff",
             marginBottom: 18,
-            boxShadow: "0 14px 35px rgba(34,197,94,0.18)",
+            boxShadow: "0 16px 36px rgba(34,197,94,0.18)",
           }}
         >
           <h1
             style={{
               margin: 0,
               textAlign: "center",
-              fontSize: "clamp(1.9rem, 4vw, 2.8rem)",
+              fontSize: "clamp(1.9rem, 4vw, 2.9rem)",
               fontWeight: 800,
               lineHeight: 1.2,
             }}
@@ -310,7 +346,8 @@ if (displayName) {
               maxWidth: 760,
               textAlign: "center",
               lineHeight: 1.9,
-              color: "rgba(255,255,255,0.95)",
+              color: "rgba(255,255,255,0.96)",
+              fontSize: "0.98rem",
             }}
           >
             {t(
@@ -334,8 +371,9 @@ if (displayName) {
             className="search-top-grid"
             style={{
               display: "grid",
-              gridTemplateColumns: "2fr 1fr",
+              gridTemplateColumns: "1.7fr 1fr auto",
               gap: 12,
+              alignItems: "center",
             }}
           >
             <input
@@ -349,11 +387,12 @@ if (displayName) {
               style={{
                 width: "100%",
                 padding: "14px 16px",
-                borderRadius: 12,
+                borderRadius: 14,
                 border: "1px solid #cbd5e1",
                 outline: "none",
                 fontSize: "1rem",
                 boxSizing: "border-box",
+                textAlign: isArabic ? "right" : "left",
               }}
             />
 
@@ -363,13 +402,13 @@ if (displayName) {
               style={{
                 width: "100%",
                 padding: "14px 16px",
-                borderRadius: 12,
+                borderRadius: 14,
                 border: "1px solid #cbd5e1",
                 outline: "none",
                 fontSize: "1rem",
                 background: "#fff",
                 boxSizing: "border-box",
-                direction: isArabic ? "rtl" : "ltr",
+                direction: dir,
               }}
             >
               <option value="all">{t("All Categories", "كل الفئات")}</option>
@@ -379,6 +418,25 @@ if (displayName) {
                 </option>
               ))}
             </select>
+
+            <button
+              onClick={() => {
+                setQuery("");
+                setCategory("all");
+              }}
+              style={{
+                background: "#f8fafc",
+                border: "1px solid #dbe2ea",
+                borderRadius: 14,
+                padding: "14px 16px",
+                cursor: "pointer",
+                fontWeight: 700,
+                color: "#0f172a",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {t("Clear Filters", "مسح الفلاتر")}
+            </button>
           </div>
         </div>
 
@@ -397,50 +455,14 @@ if (displayName) {
               ? t("Loading businesses...", "جارٍ تحميل الأنشطة...")
               : `${filteredBusinesses.length} ${t("results", "نتيجة")}`}
           </div>
-
-          <button
-            onClick={() => {
-              setQuery("");
-              setCategory("all");
-            }}
-            style={{
-              background: "#fff",
-              border: "1px solid #dbe2ea",
-              borderRadius: 12,
-              padding: "10px 14px",
-              cursor: "pointer",
-              fontWeight: 700,
-              color: "#0f172a",
-            }}
-          >
-            {t("Clear Filters", "مسح الفلاتر")}
-          </button>
         </div>
 
         {loading ? (
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: 18,
-              padding: "32px 20px",
-              textAlign: "center",
-              border: "1px solid #e5e7eb",
-              color: "#64748b",
-            }}
-          >
+          <div style={emptyStateStyle}>
             {t("Loading...", "جارٍ التحميل...")}
           </div>
         ) : filteredBusinesses.length === 0 ? (
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: 18,
-              padding: "32px 20px",
-              textAlign: "center",
-              border: "1px solid #e5e7eb",
-              color: "#64748b",
-            }}
-          >
+          <div style={emptyStateStyle}>
             {t("No matching businesses found.", "لم يتم العثور على نتائج مطابقة.")}
           </div>
         ) : (
@@ -448,7 +470,7 @@ if (displayName) {
             className="cards-grid"
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(270px, 1fr))",
               gap: 18,
             }}
           >
@@ -461,6 +483,10 @@ if (displayName) {
                 b.mediaLink && String(b.mediaLink).includes("instagram")
                   ? b.mediaLink
                   : null;
+
+              const displayName = getDisplayName(b) || t("Business", "نشاط");
+              const displayDescription =
+                getDisplayDescription(b) || t("No description available.", "لا يوجد وصف متاح.");
 
               return (
                 <div
@@ -491,7 +517,7 @@ if (displayName) {
                   >
                     <img
                       src={logoUrl}
-                      alt={b.name || b.name_ar || "Logo"}
+                      alt={displayName}
                       style={{
                         width: 84,
                         height: 84,
@@ -503,18 +529,19 @@ if (displayName) {
                       }}
                     />
 
-                    <div style={{ textAlign: "center" }}>
-                    <h3
-  style={{
-    margin: "0 0 8px",
-    fontSize: "1.12rem",
-    fontWeight: 800,
-    color: "#0f172a",
-    lineHeight: 1.4,
-  }}
->
-  {getBusinessDisplayName(b) || t("Business", "نشاط")}
-</h3>
+                    <div style={{ textAlign: "center", width: "100%" }}>
+                      <h3
+                        style={{
+                          margin: "0 0 8px",
+                          fontSize: "1.12rem",
+                          fontWeight: 800,
+                          color: "#0f172a",
+                          lineHeight: 1.4,
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {displayName}
+                      </h3>
 
                       <div
                         style={{
@@ -546,11 +573,15 @@ if (displayName) {
                         lineHeight: 1.8,
                         margin: "0 0 10px",
                         fontSize: "0.95rem",
-                        minHeight: 52,
+                        minHeight: 74,
                         textAlign: isArabic ? "right" : "left",
+                        display: "-webkit-box",
+                        WebkitLineClamp: 4,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
                       }}
                     >
-                      {b.description || t("No description available.", "لا يوجد وصف متاح.")}
+                      {displayDescription}
                     </p>
 
                     {b.locationText ? (
@@ -674,7 +705,7 @@ if (displayName) {
       </div>
 
       <style>{`
-        @media (max-width: 820px) {
+        @media (max-width: 900px) {
           .search-top-grid {
             grid-template-columns: 1fr !important;
           }
@@ -689,3 +720,12 @@ if (displayName) {
     </div>
   );
 }
+
+const emptyStateStyle = {
+  background: "#fff",
+  borderRadius: 18,
+  padding: "32px 20px",
+  textAlign: "center",
+  border: "1px solid #e5e7eb",
+  color: "#64748b",
+};
