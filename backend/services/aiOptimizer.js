@@ -46,7 +46,7 @@ Rules:
 5. CTA should be short and action-oriented.
 6. Score should be from 0 to 100.
 7. Return strict JSON only.
-8. JSON keys must be:
+8. JSON keys must be exactly:
 {
   "headline": string,
   "optimizedDescription": string,
@@ -61,12 +61,43 @@ Rules:
 export async function optimizeBusinessProfile(input) {
   const prompt = buildPrompt(input);
 
- const response = await client.responses.create({
-  model: "gpt-4.1-mini",
-  input: prompt,
-  temperature: 0.4,
-  response_format: { type: "json_object" },
-});
+  const response = await client.responses.create({
+    model: "gpt-4.1-mini",
+    input: prompt,
+    temperature: 0.4,
+    text: {
+      format: {
+        type: "json_schema",
+        name: "business_profile_optimization",
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            headline: { type: "string" },
+            optimizedDescription: { type: "string" },
+            suggestedKeywords: {
+              type: "array",
+              items: { type: "string" },
+            },
+            cta: { type: "string" },
+            recommendations: {
+              type: "array",
+              items: { type: "string" },
+            },
+            score: { type: "number" },
+          },
+          required: [
+            "headline",
+            "optimizedDescription",
+            "suggestedKeywords",
+            "cta",
+            "recommendations",
+            "score",
+          ],
+        },
+      },
+    },
+  });
 
   const text = response.output_text?.trim() || "";
 
@@ -77,16 +108,21 @@ export async function optimizeBusinessProfile(input) {
   let parsed;
   try {
     parsed = JSON.parse(text);
-  } catch {
-    throw new Error("AI returned non-JSON output");
+  } catch (err) {
+    console.error("AI raw output:", text);
+    throw new Error("AI returned invalid JSON");
   }
 
   return {
     headline: String(parsed.headline || "").trim(),
     optimizedDescription: String(parsed.optimizedDescription || "").trim(),
-    suggestedKeywords: safeArray(parsed.suggestedKeywords).map((x) => String(x).trim()).filter(Boolean),
+    suggestedKeywords: safeArray(parsed.suggestedKeywords)
+      .map((x) => String(x).trim())
+      .filter(Boolean),
     cta: String(parsed.cta || "").trim(),
-    recommendations: safeArray(parsed.recommendations).map((x) => String(x).trim()).filter(Boolean),
+    recommendations: safeArray(parsed.recommendations)
+      .map((x) => String(x).trim())
+      .filter(Boolean),
     score: Number(parsed.score || 0),
   };
 }
