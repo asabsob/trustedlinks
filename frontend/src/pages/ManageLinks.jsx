@@ -24,6 +24,7 @@ export default function ManageLinks({ lang = "en" }) {
 
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState(null);
+  const [aiCorrectionNotes, setAiCorrectionNotes] = useState("");
   const [reportsData, setReportsData] = useState(null);
 
   const [activeTab, setActiveTab] = useState("details");
@@ -118,6 +119,8 @@ export default function ManageLinks({ lang = "en" }) {
           confirmSave: "Do you want to save these changes?",
           required: "Required",
           saveFirst: "Save the changes after applying AI suggestions",
+          reoptimize: "🔄 Re-optimize",
+aiCorrectionNotes: "AI correction notes",
         },
         ar: {
           title: "إدارة معلومات نشاطك",
@@ -176,6 +179,8 @@ export default function ManageLinks({ lang = "en" }) {
           confirmSave: "هل تريد حفظ هذه التغييرات؟",
           required: "مطلوب",
           saveFirst: "احفظ التغييرات بعد تطبيق اقتراحات الذكاء الاصطناعي",
+          reoptimize: "🔄 إعادة التحسين",
+aiCorrectionNotes: "ملاحظات أو تصحيح للذكاء الاصطناعي",
         },
       }[lang] || {}),
     [lang]
@@ -428,12 +433,12 @@ export default function ManageLinks({ lang = "en" }) {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          lang,
-          topSearchKeywords,
-          lowConversionKeywords,
-        }),
-      });
+      body: JSON.stringify({
+  lang,
+  topSearchKeywords,
+  lowConversionKeywords,
+  correctionNotes: aiCorrectionNotes,
+}),
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || "Failed");
@@ -448,24 +453,24 @@ export default function ManageLinks({ lang = "en" }) {
     }
   };
 
-  const applyAiSuggestions = () => {
-    if (!aiResult) return;
+ const applyAiSuggestions = () => {
+  if (!aiResult) return;
 
-    setForm((prev) => ({
-      ...prev,
-      description: aiResult.optimizedDescription || prev.description || "",
-      keywords: Array.isArray(aiResult.suggestedKeywords)
-        ? aiResult.suggestedKeywords
-        : prev.keywords || [],
-    }));
+  setForm((prev) => ({
+    ...prev,
+    description: aiResult.optimizedDescription || prev.description || "",
+    keywords: Array.isArray(aiResult.suggestedKeywords)
+      ? aiResult.suggestedKeywords
+      : prev.keywords || [],
+  }));
 
-    setFeedback({
-      type: "success",
-      text: t.saveFirst,
-    });
-    setActiveTab("details");
-  };
-
+  setFeedback({
+    type: "success",
+    text: t.saveFirst,
+  });
+  setActiveTab("details");
+};
+  
   const deleteBusiness = async () => {
     if (!window.confirm(t.confirmDelete)) return;
 
@@ -770,6 +775,25 @@ export default function ManageLinks({ lang = "en" }) {
                 <div style={{ marginBottom: 12, fontWeight: 700 }}>
                   {isAr ? "ابدأ التحسين الذكي" : "Start AI optimization"}
                 </div>
+                <div style={{ marginBottom: 14 }}>
+  <label style={labelStyle}>
+    {isAr ? "ملاحظات أو تصحيح للذكاء الاصطناعي" : "AI correction notes"}
+  </label>
+  <textarea
+    value={aiCorrectionNotes}
+    onChange={(e) => setAiCorrectionNotes(e.target.value)}
+    placeholder={
+      isAr
+        ? "مثال: لا تذكر شاي عربي، نحن نقدم bubble tea تايواني"
+        : "Example: Do not mention Arabic tea, we serve Taiwanese bubble tea"
+    }
+    style={{
+      ...inputStyle(isAr),
+      minHeight: "90px",
+      resize: "vertical",
+    }}
+  />
+</div>
                 <button
                   onClick={runAIOptimization}
                   disabled={aiLoading}
@@ -813,6 +837,21 @@ export default function ManageLinks({ lang = "en" }) {
                     <div>{aiResult.cta || "-"}</div>
                   </div>
 
+                  <button
+  onClick={runAIOptimization}
+  style={{
+    ...primaryBtn,
+    marginTop: 10,
+    background: "#111827",
+    marginInlineStart: 10,
+  }}
+>
+  {aiLoading
+    ? t.aiLoading
+    : isAr
+    ? "🔄 إعادة التحسين"
+    : "🔄 Re-optimize"}
+</button>
                   <button
                     onClick={applyAiSuggestions}
                     style={{
