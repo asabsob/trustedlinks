@@ -1492,7 +1492,21 @@ app.put("/api/business/update", requireUser, async (req, res) => {
     if (whatsapp !== undefined) b.whatsapp = whatsapp;
     if (countryCode !== undefined) b.countryCode = countryCode;
     if (countryName !== undefined) b.countryName = countryName;
+if (typeof description === "string") business.description = description.trim();
 
+if (Array.isArray(category)) {
+  business.category = category.map((x) => String(x).trim()).filter(Boolean);
+}
+
+if (Array.isArray(keywords)) {
+  business.keywords = keywords.map((x) => String(x).trim()).filter(Boolean);
+}
+
+if (typeof mediaLink === "string") business.mediaLink = mediaLink.trim();
+if (typeof mapLink === "string") business.mapLink = mapLink.trim();
+
+if (latitude !== undefined) business.latitude = latitude;
+if (longitude !== undefined) business.longitude = longitude;
     if (instagram !== undefined) {
       const cleanInstagram = String(instagram || "").trim().replace(/^@+/, "");
       b.mediaLink = cleanInstagram
@@ -1547,10 +1561,11 @@ app.post("/api/business/ai-optimize", requireUser, async (req, res) => {
     }
 
     const {
-      topSearchKeywords = [],
-      lowConversionKeywords = [],
-      lang = "en",
-    } = req.body || {};
+  topSearchKeywords = [],
+  lowConversionKeywords = [],
+  correctionNotes = "",
+  lang = "en",
+} = req.body || {};
 
     const result = await optimizeBusinessProfile({
       businessName: business.name || "",
@@ -1564,6 +1579,7 @@ app.post("/api/business/ai-optimize", requireUser, async (req, res) => {
       lowConversionKeywords,
       locationText: business.locationText || "",
       countryName: business.countryName || "",
+        correctionNotes,
       lang,
     });
 
