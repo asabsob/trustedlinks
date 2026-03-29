@@ -22,6 +22,7 @@ export default function ManageLinks({ lang = "en" }) {
 
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState(null);
+  const [reportsData, setReportsData] = useState(null);
 
   // =========================
   // Static data
@@ -179,6 +180,22 @@ export default function ManageLinks({ lang = "en" }) {
           ...data,
           keywords: Array.isArray(data?.keywords) ? data.keywords : [],
         });
+        try {
+  const reportsRes = await fetch(`${API_BASE}/api/business/reports`, {
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const reportsJson = await reportsRes.json().catch(() => null);
+
+  if (reportsRes.ok) {
+    setReportsData(reportsJson);
+  }
+} catch (reportsErr) {
+  console.error("Failed to load reports data for AI:", reportsErr);
+}
       } catch (err) {
         console.error("❌ Failed to load business info:", err);
         if (!cancelled) {
@@ -233,6 +250,29 @@ export default function ManageLinks({ lang = "en" }) {
         }
       : null;
 
+  const topSearchKeywords = useMemo(() => {
+  return Array.isArray(reportsData?.keywords)
+    ? reportsData.keywords
+        .slice(0, 5)
+        .map((k) => String(k.keyword || "").trim())
+        .filter(Boolean)
+    : [];
+}, [reportsData]);
+
+const lowConversionKeywords = useMemo(() => {
+  return Array.isArray(reportsData?.keywords)
+    ? reportsData.keywords
+        .filter((k) => {
+          const searches = Number(k.searches || 0);
+          const clicks = Number(k.clicks || 0);
+          const conversion = searches > 0 ? (clicks / searches) * 100 : 0;
+          return searches >= 3 && conversion < 20;
+        })
+        .slice(0, 5)
+        .map((k) => String(k.keyword || "").trim())
+        .filter(Boolean)
+    : [];
+}, [reportsData]);
   // =========================
   // Handlers
   // =========================
@@ -314,11 +354,11 @@ export default function ManageLinks({ lang = "en" }) {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          lang,
-          topSearchKeywords: [],
-          lowConversionKeywords: [],
-        }),
+      body: JSON.stringify({
+  lang,
+  topSearchKeywords,
+  lowConversionKeywords,
+}),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -645,6 +685,15 @@ export default function ManageLinks({ lang = "en" }) {
                 <div>{aiResult.score || 0}/100</div>
               </div>
 
+              <div style={{ marginBottom: 10 }}>
+  <strong>{isAr ? "أهم كلمات البحث الحالية:" : "Current top search keywords:"}</strong>
+  <div>{topSearchKeywords.join(", ") || "-"}</div>
+</div>
+
+              <div style={{ marginBottom: 10 }}>
+  <strong>{isAr ? "كلمات ضعيفة التحويل:" : "Low conversion keywords:"}</strong>
+  <div>{lowConversionKeywords.join(", ") || "-"}</div>
+</div>
               <button
                 onClick={applyAiSuggestions}
                 style={{
