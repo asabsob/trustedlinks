@@ -658,23 +658,35 @@ const recommendations = getRecommendations({
   <h2 className="mb-4 text-lg font-semibold text-slate-900">{t.hourlyTrend}</h2>
 
   {hourlyData.length ? (
-    <div className="h-[320px] w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={hourlyData}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="hour" />
-          <YAxis />
-          <Tooltip />
-          <Legend />
-          <Bar
-            dataKey="count"
-            fill="#22c55e"
-            name={t.searchCount}
-            radius={[6, 6, 0, 0]}
-          />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
+    <>
+      {data?.peakHour && (
+        <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+          {isAr
+            ? `🔥 أعلى وقت نشاط: ${data.peakHour}:00 — يفضل التفاعل أو نشر العروض في هذا الوقت`
+            : `🔥 Peak activity at ${data.peakHour}:00 — best time to engage or promote`}
+        </div>
+      )}
+
+      <div className="h-[320px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={hourlyData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="hour" />
+            <YAxis />
+            <Tooltip />
+            <Legend />
+            <Bar dataKey="count" radius={[6, 6, 0, 0]} name={t.searchCount}>
+              {hourlyData.map((entry, index) => (
+                <Cell
+                  key={`cell-${index}`}
+                  fill={entry.hour === data?.peakHour ? "#16a34a" : "#22c55e"}
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </>
   ) : (
     <EmptyState text={t.noActivity} />
   )}
