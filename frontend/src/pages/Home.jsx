@@ -494,28 +494,30 @@ export default function Home({ lang }) {
                   : "Or open WhatsApp directly from the button below."}
               </div>
 
-              <a
+                         <a
                 href={whatsappLink}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
-                  display: "inline-block",
-                  marginTop: "16px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                   background: "#16a34a",
                   color: "#fff",
                   textDecoration: "none",
                   padding: "12px 18px",
                   borderRadius: "14px",
                   fontWeight: "800",
+                  minWidth: "220px",
                 }}
               >
                 {isArabic ? "فتح واتساب المنصة" : "Open Platform WhatsApp"}
               </a>
             </div>
           </div>
-      </section>
+        </section>
 
-       {/* VALUE STRIP */}
+        {/* VALUE STRIP */}
         <section
           className="value-strip"
           style={{
