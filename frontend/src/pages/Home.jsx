@@ -4,6 +4,10 @@ import { Link } from "react-router-dom";
 export default function Home({ lang }) {
   const isArabic = lang === "ar";
 
+  // =========================
+  // Update with platform WhatsApp number
+  // Example: 962790000000
+  // =========================
   const whatsappNumber = "97472097723";
   const whatsappMessage = isArabic
     ? "مرحبا، أريد البحث عن نشاط عبر TrustedLinks"
@@ -13,22 +17,44 @@ export default function Home({ lang }) {
     whatsappMessage
   )}`;
 
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(
     whatsappLink
   )}`;
 
   const businessSteps = isArabic
     ? [
-        "سجّل نشاطك",
-        "أضف البيانات والروابط",
-        "فعّل واتساب",
-        "ابدأ الظهور",
+        {
+          no: "01",
+          title: "أنشئ ملف نشاطك",
+          desc: "أضف اسم النشاط والبيانات الأساسية.",
+        },
+        {
+          no: "02",
+          title: "أضف الروابط والوصف",
+          desc: "واتساب، الموقع، والوصف المناسب.",
+        },
+        {
+          no: "03",
+          title: "فعّل التوثيق",
+          desc: "زد الثقة واجعل الوصول أوضح.",
+        },
       ]
     : [
-        "Register business",
-        "Add profile details",
-        "Verify WhatsApp",
-        "Start getting discovered",
+        {
+          no: "01",
+          title: "Create your profile",
+          desc: "Add your business name and core details.",
+        },
+        {
+          no: "02",
+          title: "Add links and description",
+          desc: "WhatsApp, location, and clear profile info.",
+        },
+        {
+          no: "03",
+          title: "Verify and grow",
+          desc: "Build trust and make discovery easier.",
+        },
       ];
 
   return (
@@ -36,137 +62,176 @@ export default function Home({ lang }) {
       style={{
         fontFamily: isArabic ? "Tajawal, sans-serif" : "Inter, sans-serif",
         direction: isArabic ? "rtl" : "ltr",
-        background: "#f8fafc",
+        background:
+          "radial-gradient(circle at top, rgba(34,197,94,0.08), transparent 28%), #f8fafc",
         minHeight: "100vh",
-        padding: "24px 14px 40px",
+        padding: "24px 14px 50px",
       }}
     >
-      <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
+      <div style={{ maxWidth: "1160px", margin: "0 auto" }}>
         {/* HERO */}
         <section
           style={{
-            background: "linear-gradient(135deg, #16a34a, #22c55e)",
+            position: "relative",
+            background: "linear-gradient(135deg, #16a34a 0%, #22c55e 55%, #4ade80 100%)",
             color: "#fff",
-            borderRadius: "28px",
-            padding: "48px 22px",
-            boxShadow: "0 18px 40px rgba(34,197,94,0.18)",
+            borderRadius: "30px",
+            padding: "56px 24px",
+            boxShadow: "0 24px 60px rgba(34,197,94,0.20)",
             marginBottom: "22px",
+            overflow: "hidden",
             textAlign: "center",
           }}
         >
           <div
             style={{
-              display: "inline-block",
-              padding: "8px 14px",
+              position: "absolute",
+              width: "260px",
+              height: "260px",
               borderRadius: "999px",
-              background: "rgba(255,255,255,0.14)",
-              border: "1px solid rgba(255,255,255,0.18)",
-              fontSize: "0.85rem",
-              fontWeight: "700",
-              marginBottom: "16px",
+              background: "rgba(255,255,255,0.10)",
+              top: "-80px",
+              [isArabic ? "left" : "right"]: "-70px",
+              filter: "blur(4px)",
             }}
-          >
-            {isArabic ? "طريقة أبسط للوصول إلى الأنشطة" : "A simpler way to reach businesses"}
-          </div>
-
-          <h1
-            style={{
-              fontSize: "clamp(2rem, 5vw, 3.2rem)",
-              fontWeight: "800",
-              lineHeight: "1.15",
-              margin: "0 0 14px",
-              maxWidth: "780px",
-              marginInline: "auto",
-            }}
-          >
-            {isArabic
-              ? "TrustedLinks تربط العملاء بالشركات بسرعة"
-              : "TrustedLinks connects customers with businesses quickly"}
-          </h1>
-
-          <p
-            style={{
-              maxWidth: "700px",
-              margin: "0 auto 24px",
-              color: "rgba(255,255,255,0.95)",
-              lineHeight: "1.9",
-              fontSize: "1rem",
-            }}
-          >
-            {isArabic
-              ? "ابحث، تواصل، أو سجّل نشاطك في تجربة أوضح وأبسط."
-              : "Search, connect, or register your business in a simpler experience."}
-          </p>
-
-          <div
-            className="hero-actions"
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              gap: "12px",
-              flexWrap: "wrap",
-            }}
-          >
-            <Link
-              to="/search"
-              style={{
-                background: "#fff",
-                color: "#16a34a",
-                textDecoration: "none",
-                padding: "13px 22px",
-                borderRadius: "12px",
-                fontWeight: "700",
-              }}
-            >
-              {isArabic ? "استكشف الأنشطة" : "Explore Businesses"}
-            </Link>
-
-            <Link
-              to="/register"
-              style={{
-                background: "#0f172a",
-                color: "#fff",
-                textDecoration: "none",
-                padding: "13px 22px",
-                borderRadius: "12px",
-                fontWeight: "700",
-              }}
-            >
-              {isArabic ? "سجّل نشاطك" : "Register Your Business"}
-            </Link>
-          </div>
-        </section>
-
-        {/* TWO MAIN CARDS */}
-        <section
-          className="main-grid"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1.1fr 0.9fr",
-            gap: "18px",
-            marginBottom: "22px",
-          }}
-        >
-          {/* BUSINESSES */}
+          />
           <div
             style={{
-              background: "#fff",
-              borderRadius: "22px",
-              padding: "24px",
-              border: "1px solid #e5e7eb",
-              boxShadow: "0 8px 24px rgba(15,23,42,0.05)",
+              position: "absolute",
+              width: "180px",
+              height: "180px",
+              borderRadius: "999px",
+              background: "rgba(255,255,255,0.08)",
+              bottom: "-50px",
+              [isArabic ? "right" : "left"]: "-40px",
+            }}
+          />
+
+          <div
+            style={{
+              position: "relative",
+              zIndex: 2,
+              maxWidth: "840px",
+              margin: "0 auto",
             }}
           >
             <div
               style={{
                 display: "inline-block",
-                padding: "6px 12px",
+                padding: "9px 16px",
+                borderRadius: "999px",
+                background: "rgba(255,255,255,0.15)",
+                border: "1px solid rgba(255,255,255,0.20)",
+                fontSize: "0.86rem",
+                fontWeight: "700",
+                marginBottom: "18px",
+                backdropFilter: "blur(6px)",
+              }}
+            >
+              {isArabic ? "اكتشاف أوضح ووصول أسرع" : "Clearer discovery, faster access"}
+            </div>
+
+            <h1
+              style={{
+                fontSize: "clamp(2.1rem, 5vw, 3.6rem)",
+                fontWeight: "900",
+                lineHeight: "1.08",
+                margin: "0 0 16px",
+                letterSpacing: "-0.02em",
+              }}
+            >
+              {isArabic
+                ? "الوصول إلى الأنشطة أصبح أبسط وأكثر موثوقية"
+                : "Reaching trusted businesses just became simpler"}
+            </h1>
+
+            <p
+              style={{
+                maxWidth: "760px",
+                margin: "0 auto 28px",
+                color: "rgba(255,255,255,0.96)",
+                lineHeight: "1.95",
+                fontSize: "1.02rem",
+              }}
+            >
+              {isArabic
+                ? "TrustedLinks تربط الأفراد بالشركات من خلال تجربة واضحة: اكتشف النشاط، افتح جهة التواصل، أو سجّل نشاطك ليصل إليك العملاء بسهولة."
+                : "TrustedLinks helps people discover businesses, reach the right contact faster, and helps businesses present themselves more clearly."}
+            </p>
+
+            <div
+              className="hero-actions"
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                gap: "12px",
+                flexWrap: "wrap",
+              }}
+            >
+              <Link
+                to="/search"
+                style={{
+                  background: "#fff",
+                  color: "#16a34a",
+                  textDecoration: "none",
+                  padding: "14px 24px",
+                  borderRadius: "14px",
+                  fontWeight: "800",
+                  boxShadow: "0 10px 25px rgba(0,0,0,0.08)",
+                }}
+              >
+                {isArabic ? "استكشف الأنشطة" : "Explore Businesses"}
+              </Link>
+
+              <Link
+                to="/register"
+                style={{
+                  background: "#0f172a",
+                  color: "#fff",
+                  textDecoration: "none",
+                  padding: "14px 24px",
+                  borderRadius: "14px",
+                  fontWeight: "800",
+                  boxShadow: "0 10px 25px rgba(15,23,42,0.18)",
+                }}
+              >
+                {isArabic ? "سجّل نشاطك" : "Register Your Business"}
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* PREMIUM SPLIT SECTION */}
+        <section
+          className="premium-grid"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1.08fr 0.92fr",
+            gap: "18px",
+            marginBottom: "22px",
+          }}
+        >
+          {/* Businesses card */}
+          <div
+            style={{
+              background: "rgba(255,255,255,0.92)",
+              backdropFilter: "blur(10px)",
+              borderRadius: "26px",
+              padding: "26px",
+              border: "1px solid rgba(226,232,240,0.95)",
+              boxShadow: "0 12px 30px rgba(15,23,42,0.06)",
+            }}
+          >
+            <div
+              style={{
+                display: "inline-block",
+                padding: "7px 13px",
                 borderRadius: "999px",
                 background: "#ecfdf5",
                 color: "#16a34a",
                 fontSize: "0.82rem",
-                fontWeight: "700",
-                marginBottom: "14px",
+                fontWeight: "800",
+                marginBottom: "16px",
               }}
             >
               {isArabic ? "للشركات" : "For Businesses"}
@@ -174,66 +239,80 @@ export default function Home({ lang }) {
 
             <h2
               style={{
-                fontSize: "1.45rem",
-                fontWeight: "800",
+                fontSize: "1.6rem",
+                fontWeight: "900",
                 color: "#0f172a",
                 margin: "0 0 10px",
                 textAlign: isArabic ? "right" : "left",
               }}
             >
-              {isArabic ? "اعرض نشاطك بشكل أوضح" : "Show your business more clearly"}
+              {isArabic
+                ? "قدّم نشاطك بصورة احترافية"
+                : "Present your business with clarity"}
             </h2>
 
             <p
               style={{
                 color: "#64748b",
                 lineHeight: "1.9",
-                margin: "0 0 18px",
+                margin: "0 0 20px",
                 textAlign: isArabic ? "right" : "left",
+                fontSize: "0.98rem",
               }}
             >
               {isArabic
-                ? "أضف بيانات نشاطك، فعّل واتساب، وسهّل وصول العملاء إليك."
-                : "Add your business details, verify WhatsApp, and make it easier for customers to reach you."}
+                ? "أضف بيانات نشاطك، روابطك الرسمية، ورقم واتساب لتسهيل وصول العملاء إلى جهة التواصل الصحيحة."
+                : "Add your business details, official links, and WhatsApp so customers can reach the right contact point faster."}
             </p>
 
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
                 gap: "12px",
-                marginBottom: "18px",
+                marginBottom: "20px",
               }}
             >
-              {businessSteps.map((step, i) => (
+              {businessSteps.map((step) => (
                 <div
-                  key={step}
+                  key={step.no}
                   style={{
                     background: "#f8fafc",
                     border: "1px solid #e2e8f0",
-                    borderRadius: "16px",
-                    padding: "16px",
+                    borderRadius: "18px",
+                    padding: "18px",
                   }}
                 >
                   <div
                     style={{
                       color: "#16a34a",
-                      fontWeight: "800",
-                      fontSize: "0.85rem",
-                      marginBottom: "8px",
+                      fontWeight: "900",
+                      fontSize: "0.84rem",
+                      marginBottom: "10px",
                     }}
                   >
-                    {String(i + 1).padStart(2, "0")}
+                    {step.no}
                   </div>
 
                   <div
                     style={{
                       color: "#0f172a",
-                      fontWeight: "700",
-                      lineHeight: "1.6",
+                      fontWeight: "800",
+                      lineHeight: "1.55",
+                      marginBottom: "6px",
                     }}
                   >
-                    {step}
+                    {step.title}
+                  </div>
+
+                  <div
+                    style={{
+                      color: "#64748b",
+                      lineHeight: "1.7",
+                      fontSize: "0.92rem",
+                    }}
+                  >
+                    {step.desc}
                   </div>
                 </div>
               ))}
@@ -247,35 +326,36 @@ export default function Home({ lang }) {
                 color: "#fff",
                 textDecoration: "none",
                 padding: "12px 18px",
-                borderRadius: "12px",
-                fontWeight: "700",
+                borderRadius: "14px",
+                fontWeight: "800",
               }}
             >
-              {isArabic ? "ابدأ التسجيل" : "Start Registration"}
+              {isArabic ? "ابدأ تسجيل نشاطك" : "Start Business Registration"}
             </Link>
           </div>
 
-          {/* INDIVIDUALS */}
+          {/* Individuals card */}
           <div
             style={{
-              background: "#fff",
-              borderRadius: "22px",
-              padding: "24px",
-              border: "1px solid #e5e7eb",
-              boxShadow: "0 8px 24px rgba(15,23,42,0.05)",
+              background: "rgba(255,255,255,0.92)",
+              backdropFilter: "blur(10px)",
+              borderRadius: "26px",
+              padding: "26px",
+              border: "1px solid rgba(226,232,240,0.95)",
+              boxShadow: "0 12px 30px rgba(15,23,42,0.06)",
               textAlign: "center",
             }}
           >
             <div
               style={{
                 display: "inline-block",
-                padding: "6px 12px",
+                padding: "7px 13px",
                 borderRadius: "999px",
                 background: "#eff6ff",
                 color: "#2563eb",
                 fontSize: "0.82rem",
-                fontWeight: "700",
-                marginBottom: "14px",
+                fontWeight: "800",
+                marginBottom: "16px",
               }}
             >
               {isArabic ? "للأفراد" : "For Individuals"}
@@ -283,33 +363,34 @@ export default function Home({ lang }) {
 
             <h2
               style={{
-                fontSize: "1.45rem",
-                fontWeight: "800",
+                fontSize: "1.6rem",
+                fontWeight: "900",
                 color: "#0f172a",
                 margin: "0 0 10px",
               }}
             >
-              {isArabic ? "ابحث عبر واتساب" : "Search through WhatsApp"}
+              {isArabic ? "ابحث عبر واتساب" : "Search via WhatsApp"}
             </h2>
 
             <p
               style={{
                 color: "#64748b",
-                lineHeight: "1.8",
-                margin: "0 0 16px",
+                lineHeight: "1.85",
+                margin: "0 0 18px",
+                fontSize: "0.98rem",
               }}
             >
               {isArabic
-                ? "امسح الرمز وابدأ البحث مباشرة."
-                : "Scan the code and start searching instantly."}
+                ? "امسح رمز QR وافتح واتساب المنصة، ثم ابدأ البحث باسم النشاط أو الفئة."
+                : "Scan the QR code, open the platform WhatsApp, and start searching by business name or category."}
             </p>
 
             <div
               style={{
-                background: "#f8fafc",
+                background: "linear-gradient(180deg, #f8fafc, #ffffff)",
                 border: "1px solid #e2e8f0",
-                borderRadius: "18px",
-                padding: "18px",
+                borderRadius: "22px",
+                padding: "20px",
               }}
             >
               <img
@@ -317,22 +398,37 @@ export default function Home({ lang }) {
                 alt={isArabic ? "رمز واتساب" : "WhatsApp QR"}
                 style={{
                   width: "100%",
-                  maxWidth: "220px",
-                  borderRadius: "14px",
+                  maxWidth: "240px",
+                  borderRadius: "16px",
                   background: "#fff",
-                  padding: "10px",
+                  padding: "12px",
                   border: "1px solid #e5e7eb",
+                  boxShadow: "0 10px 24px rgba(15,23,42,0.06)",
                 }}
               />
 
               <div
                 style={{
-                  marginTop: "14px",
+                  marginTop: "16px",
                   color: "#0f172a",
-                  fontWeight: "700",
+                  fontWeight: "800",
+                  fontSize: "1rem",
                 }}
               >
                 {isArabic ? "امسح الرمز وابدأ البحث" : "Scan and start searching"}
+              </div>
+
+              <div
+                style={{
+                  marginTop: "8px",
+                  color: "#64748b",
+                  fontSize: "0.92rem",
+                  lineHeight: "1.75",
+                }}
+              >
+                {isArabic
+                  ? "أو افتح واتساب مباشرة من الزر التالي."
+                  : "Or open WhatsApp directly from the button below."}
               </div>
 
               <a
@@ -341,13 +437,13 @@ export default function Home({ lang }) {
                 rel="noopener noreferrer"
                 style={{
                   display: "inline-block",
-                  marginTop: "14px",
+                  marginTop: "16px",
                   background: "#16a34a",
                   color: "#fff",
                   textDecoration: "none",
                   padding: "12px 18px",
-                  borderRadius: "12px",
-                  fontWeight: "700",
+                  borderRadius: "14px",
+                  fontWeight: "800",
                 }}
               >
                 {isArabic ? "فتح واتساب المنصة" : "Open Platform WhatsApp"}
@@ -356,39 +452,106 @@ export default function Home({ lang }) {
           </div>
         </section>
 
-        {/* SIMPLE FINAL CTA */}
+        {/* VALUE STRIP */}
+        <section
+          className="value-strip"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+            gap: "14px",
+            marginBottom: "22px",
+          }}
+        >
+          {[
+            {
+              title: isArabic ? "وصول أسرع" : "Faster access",
+              desc: isArabic
+                ? "الوصول إلى جهة التواصل الرسمية بسرعة أكبر."
+                : "Reach the right contact point faster.",
+            },
+            {
+              title: isArabic ? "صورة أوضح" : "Clearer presence",
+              desc: isArabic
+                ? "عرض النشاط بطريقة أبسط وأكثر مهنية."
+                : "Present a business more clearly and professionally.",
+            },
+            {
+              title: isArabic ? "تجربة أسهل" : "Simpler experience",
+              desc: isArabic
+                ? "تقليل الوقت والارتباك أثناء البحث."
+                : "Reduce time and confusion while searching.",
+            },
+          ].map((item) => (
+            <div
+              key={item.title}
+              style={{
+                background: "#fff",
+                borderRadius: "20px",
+                padding: "20px",
+                border: "1px solid #e5e7eb",
+                boxShadow: "0 8px 24px rgba(15,23,42,0.05)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "1.05rem",
+                  fontWeight: "900",
+                  color: "#0f172a",
+                  marginBottom: "8px",
+                  textAlign: isArabic ? "right" : "left",
+                }}
+              >
+                {item.title}
+              </div>
+
+              <div
+                style={{
+                  color: "#64748b",
+                  lineHeight: "1.8",
+                  textAlign: isArabic ? "right" : "left",
+                  fontSize: "0.95rem",
+                }}
+              >
+                {item.desc}
+              </div>
+            </div>
+          ))}
+        </section>
+
+        {/* FINAL CTA */}
         <section
           style={{
-            background: "#fff",
-            borderRadius: "22px",
-            padding: "26px 20px",
+            background: "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,1))",
+            borderRadius: "26px",
+            padding: "34px 22px",
             textAlign: "center",
             border: "1px solid #e5e7eb",
-            boxShadow: "0 8px 24px rgba(15,23,42,0.05)",
+            boxShadow: "0 12px 30px rgba(15,23,42,0.05)",
           }}
         >
           <h2
             style={{
-              fontSize: "1.45rem",
-              fontWeight: "800",
+              fontSize: "1.65rem",
+              fontWeight: "900",
               color: "#0f172a",
-              marginBottom: "10px",
+              marginBottom: "12px",
             }}
           >
-            {isArabic ? "ابدأ الآن" : "Start now"}
+            {isArabic ? "ابدأ الآن مع TrustedLinks" : "Start now with TrustedLinks"}
           </h2>
 
           <p
             style={{
               color: "#64748b",
-              lineHeight: "1.8",
-              maxWidth: "680px",
-              margin: "0 auto 20px",
+              lineHeight: "1.85",
+              maxWidth: "700px",
+              margin: "0 auto 22px",
+              fontSize: "0.98rem",
             }}
           >
             {isArabic
-              ? "للشركات: سجّل نشاطك. للأفراد: امسح الرمز وابدأ البحث."
-              : "For businesses: register your profile. For individuals: scan the code and start searching."}
+              ? "للشركات: سجّل نشاطك ليصبح الوصول إليك أسهل. للأفراد: امسح الرمز وابدأ البحث مباشرة."
+              : "For businesses: register your profile and become easier to reach. For individuals: scan the code and start searching instantly."}
           </p>
 
           <div
@@ -406,9 +569,9 @@ export default function Home({ lang }) {
                 background: "#16a34a",
                 color: "#fff",
                 textDecoration: "none",
-                padding: "12px 22px",
-                borderRadius: "12px",
-                fontWeight: "700",
+                padding: "13px 22px",
+                borderRadius: "14px",
+                fontWeight: "800",
               }}
             >
               {isArabic ? "سجّل نشاطك" : "Register Business"}
@@ -422,9 +585,9 @@ export default function Home({ lang }) {
                 background: "#fff",
                 color: "#0f172a",
                 textDecoration: "none",
-                padding: "12px 22px",
-                borderRadius: "12px",
-                fontWeight: "700",
+                padding: "13px 22px",
+                borderRadius: "14px",
+                fontWeight: "800",
                 border: "1px solid #dbe2ea",
               }}
             >
@@ -435,8 +598,14 @@ export default function Home({ lang }) {
       </div>
 
       <style>{`
-        @media (max-width: 900px) {
-          .main-grid {
+        @media (max-width: 920px) {
+          .premium-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+
+        @media (max-width: 760px) {
+          .value-strip {
             grid-template-columns: 1fr !important;
           }
         }
