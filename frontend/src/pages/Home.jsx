@@ -13,6 +13,22 @@ export default function Home({ lang }) {
     }
   };
 
+  // =========================
+  // WhatsApp QR setup
+  // غيّر الرقم أدناه إلى رقم واتساب المنصة
+  // مثال: 9627XXXXXXXX
+  // =========================
+  const whatsappNumber = "97472097723";
+  const whatsappMessage = isArabic
+    ? "مرحبا، أريد البحث عن نشاط عبر TrustedLinks"
+    : "Hello, I want to search for a business via TrustedLinks";
+
+const whatsappLink = `https://wa.me/${whatsappNumber}`;
+  
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(
+    whatsappLink
+  )}`;
+
   const navItems = [
     {
       title: isArabic ? "لوحة التحكم" : "Dashboard",
@@ -21,15 +37,61 @@ export default function Home({ lang }) {
     },
     {
       title: isArabic ? "إدارة الروابط" : "Manage Links",
-      desc: isArabic ? "تنظيم روابطك" : "Organize your links",
+      desc: isArabic ? "تنظيم وتحديث بيانات نشاطك" : "Manage and update your business profile",
       to: "/manage-links",
     },
     {
-      title: isArabic ? "توثيق واتساب" : "WhatsApp Verify",
-      desc: isArabic ? "تأكيد الرقم" : "Verify your number",
-      to: "/whatsapp-verify",
+      title: isArabic ? "استكشاف الأنشطة" : "Explore Businesses",
+      desc: isArabic ? "تصفح الأنشطة المدرجة" : "Browse listed businesses",
+      to: "/search",
     },
   ];
+
+  const businessSteps = isArabic
+    ? [
+        {
+          no: "01",
+          title: "سجّل نشاطك",
+          desc: "أنشئ ملف نشاطك التجاري وابدأ بإضافة بياناته الأساسية.",
+        },
+        {
+          no: "02",
+          title: "أضف الروابط والبيانات",
+          desc: "أضف رابط واتساب، الموقع، الوصف، والكلمات المفتاحية.",
+        },
+        {
+          no: "03",
+          title: "فعّل التوثيق",
+          desc: "وثّق رقم واتساب ليظهر نشاطك بصورة أكثر موثوقية.",
+        },
+        {
+          no: "04",
+          title: "ابدأ الظهور للعملاء",
+          desc: "يصبح نشاطك قابلاً للوصول والبحث من قبل المستخدمين بسهولة.",
+        },
+      ]
+    : [
+        {
+          no: "01",
+          title: "Register your business",
+          desc: "Create your business profile and start adding the core details.",
+        },
+        {
+          no: "02",
+          title: "Add links and profile info",
+          desc: "Add WhatsApp, location, description, and keywords.",
+        },
+        {
+          no: "03",
+          title: "Verify WhatsApp",
+          desc: "Verify your WhatsApp number to build more trust.",
+        },
+        {
+          no: "04",
+          title: "Start getting discovered",
+          desc: "Your business becomes easier for customers to find and reach.",
+        },
+      ];
 
   return (
     <div
@@ -41,7 +103,8 @@ export default function Home({ lang }) {
         padding: "20px 14px 40px",
       }}
     >
-      <div style={{ maxWidth: "1120px", margin: "0 auto" }}>
+      <div style={{ maxWidth: "1140px", margin: "0 auto" }}>
+        {/* Topbar */}
         <div
           className="home-topbar"
           style={{
@@ -81,6 +144,7 @@ export default function Home({ lang }) {
           </div>
         </div>
 
+        {/* Hero */}
         <section
           style={{
             background: "linear-gradient(135deg, #16a34a, #22c55e)",
@@ -94,7 +158,7 @@ export default function Home({ lang }) {
         >
           <div
             style={{
-              maxWidth: "840px",
+              maxWidth: "860px",
               margin: "0 auto",
               textAlign: "center",
             }}
@@ -112,8 +176,8 @@ export default function Home({ lang }) {
               }}
             >
               {isArabic
-                ? "روابط موثوقة للشركات والعملاء"
-                : "Trusted links for businesses and customers"}
+                ? "منصة تسهّل الوصول إلى الأنشطة"
+                : "A simpler way to reach businesses"}
             </div>
 
             <h1
@@ -125,8 +189,8 @@ export default function Home({ lang }) {
               }}
             >
               {isArabic
-                ? "TrustedLinks تجعل الوصول إلى الشركات أكثر وضوحًا وثقة"
-                : "TrustedLinks makes reaching businesses clearer and more trusted"}
+                ? "TrustedLinks تربط العملاء بالشركات بسرعة وثقة"
+                : "TrustedLinks connects customers with businesses quickly and clearly"}
             </h1>
 
             <p
@@ -139,8 +203,8 @@ export default function Home({ lang }) {
               }}
             >
               {isArabic
-                ? "منصة تساعد الأفراد على الوصول إلى روابط واتساب والروابط الرسمية بسرعة، وتساعد الشركات على الظهور بصورة احترافية وإدارة وجودها الرقمي بسهولة."
-                : "A platform that helps people reach official links and WhatsApp contacts quickly, while helping businesses present themselves professionally and manage their digital presence with ease."}
+                ? "سواء كنت فردًا يبحث عن جهة تواصل موثوقة، أو شركة تريد الظهور بصورة احترافية، تساعدك المنصة على الوصول السريع والتواصل المباشر."
+                : "Whether you are an individual looking for a trusted contact or a business seeking better visibility, the platform helps make discovery and communication easier."}
             </p>
 
             <div
@@ -184,181 +248,328 @@ export default function Home({ lang }) {
           </div>
         </section>
 
+        {/* Two main sections */}
         <section
-          className="benefits-grid"
+          className="intro-grid"
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-            gap: "16px",
+            gridTemplateColumns: "1.15fr 1fr",
+            gap: "18px",
             marginBottom: "20px",
           }}
         >
+          {/* Businesses */}
           <div
             style={{
               background: "#fff",
-              borderRadius: "20px",
-              padding: "22px",
+              borderRadius: "22px",
+              padding: "24px 20px",
               border: "1px solid #e5e7eb",
               boxShadow: "0 8px 24px rgba(15,23,42,0.05)",
             }}
           >
-            <h2
+            <div
               style={{
-                fontSize: "1.18rem",
+                display: "inline-block",
+                padding: "6px 12px",
+                borderRadius: "999px",
+                background: "#ecfdf5",
+                color: "#16a34a",
+                fontSize: "0.85rem",
                 fontWeight: "700",
-                color: "#0f172a",
-                marginBottom: "10px",
-                textAlign: isArabic ? "right" : "left",
-              }}
-            >
-              {isArabic ? "للأفراد" : "For Individuals"}
-            </h2>
-
-            <p
-              style={{
-                color: "#475569",
-                lineHeight: "1.9",
-                margin: 0,
-                textAlign: isArabic ? "right" : "left",
-              }}
-            >
-              {isArabic
-                ? "ابحث بسهولة عن الشركات، وصل بسرعة إلى جهة التواصل الصحيحة، وتجنب الروابط غير الواضحة أو غير الموثوقة."
-                : "Search for businesses easily, reach the right contact faster, and avoid unclear or untrusted links."}
-            </p>
-          </div>
-
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: "20px",
-              padding: "22px",
-              border: "1px solid #e5e7eb",
-              boxShadow: "0 8px 24px rgba(15,23,42,0.05)",
-            }}
-          >
-            <h2
-              style={{
-                fontSize: "1.18rem",
-                fontWeight: "700",
-                color: "#0f172a",
-                marginBottom: "10px",
-                textAlign: isArabic ? "right" : "left",
+                marginBottom: "14px",
               }}
             >
               {isArabic ? "للشركات" : "For Businesses"}
-            </h2>
+            </div>
 
-            <p
-              style={{
-                color: "#475569",
-                lineHeight: "1.9",
-                margin: 0,
-                textAlign: isArabic ? "right" : "left",
-              }}
-            >
-              {isArabic
-                ? "اعرض روابطك الرسمية، فعّل توثيق واتساب، وقدم حضورًا رقميًا أكثر مهنية وثقة أمام العملاء."
-                : "Show your official links, verify WhatsApp, and build a more professional and trusted digital presence for customers."}
-            </p>
-          </div>
-        </section>
-
-        <section
-          style={{
-            background: "#fff",
-            borderRadius: "22px",
-            padding: "24px 18px",
-            border: "1px solid #e5e7eb",
-            boxShadow: "0 8px 24px rgba(15,23,42,0.05)",
-            marginBottom: "20px",
-          }}
-        >
-          <div style={{ textAlign: "center", marginBottom: "20px" }}>
             <h2
               style={{
                 fontSize: "1.45rem",
                 fontWeight: "800",
                 color: "#0f172a",
                 marginBottom: "10px",
-              }}
-            >
-              {isArabic ? "كيف تعمل المنصة" : "How it works"}
-            </h2>
-            <p
-              style={{
-                color: "#64748b",
-                lineHeight: "1.8",
-                maxWidth: "720px",
-                margin: "0 auto",
+                textAlign: isArabic ? "right" : "left",
               }}
             >
               {isArabic
-                ? "تجربة بسيطة تساعد المستخدمين على الوصول، وتساعد الشركات على الإدارة والظهور بشكل أفضل."
-                : "A simple experience that helps users reach businesses and helps companies manage their presence better."}
-            </p>
-          </div>
+                ? "كيف تستفيد الشركات من المنصة؟"
+                : "How businesses benefit from the platform"}
+            </h2>
 
-          <div
-            className="steps-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: "14px",
-            }}
-          >
-            {[
-              {
-                no: "01",
-                title: isArabic ? "ابحث أو سجّل" : "Search or Register",
-              },
-              {
-                no: "02",
-                title: isArabic ? "أضف بياناتك" : "Add Your Details",
-              },
-              {
-                no: "03",
-                title: isArabic ? "فعّل التوثيق" : "Verify WhatsApp",
-              },
-              {
-                no: "04",
-                title: isArabic ? "ابدأ التواصل" : "Start Connecting",
-              },
-            ].map((step) => (
-              <div
-                key={step.no}
+            <p
+              style={{
+                color: "#475569",
+                lineHeight: "1.9",
+                margin: "0 0 18px",
+                textAlign: isArabic ? "right" : "left",
+              }}
+            >
+              {isArabic
+                ? "تساعد TrustedLinks الشركات على عرض جهة التواصل الرسمية، تحسين الظهور، وتسهيل وصول العملاء إلى رقم واتساب والموقع والروابط المهمة."
+                : "TrustedLinks helps businesses show their official contact point, improve visibility, and make it easier for customers to reach WhatsApp, location, and key links."}
+            </p>
+
+            <div
+              className="steps-grid"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+                gap: "12px",
+              }}
+            >
+              {businessSteps.map((step) => (
+                <div
+                  key={step.no}
+                  style={{
+                    background: "#f8fafc",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "16px",
+                    padding: "16px",
+                  }}
+                >
+                  <div
+                    style={{
+                      color: "#16a34a",
+                      fontWeight: "800",
+                      fontSize: "0.9rem",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    {step.no}
+                  </div>
+
+                  <div
+                    style={{
+                      color: "#0f172a",
+                      fontWeight: "700",
+                      fontSize: "1rem",
+                      marginBottom: "8px",
+                      lineHeight: "1.5",
+                    }}
+                  >
+                    {step.title}
+                  </div>
+
+                  <div
+                    style={{
+                      color: "#64748b",
+                      lineHeight: "1.8",
+                      fontSize: "0.93rem",
+                    }}
+                  >
+                    {step.desc}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ marginTop: "18px" }}>
+              <Link
+                to="/register"
                 style={{
-                  background: "#f8fafc",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "16px",
-                  padding: "18px",
-                  textAlign: "center",
+                  display: "inline-block",
+                  background: "#16a34a",
+                  color: "#fff",
+                  textDecoration: "none",
+                  padding: "12px 18px",
+                  borderRadius: "12px",
+                  fontWeight: "700",
                 }}
               >
-                <div
-                  style={{
-                    color: "#16a34a",
-                    fontWeight: "800",
-                    fontSize: "0.92rem",
-                    marginBottom: "8px",
-                  }}
-                >
-                  {step.no}
-                </div>
-                <div
-                  style={{
-                    color: "#0f172a",
-                    fontWeight: "700",
-                    fontSize: "1rem",
-                  }}
-                >
-                  {step.title}
-                </div>
+                {isArabic ? "ابدأ تسجيل نشاطك" : "Start registering your business"}
+              </Link>
+            </div>
+          </div>
+
+          {/* Individuals */}
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: "22px",
+              padding: "24px 20px",
+              border: "1px solid #e5e7eb",
+              boxShadow: "0 8px 24px rgba(15,23,42,0.05)",
+            }}
+          >
+            <div
+              style={{
+                display: "inline-block",
+                padding: "6px 12px",
+                borderRadius: "999px",
+                background: "#eff6ff",
+                color: "#2563eb",
+                fontSize: "0.85rem",
+                fontWeight: "700",
+                marginBottom: "14px",
+              }}
+            >
+              {isArabic ? "للأفراد" : "For Individuals"}
+            </div>
+
+            <h2
+              style={{
+                fontSize: "1.45rem",
+                fontWeight: "800",
+                color: "#0f172a",
+                marginBottom: "10px",
+                textAlign: isArabic ? "right" : "left",
+              }}
+            >
+              {isArabic
+                ? "ابحث من واتساب مباشرة"
+                : "Search directly from WhatsApp"}
+            </h2>
+
+            <p
+              style={{
+                color: "#475569",
+                lineHeight: "1.9",
+                margin: "0 0 18px",
+                textAlign: isArabic ? "right" : "left",
+              }}
+            >
+              {isArabic
+                ? "امسح رمز QR لفتح واتساب المنصة، ثم ابدأ البحث باسم النشاط أو الفئة أو الموقع للحصول على جهة التواصل المناسبة."
+                : "Scan the QR code to open the platform WhatsApp, then start searching by business name, category, or location."}
+            </p>
+
+            <div
+              style={{
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                borderRadius: "18px",
+                padding: "18px",
+                textAlign: "center",
+              }}
+            >
+              <img
+                src={qrCodeUrl}
+                alt={isArabic ? "رمز واتساب" : "WhatsApp QR"}
+                style={{
+                  width: "100%",
+                  maxWidth: "230px",
+                  borderRadius: "14px",
+                  background: "#fff",
+                  padding: "10px",
+                  border: "1px solid #e5e7eb",
+                }}
+              />
+
+              <div
+                style={{
+                  marginTop: "14px",
+                  color: "#0f172a",
+                  fontWeight: "700",
+                  lineHeight: "1.8",
+                }}
+              >
+                {isArabic
+                  ? "امسح الرمز وابدأ البحث"
+                  : "Scan the code and start searching"}
               </div>
-            ))}
+
+              <div
+                style={{
+                  marginTop: "6px",
+                  color: "#64748b",
+                  fontSize: "0.92rem",
+                  lineHeight: "1.8",
+                }}
+              >
+                {isArabic
+                  ? "يمكنك أيضًا الضغط على الزر وفتح واتساب مباشرة."
+                  : "You can also open WhatsApp directly using the button below."}
+              </div>
+
+              <a
+                href={whatsappLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "inline-block",
+                  marginTop: "14px",
+                  background: "#16a34a",
+                  color: "#fff",
+                  textDecoration: "none",
+                  padding: "12px 18px",
+                  borderRadius: "12px",
+                  fontWeight: "700",
+                }}
+              >
+                {isArabic ? "فتح واتساب المنصة" : "Open Platform WhatsApp"}
+              </a>
+            </div>
           </div>
         </section>
 
+        {/* Simple benefits */}
+        <section
+          className="benefits-grid"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+            gap: "16px",
+            marginBottom: "20px",
+          }}
+        >
+          {[
+            {
+              title: isArabic ? "وصول أسرع" : "Faster access",
+              desc: isArabic
+                ? "الوصول إلى جهة التواصل الرسمية بشكل أوضح."
+                : "Reach the official contact point more clearly.",
+            },
+            {
+              title: isArabic ? "ثقة أعلى" : "More trust",
+              desc: isArabic
+                ? "إظهار الروابط وبيانات النشاط بطريقة أكثر موثوقية."
+                : "Show links and business data in a more trusted way.",
+            },
+            {
+              title: isArabic ? "تجربة أبسط" : "Simpler experience",
+              desc: isArabic
+                ? "تقليل الوقت والارتباك في الوصول إلى النشاط المناسب."
+                : "Reduce the time and confusion in finding the right business.",
+            },
+          ].map((item) => (
+            <div
+              key={item.title}
+              style={{
+                background: "#fff",
+                borderRadius: "18px",
+                padding: "20px",
+                border: "1px solid #e5e7eb",
+                boxShadow: "0 8px 24px rgba(15,23,42,0.05)",
+              }}
+            >
+              <h3
+                style={{
+                  fontSize: "1.08rem",
+                  fontWeight: "800",
+                  color: "#0f172a",
+                  marginBottom: "8px",
+                  textAlign: isArabic ? "right" : "left",
+                }}
+              >
+                {item.title}
+              </h3>
+
+              <p
+                style={{
+                  color: "#64748b",
+                  lineHeight: "1.9",
+                  margin: 0,
+                  textAlign: isArabic ? "right" : "left",
+                }}
+              >
+                {item.desc}
+              </p>
+            </div>
+          ))}
+        </section>
+
+        {/* Quick navigation */}
         <section
           style={{
             background: "#fff",
@@ -398,8 +609,8 @@ export default function Home({ lang }) {
                 }}
               >
                 {isArabic
-                  ? "وصول أسهل إلى أهم الصفحات بدون ازدحام بصري."
-                  : "Easy access to key pages without visual clutter."}
+                  ? "وصول أسهل إلى أهم الصفحات."
+                  : "Quick access to the main pages."}
               </p>
             </div>
           </div>
@@ -447,6 +658,7 @@ export default function Home({ lang }) {
           </div>
         </section>
 
+        {/* Final CTA */}
         <section
           style={{
             background: "linear-gradient(180deg, #ffffff, #f8fafc)",
@@ -477,8 +689,8 @@ export default function Home({ lang }) {
             }}
           >
             {isArabic
-              ? "سواء كنت تبحث عن شركة موثوقة أو تريد تسجيل نشاطك التجاري، المنصة تمنحك تجربة أوضح وأسهل."
-              : "Whether you are looking for a trusted business or want to register your own, the platform gives you a clearer and easier experience."}
+              ? "إذا كنت شركة، سجّل نشاطك. وإذا كنت فردًا، امسح الرمز وابدأ البحث مباشرة."
+              : "If you are a business, register your profile. If you are an individual, scan the code and start searching instantly."}
           </p>
 
           <div
@@ -504,8 +716,10 @@ export default function Home({ lang }) {
               {isArabic ? "سجّل نشاطك" : "Register Business"}
             </Link>
 
-            <Link
-              to="/search"
+            <a
+              href={whatsappLink}
+              target="_blank"
+              rel="noopener noreferrer"
               style={{
                 background: "#fff",
                 color: "#0f172a",
@@ -516,13 +730,19 @@ export default function Home({ lang }) {
                 border: "1px solid #dbe2ea",
               }}
             >
-              {isArabic ? "جرّب البحث" : "Try Search"}
-            </Link>
+              {isArabic ? "ابدأ البحث عبر واتساب" : "Start Search on WhatsApp"}
+            </a>
           </div>
         </section>
       </div>
 
       <style>{`
+        @media (max-width: 900px) {
+          .intro-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+
         @media (max-width: 768px) {
           .home-topbar {
             align-items: stretch !important;
