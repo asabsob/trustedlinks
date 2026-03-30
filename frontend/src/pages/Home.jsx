@@ -513,9 +513,9 @@ export default function Home({ lang }) {
               </a>
             </div>
           </div>
-        </section
+      </section>
 
-        {/* VALUE STRIP */}
+       {/* VALUE STRIP */}
         <section
           className="value-strip"
           style={{
