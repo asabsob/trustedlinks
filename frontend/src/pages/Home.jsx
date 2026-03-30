@@ -206,7 +206,7 @@ export default function Home({ lang }) {
           className="premium-grid"
           style={{
             display: "grid",
-            gridTemplateColumns: "1.08fr 0.92fr",
+           gridTemplateColumns: "1fr 1fr",
             gap: "18px",
             marginBottom: "22px",
           }}
@@ -334,89 +334,152 @@ export default function Home({ lang }) {
             </Link>
           </div>
 
-          {/* Individuals card */}
-          <div
-            style={{
-              background: "rgba(255,255,255,0.92)",
-              backdropFilter: "blur(10px)",
-              borderRadius: "26px",
-              padding: "26px",
-              border: "1px solid rgba(226,232,240,0.95)",
-              boxShadow: "0 12px 30px rgba(15,23,42,0.06)",
-              textAlign: "center",
-            }}
-          >
-            <div
-              style={{
-                display: "inline-block",
-                padding: "7px 13px",
-                borderRadius: "999px",
-                background: "#eff6ff",
-                color: "#2563eb",
-                fontSize: "0.82rem",
-                fontWeight: "800",
-                marginBottom: "16px",
-              }}
-            >
-              {isArabic ? "للأفراد" : "For Individuals"}
-            </div>
+        {/* Individuals card */}
+<div
+  style={{
+    background: "rgba(255,255,255,0.92)",
+    backdropFilter: "blur(10px)",
+    borderRadius: "26px",
+    padding: "26px",
+    border: "1px solid rgba(226,232,240,0.95)",
+    boxShadow: "0 12px 30px rgba(15,23,42,0.06)",
+    textAlign: "center",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    alignItems: "center",
+  }}
+>
+  <div
+    style={{
+      display: "inline-block",
+      padding: "7px 13px",
+      borderRadius: "999px",
+      background: "#eff6ff",
+      color: "#2563eb",
+      fontSize: "0.82rem",
+      fontWeight: "800",
+      marginBottom: "16px",
+    }}
+  >
+    {isArabic ? "للأفراد" : "For Individuals"}
+  </div>
 
-            <h2
-              style={{
-                fontSize: "1.6rem",
-                fontWeight: "900",
-                color: "#0f172a",
-                margin: "0 0 10px",
-              }}
-            >
-              {isArabic ? "ابحث عبر واتساب" : "Search via WhatsApp"}
-            </h2>
+  <h2
+    style={{
+      fontSize: "1.6rem",
+      fontWeight: "900",
+      color: "#0f172a",
+      margin: "0 0 10px",
+      textAlign: "center",
+      maxWidth: "420px",
+    }}
+  >
+    {isArabic ? "ابحث عبر واتساب" : "Search via WhatsApp"}
+  </h2>
 
-            <p
-              style={{
-                color: "#64748b",
-                lineHeight: "1.85",
-                margin: "0 0 18px",
-                fontSize: "0.98rem",
-              }}
-            >
-              {isArabic
-                ? "امسح رمز QR وافتح واتساب المنصة، ثم ابدأ البحث باسم النشاط أو الفئة."
-                : "Scan the QR code, open the platform WhatsApp, and start searching by business name or category."}
-            </p>
+  <p
+    style={{
+      color: "#64748b",
+      lineHeight: "1.85",
+      margin: "0 0 18px",
+      fontSize: "0.98rem",
+      textAlign: "center",
+      maxWidth: "420px",
+    }}
+  >
+    {isArabic
+      ? "امسح رمز QR وافتح واتساب المنصة، ثم ابدأ البحث باسم النشاط أو الفئة."
+      : "Scan the QR code, open the platform WhatsApp, and start searching by business name or category."}
+  </p>
 
-            <div
-              style={{
-                background: "linear-gradient(180deg, #f8fafc, #ffffff)",
-                border: "1px solid #e2e8f0",
-                borderRadius: "22px",
-                padding: "20px",
-              }}
-            >
-              <img
-                src={qrCodeUrl}
-                alt={isArabic ? "رمز واتساب" : "WhatsApp QR"}
-                style={{
-                  width: "100%",
-                  maxWidth: "240px",
-                  borderRadius: "16px",
-                  background: "#fff",
-                  padding: "12px",
-                  border: "1px solid #e5e7eb",
-                  boxShadow: "0 10px 24px rgba(15,23,42,0.06)",
-                }}
-              />
+  <div
+    style={{
+      width: "100%",
+      maxWidth: "360px",
+      background: "linear-gradient(180deg, #f8fafc, #ffffff)",
+      border: "1px solid #e2e8f0",
+      borderRadius: "22px",
+      padding: "22px 20px",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+    }}
+  >
+    <div
+      style={{
+        width: "100%",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        marginBottom: "14px",
+      }}
+    >
+      <img
+        src={qrCodeUrl}
+        alt={isArabic ? "رمز واتساب" : "WhatsApp QR"}
+        style={{
+          width: "100%",
+          maxWidth: "220px",
+          display: "block",
+          borderRadius: "16px",
+          background: "#fff",
+          padding: "12px",
+          border: "1px solid #e5e7eb",
+          boxShadow: "0 10px 24px rgba(15,23,42,0.06)",
+        }}
+      />
+    </div>
 
-              <div
-                style={{
-                  marginTop: "16px",
-                  color: "#0f172a",
-                  fontWeight: "800",
-                  fontSize: "1rem",
-                }}
-              >
-                {isArabic ? "امسح الرمز وابدأ البحث" : "Scan and start searching"}
-              </div>
+    <div
+      style={{
+        color: "#0f172a",
+        fontWeight: "800",
+        fontSize: "1rem",
+        textAlign: "center",
+        marginBottom: "8px",
+      }}
+    >
+      {isArabic ? "امسح الرمز وابدأ البحث" : "Scan and start searching"}
+    </div>
+
+    <div
+      style={{
+        color: "#64748b",
+        fontSize: "0.92rem",
+        lineHeight: "1.75",
+        textAlign: "center",
+        maxWidth: "280px",
+        marginBottom: "16px",
+      }}
+    >
+      {isArabic
+        ? "أو افتح واتساب مباشرة من الزر التالي."
+        : "Or open WhatsApp directly from the button below."}
+    </div>
+
+    <a
+      href={whatsappLink}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#16a34a",
+        color: "#fff",
+        textDecoration: "none",
+        padding: "12px 18px",
+        borderRadius: "14px",
+        fontWeight: "800",
+        minWidth: "220px",
+      }}
+    >
+      {isArabic ? "فتح واتساب المنصة" : "Open Platform WhatsApp"}
+    </a>
+  </div>
+</div>
 
               <div
                 style={{
