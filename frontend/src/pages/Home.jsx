@@ -513,7 +513,7 @@ export default function Home({ lang }) {
               </a>
             </div>
           </div>
-        </section>
+        </section
 
         {/* VALUE STRIP */}
         <section
