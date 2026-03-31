@@ -6,8 +6,8 @@ export default function Home({ lang }) {
 
   const whatsappNumber = "97472097723";
   const whatsappMessage = isArabic
-    ? "مرحباً، أريد البحث عن شركة أو نشاط عبر TrustedLinks"
-    : "Hello, I want to search for a business via TrustedLinks";
+    ? "مرحباً"
+    : "Hello";
 
   const whatsappLink = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
     whatsappMessage
