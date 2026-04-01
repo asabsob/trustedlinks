@@ -756,10 +756,14 @@ app.post("/api/auth/login", async (req, res) => {
     const emailNorm = String(email || "").toLowerCase().trim();
 
     const user = await getUserByEmail(emailNorm);
-    if (!user) return res.status(401).json({ error: "Invalid credentials" });
+    if (!user) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
 
     const ok = await bcrypt.compare(String(password), user.passwordHash);
-    if (!ok) return res.status(401).json({ error: "Invalid credentials" });
+    if (!ok) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
 
     if (!user.emailVerified) {
       return res.status(403).json({
