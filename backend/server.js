@@ -17,10 +17,6 @@ import bcrypt from "bcrypt";
 import geolib from "geolib";
 import { nanoid } from "nanoid";
 
-import { connectDB } from "./db.js";
-import User from "./models/User.js";
-
-import Otp from "./models/Otp.js";
 import { parseSearchIntent } from "./server/utils/aiSearchParser.js";
 import { searchBusinesses } from "./search/searchService.js";
 import { normalizeSearchText } from "./search/textNormalizer.js";
@@ -35,12 +31,32 @@ import LeadToken from "./models/LeadToken.js";
 import BusinessEvent from "./models/BusinessEvent.js";
 import TopupOrder from "./models/TopupOrder.js";
 import { topupWallet, deductWallet } from "./services/walletService.js";
-import Business from "./models/Business.js";
 import Transaction from "./models/Transaction.js";
 import { optimizeBusinessProfile } from "./services/aiOptimizer.js";
 
+import {
+  getUserById,
+  getUserByEmail,
+  createUser,
+  verifyUserEmail,
+  setVerifyToken,
+  setResetToken,
+  updateUserPassword,
+} from "./services/pg/users.js";
+
+import {
+  getBusinessByWhatsapp,
+  createBusiness,
+} from "./services/pg/businesses.js";
+
+import {
+  deleteOtpByWhatsappPurpose,
+  createOtp,
+  getOtp,
+  consumeOtp,
+} from "./services/pg/otps.js";
+
 dotenv.config();
-await connectDB();
 
 const app = express();
 const PORT = process.env.PORT || 5175;
@@ -656,12 +672,14 @@ app.post("/api/auth/signup", async (req, res) => {
       return res.status(400).json({ error: "Business data is required" });
     }
 
-    const existingUser = await User.findOne({ email: String(email).trim().toLowerCase() });
+    const emailNorm = String(email).trim().toLowerCase();
+
+    const existingUser = await getUserByEmail(emailNorm);
     if (existingUser) {
       return res.status(409).json({ error: "Email already exists" });
     }
 
-    const existingBusiness = await Business.findOne({ whatsapp: business.whatsapp });
+    const existingBusiness = await getBusinessByWhatsapp(business.whatsapp);
     if (existingBusiness) {
       return res.status(409).json({ error: "This WhatsApp number is already registered" });
     }
@@ -669,8 +687,8 @@ app.post("/api/auth/signup", async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 10);
     const verifyToken = crypto.randomBytes(32).toString("hex");
 
-    const user = await User.create({
-      email: String(email).trim().toLowerCase(),
+    const user = await createUser({
+      email: emailNorm,
       passwordHash,
       emailVerified: false,
       verifyToken,
@@ -681,17 +699,15 @@ app.post("/api/auth/signup", async (req, res) => {
       freeCreditGranted: true,
     });
 
-    console.log("SIGNUP BUSINESS LOGO EXISTS:", !!business.logo);
-    console.log("SIGNUP BUSINESS LOGO SAMPLE:", String(business.logo || "").slice(0, 50));
-    console.log("SIGNUP BUSINESS KEYS:", Object.keys(business || {}));
-
-    const createdBusiness = await Business.create({
-      ownerUserId: String(user._id),
+    const createdBusiness = await createBusiness({
+      ownerUserId: user.id,
       name: business.name || "",
       name_ar: business.name_ar || "",
       description: business.description || "",
+      description_ar: business.description_ar || "",
       category: Array.isArray(business.category) ? business.category : [],
       keywords: Array.isArray(business.keywords) ? business.keywords : [],
+      keywords_ar: Array.isArray(business.keywords_ar) ? business.keywords_ar : [],
       whatsapp: business.whatsapp || "",
       status: "Active",
       latitude: typeof business.latitude === "number" ? business.latitude : null,
@@ -702,18 +718,17 @@ app.post("/api/auth/signup", async (req, res) => {
       locationText: business.locationText || "",
       countryCode: business.countryCode || "",
       countryName: business.countryName || "",
+      customId: business.customId || "",
     });
-
-    console.log("CREATED BUSINESS LOGO:", createdBusiness.logo);
 
     const verifyUrl =
       `${API_BASE_URL}/api/auth/verify-email` +
-      `?email=${encodeURIComponent(String(email).trim().toLowerCase())}` +
+      `?email=${encodeURIComponent(emailNorm)}` +
       `&token=${encodeURIComponent(verifyToken)}`;
 
     try {
       await sendEmail({
-        to: String(email).trim().toLowerCase(),
+        to: emailNorm,
         subject: "Verify your email",
         text: `Verify your email using this link: ${verifyUrl}`,
         html: `<p>Verify your email:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
@@ -724,8 +739,8 @@ app.post("/api/auth/signup", async (req, res) => {
 
     return res.status(201).json({
       ok: true,
-      userId: String(user._id),
-      businessId: String(createdBusiness._id),
+      userId: user.id,
+      businessId: createdBusiness.id,
       message: "User and business created successfully",
     });
   } catch (e) {
@@ -733,13 +748,14 @@ app.post("/api/auth/signup", async (req, res) => {
     return res.status(500).json({ error: "Signup failed" });
   }
 });
+
 // Login only after email verification
 app.post("/api/auth/login", async (req, res) => {
   try {
     const { email, password } = req.body || {};
     const emailNorm = String(email || "").toLowerCase().trim();
 
-    const user = await User.findOne({ email: emailNorm });
+    const user = await getUserByEmail(emailNorm);
     if (!user) return res.status(401).json({ error: "Invalid credentials" });
 
     const ok = await bcrypt.compare(String(password), user.passwordHash);
@@ -752,18 +768,16 @@ app.post("/api/auth/login", async (req, res) => {
       });
     }
 
-    const token = signUserToken(String(user._id));
-   return res.json({
-  ok: true,
-  token,
-  email: user.email,
+    const token = signUserToken(String(user.id));
 
-  walletBalance: user.walletBalance,
-  currency: user.currency,
-
-  subscriptionPlan: user.subscriptionPlan,
-});
-    
+    return res.json({
+      ok: true,
+      token,
+      email: user.email,
+      walletBalance: user.walletBalance,
+      currency: user.currency,
+      subscriptionPlan: user.subscriptionPlan,
+    });
   } catch (e) {
     console.error("login error", e);
     return res.status(500).json({ error: "Internal server error" });
@@ -776,17 +790,15 @@ app.get("/api/auth/verify-email", async (req, res) => {
     if (!email || !token) return res.status(400).send("Missing email/token");
 
     const emailNorm = String(email).toLowerCase().trim();
-    const user = await User.findOne({ email: emailNorm });
 
-    if (!user) return res.status(404).send("User not found");
-    if (user.emailVerified) return res.send("Already verified ✅");
-    if (String(user.verifyToken) !== String(token)) {
+    const existingUser = await getUserByEmail(emailNorm);
+    if (!existingUser) return res.status(404).send("User not found");
+    if (existingUser.emailVerified) return res.send("Already verified ✅");
+
+    const verifiedUser = await verifyUserEmail(emailNorm, token);
+    if (!verifiedUser) {
       return res.status(401).send("Invalid token");
     }
-
-    user.emailVerified = true;
-    user.verifyToken = null;
-    await user.save();
 
     return res.redirect(`${FRONTEND_BASE_URL}/login?verified=1`);
   } catch (e) {
@@ -801,20 +813,20 @@ app.post("/api/auth/resend-verification", async (req, res) => {
     if (!email) return res.status(400).json({ error: "Email required" });
 
     const emailNorm = String(email).toLowerCase().trim();
-    const user = await User.findOne({ email: emailNorm });
+    const user = await getUserByEmail(emailNorm);
 
     if (!user) return res.status(404).json({ error: "Email not found" });
     if (user.emailVerified) {
       return res.json({ ok: true, message: "Email already verified" });
     }
 
-    if (!user.verifyToken) user.verifyToken = nanoid(32);
-    await user.save();
+    const verifyToken = user.verifyToken || nanoid(32);
+    await setVerifyToken(user.id, verifyToken);
 
     const verifyUrl =
       `${API_BASE_URL}/api/auth/verify-email` +
       `?email=${encodeURIComponent(emailNorm)}` +
-      `&token=${encodeURIComponent(user.verifyToken)}`;
+      `&token=${encodeURIComponent(verifyToken)}`;
 
     await sendEmail({
       to: emailNorm,
@@ -832,17 +844,13 @@ app.post("/api/auth/resend-verification", async (req, res) => {
 
 app.post("/api/auth/forgot-password", async (req, res) => {
   try {
-    console.log("FORGOT BODY:", req.body);
-
-    const emailNorm = String(req.body?.email || "")
-      .trim()
-      .toLowerCase();
+    const emailNorm = String(req.body?.email || "").trim().toLowerCase();
 
     if (!emailNorm) {
       return res.status(400).json({ error: "Email is required" });
     }
 
-    const user = await User.findOne({ email: emailNorm });
+    const user = await getUserByEmail(emailNorm);
 
     if (!user) {
       return res.json({
@@ -852,11 +860,9 @@ app.post("/api/auth/forgot-password", async (req, res) => {
     }
 
     const resetToken = nanoid(40);
+    const resetTokenExpiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
-    user.resetToken = resetToken;
-    user.resetTokenExpiresAt = new Date(Date.now() + 60 * 60 * 1000);
-
-    await user.save();
+    await setResetToken(user.id, resetToken, resetTokenExpiresAt);
 
     const resetUrl =
       `${FRONTEND_BASE_URL}/reset-password` +
@@ -882,6 +888,52 @@ app.post("/api/auth/forgot-password", async (req, res) => {
   }
 });
 
+app.post("/api/auth/reset-password", async (req, res) => {
+  try {
+    const { email, token, newPassword } = req.body || {};
+
+    const emailNorm = String(email || "").toLowerCase().trim();
+    const resetToken = String(token || "").trim();
+    const password = String(newPassword || "");
+
+    if (!emailNorm || !resetToken || !password) {
+      return res.status(400).json({ error: "Email, token, and new password are required" });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters" });
+    }
+
+    const user = await getUserByEmail(emailNorm);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (!user.resetToken || !user.resetTokenExpiresAt) {
+      return res.status(400).json({ error: "Invalid or expired reset token" });
+    }
+
+    if (String(user.resetToken) !== resetToken) {
+      return res.status(401).json({ error: "Invalid reset token" });
+    }
+
+    if (new Date(user.resetTokenExpiresAt).getTime() < Date.now()) {
+      return res.status(410).json({ error: "Reset token expired" });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    await updateUserPassword(user.id, passwordHash);
+
+    return res.json({
+      ok: true,
+      message: "Password reset successfully",
+    });
+  } catch (e) {
+    console.error("reset-password error", e);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
 app.post("/api/auth/reset-password", async (req, res) => {
   try {
     const { email, token, newPassword } = req.body || {};
@@ -937,22 +989,17 @@ app.post("/api/auth/reset-password", async (req, res) => {
 // ============================================================================
 app.get("/api/me", requireUser, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).lean();
+    const user = await getUserById(req.user.id);
     if (!user) return res.status(404).json({ error: "User not found" });
 
     return res.json({
       ok: true,
-      id: String(user._id),
+      id: String(user.id),
       email: user.email,
       emailVerified: Boolean(user.emailVerified),
-
-      // legacy
       subscriptionPlan: user.subscriptionPlan || null,
       planActivatedAt: user.planActivatedAt || null,
-
-      // wallet
-      walletBalance:
-        typeof user.walletBalance === "number" ? user.walletBalance : 0,
+      walletBalance: typeof user.walletBalance === "number" ? user.walletBalance : 0,
       currency: user.currency || "USD",
       freeCreditGranted: Boolean(user.freeCreditGranted),
     });
@@ -979,7 +1026,7 @@ app.post("/api/whatsapp/request-otp", async (req, res) => {
       return res.status(400).json({ error: "Invalid WhatsApp number" });
     }
 
-    const already = await Business.findOne({ whatsapp: clean });
+    const already = await getBusinessByWhatsapp(clean);
     if (already) {
       return res.status(409).json({
         error: "This WhatsApp number is already registered.",
@@ -988,9 +1035,9 @@ app.post("/api/whatsapp/request-otp", async (req, res) => {
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    await Otp.deleteMany({ whatsapp: clean, purpose: "business_signup" });
+    await deleteOtpByWhatsappPurpose(clean, "business_signup");
 
-    await Otp.create({
+    await createOtp({
       whatsapp: clean,
       code: otp,
       purpose: "business_signup",
@@ -1050,7 +1097,7 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
       });
     }
 
-    const existingBusiness = await Business.findOne({ whatsapp: clean });
+    const existingBusiness = await getBusinessByWhatsapp(clean);
     if (existingBusiness) {
       return res.status(409).json({
         ok: false,
@@ -1059,10 +1106,7 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
       });
     }
 
-    const rec = await Otp.findOne({
-      whatsapp: clean,
-      purpose: "business_signup",
-    });
+    const rec = await getOtp(clean, "business_signup");
 
     if (!rec) {
       return res.status(404).json({
@@ -1080,7 +1124,7 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
       });
     }
 
-    if (rec.expiresAt.getTime() < Date.now()) {
+    if (!rec.expiresAt || rec.expiresAt.getTime() < Date.now()) {
       return res.status(410).json({
         ok: false,
         error: "OTP expired.",
@@ -1088,7 +1132,7 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
       });
     }
 
-    await Otp.deleteOne({ _id: rec._id });
+    await consumeOtp(rec.id);
 
     const token = jwt.sign(
       { whatsapp: clean, purpose: "business_signup", verified: true },
@@ -1111,6 +1155,7 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
     });
   }
 });
+
 
 // =========================
 // CREATE BUSINESS TOPUP ORDER
