@@ -23,7 +23,7 @@ export default function LoginModal({
   const isRTL = lang === "ar";
 
   // ----------------- LOGIN -----------------
-  const handleLogin = async (e) => {
+ const handleLogin = async (e) => {
   e.preventDefault();
   setError("");
   setInfoMessage("");
@@ -67,6 +67,7 @@ export default function LoginModal({
     localStorage.setItem("trustedlinks_user_email", data.email || "");
 
     const meRes = await fetch(`${API_BASE}/api/me`, {
+      method: "GET",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${data.token}`,
@@ -88,8 +89,9 @@ export default function LoginModal({
 
     setInfoMessage(t("Login successful!", "تم تسجيل الدخول بنجاح!"));
 
-    if (onLoginSuccess) onLoginSuccess(data.token, data);
+    if (onLoginSuccess) onLoginSuccess(data.token, meData);
   } catch (err) {
+    console.error("Login error:", err);
     setError(
       t(
         "Unexpected error, try again.",
