@@ -20,11 +20,14 @@ export default function Dashboard({ lang = "en" }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
- const token = localStorage.getItem("trustedlinks_token");
-if (!token) {
-  navigate("/login", { replace: true });
-  return;
-}
+  useEffect(() => {
+    const token = localStorage.getItem("trustedlinks_token");
+
+    if (!token) {
+      navigate("/login", { replace: true });
+      return;
+    }
+
     let cancelled = false;
 
     async function loadAll() {
@@ -59,12 +62,15 @@ if (!token) {
         if (cancelled) return;
 
         setBusiness(bizRes.ok ? bizData : null);
+
         if (bizRes.ok && bizData?._id) {
-  localStorage.setItem("businessId", bizData._id);
-}
+          localStorage.setItem("businessId", bizData._id);
+        }
+
         setReports(repRes.ok ? repData : null);
       } catch (e) {
         if (cancelled) return;
+        console.error("Dashboard load error:", e);
         setError(
           t(
             "Unable to load dashboard data. Please log in again.",
@@ -81,8 +87,7 @@ if (!token) {
     return () => {
       cancelled = true;
     };
-  }, [lang]);
-
+  }, [lang, navigate]);
   const businessName = useMemo(() => {
     if (!business) return t("Your Business", "نشاطك التجاري");
     return business.name_ar || business.name || t("Your Business", "نشاطك التجاري");
