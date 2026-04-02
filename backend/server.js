@@ -48,6 +48,7 @@ import {
 import {
   getBusinessByWhatsapp,
   createBusiness,
+  getBusinessByOwnerUserId,
 } from "./services/pg/businesses.js";
 
 import {
@@ -1510,7 +1511,7 @@ async function publishBusinessHandler(req, res) {
 // ============================================================================
 app.get("/api/business/me", requireUser, async (req, res) => {
   try {
-    const b = await Business.findOne({ ownerUserId: String(req.user.id) }).lean();
+    const b = await getBusinessByOwnerUserId(String(req.user.id));
     if (!b) return res.status(404).json({ error: "Business not found" });
 
     const formatted = {
