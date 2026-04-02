@@ -5,7 +5,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
+const API_BASE =
+  import.meta.env.VITE_API_BASE ||
+  "https://trustedlinks-backend-production.up.railway.app";
 
 export default function Dashboard({ lang = "en" }) {
   const navigate = useNavigate();
@@ -18,10 +20,9 @@ export default function Dashboard({ lang = "en" }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-   const token = localStorage.getItem("trustedlinks_token");
-   if (!token) {
-  navigate("/login");
+ const token = localStorage.getItem("trustedlinks_token");
+if (!token) {
+  navigate("/login", { replace: true });
   return;
 }
     let cancelled = false;
