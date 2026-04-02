@@ -5,8 +5,9 @@ import { useNavigate } from "react-router-dom";
 import { Listbox, Transition } from "@headlessui/react";
 import WhatsAppVerify from "../components/WhatsAppVerify";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
-
+const API_BASE =
+  import.meta.env.VITE_API_BASE ||
+  "https://trustedlinks-backend-production.up.railway.app";
 let googleMapsPromise = null;
 
 function loadGoogleMaps() {
