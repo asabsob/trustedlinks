@@ -996,8 +996,28 @@ app.post("/api/auth/reset-password", async (req, res) => {
 });
 
 app.get("/api/me", requireAuth, async (req, res) => {
-  const user = await getUserById(req.userId);
-  res.json(user);
+  try {
+    const user = await getUserById(req.userId);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    return res.json({
+      ok: true,
+      id: user.id,
+      email: user.email,
+      emailVerified: user.emailVerified,
+      subscriptionPlan: user.subscriptionPlan || null,
+      planActivatedAt: user.planActivatedAt || null,
+      walletBalance: user.walletBalance ?? 0,
+      currency: user.currency || "USD",
+      freeCreditGranted: Boolean(user.freeCreditGranted),
+    });
+  } catch (e) {
+    console.error("/api/me error:", e);
+    return res.status(500).json({ error: "Failed" });
+  }
 });
 
 // ============================================================================
