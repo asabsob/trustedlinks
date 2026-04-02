@@ -8,10 +8,9 @@ export default function LoginPage({ lang }) {
   const location = useLocation();
 
   useEffect(() => {
-    setOpen(true); // auto open modal on page load
+    setOpen(true);
   }, []);
 
-  // لو جاي من redirect (مثل RequireAuth)
   const from = location.state?.from?.pathname || "/dashboard";
 
   return (
@@ -21,10 +20,18 @@ export default function LoginPage({ lang }) {
         setOpen(false);
         navigate("/", { replace: true });
       }}
-      onLoginSuccess={(token) => {
-  setOpen(false);
-  navigate(from, { replace: true });
-}}
+      onLoginSuccess={(token, userData) => {
+        if (token) {
+          localStorage.setItem("trustedlinks_token", token);
+        }
+
+        if (userData?.email) {
+          localStorage.setItem("trustedlinks_user_email", userData.email);
+        }
+
+        setOpen(false);
+        navigate(from, { replace: true });
+      }}
       lang={lang}
     />
   );
