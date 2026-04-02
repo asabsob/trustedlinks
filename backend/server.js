@@ -1733,146 +1733,6 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
     if (!b) return res.status(404).json({ error: "Business not found" });
 
     return res.json({
-      ok: true,
-      businessId: b.id,
-
-      totalClicks: 0,
-      totalMessages: 0,
-      mediaViews: 0,
-      views: 0,
-      weeklyGrowth: 0,
-
-      activity: [],
-      currentWeek: {
-        total: 0,
-        whatsapp: 0,
-        media: 0,
-        messages: 0,
-        views: 0,
-      },
-      previousWeek: {
-        total: 0,
-        whatsapp: 0,
-        media: 0,
-        messages: 0,
-        views: 0,
-      },
-    });
-  } catch (e) {
-    console.error("business/reports error:", e);
-    return res.status(500).json({ error: "Failed" });
-  }
-});
-
-    // =========================
-    // Search Logs (last 30 days)
-    // =========================
-    const searchLogs = await SearchLog.find({
-      query: { $exists: true, $ne: null, $ne: "" },
-      createdAt: { $gte: start30 },
-    })
-      .sort({ createdAt: -1 })
-      .lean();
-
-    const businessNameEn = String(b.name || "").toLowerCase().trim();
-    const businessNameAr = String(b.name_ar || "").toLowerCase().trim();
-    const businessCategories = Array.isArray(b.category)
-      ? b.category.map((c) => String(c).toLowerCase().trim())
-      : [String(toSafeCategoryValue(b.category) || "").toLowerCase().trim()].filter(Boolean);
-
-    const relevantLogs = searchLogs.filter((log) => {
-      const q = String(log.normalizedQuery || log.query || "").toLowerCase().trim();
-      if (!q) return false;
-
-      if (businessNameEn && q.includes(businessNameEn)) return true;
-      if (businessNameAr && q.includes(businessNameAr)) return true;
-      if (businessCategories.some((c) => c && q.includes(c))) return true;
-
-      return false;
-    });
-
-    // =========================
-    // Keyword analytics
-    // =========================
-    const keywordMap = {};
-
-    for (const log of relevantLogs) {
-      const key = String(log.normalizedQuery || log.query || "").trim().toLowerCase();
-      if (!key) continue;
-
-      if (!keywordMap[key]) {
-        keywordMap[key] = {
-          keyword: key,
-          searches: 0,
-          clicks: 0,
-        };
-      }
-
-      keywordMap[key].searches += 1;
-    }
-
-    for (const ev of events) {
-      if (ev.type !== "click" && ev.type !== "whatsapp") continue;
-
-      const q = String(ev.meta?.query || "").trim().toLowerCase();
-      if (!q) continue;
-
-      if (!keywordMap[q]) {
-        keywordMap[q] = {
-          keyword: q,
-          searches: 0,
-          clicks: 0,
-        };
-      }
-
-      if (ev.type === "click" || ev.type === "whatsapp") {
-        keywordMap[q].clicks += 1;
-      }
-    }
-
-    const keywords = Object.values(keywordMap)
-      .map((row) => ({
-        keyword: row.keyword,
-        searches: Number(row.searches || 0),
-        clicks: Number(row.clicks || 0),
-      }))
-      .sort((a, b) => b.searches - a.searches)
-      .slice(0, 10);
-
-    // =========================
-    // Hourly distribution
-    // =========================
-    const hourlyMap = {};
-    for (let i = 0; i < 24; i++) {
-      const key = String(i).padStart(2, "0");
-      hourlyMap[key] = 0;
-    }
-
-    for (const log of relevantLogs) {
-      const d = new Date(log.createdAt || log.timestamp || Date.now());
-      const hour = String(d.getHours()).padStart(2, "0");
-      hourlyMap[hour] += 1;
-    }
-
-    const hourly = Object.entries(hourlyMap).map(([hour, count]) => ({
-      hour,
-      count,
-    }));
-
-    const peakHourEntry = hourly.reduce(
-      (max, item) => (item.count > max.count ? item : max),
-      { hour: "00", count: 0 }
-    );
-
-    // =========================
-    // Peak day
-    // =========================
-    const peakDayEntry = activity.reduce(
-      (max, item) => (Number(item.total || 0) > Number(max.total || 0) ? item : max),
-      { date: null, total: 0 }
-    );
-
-    return res.json({
       business: b.name || "Business",
       logo:
         b.logo ||
@@ -1884,33 +1744,32 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
         ? b.category.join(", ")
         : toSafeCategoryValue(b.category) || "Category",
 
-      totalClicks: countMap.click,
-      totalMessages: countMap.whatsapp,
-      mediaViews: countMap.media,
-      views: countMap.view,
-      weeklyGrowth,
+      totalClicks: 0,
+      totalMessages: 0,
+      mediaViews: 0,
+      views: 0,
+      weeklyGrowth: 0,
 
-      peakHour: peakHourEntry.hour,
-      peakHourCount: peakHourEntry.count,
-      peakDay: peakDayEntry.date,
+      peakHour: "00",
+      peakHourCount: 0,
+      peakDay: null,
 
-      activity,
-      hourly,
-      keywords,
+      activity: [],
+      hourly: [],
+      keywords: [],
 
       sources: [
-        { name_en: "WhatsApp", name_ar: "واتساب", value: countMap.whatsapp },
-        { name_en: "Clicks", name_ar: "نقرات", value: countMap.click },
-        { name_en: "Media", name_ar: "وسائط", value: countMap.media },
-        { name_en: "Views", name_ar: "مشاهدات", value: countMap.view },
+        { name_en: "WhatsApp", name_ar: "واتساب", value: 0 },
+        { name_en: "Clicks", name_ar: "نقرات", value: 0 },
+        { name_en: "Media", name_ar: "وسائط", value: 0 },
+        { name_en: "Views", name_ar: "مشاهدات", value: 0 },
       ],
     });
   } catch (e) {
-    console.error("reports error:", e?.message, e);
+    console.error("business/reports error:", e);
     return res.status(500).json({ error: "Failed" });
   }
 });
-
 // =========================
 // BUSINESS BALANCE
 // =========================
