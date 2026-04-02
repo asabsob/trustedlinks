@@ -37,7 +37,7 @@ import Navbar from "./components/Navbar.jsx";
 // User Protected Route
 // -------------------------
 function RequireAuth({ children }) {
-  const token = localStorage.getItem("token");
+const token = localStorage.getItem("trustedlinks_token");
   if (!token) return <Navigate to="/login" replace />;
   return children;
 }
@@ -54,7 +54,7 @@ function PrivateAdmin({ children }) {
 export default function App() {
   const [lang, setLang] = useState(localStorage.getItem("lang") || "en");
   const navigate = useNavigate();
-  const token = localStorage.getItem("token");
+ const token = localStorage.getItem("trustedlinks_token");
 
   const strings = useMemo(
     () => ({
@@ -105,7 +105,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
+  localStorage.removeItem("trustedlinks_token");
     localStorage.removeItem("pendingBusiness");
     localStorage.removeItem("otpToken");
     navigate("/", { replace: true });
