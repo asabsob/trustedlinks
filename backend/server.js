@@ -33,6 +33,7 @@ import TopupOrder from "./models/TopupOrder.js";
 import { topupWallet, deductWallet } from "./services/walletService.js";
 import Transaction from "./models/Transaction.js";
 import { optimizeBusinessProfile } from "./services/aiOptimizer.js";
+import { requireAuth } from "./middleware/auth.js";
 
 import {
   getUserById,
@@ -992,6 +993,11 @@ app.post("/api/auth/reset-password", async (req, res) => {
     console.error("reset-password error:", e);
     return res.status(500).json({ error: "Internal server error" });
   }
+});
+
+app.get("/api/me", requireAuth, async (req, res) => {
+  const user = await getUserById(req.userId);
+  res.json(user);
 });
 
 // ============================================================================
