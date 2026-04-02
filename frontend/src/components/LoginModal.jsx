@@ -24,103 +24,82 @@ export default function LoginModal({
 
   // ----------------- LOGIN -----------------
   const handleLogin = async (e) => {
-    e.preventDefault();
-    setError("");
-    setInfoMessage("");
+  e.preventDefault();
+  setError("");
+  setInfoMessage("");
 
-    if (!email || !password) {
+  if (!email || !password) {
+    setError(
+      t(
+        "Please fill email and password.",
+        "يرجى إدخال البريد الإلكتروني وكلمة المرور."
+      )
+    );
+    return;
+  }
+
+  try {
+    setLoading(true);
+
+    const res = await fetch(`${API_BASE}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      if (res.status === 403 && data?.code === "EMAIL_NOT_VERIFIED") {
+        setError(
+          t(
+            "Please verify your email before logging in.",
+            "يرجى تفعيل البريد الإلكتروني قبل تسجيل الدخول."
+          )
+        );
+      } else {
+        setError(data?.error || t("Login failed.", "فشل تسجيل الدخول."));
+      }
+      return;
+    }
+
+    localStorage.setItem("trustedlinks_token", data.token);
+    localStorage.setItem("trustedlinks_user_email", data.email || "");
+
+    const meRes = await fetch(`${API_BASE}/api/me`, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${data.token}`,
+      },
+    });
+
+    const meData = await meRes.json().catch(() => ({}));
+
+    if (!meRes.ok) {
       setError(
-        t(
-          "Please fill email and password.",
-          "يرجى إدخال البريد الإلكتروني وكلمة المرور."
-        )
+        meData?.error ||
+          t(
+            "Logged in, but failed to load account info.",
+            "تم تسجيل الدخول لكن تعذر تحميل معلومات الحساب."
+          )
       );
       return;
     }
 
-    try {
-      setLoading(true);
+    setInfoMessage(t("Login successful!", "تم تسجيل الدخول بنجاح!"));
 
-      // 1) login
-      const res = await fetch(`${API_BASE}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        if (res.status === 403 && data?.code === "EMAIL_NOT_VERIFIED") {
-          setError(
-            t(
-              "Please verify your email before logging in.",
-              "يرجى تفعيل البريد الإلكتروني قبل تسجيل الدخول."
-            )
-          );
-        } else {
-          setError(data?.error || t("Login failed.", "فشل تسجيل الدخول."));
-        }
-        return;
-      }
-
-      // 2) save token
-     localStorage.setItem("trustedlinks_token", data.token);
-    localStorage.setItem("trustedlinks_user_email", data.email || "");
-      
-      // 3) fetch user profile after login
-      const meRes = await fetch(`${API_BASE}/api/me`, {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${data.token}`,
-        },
-      });
-
-      const meData = await meRes.json().catch(() => ({}));
-
-      if (!meRes.ok) {
-        setError(
-          meData?.error ||
-            t(
-              "Logged in, but failed to load account info.",
-              "تم تسجيل الدخول لكن تعذر تحميل معلومات الحساب."
-            )
-        );
-        return;
-      }
-
-      setInfoMessage(t("Login successful!", "تم تسجيل الدخول بنجاح!"));
-
-     if (onLoginSuccess) onLoginSuccess(data.token, data);
-
-      const pendingBusiness = localStorage.getItem("pendingBusiness");
-
-      // 4) smart redirect based on state
-      setTimeout(() => {
-        if (pendingBusiness) {
-          navigate("/subscribe", { replace: true });
-          return;
-        }
-
-        if (meData?.subscriptionPlan) {
-          navigate("/dashboard", { replace: true });
-          return;
-        }
-
-        navigate("/dashboard", { replace: true });
-      }, 500);
-    } catch (err) {
-      setError(
-        t(
-          "Unexpected error, try again.",
-          "حدث خطأ غير متوقع، حاول مرة أخرى."
-        )
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
+    if (onLoginSuccess) onLoginSuccess(data.token, data);
+  } catch (err) {
+    setError(
+      t(
+        "Unexpected error, try again.",
+        "حدث خطأ غير متوقع، حاول مرة أخرى."
+      )
+    );
+  } finally {
+    setLoading(false);
+  }
+};
   // -------------- RESEND VERIFICATION --------------
   const handleResendVerification = async () => {
     setError("");
