@@ -756,18 +756,17 @@ app.post("/api/auth/login", async (req, res) => {
     const { email, password } = req.body || {};
     const emailNorm = String(email || "").toLowerCase().trim();
 
-    console.log("LOGIN EMAIL:", emailNorm);
+   
 
     const user = await getUserByEmail(emailNorm);
-    console.log("LOGIN USER FROM SUPABASE:", user);
+  
 
     if (!user) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
     const ok = await bcrypt.compare(String(password), user.passwordHash);
-    console.log("LOGIN PASSWORD MATCH:", ok);
-
+    
     if (!ok) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
