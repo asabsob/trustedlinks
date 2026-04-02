@@ -65,8 +65,9 @@ export default function LoginModal({
       }
 
       // 2) save token
-      localStorage.setItem("token", data.token);
-
+     localStorage.setItem("trustedlinks_token", data.token);
+    localStorage.setItem("trustedlinks_user_email", data.email || "");
+      
       // 3) fetch user profile after login
       const meRes = await fetch(`${API_BASE}/api/me`, {
         headers: {
@@ -90,7 +91,7 @@ export default function LoginModal({
 
       setInfoMessage(t("Login successful!", "تم تسجيل الدخول بنجاح!"));
 
-      if (onLoginSuccess) onLoginSuccess(data.token);
+     if (onLoginSuccess) onLoginSuccess(data.token, data);
 
       const pendingBusiness = localStorage.getItem("pendingBusiness");
 
