@@ -16,7 +16,9 @@ import {
   Bar,
 } from "recharts";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
+const API_BASE =
+  import.meta.env.VITE_API_BASE ||
+  "https://trustedlinks-backend-production.up.railway.app";
 const COLORS = ["#22c55e", "#34d399", "#4ade80", "#86efac", "#f59e0b", "#3b82f6"];
 
 export default function Reports({ lang = "en" }) {
@@ -176,7 +178,7 @@ searchCount: "عدد مرات البحث",
     let cancelled = false;
 
     async function load() {
-      const token = localStorage.getItem("token");
+    const token = localStorage.getItem("trustedlinks_token");
 
       if (!token) {
         navigate("/login", { replace: true });
