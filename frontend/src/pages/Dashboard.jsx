@@ -19,13 +19,11 @@ export default function Dashboard({ lang = "en" }) {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      setError(t("You are not logged in.", "أنت غير مسجل دخول."));
-      setLoading(false);
-      return;
-    }
-
+   const token = localStorage.getItem("trustedlinks_token");
+   if (!token) {
+  navigate("/login");
+  return;
+}
     let cancelled = false;
 
     async function loadAll() {
