@@ -1020,30 +1020,6 @@ app.get("/api/me", requireAuth, async (req, res) => {
   }
 });
 
-// ============================================================================
-// USER
-// ============================================================================
-app.get("/api/me", requireUser, async (req, res) => {
-  try {
-    const user = await getUserById(req.user.id);
-    if (!user) return res.status(404).json({ error: "User not found" });
-
-    return res.json({
-      ok: true,
-      id: String(user.id),
-      email: user.email,
-      emailVerified: Boolean(user.emailVerified),
-      subscriptionPlan: user.subscriptionPlan || null,
-      planActivatedAt: user.planActivatedAt || null,
-      walletBalance: typeof user.walletBalance === "number" ? user.walletBalance : 0,
-      currency: user.currency || "USD",
-      freeCreditGranted: Boolean(user.freeCreditGranted),
-    });
-  } catch (e) {
-    console.error("/api/me error:", e);
-    return res.status(500).json({ error: "Failed" });
-  }
-});
 
 // ============================================================================
 // WhatsApp OTP
@@ -1753,113 +1729,40 @@ app.post("/api/business/apply-ai-optimization", requireUser, async (req, res) =>
 
 app.get("/api/business/reports", requireUser, async (req, res) => {
   try {
-    const b = await Business.findOne({ ownerUserId: String(req.user.id) }).lean();
+    const b = await getBusinessByOwnerUserId(String(req.user.id));
     if (!b) return res.status(404).json({ error: "Business not found" });
 
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return res.json({
+      ok: true,
+      businessId: b.id,
 
-    const start90 = new Date(today);
-    start90.setDate(start90.getDate() - 89);
+      totalClicks: 0,
+      totalMessages: 0,
+      mediaViews: 0,
+      views: 0,
+      weeklyGrowth: 0,
 
-    const start30 = new Date(today);
-    start30.setDate(start30.getDate() - 29);
-
-    const events = await BusinessEvent.find({
-      businessId: b._id,
-      createdAt: { $gte: start90 },
-    })
-      .sort({ createdAt: 1 })
-      .lean();
-
-    const allTimeCounts = await BusinessEvent.aggregate([
-      { $match: { businessId: b._id } },
-      {
-        $group: {
-          _id: "$type",
-          count: { $sum: 1 },
-        },
-      },
-    ]);
-
-    const countMap = {
-      click: 0,
-      whatsapp: 0,
-      media: 0,
-      view: 0,
-    };
-
-    for (const row of allTimeCounts) {
-      if (row?._id && countMap[row._id] !== undefined) {
-        countMap[row._id] = Number(row.count || 0);
-      }
-    }
-
-    const toDayKey = (date) => {
-      const d = new Date(date);
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
-      return `${y}-${m}-${day}`;
-    };
-
-    const activityMap = {};
-
-    for (let i = 89; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      const key = toDayKey(d);
-
-      activityMap[key] = {
-        date: key,
+      activity: [],
+      currentWeek: {
         total: 0,
         whatsapp: 0,
         media: 0,
         messages: 0,
         views: 0,
-      };
-    }
-
-    for (const ev of events) {
-      const key = toDayKey(ev.createdAt);
-      if (!activityMap[key]) continue;
-
-      if (ev.type === "click") activityMap[key].total += 1;
-      if (ev.type === "whatsapp") {
-        activityMap[key].whatsapp += 1;
-        activityMap[key].messages += 1;
-      }
-      if (ev.type === "media") activityMap[key].media += 1;
-      if (ev.type === "view") activityMap[key].views += 1;
-    }
-
-    const activity = Object.values(activityMap);
-
-    const sumRange = (rows) =>
-      rows.reduce(
-        (acc, row) => {
-          acc.total += Number(row.total || 0);
-          acc.whatsapp += Number(row.whatsapp || 0);
-          acc.media += Number(row.media || 0);
-          acc.messages += Number(row.messages || 0);
-          acc.views += Number(row.views || 0);
-          return acc;
-        },
-        { total: 0, whatsapp: 0, media: 0, messages: 0, views: 0 }
-      );
-
-    const last7 = activity.slice(-7);
-    const prev7 = activity.slice(-14, -7);
-
-    const currentWeek = sumRange(last7);
-    const previousWeek = sumRange(prev7);
-
-    const weeklyGrowth =
-      previousWeek.total === 0
-        ? currentWeek.total > 0
-          ? 100
-          : 0
-        : Math.round(((currentWeek.total - previousWeek.total) / previousWeek.total) * 100);
+      },
+      previousWeek: {
+        total: 0,
+        whatsapp: 0,
+        media: 0,
+        messages: 0,
+        views: 0,
+      },
+    });
+  } catch (e) {
+    console.error("business/reports error:", e);
+    return res.status(500).json({ error: "Failed" });
+  }
+});
 
     // =========================
     // Search Logs (last 30 days)
