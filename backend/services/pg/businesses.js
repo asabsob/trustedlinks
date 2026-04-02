@@ -79,3 +79,13 @@ export async function createBusiness(payload) {
   if (error) throw error;
   return mapBusiness(data);
 }
+export async function getBusinessByOwnerUserId(ownerUserId) {
+  const { data, error } = await supabase
+    .from("businesses")
+    .select("*")
+    .eq("owner_user_id", ownerUserId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return mapBusiness(data);
+}
