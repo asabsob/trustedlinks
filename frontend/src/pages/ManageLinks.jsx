@@ -2,12 +2,14 @@ import React, { useEffect, useMemo, useState } from "react";
 import WhatsAppVerify from "../components/WhatsAppVerify";
 import LocationPicker from "../components/LocationPicker";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
+const API_BASE =
+  import.meta.env.VITE_API_BASE ||
+  "https://trustedlinks-backend-production.up.railway.app";
 
 export default function ManageLinks({ lang = "en" }) {
   const isAr = lang === "ar";
   const dir = isAr ? "rtl" : "ltr";
-  const token = localStorage.getItem("token") || "";
+ localStorage.getItem("trustedlinks_token")
 
   const [business, setBusiness] = useState(null);
   const [originalForm, setOriginalForm] = useState(null);
