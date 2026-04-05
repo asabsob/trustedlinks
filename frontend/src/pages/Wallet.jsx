@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
+const API_BASE =
+  import.meta.env.VITE_API_BASE ||
+  "https://trustedlinks-backend-production.up.railway.app";
 
 export default function Wallet({ lang = "en" }) {
   const [loading, setLoading] = useState(true);
