@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
+const API_BASE =
+  import.meta.env.VITE_API_BASE ||
+  "https://trustedlinks-backend-production.up.railway.app";
 export default function Transactions({ lang = "en" }) {
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState([]);
@@ -62,7 +64,7 @@ export default function Transactions({ lang = "en" }) {
   return;
 }
 
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("trustedlinks_token")
   const res = await fetch(`${API_BASE}/api/business/transactions/${businessId}?limit=100`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       }).catch(() => null);
