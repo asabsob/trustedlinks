@@ -124,3 +124,38 @@ export async function updateUserPassword(userId, passwordHash) {
   if (error) throw error;
   return mapUser(data);
 }
+
+export async function updateUserWalletBalance(userId, walletBalance) {
+  const { data, error } = await supabase
+    .from("users")
+    .update({
+      wallet_balance: Number(walletBalance),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", userId)
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return mapUser(data);
+}
+
+export async function updateUserSubscription(
+  userId,
+  subscriptionPlan,
+  planActivatedAt = new Date().toISOString()
+) {
+  const { data, error } = await supabase
+    .from("users")
+    .update({
+      subscription_plan: subscriptionPlan,
+      plan_activated_at: planActivatedAt,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", userId)
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return mapUser(data);
+}
