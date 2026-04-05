@@ -34,7 +34,7 @@ import { topupWallet, deductWallet } from "./services/walletService.js";
 import Transaction from "./models/Transaction.js";
 import { optimizeBusinessProfile } from "./services/aiOptimizer.js";
 import { requireAuth } from "./middleware/auth.js";
-
+import authRoutes from "./routes/auth.js";
 import {
   getUserById,
   getUserByEmail,
@@ -641,6 +641,7 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
 
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
+app.use("/api/auth", authRoutes);
 
 
 
