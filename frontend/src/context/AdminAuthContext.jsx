@@ -2,7 +2,9 @@ import { createContext, useContext, useEffect, useState } from "react";
 
 const AdminAuthContext = createContext(null);
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
+const API_BASE =
+  import.meta.env.VITE_API_BASE ||
+  "https://trustedlinks-backend-production.up.railway.app";
 
 export function AdminAuthProvider({ children }) {
   const [admin, setAdmin] = useState(null);
