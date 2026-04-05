@@ -1516,7 +1516,12 @@ app.put("/api/business/update", requireUser, async (req, res) => {
     const existing = await getBusinessByOwnerUserId(String(req.user.id));
     if (!existing) return res.status(404).json({ error: "Business not found" });
 
-    const updated = await updateBusinessByOwnerUserId(String(req.user.id), req.body || {});
+   const updated = await updateBusinessByOwnerUserId(String(req.user.id), {
+  description: String(description || "").trim(),
+  keywords: Array.isArray(keywords)
+    ? keywords.map((k) => String(k).trim()).filter(Boolean)
+    : [],
+});
 
     const formatted = {
       ...updated,
@@ -1542,7 +1547,7 @@ app.put("/api/business/update", requireUser, async (req, res) => {
 // =========================
 app.post("/api/business/ai-optimize", requireUser, async (req, res) => {
   try {
-    const business = await Business.findOne({ ownerUserId: String(req.user.id) }).lean();
+   const business = await getBusinessByOwnerUserId(String(req.user.id));
     if (!business) {
       return res.status(404).json({ error: "Business not found" });
     }
@@ -1582,7 +1587,7 @@ const result = await optimizeBusinessProfile({
 
     return res.json({
       ok: true,
-      businessId: String(business._id),
+     businessId: String(business.id),
       result,
     });
   } catch (e) {
@@ -1598,7 +1603,7 @@ const result = await optimizeBusinessProfile({
 // =========================
 app.post("/api/business/apply-ai-optimization", requireUser, async (req, res) => {
   try {
-    const business = await Business.findOne({ ownerUserId: String(req.user.id) });
+   const business = await getBusinessByOwnerUserId(String(req.user.id));
     if (!business) {
       return res.status(404).json({ error: "Business not found" });
     }
@@ -1673,14 +1678,12 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
 // =========================
 app.get("/api/business/balance/:businessId", requireUser, async (req, res) => {
   try {
-    const { businessId } = req.params;
-
-    const business = await Business.findById(businessId).lean();
+    const business = await getBusinessByOwnerUserId(String(req.user.id));
     if (!business) {
       return res.status(404).json({ error: "Business not found" });
     }
 
-    if (business.ownerUserId && String(business.ownerUserId) !== String(req.user.id)) {
+    if (String(business.id) !== String(req.params.businessId)) {
       return res.status(403).json({ error: "Unauthorized" });
     }
 
@@ -1692,18 +1695,13 @@ app.get("/api/business/balance/:businessId", requireUser, async (req, res) => {
     else if (balance < 5) status = "low";
 
     return res.json({
-      wallet: {
-        balance,
-        currency,
-        status,
-      },
+      wallet: { balance, currency, status },
     });
   } catch (e) {
     console.error("business balance error:", e);
     return res.status(500).json({ error: "Failed to load business balance" });
   }
 });
-
 // =========================
 // BUSINESS TRANSACTIONS
 // =========================
