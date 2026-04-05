@@ -4,8 +4,9 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
-
+const API_BASE =
+  import.meta.env.VITE_API_BASE ||
+  "https://trustedlinks-backend-production.up.railway.app";
 async function post(path, body) {
   const r = await fetch(`${API_BASE}${path}`, {
     method: "POST",
