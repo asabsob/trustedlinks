@@ -49,6 +49,7 @@ import {
   getBusinessByWhatsapp,
   createBusiness,
   getBusinessByOwnerUserId,
+  updateBusinessByOwnerUserId,
 } from "./services/pg/businesses.js";
 
 import {
@@ -1512,123 +1513,21 @@ app.get("/api/business/me", requireUser, async (req, res) => {
 
 app.put("/api/business/update", requireUser, async (req, res) => {
   try {
-    const b = await Business.findOne({ ownerUserId: String(req.user.id) });
-    if (!b) return res.status(404).json({ error: "Business not found" });
+    const existing = await getBusinessByOwnerUserId(String(req.user.id));
+    if (!existing) return res.status(404).json({ error: "Business not found" });
 
-    const {
-      name,
-      name_ar,
-      description,
-      description_ar,
-      category,
-      keywords,
-      keywords_ar,
-      mediaLink,
-      mapLink,
-      latitude,
-      longitude,
-      logo,
-      locationText,
-      instagram,
-      whatsapp,
-      website,
-      countryCode,
-      countryName,
-    } = req.body || {};
-
-    if (typeof name === "string") {
-      b.name = name.trim();
-    }
-
-    if (typeof name_ar === "string") {
-      b.name_ar = name_ar.trim();
-    }
-
-    if (typeof description === "string") {
-      b.description = description.trim();
-    }
-
-    if (typeof description_ar === "string") {
-      b.description_ar = description_ar.trim();
-    }
-
-    if (Array.isArray(category)) {
-      b.category = category.map((x) => String(x).trim()).filter(Boolean);
-    }
-
-    if (Array.isArray(keywords)) {
-      b.keywords = keywords.map((x) => String(x).trim()).filter(Boolean);
-    }
-
-    if (Array.isArray(keywords_ar)) {
-      b.keywords_ar = keywords_ar.map((x) => String(x).trim()).filter(Boolean);
-    }
-
-    if (typeof mediaLink === "string") {
-      b.mediaLink = mediaLink.trim();
-    }
-
-    if (typeof mapLink === "string") {
-      b.mapLink = mapLink.trim();
-    }
-
-    if (logo !== undefined) {
-      b.logo = logo;
-    }
-
-    if (typeof locationText === "string") {
-      b.locationText = locationText.trim();
-    }
-
-    if (typeof website === "string") {
-      b.website = website.trim();
-    }
-
-    if (typeof whatsapp === "string") {
-      b.whatsapp = whatsapp.trim();
-    }
-
-    if (typeof countryCode === "string") {
-      b.countryCode = countryCode.trim();
-    }
-
-    if (typeof countryName === "string") {
-      b.countryName = countryName.trim();
-    }
-
-    if (instagram !== undefined) {
-      const cleanInstagram = String(instagram || "").trim().replace(/^@+/, "");
-      b.mediaLink = cleanInstagram
-        ? `https://instagram.com/${cleanInstagram}`
-        : "";
-    }
-
-    if (latitude !== undefined) {
-      b.latitude =
-        latitude === null || latitude === ""
-          ? null
-          : Number(latitude);
-    }
-
-    if (longitude !== undefined) {
-      b.longitude =
-        longitude === null || longitude === ""
-          ? null
-          : Number(longitude);
-    }
-
-    await b.save();
+    const updated = await updateBusinessByOwnerUserId(String(req.user.id), req.body || {});
 
     const formatted = {
-      ...b.toObject(),
+      ...updated,
       logo:
-        b.logo ||
-        (b.mediaLink &&
-        /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(String(b.mediaLink))
-          ? b.mediaLink
+        updated.logo ||
+        (updated.mediaLink &&
+        /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(String(updated.mediaLink))
+          ? updated.mediaLink
           : null),
-      whatsappLink: b.whatsapp
-        ? `https://wa.me/${String(b.whatsapp).replace(/\D/g, "")}`
+      whatsappLink: updated.whatsapp
+        ? `https://wa.me/${String(updated.whatsapp).replace(/\D/g, "")}`
         : null,
     };
 
@@ -1638,7 +1537,6 @@ app.put("/api/business/update", requireUser, async (req, res) => {
     return res.status(500).json({ error: "Update failed" });
   }
 });
-
 // =========================
 // AI OPTIMIZE BUSINESS PROFILE
 // =========================
