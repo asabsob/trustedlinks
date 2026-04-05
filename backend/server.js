@@ -43,6 +43,8 @@ import {
   setVerifyToken,
   setResetToken,
   updateUserPassword,
+  updateUserWalletBalance,
+  updateUserSubscription,
 } from "./services/pg/users.js";
 
 import {
@@ -50,6 +52,7 @@ import {
   createBusiness,
   getBusinessByOwnerUserId,
   updateBusinessByOwnerUserId,
+  getBusinessById,
 } from "./services/pg/businesses.js";
 
 import {
@@ -340,12 +343,13 @@ async function logBusinessEvent({ businessId, ownerUserId, type, source = "", me
     console.error("logBusinessEvent error:", e);
   }
 }
+
 async function getBusinessOwnerInfo(businessId) {
-  const business = await Business.findById(businessId).lean();
+  const business = await getBusinessById(businessId);
   if (!business) return null;
 
   return {
-    businessId: business._id,
+    businessId: business.id,
     ownerUserId: String(business.ownerUserId || ""),
     business,
   };
@@ -387,6 +391,7 @@ async function createTransaction({
     return null;
   }
 }
+
 async function deductWalletBalance({
   ownerUserId,
   businessId = null,
@@ -402,7 +407,7 @@ async function deductWalletBalance({
       return { ok: true, skipped: true, reason: "No charge for this event" };
     }
 
-    const user = await User.findById(ownerUserId);
+    const user = await getUserById(ownerUserId);
     if (!user) {
       return { ok: false, error: "User not found" };
     }
@@ -411,7 +416,7 @@ async function deductWalletBalance({
 
     if (balanceBefore < amount) {
       await createTransaction({
-        userId: user._id,
+        userId: user.id,
         businessId,
         type: "debit",
         amount,
@@ -434,11 +439,11 @@ async function deductWalletBalance({
       };
     }
 
-    user.walletBalance = Number((balanceBefore - amount).toFixed(2));
-    await user.save();
+    const nextBalance = Number((balanceBefore - amount).toFixed(2));
+    await updateUserWalletBalance(user.id, nextBalance);
 
     await createTransaction({
-      userId: user._id,
+      userId: user.id,
       businessId,
       type: "debit",
       amount,
@@ -448,7 +453,7 @@ async function deductWalletBalance({
       reference,
       status: "completed",
       balanceBefore,
-      balanceAfter: user.walletBalance,
+      balanceAfter: nextBalance,
       meta,
     });
 
@@ -456,7 +461,7 @@ async function deductWalletBalance({
       ok: true,
       amount,
       balanceBefore,
-      balanceAfter: user.walletBalance,
+      balanceAfter: nextBalance,
     };
   } catch (e) {
     console.error("deductWalletBalance error:", e);
@@ -474,17 +479,18 @@ async function creditWalletBalance({
   meta = {},
 }) {
   try {
-    const user = await User.findById(userId);
+    const user = await getUserById(userId);
     if (!user) {
       return { ok: false, error: "User not found" };
     }
 
     const balanceBefore = Number(user.walletBalance || 0);
-    user.walletBalance = Number((balanceBefore + Number(amount)).toFixed(2));
-    await user.save();
+    const nextBalance = Number((balanceBefore + Number(amount)).toFixed(2));
+
+    await updateUserWalletBalance(user.id, nextBalance);
 
     await createTransaction({
-      userId: user._id,
+      userId: user.id,
       type: "credit",
       amount: Number(amount),
       currency: currency || user.currency || "USD",
@@ -493,7 +499,7 @@ async function creditWalletBalance({
       reference,
       status: "completed",
       balanceBefore,
-      balanceAfter: user.walletBalance,
+      balanceAfter: nextBalance,
       notes,
       meta,
     });
@@ -501,7 +507,7 @@ async function creditWalletBalance({
     return {
       ok: true,
       balanceBefore,
-      balanceAfter: user.walletBalance,
+      balanceAfter: nextBalance,
       currency: user.currency || currency || "USD",
     };
   } catch (e) {
@@ -947,56 +953,6 @@ app.post("/api/auth/reset-password", async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 });
-app.post("/api/auth/reset-password", async (req, res) => {
-  try {
-    const { email, token, newPassword } = req.body || {};
-
-    const emailNorm = String(email || "").toLowerCase().trim();
-    const resetToken = String(token || "").trim();
-    const password = String(newPassword || "");
-
-    if (!emailNorm || !resetToken || !password) {
-      return res.status(400).json({ error: "Email, token, and new password are required" });
-    }
-
-    if (password.length < 8) {
-      return res.status(400).json({ error: "Password must be at least 8 characters" });
-    }
-
-    const user = await User.findOne({ email: emailNorm });
-
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    if (!user.resetToken || !user.resetTokenExpiresAt) {
-      return res.status(400).json({ error: "Invalid or expired reset token" });
-    }
-
-    if (String(user.resetToken) !== resetToken) {
-      return res.status(401).json({ error: "Invalid reset token" });
-    }
-
-    if (new Date(user.resetTokenExpiresAt).getTime() < Date.now()) {
-      return res.status(410).json({ error: "Reset token expired" });
-    }
-
-    user.passwordHash = await bcrypt.hash(password, 10);
-    user.resetToken = null;
-    user.resetTokenExpiresAt = null;
-
-    await user.save();
-
-    return res.json({
-      ok: true,
-      message: "Password reset successfully",
-    });
-  } catch (e) {
-    console.error("reset-password error:", e);
-    return res.status(500).json({ error: "Internal server error" });
-  }
-});
-
 app.get("/api/me", requireAuth, async (req, res) => {
   try {
     const user = await getUserById(req.userId);
