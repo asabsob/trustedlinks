@@ -9,7 +9,8 @@ const API_BASE =
 export default function ManageLinks({ lang = "en" }) {
   const isAr = lang === "ar";
   const dir = isAr ? "rtl" : "ltr";
- localStorage.getItem("trustedlinks_token")
+
+  const token = localStorage.getItem("trustedlinks_token");
 
   const [business, setBusiness] = useState(null);
   const [originalForm, setOriginalForm] = useState(null);
@@ -530,12 +531,13 @@ export default function ManageLinks({ lang = "en" }) {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-    } finally {
-      localStorage.removeItem("token");
-      localStorage.removeItem("pendingBusiness");
-      localStorage.removeItem("otpToken");
-      window.location.href = "/";
-    }
+   } finally {
+  localStorage.removeItem("trustedlinks_token");
+  localStorage.removeItem("trustedlinks_user_email");
+  localStorage.removeItem("pendingBusiness");
+  localStorage.removeItem("otpToken");
+  window.location.href = "/";
+}
   };
 
   const toggleStatus = async () => {
