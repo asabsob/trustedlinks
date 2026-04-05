@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
+const API_BASE =
+  import.meta.env.VITE_API_BASE ||
+  "https://trustedlinks-backend-production.up.railway.app";
 
 export default function ResetPassword({ lang = "en" }) {
   const isAr = lang === "ar";
