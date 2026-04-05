@@ -75,6 +75,99 @@ export async function createBusiness(payload) {
     custom_id: payload.customId || "",
   };
 
+  export async function updateBusinessByOwnerUserId(ownerUserId, payload) {
+  const updateData = {};
+
+  if (typeof payload.name === "string") {
+    updateData.name = payload.name.trim();
+  }
+
+  if (typeof payload.name_ar === "string") {
+    updateData.name_ar = payload.name_ar.trim();
+  }
+
+  if (typeof payload.description === "string") {
+    updateData.description = payload.description.trim();
+  }
+
+  if (typeof payload.description_ar === "string") {
+    updateData.description_ar = payload.description_ar.trim();
+  }
+
+  if (Array.isArray(payload.category)) {
+    updateData.category = payload.category.map((x) => String(x).trim()).filter(Boolean);
+  }
+
+  if (Array.isArray(payload.keywords)) {
+    updateData.keywords = payload.keywords.map((x) => String(x).trim()).filter(Boolean);
+  }
+
+  if (Array.isArray(payload.keywords_ar)) {
+    updateData.keywords_ar = payload.keywords_ar.map((x) => String(x).trim()).filter(Boolean);
+  }
+
+  if (typeof payload.mediaLink === "string") {
+    updateData.media_link = payload.mediaLink.trim();
+  }
+
+  if (typeof payload.mapLink === "string") {
+    updateData.map_link = payload.mapLink.trim();
+  }
+
+  if (payload.logo !== undefined) {
+    updateData.logo = payload.logo;
+  }
+
+  if (typeof payload.locationText === "string") {
+    updateData.location_text = payload.locationText.trim();
+  }
+
+  if (typeof payload.whatsapp === "string") {
+    updateData.whatsapp = payload.whatsapp.trim();
+  }
+
+  if (typeof payload.countryCode === "string") {
+    updateData.country_code = payload.countryCode.trim();
+  }
+
+  if (typeof payload.countryName === "string") {
+    updateData.country_name = payload.countryName.trim();
+  }
+
+  if (payload.latitude !== undefined) {
+    updateData.latitude =
+      payload.latitude === null || payload.latitude === ""
+        ? null
+        : Number(payload.latitude);
+  }
+
+  if (payload.longitude !== undefined) {
+    updateData.longitude =
+      payload.longitude === null || payload.longitude === ""
+        ? null
+        : Number(payload.longitude);
+  }
+
+  if (payload.instagram !== undefined) {
+    const cleanInstagram = String(payload.instagram || "").trim().replace(/^@+/, "");
+    updateData.media_link = cleanInstagram
+      ? `https://instagram.com/${cleanInstagram}`
+      : "";
+  }
+
+  updateData.updated_at = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from("businesses")
+    .update(updateData)
+    .eq("owner_user_id", ownerUserId)
+    .select("*")
+    .maybeSingle();
+
+  if (error) throw error;
+  return mapBusiness(data);
+}
+
   const { data, error } = await supabase.from("businesses").insert(insertData).select("*").single();
   if (error) throw error;
   return mapBusiness(data);
