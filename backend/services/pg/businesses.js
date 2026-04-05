@@ -75,7 +75,23 @@ export async function createBusiness(payload) {
     custom_id: payload.customId || "",
   };
 
-  export async function updateBusinessByOwnerUserId(ownerUserId, payload) {
+
+  const { data, error } = await supabase.from("businesses").insert(insertData).select("*").single();
+  if (error) throw error;
+  return mapBusiness(data);
+}
+export async function getBusinessByOwnerUserId(ownerUserId) {
+  const { data, error } = await supabase
+    .from("businesses")
+    .select("*")
+    .eq("owner_user_id", ownerUserId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return mapBusiness(data);
+}
+
+ export async function updateBusinessByOwnerUserId(ownerUserId, payload) {
   const updateData = {};
 
   if (typeof payload.name === "string") {
@@ -162,21 +178,6 @@ export async function createBusiness(payload) {
     .update(updateData)
     .eq("owner_user_id", ownerUserId)
     .select("*")
-    .maybeSingle();
-
-  if (error) throw error;
-  return mapBusiness(data);
-}
-
-  const { data, error } = await supabase.from("businesses").insert(insertData).select("*").single();
-  if (error) throw error;
-  return mapBusiness(data);
-}
-export async function getBusinessByOwnerUserId(ownerUserId) {
-  const { data, error } = await supabase
-    .from("businesses")
-    .select("*")
-    .eq("owner_user_id", ownerUserId)
     .maybeSingle();
 
   if (error) throw error;
