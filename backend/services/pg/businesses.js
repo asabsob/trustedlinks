@@ -24,6 +24,8 @@ function mapBusiness(row) {
     countryCode: row.country_code,
     countryName: row.country_name,
     customId: row.custom_id,
+
+    // ✅ wallet
     wallet: {
       balance: Number(row.wallet_balance ?? 0),
       currency: row.wallet_currency || "USD",
@@ -32,15 +34,25 @@ function mapBusiness(row) {
       negativeLimit: Number(row.wallet_negative_limit ?? -5),
       lowBalanceThreshold: Number(row.wallet_low_balance_threshold ?? 5),
     },
+
+    // ✅ billing
     billing: {
       clickCost: Number(row.billing_click_cost ?? 0.05),
       whatsappCost: Number(row.billing_whatsapp_cost ?? 0.1),
     },
+
+    // ✅ NEW: counters (ضعها هنا داخل return)
+    viewsCount: Number(row.views_count ?? 0),
+    clicksCount: Number(row.clicks_count ?? 0),
+    mediaViewsCount: Number(row.media_views_count ?? 0),
+    mapClicksCount: Number(row.map_clicks_count ?? 0),
+    whatsappClicksCount: Number(row.whatsapp_clicks_count ?? 0),
+    messagesCount: Number(row.messages_count ?? 0),
+
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
-
 export async function getBusinessByWhatsapp(whatsapp) {
   const { data, error } = await supabase
     .from("businesses")
@@ -218,11 +230,6 @@ export async function incrementBusinessEventField(businessId, fieldName, amount 
     whatsapp_clicks: "whatsapp_clicks_count",
     messages: "messages_count",
     viewsCount: Number(row.views_count ?? 0),
-clicksCount: Number(row.clicks_count ?? 0),
-mediaViewsCount: Number(row.media_views_count ?? 0),
-mapClicksCount: Number(row.map_clicks_count ?? 0),
-whatsappClicksCount: Number(row.whatsapp_clicks_count ?? 0),
-messagesCount: Number(row.messages_count ?? 0),
   };
 
   const rowField = currentRowFieldMap[fieldName];
