@@ -49,6 +49,8 @@ import {
   getBusinessByOwnerUserId,
   updateBusinessByOwnerUserId,
   getBusinessById,
+  getBusinessByCustomId,
+  listActiveBusinesses,
   incrementBusinessEventField,
 } from "./services/pg/businesses.js";
 
@@ -72,6 +74,10 @@ import {
 import { createBusinessEvent } from "./services/pg/businessEvents.js";
 import { createLeadToken } from "./services/pg/leadTokens.js";
 
+import {
+  createLeadToken,
+  getLeadTokenById,
+} from "./services/pg/leadTokens.js";
 
 dotenv.config();
 
@@ -170,7 +176,7 @@ function toSafeCategoryValue(cat) {
 }
 
 async function getUserOr404(userId, res) {
-  const user = await User.findById(userId);
+  const user = await getUserById(userId);
   if (!user) {
     res.status(404).json({ error: "User not found" });
     return null;
@@ -1696,7 +1702,7 @@ app.get("/api/search", async (req, res) => {
   try {
     const { query = "", category = "all", lat, lng } = req.query;
 
-    let results = await Business.find({ status: "Active" }).lean();
+    let results = await listActiveBusinesses();
 
     if (query) {
       const q = String(query).toLowerCase();
@@ -1752,7 +1758,7 @@ app.get("/api/search", async (req, res) => {
 
 app.get("/api/businesses", async (_req, res) => {
   try {
-    const list = await Business.find({ status: "Active" }).lean();
+    const list = await listActiveBusinesses();
 
     const formatted = list.map((b) => ({
       ...b,
@@ -1768,7 +1774,8 @@ app.get("/api/businesses", async (_req, res) => {
     }));
 
     return res.json(formatted);
-  } catch {
+  } catch (e) {
+    console.error("/api/businesses error", e);
     return res.status(500).json({ error: "Failed" });
   }
 });
@@ -1777,14 +1784,10 @@ app.get("/api/business/:id", async (req, res) => {
   try {
     const id = req.params.id;
 
-    let business = null;
-
-    if (id.match(/^[0-9a-fA-F]{24}$/)) {
-      business = await Business.findById(id).lean();
-    }
+    let business = await getBusinessById(id);
 
     if (!business) {
-      business = await Business.findOne({ customId: id }).lean();
+      business = await getBusinessByCustomId(id);
     }
 
     if (!business) {
@@ -1805,11 +1808,11 @@ app.get("/api/business/:id", async (req, res) => {
     };
 
     return res.json(formatted);
-  } catch {
+  } catch (e) {
+    console.error("/api/business/:id error", e);
     return res.status(404).json({ error: "Not found" });
   }
 });
-
 
 // ============================================================================
 // Tracking endpoints used by BusinessDetails.jsx
@@ -2017,6 +2020,7 @@ app.post("/api/track-whatsapp", async (req, res) => {
     return res.status(500).json({ error: "Failed" });
   }
 });
+
 // ============================================================================
 // Admin Auth + Admin endpoints
 // ============================================================================
@@ -2390,7 +2394,7 @@ if (
   const enrichedNearest = await Promise.all(
     topNearest.map(async (item) => {
       const trackedLink = await createLeadTrackedLink({
-        businessId: item._id || "",
+        businessId: item.id || "",
         phone: item.whatsapp || item.phone || "",
         query: categoryQuery || "nearby",
         userPhone: from,
@@ -2659,7 +2663,7 @@ const topResults = (Array.isArray(results) ? results : []).slice(0, 3);
 const enrichedResults = await Promise.all(
   topResults.map(async (item) => {
     const trackedLink = await createLeadTrackedLink({
-      businessId: item._id || "",
+      businessId: item.id || "",
       phone: item.whatsapp || item.phone || "",
       query,
       userPhone: from,
@@ -2731,7 +2735,8 @@ app.get("/l/:token", async (req, res) => {
       return res.status(400).send("Invalid link");
     }
 
-    const leadToken = await LeadToken.findById(token).lean();
+    // ✅ Supabase
+    const leadToken = await getLeadTokenById(token);
 
     if (!leadToken) {
       return res.status(404).send("Link not found or expired");
@@ -2748,24 +2753,17 @@ app.get("/l/:token", async (req, res) => {
       return res.status(400).send("Invalid destination");
     }
 
-    const business = await Business.findById(businessId).lean();
+    const business = await getBusinessById(businessId);
     if (!business) {
       return res.status(404).send("Business not found");
     }
 
-
-      ClickLog.create({
-      businessId,
-      businessPhone,
-      userPhone,
-      query,
-      timestamp: new Date(),
-    }).catch((err) => console.error("CLICK LOG ERROR:", err));
-
-    await pushEvent(businessId, "messages");
+    // =========================
+    // Tracking
+    // =========================
 
     await logBusinessEvent({
-      businessId: business._id,
+      businessId: business.id,
       ownerUserId: String(business.ownerUserId || ""),
       type: "click",
       source: "tracked_lead_link",
@@ -2773,16 +2771,48 @@ app.get("/l/:token", async (req, res) => {
     });
 
     await logBusinessEvent({
-      businessId: business._id,
+      businessId: business.id,
       ownerUserId: String(business.ownerUserId || ""),
       type: "whatsapp",
       source: "tracked_lead_link",
       meta: { query, userPhone },
     });
 
-    await pushEvent(businessId, "clicks");
-    await pushEvent(businessId, "whatsappClicks");
-    await pushEvent(businessId, "messages");
+    await pushEvent(business.id, "clicks");
+    await pushEvent(business.id, "whatsappClicks");
+    await pushEvent(business.id, "messages");
+
+    // =========================
+    // Wallet Deduction
+    // =========================
+    const deduction = await deductWalletBalance({
+      ownerUserId: business.ownerUserId,
+      businessId: business.id,
+      eventType: "whatsapp",
+      reason: "Tracked lead click + WhatsApp redirect",
+      reference: `lead_${Date.now()}`,
+      meta: {
+        query,
+        userPhone,
+        source: "tracked_lead_link",
+      },
+    });
+
+    if (deduction.insufficient) {
+      return res.status(402).send("Business wallet balance is insufficient");
+    }
+
+    // =========================
+    // Redirect
+    // =========================
+    const message = encodeURIComponent("Hello, I found you on TrustedLinks");
+
+    return res.redirect(`https://wa.me/${businessPhone}?text=${message}`);
+  } catch (err) {
+    console.error("LEAD CLICK ERROR:", err);
+    return res.status(500).send("Error");
+  }
+});
 
     // =========================
     // Wallet Deduction
@@ -2824,6 +2854,8 @@ app.get("/l/:token", async (req, res) => {
     return res.status(500).send("Error");
   }
 });
+
+
 // ---------------------------------------------------------------------------
 // Debug
 // ---------------------------------------------------------------------------
