@@ -26,7 +26,6 @@ import SearchLog from "./models/SearchLog.js";
 import SearchSession from "./models/SearchSession.js";
 import SearchCache from "./models/SearchCache.js";
 import crypto from "crypto";
-import ClickLog from "./models/ClickLog.js";
 import TopupOrder from "./models/TopupOrder.js";
 import { topupWallet, deductWallet } from "./services/walletService.js";
 import { optimizeBusinessProfile } from "./services/aiOptimizer.js";
@@ -50,6 +49,7 @@ import {
   getBusinessByOwnerUserId,
   updateBusinessByOwnerUserId,
   getBusinessById,
+  incrementBusinessEventField,
 } from "./services/pg/businesses.js";
 
 import {
@@ -1858,18 +1858,26 @@ app.get("/api/business/:id", async (req, res) => {
   }
 });
 
+
 // ============================================================================
 // Tracking endpoints used by BusinessDetails.jsx
 // ============================================================================
 async function pushEvent(businessId, field, payload = {}) {
-  const b = await Business.findById(businessId);
-  if (!b) return null;
+  const fieldMap = {
+    views: "views",
+    clicks: "clicks",
+    mediaViews: "media_views",
+    mapClicks: "map_clicks",
+    whatsappClicks: "whatsapp_clicks",
+    messages: "messages",
+  };
 
-  if (!Array.isArray(b[field])) b[field] = [];
-  b[field].push({ at: new Date(), ...payload });
+  const normalizedField = fieldMap[field];
+  if (!normalizedField) {
+    throw new Error(`Unsupported event field: ${field}`);
+  }
 
-  await b.save();
-  return b;
+  return await incrementBusinessEventField(businessId, normalizedField, 1);
 }
 
 app.post("/api/track-view", async (req, res) => {
@@ -2833,8 +2841,8 @@ app.get("/l/:token", async (req, res) => {
       const totalCost = Number((clickCost + whatsappCost).toFixed(2));
 
       if (totalCost > 0) {
-        await deductWallet({
-          businessId: business._id,
+       await deductWallet({
+  businessId: business.id,
           amount: totalCost,
           eventType: "whatsapp",
           note: "Tracked lead click + WhatsApp redirect",
@@ -2875,22 +2883,6 @@ app.get("/api/debug/resend", (_req, res) => {
   });
 });
 
-app.get("/api/debug/mongo", async (_req, res) => {
-  try {
-    const users = await User.countDocuments();
-    const businesses = await Business.countDocuments();
-
-    res.json({
-      ok: true,
-      users,
-      businesses,
-      hasMongoUri: Boolean(process.env.MONGODB_URI),
-    });
-    
-  } catch (e) {
-    res.status(500).json({ ok: false, error: String(e) });
-  }
-});
 
 process.on("uncaughtException", (err) => console.error("UNCAUGHT_EXCEPTION:", err));
 process.on("unhandledRejection", (reason) => console.error("UNHANDLED_REJECTION:", reason));
