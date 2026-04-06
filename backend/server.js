@@ -4,13 +4,7 @@
 // FLOW:
 // 1) Signup user
 // 2) Verify WhatsApp OTPoy Logs
-HTTP Logs
-Network Flow Logs
-Filter and search logs
 
-You reached the start of the range
-Apr 6, 2026, 1:50 PM
-file:///app/server.js:362
 async function createTransaction({
 ^
 SyntaxError: Identifier 'createTransaction' has already been declared
