@@ -183,3 +183,13 @@ export async function getBusinessByOwnerUserId(ownerUserId) {
   if (error) throw error;
   return mapBusiness(data);
 }
+export async function getBusinessById(id) {
+  const { data, error } = await supabase
+    .from("businesses")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw error;
+  return mapBusiness(data);
+}
