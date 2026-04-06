@@ -193,3 +193,61 @@ export async function getBusinessById(id) {
   if (error) throw error;
   return mapBusiness(data);
 }
+export async function incrementBusinessEventField(businessId, fieldName, amount = 1) {
+  const allowed = [
+    "views",
+    "clicks",
+    "media_views",
+    "map_clicks",
+    "whatsapp_clicks",
+    "messages",
+  ];
+
+  if (!allowed.includes(fieldName)) {
+    throw new Error(`Unsupported business counter field: ${fieldName}`);
+  }
+
+  const business = await getBusinessById(businessId);
+  if (!business) return null;
+
+  const currentRowFieldMap = {
+    views: "views_count",
+    clicks: "clicks_count",
+    media_views: "media_views_count",
+    map_clicks: "map_clicks_count",
+    whatsapp_clicks: "whatsapp_clicks_count",
+    messages: "messages_count",
+    viewsCount: Number(row.views_count ?? 0),
+clicksCount: Number(row.clicks_count ?? 0),
+mediaViewsCount: Number(row.media_views_count ?? 0),
+mapClicksCount: Number(row.map_clicks_count ?? 0),
+whatsappClicksCount: Number(row.whatsapp_clicks_count ?? 0),
+messagesCount: Number(row.messages_count ?? 0),
+  };
+
+  const rowField = currentRowFieldMap[fieldName];
+
+  const currentValueMap = {
+    views: Number(business.viewsCount ?? 0),
+    clicks: Number(business.clicksCount ?? 0),
+    media_views: Number(business.mediaViewsCount ?? 0),
+    map_clicks: Number(business.mapClicksCount ?? 0),
+    whatsapp_clicks: Number(business.whatsappClicksCount ?? 0),
+    messages: Number(business.messagesCount ?? 0),
+  };
+
+  const nextValue = currentValueMap[fieldName] + Number(amount || 1);
+
+  const { data, error } = await supabase
+    .from("businesses")
+    .update({
+      [rowField]: nextValue,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", businessId)
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return mapBusiness(data);
+}
