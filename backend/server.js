@@ -27,11 +27,8 @@ import SearchSession from "./models/SearchSession.js";
 import SearchCache from "./models/SearchCache.js";
 import crypto from "crypto";
 import ClickLog from "./models/ClickLog.js";
-import LeadToken from "./models/LeadToken.js";
-import BusinessEvent from "./models/BusinessEvent.js";
 import TopupOrder from "./models/TopupOrder.js";
 import { topupWallet, deductWallet } from "./services/walletService.js";
-import Transaction from "./models/Transaction.js";
 import { optimizeBusinessProfile } from "./services/aiOptimizer.js";
 import { requireAuth } from "./middleware/auth.js";
 import authRoutes from "./routes/auth.js";
@@ -62,6 +59,13 @@ import {
   consumeOtp,
 } from "./services/pg/otps.js";
 
+import {
+  createTransaction,
+  listBusinessTransactions,
+} from "./services/pg/transactions.js";
+
+import { createBusinessEvent } from "./services/pg/businessEvents.js";
+import { createLeadToken } from "./services/pg/leadTokens.js";
 dotenv.config();
 
 const app = express();
@@ -320,19 +324,19 @@ async function createLeadTrackedLink({
 
   if (!safePhone || !safeBusinessId) return "";
 
-  const token = await LeadToken.create({
+  const token = await createLeadToken({
     businessId: safeBusinessId,
     businessPhone: safePhone,
     userPhone: String(userPhone || "").trim(),
     query: String(query || "").trim(),
   });
 
-  return `${process.env.BASE_URL}/l/${token._id}`;
+  return `${process.env.BASE_URL}/l/${token.id}`;
 }
 
 async function logBusinessEvent({ businessId, ownerUserId, type, source = "", meta = {} }) {
   try {
-    await BusinessEvent.create({
+    await createBusinessEvent({
       businessId,
       ownerUserId: String(ownerUserId || ""),
       type,
@@ -1667,7 +1671,7 @@ app.get("/api/business/transactions/:businessId", requireUser, async (req, res) 
     const { businessId } = req.params;
     const limit = Math.min(Number(req.query.limit || 10), 100);
 
-    const business = await Business.findById(businessId).lean();
+    const business = await getBusinessById(businessId);
     if (!business) {
       return res.status(404).json({ error: "Business not found" });
     }
@@ -1676,16 +1680,11 @@ app.get("/api/business/transactions/:businessId", requireUser, async (req, res) 
       return res.status(403).json({ error: "Unauthorized" });
     }
 
-    const transactions = await Transaction.find({
-      businessId: business._id,
-    })
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .lean();
+    const transactions = await listBusinessTransactions(business.id, limit);
 
     return res.json({
       transactions: transactions.map((tx) => ({
-        id: String(tx._id),
+        id: String(tx.id),
         type: tx.type,
         amount: tx.amount,
         currency: tx.currency || "USD",
@@ -1711,34 +1710,25 @@ app.post("/api/topup", requireUser, async (req, res) => {
       return res.status(400).json({ error: "Invalid amount" });
     }
 
-    const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ error: "User not found" });
-
-    const balanceBefore = Number(user.walletBalance || 0);
-    user.walletBalance = Number((balanceBefore + amount).toFixed(2));
-    await user.save();
-
-    await createTransaction({
-      userId: user._id,
-      type: "credit",
+    const result = await creditWalletBalance({
+      userId: req.user.id,
       amount,
-      currency: user.currency || "USD",
       reason: "Wallet top up",
-      eventType: "topup",
       reference: `topup_${Date.now()}`,
-      status: "completed",
-      balanceBefore,
-      balanceAfter: user.walletBalance,
     });
 
+    if (!result.ok) {
+      return res.status(404).json({ error: result.error || "User not found" });
+    }
+
     let status = "active";
-    if (user.walletBalance <= 0) status = "out";
-    else if (user.walletBalance < 5) status = "low";
+    if (result.balanceAfter <= 0) status = "out";
+    else if (result.balanceAfter < 5) status = "low";
 
     return res.json({
       ok: true,
-      balance: user.walletBalance,
-      currency: user.currency || "USD",
+      balance: result.balanceAfter,
+      currency: result.currency || "USD",
       status,
     });
   } catch (e) {
