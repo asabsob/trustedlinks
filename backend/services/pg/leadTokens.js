@@ -31,3 +31,13 @@ export async function createLeadToken(payload) {
   if (error) throw error;
   return mapLeadToken(data);
 }
+export async function getLeadTokenById(id) {
+  const { data, error } = await supabase
+    .from("lead_tokens")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw error;
+  return mapLeadToken(data);
+}
