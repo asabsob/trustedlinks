@@ -64,8 +64,15 @@ import {
   listBusinessTransactions,
 } from "./services/pg/transactions.js";
 
+import {
+  createTopupOrder,
+  getTopupOrderById,
+  markTopupOrderPaid,
+} from "./services/pg/topupOrders.js";
 import { createBusinessEvent } from "./services/pg/businessEvents.js";
 import { createLeadToken } from "./services/pg/leadTokens.js";
+
+
 dotenv.config();
 
 const app = express();
@@ -1111,30 +1118,28 @@ app.post("/api/payments/create-topup-order", requireUser, async (req, res) => {
       return res.status(400).json({ error: "Invalid amount" });
     }
 
-    const user = await User.findById(req.user.id).lean();
+    const user = await getUserById(req.user.id);
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    const business = await Business.findById(businessId).lean();
+    const business = await getBusinessById(businessId);
     if (!business) return res.status(404).json({ error: "Business not found" });
 
     if (business.ownerUserId && String(business.ownerUserId) !== String(req.user.id)) {
       return res.status(403).json({ error: "Unauthorized business" });
     }
 
-    const order = await TopupOrder.create({
-      businessId: business._id,
-      userId: String(user._id),
+    const order = await createTopupOrder({
+      businessId: business.id,
+      userId: user.id,
       amount,
       currency: business.wallet?.currency || "USD",
-      status: "pending",
-      paymentMethod: "manual_demo",
       reference: `topup_order_${Date.now()}`,
     });
 
     return res.json({
       ok: true,
-      orderId: String(order._id),
-      businessId: String(order.businessId),
+      orderId: order.id,
+      businessId: order.businessId,
       amount: order.amount,
       currency: order.currency,
       status: order.status,
@@ -1186,31 +1191,23 @@ app.post("/api/business/topup", async (req, res) => {
 // =========================
 // GET BUSINESS TOPUP ORDER
 // =========================
+
 app.get("/api/payments/topup-orders/:id", requireUser, async (req, res) => {
   try {
-    const order = await TopupOrder.findById(req.params.id).lean();
+    const order = await getTopupOrderById(req.params.id);
     if (!order) return res.status(404).json({ error: "Order not found" });
 
     if (String(order.userId) !== String(req.user.id)) {
       return res.status(403).json({ error: "Unauthorized" });
     }
 
-    return res.json({
-      id: String(order._id),
-      businessId: order.businessId ? String(order.businessId) : null,
-      amount: order.amount,
-      currency: order.currency,
-      status: order.status,
-      paymentMethod: order.paymentMethod,
-      reference: order.reference,
-      paidAt: order.paidAt,
-      createdAt: order.createdAt,
-    });
+    return res.json(order);
   } catch (e) {
     console.error("get-topup-order error:", e);
     return res.status(500).json({ error: "Failed to load order" });
   }
 });
+
 
 // =========================
 // CONFIRM BUSINESS TOPUP ORDER
@@ -1223,7 +1220,7 @@ app.post("/api/payments/confirm-topup-order", requireUser, async (req, res) => {
       return res.status(400).json({ error: "orderId required" });
     }
 
-    const order = await TopupOrder.findById(orderId);
+    const order = await getTopupOrderById(orderId);
     if (!order) return res.status(404).json({ error: "Order not found" });
 
     if (String(order.userId) !== String(req.user.id)) {
@@ -1231,13 +1228,13 @@ app.post("/api/payments/confirm-topup-order", requireUser, async (req, res) => {
     }
 
     if (order.status === "paid") {
-      const business = await Business.findById(order.businessId).lean();
+      const business = await getBusinessById(order.businessId);
 
       return res.json({
         ok: true,
         alreadyPaid: true,
         balance: business?.wallet?.balance || 0,
-        currency: business?.wallet?.currency || order.currency || "USD",
+        currency: business?.wallet?.currency || "USD",
       });
     }
 
@@ -1245,6 +1242,26 @@ app.post("/api/payments/confirm-topup-order", requireUser, async (req, res) => {
       return res.status(400).json({ error: "Order is not payable" });
     }
 
+    const result = await creditWalletBalance({
+      userId: order.userId,
+      amount: order.amount,
+      reason: "Topup via order",
+      reference: order.reference,
+    });
+
+    await markTopupOrderPaid(order.id);
+
+    return res.json({
+      ok: true,
+      balance: result.balanceAfter,
+      currency: result.currency,
+      orderId: order.id,
+    });
+  } catch (e) {
+    console.error("confirm-topup-order error:", e);
+    return res.status(500).json({ error: "Failed to confirm payment" });
+  }
+});
     // =========================
     // تنفيذ الشحن للـ Business
     // =========================
