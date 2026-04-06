@@ -258,3 +258,24 @@ export async function incrementBusinessEventField(businessId, fieldName, amount 
   if (error) throw error;
   return mapBusiness(data);
 }
+export async function listActiveBusinesses() {
+  const { data, error } = await supabase
+    .from("businesses")
+    .select("*")
+    .eq("status", "Active")
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return (data || []).map(mapBusiness);
+}
+
+export async function getBusinessByCustomId(customId) {
+  const { data, error } = await supabase
+    .from("businesses")
+    .select("*")
+    .eq("custom_id", String(customId || "").trim())
+    .maybeSingle();
+
+  if (error) throw error;
+  return mapBusiness(data);
+}
