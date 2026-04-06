@@ -2813,48 +2813,7 @@ app.get("/l/:token", async (req, res) => {
   }
 });
 
-    // =========================
-    // Wallet Deduction
-    // =========================
-    try {
-          const clickCost = Number(business?.billing?.clickCost ?? 0.05);
-      const whatsappCost = Number(business?.billing?.whatsappCost ?? 0.10);
-      const totalCost = Number((clickCost + whatsappCost).toFixed(2));
-
-      if (totalCost > 0) {
-       await deductWallet({
-  businessId: business.id,
-          amount: totalCost,
-          eventType: "whatsapp",
-          note: "Tracked lead click + WhatsApp redirect",
-          meta: {
-            query,
-            userPhone,
-            source: "tracked_lead_link",
-            clickCost,
-            whatsappCost,
-          },
-        });
-      }
-    } catch (walletErr) {
-      if (walletErr.message === "INSUFFICIENT_BALANCE") {
-        return res.status(402).send("Business wallet balance is insufficient");
-      }
-
-      console.error("WALLET DEDUCTION ERROR:", walletErr);
-      return res.status(500).send("Wallet deduction failed");
-    }
-
-    const message = encodeURIComponent("Hello, I found you on TrustedLinks");
-
-    return res.redirect(`https://wa.me/${businessPhone}?text=${message}`);
-      } catch (err) {
-    console.error("LEAD CLICK ERROR:", err);
-    return res.status(500).send("Error");
-  }
-});
-
-
+   
 // ---------------------------------------------------------------------------
 // Debug
 // ---------------------------------------------------------------------------
