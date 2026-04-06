@@ -1262,36 +1262,7 @@ app.post("/api/payments/confirm-topup-order", requireUser, async (req, res) => {
     return res.status(500).json({ error: "Failed to confirm payment" });
   }
 });
-    // =========================
-    // تنفيذ الشحن للـ Business
-    // =========================
-    const result = await topupWallet({
-      businessId: order.businessId,
-      amount: order.amount,
-      note: "Topup via order",
-      meta: {
-        orderId: String(order._id),
-        paymentMethod: order.paymentMethod,
-      },
-    });
-
-    order.status = "paid";
-    order.paidAt = new Date();
-    await order.save();
-
-    return res.json({
-      ok: true,
-      balance: result.balanceAfter,
-      currency: result.transaction?.currency || order.currency || "USD",
-      orderId: String(order._id),
-    });
-
-  } catch (e) {
-    console.error("confirm-topup-order error:", e);
-    return res.status(500).json({ error: "Failed to confirm payment" });
-  }
-});
-
+  
 // ============================================================================
 // SUBSCRIBE (Choose plan) - requires verified email first
 // ============================================================================
