@@ -17,8 +17,7 @@ SyntaxError: Identifier 'createTransaction' has already been declared
     at #getJobFromResolveResult (node:internal/modules/esm/loader:343:34)
     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:311:41)
     at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:664:25)
-Node.js v22.22.2
-file:///app/server.js:362
+
 async function createTransaction({
 ^
 SyntaxError: Identifier 'createTransaction' has already been declared
@@ -31,15 +30,14 @@ SyntaxError: Identifier 'createTransaction' has already been declared
     at #getJobFromResolveResult (node:internal/modules/esm/loader:343:34)
     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:311:41)
     at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:664:25)
-Node.js v22.22.2
-Starting Container
+
     at #getJobFromResolveResult (node:internal/modules/esm/loader:343:34)
     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:311:41)
-file:///app/server.js:362
+
     at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:664:25)
 async function createTransaction({
 ^
-Node.js v22.22.2
+
 SyntaxError: Identifier 'createTransaction' has already been declared
     at compileSourceTextModule (node:internal/modules/esm/utils:346:16)
     at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:107:18)
@@ -47,21 +45,7 @@ SyntaxError: Identifier 'createTransaction' has already been declared
     at afterLoad (node:internal/modules/esm/loader:596:29)
     at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:601:12)
     at #createModuleJob (node:internal/modules/esm/loader:624:36)
-file:///app/server.js:362
-async function createTransaction({
-^
-SyntaxError: Identifier 'createTransaction' has already been declared
-    at compileSourceTextModule (node:internal/modules/esm/utils:346:16)
-    at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:107:18)
-    at #translate (node:internal/modules/esm/loader:546:20)
-    at afterLoad (node:internal/modules/esm/loader:596:29)
-    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:601:12)
-    at #createModuleJob (node:internal/modules/esm/loader:624:36)
-    at #getJobFromResolveResult (node:internal/modules/esm/loader:343:34)
-    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:311:41)
-    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:664:25)
-Node.js v22.22.2
-file:///app/server.js:362
+
 async function createTransaction({
 ^
 SyntaxError: Identifier 'createTransaction' has already been declared
@@ -74,22 +58,7 @@ SyntaxError: Identifier 'createTransaction' has already been declared
     at #getJobFromResolveResult (node:internal/modules/esm/loader:343:34)
     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:311:41)
     at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:664:25)
-Node.js v22.22.2
-    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:311:41)
-    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:664:25)
-Node.js v22.22.2
-file:///app/server.js:362
-async function createTransaction({
-^
-SyntaxError: Identifier 'createTransaction' has already been declared
-    at compileSourceTextModule (node:internal/modules/esm/utils:346:16)
-    at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:107:18)
-    at #translate (node:internal/modules/esm/loader:546:20)
-    at afterLoad (node:internal/modules/esm/loader:596:29)
-    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:601:12)
-    at #createModuleJob (node:internal/modules/esm/loader:624:36)
-    at #getJobFromResolveResult (node:internal/modules/esm/loader:343:34)
-file:///app/server.js:362
+
 async function createTransaction({
 ^
 SyntaxError: Identifier 'createTransaction' has already been declared
@@ -102,7 +71,34 @@ SyntaxError: Identifier 'createTransaction' has already been declared
     at #getJobFromResolveResult (node:internal/modules/esm/loader:343:34)
     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:311:41)
     at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:664:25)
-Node.js v22.22.2
+
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:311:41)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:664:25)
+
+async function createTransaction({
+^
+SyntaxError: Identifier 'createTransaction' has already been declared
+    at compileSourceTextModule (node:internal/modules/esm/utils:346:16)
+    at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:107:18)
+    at #translate (node:internal/modules/esm/loader:546:20)
+    at afterLoad (node:internal/modules/esm/loader:596:29)
+    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:601:12)
+    at #createModuleJob (node:internal/modules/esm/loader:624:36)
+    at #getJobFromResolveResult (node:internal/modules/esm/loader:343:34)
+
+async function createTransaction({
+^
+SyntaxError: Identifier 'createTransaction' has already been declared
+    at compileSourceTextModule (node:internal/modules/esm/utils:346:16)
+    at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:107:18)
+    at #translate (node:internal/modules/esm/loader:546:20)
+    at afterLoad (node:internal/modules/esm/loader:596:29)
+    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:601:12)
+    at #createModuleJob (node:internal/modules/esm/loader:624:36)
+    at #getJobFromResolveResult (node:internal/modules/esm/loader:343:34)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:311:41)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:664:25)
+
     at #getJobFromResolveResult (node:internal/modules/esm/loader:343:34)
 // 3) Verify Email
 // 4) Subscribe / choose plan
