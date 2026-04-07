@@ -22,6 +22,7 @@ export default function LoginPage({ lang }) {
       }}
       onLoginSuccess={(token, userData) => {
         if (token) {
+          localStorage.setItem("token", token);
           localStorage.setItem("trustedlinks_token", token);
         }
 
