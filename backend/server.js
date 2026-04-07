@@ -27,7 +27,6 @@ import SearchSession from "./models/SearchSession.js";
 import SearchCache from "./models/SearchCache.js";
 import crypto from "crypto";
 import TopupOrder from "./models/TopupOrder.js";
-import { topupWallet, deductWallet } from "./services/walletService.js";
 import { optimizeBusinessProfile } from "./services/aiOptimizer.js";
 import { requireAuth } from "./middleware/auth.js";
 import authRoutes from "./routes/auth.js";
@@ -77,6 +76,11 @@ import {
   createLeadToken,
   getLeadTokenById,
 } from "./services/pg/leadTokens.js";
+
+import {
+  topupBusinessWallet,
+  deductBusinessWallet,
+} from "./services/pg/businessWallet.js";
 
 dotenv.config();
 
@@ -387,63 +391,39 @@ async function deductWalletBalance({
       return { ok: true, skipped: true, reason: "No charge for this event" };
     }
 
-    const user = await getUserById(ownerUserId);
-    if (!user) {
-      return { ok: false, error: "User not found" };
+    if (!businessId) {
+      return { ok: false, error: "businessId required" };
     }
 
-    const balanceBefore = Number(user.walletBalance || 0);
-
-    if (balanceBefore < amount) {
-      await createTransaction({
-        userId: user.id,
-        businessId,
-        type: "debit",
-        amount,
-        currency: user.currency || "USD",
-        reason,
-        eventType,
-        reference,
-        status: "failed",
-        balanceBefore,
-        balanceAfter: balanceBefore,
-        notes: "Insufficient balance",
-        meta,
-      });
-
-      return {
-        ok: false,
-        insufficient: true,
-        balanceBefore,
-        balanceAfter: balanceBefore,
-      };
-    }
-
-    const nextBalance = Number((balanceBefore - amount).toFixed(2));
-    await updateUserWalletBalance(user.id, nextBalance);
-
-    await createTransaction({
-      userId: user.id,
+    const result = await deductBusinessWallet({
       businessId,
-      type: "debit",
       amount,
-      currency: user.currency || "USD",
-      reason,
       eventType,
-      reference,
-      status: "completed",
-      balanceBefore,
-      balanceAfter: nextBalance,
-      meta,
+      note: reason,
+      meta: {
+        ...meta,
+        reference,
+        ownerUserId,
+      },
     });
 
     return {
       ok: true,
       amount,
-      balanceBefore,
-      balanceAfter: nextBalance,
+      balanceBefore: result.balanceBefore,
+      balanceAfter: result.balanceAfter,
+      currency: result.currency,
     };
   } catch (e) {
+    if (e.message === "INSUFFICIENT_BALANCE") {
+      return {
+        ok: false,
+        insufficient: true,
+        balanceBefore: 0,
+        balanceAfter: 0,
+      };
+    }
+
     console.error("deductWalletBalance error:", e);
     return { ok: false, error: "Deduction failed" };
   }
@@ -1170,12 +1150,12 @@ app.post("/api/business/topup", async (req, res) => {
     }
 
     // تنفيذ الشحن
-    const result = await topupWallet({
-      businessId,
-      amount: Number(amount),
-      note: "Manual topup",
-    });
-
+   const result = await topupBusinessWallet({
+  businessId,
+  amount: Number(amount),
+  note: "Manual topup",
+});
+    
     return res.json({
       success: true,
       balance: result.balanceAfter,
@@ -1246,13 +1226,15 @@ app.post("/api/payments/confirm-topup-order", requireUser, async (req, res) => {
       return res.status(400).json({ error: "Order is not payable" });
     }
 
-    const result = await creditWalletBalance({
-      userId: order.userId,
-      amount: order.amount,
-      reason: "Topup via order",
-      reference: order.reference,
-    });
-
+  const result = await topupBusinessWallet({
+  businessId: order.businessId,
+  amount: order.amount,
+  note: "Topup via order",
+  meta: {
+    orderId: order.id,
+    paymentMethod: order.paymentMethod,
+  },
+});
     await markTopupOrderPaid(order.id);
 
     return res.json({
