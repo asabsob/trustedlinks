@@ -105,63 +105,70 @@ export default function Wallet({ lang = "en" }) {
     return "active";
   };
 
-  const loadWallet = async () => {
-    try {
-      setLoading(true);
-      setMessage("");
-      setMessageType("info");
+const loadWallet = async () => {
+  try {
+    setLoading(true);
+    setMessage("");
+    setMessageType("info");
 
-      const token = localStorage.getItem("token");
+    const token = localStorage.getItem("token");
+    const businessId = localStorage.getItem("businessId") || "";
 
-     const [balanceRes, txRes] = await Promise.all([
-  fetch(`${API_BASE}/api/business/balance/${businessId}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  }).catch(() => null),
-  fetch(`${API_BASE}/api/business/transactions/${businessId}?limit=10`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  }).catch(() => null),
-]);
-      
-      let balanceData = null;
-      let txData = null;
-
-      if (balanceRes && balanceRes.ok) {
-        balanceData = await balanceRes.json();
-      }
-
-      if (txRes && txRes.ok) {
-        txData = await txRes.json();
-      }
-
-   if (balanceData?.wallet) {
-  const nextBalance = Number(balanceData.wallet.balance || 0);
-  setBalance(nextBalance);
-  setCurrency(balanceData.wallet.currency || "USD");
-  setStatus(balanceData.wallet.status || inferStatus(nextBalance));
-} else {
-        const demoBalance = Number(localStorage.getItem("demo_balance") || 12.5);
-        const demoCurrency = localStorage.getItem("demo_currency") || "USD";
-        setBalance(demoBalance);
-        setCurrency(demoCurrency);
-        setStatus(inferStatus(demoBalance));
-      }
-
-      if (txData) {
-    const txList = Array.isArray(txData?.transactions)
-  ? txData.transactions
-  : [];
-        setTransactions(txList);
-      } else {
-        const demoTx = JSON.parse(localStorage.getItem("demo_transactions") || "[]");
-        setTransactions(demoTx.slice(0, 10));
-      }
-    } catch (error) {
-      setMessage(t.failedLoad);
+    if (!token) {
+      setMessage("You are not logged in");
       setMessageType("error");
-    } finally {
-      setLoading(false);
+      return;
     }
-  };
+
+    if (!businessId) {
+      setMessage("businessId missing");
+      setMessageType("error");
+      return;
+    }
+
+    const [meRes, txRes] = await Promise.all([
+      fetch(`${API_BASE}/api/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }),
+      fetch(`${API_BASE}/api/business/transactions/${businessId}?limit=10`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }),
+    ]);
+
+    const meData = await meRes.json().catch(() => null);
+    const txData = await txRes.json().catch(() => null);
+
+    if (!meRes.ok) {
+      throw new Error(meData?.error || "Failed to load wallet");
+    }
+
+    const nextBalance = Number(meData?.walletBalance || 0);
+    setBalance(nextBalance);
+    setCurrency(meData?.currency || "USD");
+    setStatus(inferStatus(nextBalance));
+
+    if (txRes.ok) {
+      const txList = Array.isArray(txData)
+        ? txData
+        : Array.isArray(txData?.transactions)
+        ? txData.transactions
+        : [];
+      setTransactions(txList);
+    } else {
+      setTransactions([]);
+    }
+  } catch (error) {
+    console.error("loadWallet error:", error);
+    setMessage(t.failedLoad);
+    setMessageType("error");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const getStatusLabel = (value) => {
     if (value === "out") return t.out;
