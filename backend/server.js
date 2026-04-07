@@ -1418,17 +1418,17 @@ app.get("/api/business/me", requireUser, async (req, res) => {
   }
 });
 
+
 app.put("/api/business/update", requireUser, async (req, res) => {
   try {
     const existing = await getBusinessByOwnerUserId(String(req.user.id));
-    if (!existing) return res.status(404).json({ error: "Business not found" });
+    if (!existing) {
+      return res.status(404).json({ error: "Business not found" });
+    }
 
-   const updated = await updateBusinessByOwnerUserId(String(req.user.id), {
-  description: String(description || "").trim(),
-  keywords: Array.isArray(keywords)
-    ? keywords.map((k) => String(k).trim()).filter(Boolean)
-    : [],
-});
+    const payload = req.body || {};
+
+    const updated = await updateBusinessByOwnerUserId(String(req.user.id), payload);
 
     const formatted = {
       ...updated,
@@ -1449,6 +1449,7 @@ app.put("/api/business/update", requireUser, async (req, res) => {
     return res.status(500).json({ error: "Update failed" });
   }
 });
+
 // =========================
 // AI OPTIMIZE BUSINESS PROFILE
 // =========================
