@@ -194,53 +194,61 @@ const loadWallet = async () => {
     return "border-slate-200 bg-white text-slate-700";
   };
 
-  const submitTopup = async (amountValue) => {
-    const amount = Number(amountValue);
+ const submitTopup = async (amountValue) => {
+  const amount = Number(amountValue);
 
-    if (!businessId) {
-  setMessage("businessId missing");
-  setMessageType("error");
-  return;
-}
-    if (!amount || amount <= 0) {
-      setMessage(t.invalidAmount);
-      setMessageType("error");
-      return;
-    }
+  const token = localStorage.getItem("token");
+  const businessId = localStorage.getItem("businessId") || "";
 
-    try {
-      setSubmitting(true);
-      setMessage("");
-      setMessageType("info");
+  if (!token) {
+    setMessage("You are not logged in");
+    setMessageType("error");
+    return;
+  }
 
-      const token = localStorage.getItem("token");
+  if (!businessId) {
+    setMessage("businessId missing");
+    setMessageType("error");
+    return;
+  }
 
-      const res = await fetch(`${API_BASE}/api/payments/create-topup-order`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+  if (!amount || amount <= 0) {
+    setMessage(t.invalidAmount);
+    setMessageType("error");
+    return;
+  }
+
+  try {
+    setSubmitting(true);
+    setMessage("");
+    setMessageType("info");
+
+    const res = await fetch(`${API_BASE}/api/payments/create-topup-order`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({ amount, businessId }),
-      }).catch(() => null);
+    });
 
-      if (res && res.ok) {
-        const data = await res.json();
-        setPendingOrder(data);
-        setMessage(t.orderCreated);
-        setMessageType("success");
-        return;
-      }
+    const data = await res.json().catch(() => null);
 
-      setMessage(t.failedLoad);
-      setMessageType("error");
-    } catch (error) {
-      setMessage(t.failedLoad);
-      setMessageType("error");
-    } finally {
-      setSubmitting(false);
+    if (!res.ok) {
+      throw new Error(data?.error || "Failed to create topup order");
     }
-  };
+
+    setPendingOrder(data);
+    setMessage(t.orderCreated);
+    setMessageType("success");
+  } catch (error) {
+    console.error("submitTopup error:", error);
+    setMessage(error.message || t.failedLoad);
+    setMessageType("error");
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const confirmPendingPayment = async () => {
     if (!pendingOrder?.orderId) return;
