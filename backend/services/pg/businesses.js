@@ -65,27 +65,37 @@ export async function getBusinessByWhatsapp(whatsapp) {
 }
 
 export async function createBusiness(payload) {
-  const insertData = {
-    owner_user_id: payload.ownerUserId ?? null,
-    name: payload.name || "",
-    name_ar: payload.name_ar || "",
-    description: payload.description || "",
-    description_ar: payload.description_ar || "",
-    category: Array.isArray(payload.category) ? payload.category : [],
-    keywords: Array.isArray(payload.keywords) ? payload.keywords : [],
-    keywords_ar: Array.isArray(payload.keywords_ar) ? payload.keywords_ar : [],
-    whatsapp: String(payload.whatsapp || "").trim(),
-    status: payload.status || "Active",
-    latitude: typeof payload.latitude === "number" ? payload.latitude : null,
-    longitude: typeof payload.longitude === "number" ? payload.longitude : null,
-    map_link: payload.mapLink || "",
-    media_link: payload.mediaLink || "",
-    logo: payload.logo || "",
-    location_text: payload.locationText || "",
-    country_code: payload.countryCode || "",
-    country_name: payload.countryName || "",
-    custom_id: payload.customId || "",
-  };
+ const insertData = {
+  owner_user_id: payload.ownerUserId ?? null,
+  name: payload.name || "",
+  name_ar: payload.name_ar || "",
+  description: payload.description || "",
+  description_ar: payload.description_ar || "",
+  category: Array.isArray(payload.category) ? payload.category : [],
+  keywords: Array.isArray(payload.keywords) ? payload.keywords : [],
+  keywords_ar: Array.isArray(payload.keywords_ar) ? payload.keywords_ar : [],
+  whatsapp: String(payload.whatsapp || "").trim(),
+  status: payload.status || "Active",
+  latitude: typeof payload.latitude === "number" ? payload.latitude : null,
+  longitude: typeof payload.longitude === "number" ? payload.longitude : null,
+  map_link: payload.mapLink || "",
+  media_link: payload.mediaLink || "",
+  logo: payload.logo || "",
+  location_text: payload.locationText || "",
+  country_code: payload.countryCode || "",
+  country_name: payload.countryName || "",
+  custom_id: payload.customId || "",
+
+  wallet_balance: Number(payload.walletBalance ?? 5),
+  wallet_currency: payload.walletCurrency || "USD",
+  wallet_status: payload.walletStatus || "active",
+  wallet_allow_negative: Boolean(payload.walletAllowNegative ?? false),
+  wallet_negative_limit: Number(payload.walletNegativeLimit ?? -5),
+  wallet_low_balance_threshold: Number(payload.walletLowBalanceThreshold ?? 5),
+
+  billing_click_cost: Number(payload.billingClickCost ?? 0.05),
+  billing_whatsapp_cost: Number(payload.billingWhatsappCost ?? 0.10),
+};
 
 
   const { data, error } = await supabase.from("businesses").insert(insertData).select("*").single();
