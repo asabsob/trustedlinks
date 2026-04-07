@@ -688,6 +688,14 @@ app.post("/api/auth/signup", async (req, res) => {
       countryCode: business.countryCode || "",
       countryName: business.countryName || "",
       customId: business.customId || "",
+      walletBalance: 5,
+walletCurrency: "USD",
+walletStatus: "active",
+walletAllowNegative: false,
+walletNegativeLimit: -5,
+walletLowBalanceThreshold: 5,
+billingClickCost: 0.05,
+billingWhatsappCost: 0.10,
     });
 
     const verifyUrl =
