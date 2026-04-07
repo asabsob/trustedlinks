@@ -1561,6 +1561,7 @@ app.post("/api/business/apply-ai-optimization", requireUser, async (req, res) =>
   }
 });
 
+
 app.get("/api/business/reports", requireUser, async (req, res) => {
   try {
     const b = await getBusinessByOwnerUserId(String(req.user.id));
