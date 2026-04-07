@@ -1510,7 +1510,7 @@ const result = await optimizeBusinessProfile({
 // =========================
 app.post("/api/business/apply-ai-optimization", requireUser, async (req, res) => {
   try {
-   const business = await getBusinessByOwnerUserId(String(req.user.id));
+    const business = await getBusinessByOwnerUserId(String(req.user.id));
     if (!business) {
       return res.status(404).json({ error: "Business not found" });
     }
@@ -1518,22 +1518,46 @@ app.post("/api/business/apply-ai-optimization", requireUser, async (req, res) =>
     const {
       description = "",
       keywords = [],
+      description_ar = "",
+      keywords_ar = [],
+      lang = "en",
     } = req.body || {};
 
-    business.description = String(description || "").trim();
-    business.keywords = Array.isArray(keywords)
-      ? keywords.map((k) => String(k).trim()).filter(Boolean)
-      : business.keywords;
+    const payload = {};
 
-    await business.save();
+    if (lang === "ar") {
+      payload.description_ar = String(description_ar || description || "").trim();
+      payload.keywords_ar = Array.isArray(keywords_ar)
+        ? keywords_ar.map((k) => String(k).trim()).filter(Boolean)
+        : Array.isArray(keywords)
+        ? keywords.map((k) => String(k).trim()).filter(Boolean)
+        : [];
+    } else {
+      payload.description = String(description || "").trim();
+      payload.keywords = Array.isArray(keywords)
+        ? keywords.map((k) => String(k).trim()).filter(Boolean)
+        : [];
+    }
 
-    return res.json({
-      ok: true,
-      message: "AI suggestions applied successfully",
-    });
+    const updated = await updateBusinessByOwnerUserId(String(req.user.id), payload);
+
+    const formatted = {
+      ...updated,
+      logo:
+        updated.logo ||
+        (updated.mediaLink &&
+        /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(String(updated.mediaLink))
+          ? updated.mediaLink
+          : null),
+      whatsappLink: updated.whatsapp
+        ? `https://wa.me/${String(updated.whatsapp).replace(/\D/g, "")}`
+        : null,
+    };
+
+    return res.json({ ok: true, business: formatted });
   } catch (e) {
-    console.error("apply ai optimization error:", e?.message, e);
-    return res.status(500).json({ error: "Failed to apply AI suggestions" });
+    console.error("apply ai optimization error:", e);
+    return res.status(500).json({ error: "Update failed" });
   }
 });
 
