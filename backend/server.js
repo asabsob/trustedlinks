@@ -30,6 +30,7 @@ import TopupOrder from "./models/TopupOrder.js";
 import { optimizeBusinessProfile } from "./services/aiOptimizer.js";
 import { requireAuth } from "./middleware/auth.js";
 import authRoutes from "./routes/auth.js";
+import { translateBusinessContent } from "./services/ai/translateBusiness.js";
 import {
   getUserById,
   getUserByEmail,
@@ -1426,9 +1427,57 @@ app.put("/api/business/update", requireUser, async (req, res) => {
       return res.status(404).json({ error: "Business not found" });
     }
 
-    const payload = req.body || {};
+    const {
+      description,
+      description_ar,
+      keywords,
+      keywords_ar,
+    } = req.body || {};
 
-    const updated = await updateBusinessByOwnerUserId(String(req.user.id), payload);
+    let payload = { ...req.body };
+
+    // =========================
+    // AUTO TRANSLATION LOGIC
+    // =========================
+
+    // إذا المستخدم عدل الإنجليزي فقط
+    if (description && !description_ar) {
+      const translated = await translateBusinessContent({
+        description,
+        keywords: Array.isArray(keywords) ? keywords : [],
+        sourceLang: "en",
+      });
+
+      if (translated) {
+        payload.description = translated.description_en;
+        payload.description_ar = translated.description_ar;
+        payload.keywords = translated.keywords_en;
+        payload.keywords_ar = translated.keywords_ar;
+      }
+    }
+
+    // إذا المستخدم عدل العربي فقط
+    else if (description_ar && !description) {
+      const translated = await translateBusinessContent({
+        description: description_ar,
+        keywords: Array.isArray(keywords_ar) ? keywords_ar : [],
+        sourceLang: "ar",
+      });
+
+      if (translated) {
+        payload.description = translated.description_en;
+        payload.description_ar = translated.description_ar;
+        payload.keywords = translated.keywords_en;
+        payload.keywords_ar = translated.keywords_ar;
+      }
+    }
+
+    // إذا الاثنين موجودين → لا نترجم (نحترم المستخدم)
+
+    const updated = await updateBusinessByOwnerUserId(
+      String(req.user.id),
+      payload
+    );
 
     const formatted = {
       ...updated,
