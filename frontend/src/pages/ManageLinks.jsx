@@ -389,35 +389,36 @@ export default function ManageLinks({ lang = "en" }) {
 
       setSaving(true);
       setFeedback({ type: "", text: "" });
-
+      
       const payload = {
-        ...form,
-        category:
-          typeof form.category === "object" && form.category?.key
-            ? [form.category.key]
-            : Array.isArray(form.category)
-            ? form.category
-            : form.category
-            ? [form.category]
-            : [],
-        keywords: Array.isArray(form.keywords)
-          ? form.keywords.map((k) => String(k).trim()).filter(Boolean)
-          : [],
-        keywords_ar: Array.isArray(form.keywords_ar)
-          ? form.keywords_ar.map((k) => String(k).trim()).filter(Boolean)
-          : [],
-        description: typeof form.description === "string" ? form.description.trim() : "",
-        description_ar:
-          typeof form.description_ar === "string" ? form.description_ar.trim() : "",
-        latitude:
-          typeof form.latitude === "number"
-            ? form.latitude
-            : Number(form.latitude) || null,
-        longitude:
-          typeof form.longitude === "number"
-            ? form.longitude
-            : Number(form.longitude) || null,
-      };
+  ...form,
+  lang: isAr ? "ar" : "en",
+  category:
+    typeof form.category === "object" && form.category?.key
+      ? [form.category.key]
+      : Array.isArray(form.category)
+      ? form.category
+      : form.category
+      ? [form.category]
+      : [],
+  keywords: Array.isArray(form.keywords)
+    ? form.keywords.map((k) => String(k).trim()).filter(Boolean)
+    : [],
+  keywords_ar: Array.isArray(form.keywords_ar)
+    ? form.keywords_ar.map((k) => String(k).trim()).filter(Boolean)
+    : [],
+  description: typeof form.description === "string" ? form.description.trim() : "",
+  description_ar:
+    typeof form.description_ar === "string" ? form.description_ar.trim() : "",
+  latitude:
+    typeof form.latitude === "number"
+      ? form.latitude
+      : Number(form.latitude) || null,
+  longitude:
+    typeof form.longitude === "number"
+      ? form.longitude
+      : Number(form.longitude) || null,
+};
 
       const res = await fetch(`${API_BASE}/api/business/update`, {
         method: "PUT",
