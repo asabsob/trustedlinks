@@ -1,39 +1,28 @@
-import Business from "../models/Business.js";
 import { expandTerms } from "./synonyms.js";
-import LeadToken from "../models/LeadToken.js";
+import { listActiveBusinesses } from "../services/pg/businesses.js";
+
+function matchesBusiness(item, regexList) {
+  const fields = [
+    item?.name || "",
+    item?.name_ar || "",
+    item?.description || "",
+    ...(Array.isArray(item?.keywords) ? item.keywords : []),
+    ...(Array.isArray(item?.keywords_ar) ? item.keywords_ar : []),
+    ...(Array.isArray(item?.category) ? item.category : []),
+  ].map((v) => String(v || ""));
+
+  return regexList.some((rx) => fields.some((field) => rx.test(field)));
+}
 
 export async function searchBusinesses(query) {
-  const terms = expandTerms(query);
-
+  const terms = expandTerms(query || "");
   const regexList = terms.map((term) => new RegExp(term, "i"));
 
-  const results = await Business.find({
-    status: "Active",
-    $or: [
-      { name: { $in: regexList } },
-      { name_ar: { $in: regexList } },
-      { description: { $in: regexList } },
-      { keywords: { $in: regexList } },
-      { category: { $in: regexList } },
-    ],
-  })
-    .limit(10)
-    .lean();
+  const businesses = await listActiveBusinesses();
 
-  const enrichedResults = await Promise.all(
-    results.map(async (item) => {
-      const token = await LeadToken.create({
-        businessId: String(item._id),
-        businessPhone: item.whatsapp,
-        query,
-      });
+  const results = businesses
+    .filter((item) => matchesBusiness(item, regexList))
+    .slice(0, 10);
 
-      return {
-        ...item,
-        trackedLink: `${process.env.BASE_URL}/l/${token._id}`,
-      };
-    })
-  );
-
-  return enrichedResults;
+  return results;
 }
