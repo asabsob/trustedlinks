@@ -1,7 +1,26 @@
-import Business from "../models/Business.js";
+import { listActiveBusinesses } from "../services/pg/businesses.js";
 import { expandTerms } from "./synonyms.js";
+import geolib from "geolib";
 
-export async function findNearestBusinesses(lat, lng, limit = 5, categoryQuery = "") {
+function matchesCategory(item, regexList) {
+  const fields = [
+    item?.name || "",
+    item?.name_ar || "",
+    item?.description || "",
+    ...(Array.isArray(item?.keywords) ? item.keywords : []),
+    ...(Array.isArray(item?.keywords_ar) ? item.keywords_ar : []),
+    ...(Array.isArray(item?.category) ? item.category : []),
+  ].map((v) => String(v || ""));
+
+  return regexList.some((rx) => fields.some((field) => rx.test(field)));
+}
+
+export async function findNearestBusinesses(
+  lat,
+  lng,
+  limit = 5,
+  categoryQuery = ""
+) {
   const nLat = Number(lat);
   const nLng = Number(lng);
   const safeLimit = Math.max(1, Math.min(Number(limit) || 5, 20));
@@ -10,39 +29,46 @@ export async function findNearestBusinesses(lat, lng, limit = 5, categoryQuery =
     return [];
   }
 
-  const query = {
-    status: "Active",
-    location: {
-      $near: {
-        $geometry: {
-          type: "Point",
-          coordinates: [nLng, nLat],
-        },
-      },
-    },
-  };
+  let businesses = await listActiveBusinesses();
 
+  // =========================
+  // Filter by category (optional)
+  // =========================
   if (categoryQuery?.trim()) {
     const terms = expandTerms(categoryQuery.trim())
       .map((t) => t.trim())
       .filter(Boolean);
 
-    query.$or = terms.flatMap((term) => {
-      const rx = new RegExp(term, "i");
-      return [
-        { name: rx },
-        { name_ar: rx },
-        { description: rx },
-        { category: rx },
-        { keywords: rx },
-      ];
-    });
+    const regexList = terms.map((term) => new RegExp(term, "i"));
+
+    businesses = businesses.filter((b) =>
+      matchesCategory(b, regexList)
+    );
   }
 
-  const businesses = await Business.find(query)
-    .select("name name_ar description category keywords whatsapp city location")
-    .limit(safeLimit)
-    .lean();
+  // =========================
+  // Distance calculation
+  // =========================
+  const userLocation = {
+    latitude: nLat,
+    longitude: nLng,
+  };
 
-  return businesses;
+  const withDistance = businesses
+    .map((b) => {
+      if (!b.latitude || !b.longitude) {
+        return { ...b, distance: null };
+      }
+
+      const distance = geolib.getDistance(userLocation, {
+        latitude: Number(b.latitude),
+        longitude: Number(b.longitude),
+      });
+
+      return { ...b, distance };
+    })
+    .sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity))
+    .slice(0, safeLimit);
+
+  return withDistance;
 }
