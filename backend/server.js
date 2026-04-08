@@ -2239,6 +2239,69 @@ app.post("/api/admin/settings", requireAdmin, async (req, res) => {
 // ============================================================================
 // WhatsApp Webhook (FINAL CLEAN VERSION)
 // ============================================================================
+
+function detectLanguage(text = "") {
+  return /[\u0600-\u06FF]/.test(text) ? "ar" : "en";
+}
+
+function isHelpCommand(text = "") {
+  const t = String(text || "").trim().toLowerCase();
+  return ["help", "start", "مساعدة", "ابدأ"].includes(t);
+}
+
+function isThanks(text = "") {
+  const t = String(text || "").toLowerCase().trim();
+  return ["شكرا", "شكرًا", "thanks", "thank you"].includes(t);
+}
+
+function isGreeting(text = "") {
+  const t = String(text || "").trim().toLowerCase();
+  return [
+    "سلام",
+    "مرحبا",
+    "هلا",
+    "اهلا",
+    "أهلا",
+    "hello",
+    "hi",
+    "hey",
+    "start",
+    "ابدأ",
+  ].includes(t);
+}
+
+function getWelcomeMessage(lang = "ar") {
+  if (lang === "ar") {
+    return (
+      "مرحبًا بك في TrustedLinks 👋\n\n" +
+      "يمكنني مساعدتك في البحث عن الشركات بسهولة.\n\n" +
+      "أمثلة:\n" +
+      "• مطعم\n" +
+      "• قهوة\n" +
+      "• صيدلية\n" +
+      "• كوكو\n\n" +
+      "ويمكنك أيضًا إرسال:\n" +
+      "• أقرب شركة\n" +
+      "• أقرب مطعم\n\n" +
+      "اكتب اسم الشركة أو نوع النشاط للبدء."
+    );
+  }
+
+  return (
+    "Welcome to TrustedLinks 👋\n\n" +
+    "I can help you find businesses easily.\n\n" +
+    "Examples:\n" +
+    "• restaurant\n" +
+    "• coffee\n" +
+    "• pharmacy\n" +
+    "• coco\n\n" +
+    "You can also send:\n" +
+    "• nearest business\n" +
+    "• nearest restaurant\n\n" +
+    "Type a business name or category to begin."
+  );
+}
+
 app.get("/webhooks/javna/whatsapp", (_req, res) => {
   res.status(200).send("WhatsApp webhook is live");
 });
