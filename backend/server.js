@@ -1,12 +1,6 @@
 // backend/server.js
 // ============================================================================
-// Trusted Links Backend API (MongoDB) + Resend Email + JAVNA WhatsApp OTP
-// FLOW:
-// 1) Signup user
-// 2) Verify WhatsApp OTPoy Logs
-// 3) Verify Email
-// 4) Subscribe / choose plan
-// 5) Publish business
+// Trusted Links Backend API (Supabase Version)
 // ============================================================================
 
 import express from "express";
@@ -23,10 +17,10 @@ import { normalizeSearchText } from "./search/textNormalizer.js";
 import { formatSearchResults, formatNearestResults } from "./search/searchFormatter.js";
 import { findNearestBusinesses } from "./search/nearbyService.js";
 import crypto from "crypto";
+
 import { optimizeBusinessProfile } from "./services/aiOptimizer.js";
-import { requireAuth } from "./middleware/auth.js";
-import authRoutes from "./routes/auth.js";
 import { translateBusinessContent } from "./services/ai/translateBusiness.js";
+
 import {
   getUserById,
   getUserByEmail,
@@ -67,6 +61,7 @@ import {
   getTopupOrderById,
   markTopupOrderPaid,
 } from "./services/pg/topupOrders.js";
+
 import { createBusinessEvent } from "./services/pg/businessEvents.js";
 
 import {
@@ -83,8 +78,15 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5175;
+
+// =========================
+// MEMORY (instead of Mongo sessions)
+// =========================
 const PENDING_NEARBY_REQUESTS = new Map();
 
+// =========================
+// CONFIG
+// =========================
 const EVENT_COSTS = {
   click: 0.01,
   whatsapp: 0.25,
@@ -92,9 +94,10 @@ const EVENT_COSTS = {
   view: 0,
 };
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// =========================
+// HELPERS
+// =========================
+
 function cleanDigits(v = "") {
   return String(v).replace(/\D/g, "");
 }
@@ -114,6 +117,10 @@ function readBearer(req) {
   const m = h.match(/^Bearer\s+(.+)$/i);
   return m ? m[1] : "";
 }
+
+// =========================
+// AUTH MIDDLEWARE
+// =========================
 
 function requireUser(req, res, next) {
   try {
@@ -167,6 +174,10 @@ function requireOtpToken(req, res, next) {
   }
 }
 
+// =========================
+// UTILS
+// =========================
+
 function toSafeCategoryValue(cat) {
   if (!cat) return "";
   if (Array.isArray(cat)) return cat.join(", ");
@@ -184,6 +195,10 @@ async function getUserOr404(userId, res) {
   return user;
 }
 
+// =========================
+// NEARBY MEMORY (NO MONGO)
+// =========================
+
 function setPendingNearby(from, category = "") {
   PENDING_NEARBY_REQUESTS.set(from, {
     category: category || "",
@@ -195,7 +210,6 @@ function getPendingNearby(from) {
   const item = PENDING_NEARBY_REQUESTS.get(from);
   if (!item) return null;
 
-  // expire after 10 minutes
   if (Date.now() - item.createdAt > 10 * 60 * 1000) {
     PENDING_NEARBY_REQUESTS.delete(from);
     return null;
@@ -208,6 +222,9 @@ function clearPendingNearby(from) {
   PENDING_NEARBY_REQUESTS.delete(from);
 }
 
+// =========================
+// SEARCH HELPERS (NO CACHE NOW)
+// =========================
 
 function buildSearchCacheKey(query) {
   return `search:${normalizeSearchText(query || "")}`;
@@ -271,7 +288,16 @@ async function createLeadTrackedLink({
   return `${process.env.BASE_URL}/l/${token.id}`;
 }
 
-async function logBusinessEvent({ businessId, ownerUserId, type, source = "", meta = {} }) {
+// =========================
+// Business Activity Log
+// =========================
+async function logBusinessEvent({
+  businessId,
+  ownerUserId,
+  type,
+  source = "",
+  meta = {},
+}) {
   try {
     await createBusinessEvent({
       businessId,
@@ -285,6 +311,9 @@ async function logBusinessEvent({ businessId, ownerUserId, type, source = "", me
   }
 }
 
+// =========================
+// Business Owner Info
+// =========================
 async function getBusinessOwnerInfo(businessId) {
   const business = await getBusinessById(businessId);
   if (!business) return null;
@@ -296,7 +325,9 @@ async function getBusinessOwnerInfo(businessId) {
   };
 }
 
-
+// =========================
+// Deduct From Business Wallet
+// =========================
 async function deductWalletBalance({
   ownerUserId,
   businessId = null,
@@ -350,52 +381,44 @@ async function deductWalletBalance({
   }
 }
 
+// =========================
+// Credit Business Wallet
+// =========================
 async function creditWalletBalance({
-  userId,
+  businessId,
   amount,
-  currency = "USD",
   reason = "Wallet top up",
   reference = "",
   notes = "",
   meta = {},
 }) {
   try {
-    const user = await getUserById(userId);
-    if (!user) {
-      return { ok: false, error: "User not found" };
+    if (!businessId) {
+      return { ok: false, error: "businessId required" };
     }
 
-    const balanceBefore = Number(user.walletBalance || 0);
-    const nextBalance = Number((balanceBefore + Number(amount)).toFixed(2));
-
-    await updateUserWalletBalance(user.id, nextBalance);
-
-    await createTransaction({
-      userId: user.id,
-      type: "credit",
+    const result = await topupBusinessWallet({
+      businessId,
       amount: Number(amount),
-      currency: currency || user.currency || "USD",
-      reason,
-      eventType: "topup",
-      reference,
-      status: "completed",
-      balanceBefore,
-      balanceAfter: nextBalance,
-      notes,
-      meta,
+      note: reason || notes || "Wallet top up",
+      meta: {
+        ...meta,
+        reference,
+      },
     });
 
     return {
       ok: true,
-      balanceBefore,
-      balanceAfter: nextBalance,
-      currency: user.currency || currency || "USD",
+      balanceBefore: result.balanceBefore,
+      balanceAfter: result.balanceAfter,
+      currency: result.currency || "USD",
     };
   } catch (e) {
     console.error("creditWalletBalance error:", e);
     return { ok: false, error: "Failed to credit wallet" };
   }
 }
+
 // ---------------------------------------------------------------------------
 // URLs
 // ---------------------------------------------------------------------------
@@ -410,7 +433,11 @@ const API_BASE_URL = (
 // ---------------------------------------------------------------------------
 app.use(
   cors({
-    origin: ["https://trustedlinks.net", "http://localhost:5173"],
+    origin: [
+      "https://trustedlinks.net",
+      "https://www.trustedlinks.net",
+      "http://localhost:5173",
+    ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: [
@@ -422,6 +449,9 @@ app.use(
     ],
   })
 );
+
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: true }));
 
 // ---------------------------------------------------------------------------
 // Email (Resend)
@@ -439,19 +469,29 @@ async function sendEmail({ to, subject, html, text }) {
       Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ from, to, subject, html, text }),
+    body: JSON.stringify({
+      from,
+      to,
+      subject,
+      html,
+      text,
+    }),
   });
 
   const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(`Resend failed (${r.status}): ${JSON.stringify(data)}`);
+
+  if (!r.ok) {
+    throw new Error(`Resend failed (${r.status}): ${JSON.stringify(data)}`);
+  }
+
   return data;
 }
 
 // ---------------------------------------------------------------------------
 // JAVNA Config
 // ---------------------------------------------------------------------------
-const JAVNA_API_KEY = process.env.JAVNA_API_KEY || "";
-const JAVNA_FROM = process.env.JAVNA_FROM || "";
+const JAVNA_API_KEY = (process.env.JAVNA_API_KEY || "").trim();
+const JAVNA_FROM = (process.env.JAVNA_FROM || "").trim();
 const JAVNA_BASE_URL = "https://whatsapp.api.javna.com/whatsapp/v1.0";
 const JAVNA_SEND_TEXT_URL = `${JAVNA_BASE_URL}/message/text`;
 const JAVNA_SEND_AUTH_TEMPLATE_URL = `${JAVNA_BASE_URL}/message/template/authentication`;
@@ -466,12 +506,14 @@ async function javnaSendText({ to, body }) {
   };
 
   const from = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
-  const toNumber = to.startsWith("+") ? to : `+${to}`;
+  const toNumber = String(to || "").startsWith("+") ? String(to) : `+${to}`;
 
   const payload = {
     from,
     to: toNumber,
-    content: { text: String(body || "") },
+    content: {
+      text: String(body || ""),
+    },
   };
 
   const r = await fetch(JAVNA_SEND_TEXT_URL, {
@@ -481,7 +523,10 @@ async function javnaSendText({ to, body }) {
   });
 
   const txt = await r.text();
-  if (!r.ok) throw new Error(`Javna send failed (${r.status}): ${txt}`);
+
+  if (!r.ok) {
+    throw new Error(`Javna send failed (${r.status}): ${txt}`);
+  }
 
   try {
     return JSON.parse(txt);
@@ -500,7 +545,7 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   };
 
   const from = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
-  const toNumber = to.startsWith("+") ? to : `+${to}`;
+  const toNumber = String(to || "").startsWith("+") ? String(to) : `+${to}`;
 
   const templateName = lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
   const templateLanguage = lang === "ar" ? "ar" : "en";
@@ -522,21 +567,22 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   });
 
   const txt = await r.text();
-  if (!r.ok) throw new Error(`Javna auth template failed (${r.status}): ${txt}`);
+
+  if (!r.ok) {
+    throw new Error(`Javna auth template failed (${r.status}): ${txt}`);
+  }
+
   return JSON.parse(txt);
 }
-
-app.use(express.json({ limit: "2mb" }));
-app.use(express.urlencoded({ extended: true }));
-
-
 
 // ============================================================================
 // Health
 // ============================================================================
 app.get("/", (_req, res) => res.status(200).send("OK"));
 app.get("/healthz", (_req, res) => res.status(200).json({ ok: true }));
-app.get("/api/test", (_req, res) => res.json({ ok: true, message: "✅ Backend is reachable" }));
+app.get("/api/test", (_req, res) =>
+  res.json({ ok: true, message: "✅ Backend is reachable" })
+);
 app.get("/api/health", (_req, res) => {
   res.json({
     ok: true,
@@ -547,9 +593,12 @@ app.get("/api/health", (_req, res) => {
 });
 
 // ============================================================================
-// AUTH (Signup/Login) + Email Verification + Forgot Password
+// AUTH (Signup/Login + Email + Reset Password)
 // ============================================================================
 
+// =========================
+// SIGNUP
+// =========================
 app.post("/api/auth/signup", async (req, res) => {
   try {
     const { email, password, business } = req.body || {};
@@ -571,7 +620,9 @@ app.post("/api/auth/signup", async (req, res) => {
 
     const existingBusiness = await getBusinessByWhatsapp(business.whatsapp);
     if (existingBusiness) {
-      return res.status(409).json({ error: "This WhatsApp number is already registered" });
+      return res
+        .status(409)
+        .json({ error: "This WhatsApp number is already registered" });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -582,8 +633,6 @@ app.post("/api/auth/signup", async (req, res) => {
       passwordHash,
       emailVerified: false,
       verifyToken,
-      subscriptionPlan: null,
-      planActivatedAt: null,
       walletBalance: 5,
       currency: "USD",
       freeCreditGranted: true,
@@ -597,11 +646,14 @@ app.post("/api/auth/signup", async (req, res) => {
       description_ar: business.description_ar || "",
       category: Array.isArray(business.category) ? business.category : [],
       keywords: Array.isArray(business.keywords) ? business.keywords : [],
-      keywords_ar: Array.isArray(business.keywords_ar) ? business.keywords_ar : [],
+      keywords_ar: Array.isArray(business.keywords_ar)
+        ? business.keywords_ar
+        : [],
       whatsapp: business.whatsapp || "",
       status: "Active",
       latitude: typeof business.latitude === "number" ? business.latitude : null,
-      longitude: typeof business.longitude === "number" ? business.longitude : null,
+      longitude:
+        typeof business.longitude === "number" ? business.longitude : null,
       mapLink: business.mapLink || "",
       mediaLink: business.mediaLink || "",
       logo: business.logo || "",
@@ -609,14 +661,18 @@ app.post("/api/auth/signup", async (req, res) => {
       countryCode: business.countryCode || "",
       countryName: business.countryName || "",
       customId: business.customId || "",
+
+      // Wallet (Business)
       walletBalance: 5,
-walletCurrency: "USD",
-walletStatus: "active",
-walletAllowNegative: false,
-walletNegativeLimit: -5,
-walletLowBalanceThreshold: 5,
-billingClickCost: 0.05,
-billingWhatsappCost: 0.10,
+      walletCurrency: "USD",
+      walletStatus: "active",
+      walletAllowNegative: false,
+      walletNegativeLimit: -5,
+      walletLowBalanceThreshold: 5,
+
+      // Billing
+      billingClickCost: 0.05,
+      billingWhatsappCost: 0.1,
     });
 
     const verifyUrl =
@@ -628,18 +684,16 @@ billingWhatsappCost: 0.10,
       await sendEmail({
         to: emailNorm,
         subject: "Verify your email",
-        text: `Verify your email using this link: ${verifyUrl}`,
         html: `<p>Verify your email:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
       });
     } catch (mailErr) {
-      console.error("signup verification email error:", mailErr);
+      console.error("signup email error:", mailErr);
     }
 
     return res.status(201).json({
       ok: true,
       userId: user.id,
       businessId: createdBusiness.id,
-      message: "User and business created successfully",
     });
   } catch (e) {
     console.error("signup error:", e);
@@ -647,23 +701,20 @@ billingWhatsappCost: 0.10,
   }
 });
 
-// Login only after email verification
+// =========================
+// LOGIN
+// =========================
 app.post("/api/auth/login", async (req, res) => {
   try {
     const { email, password } = req.body || {};
     const emailNorm = String(email || "").toLowerCase().trim();
 
-   
-
     const user = await getUserByEmail(emailNorm);
-  
-
     if (!user) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
     const ok = await bcrypt.compare(String(password), user.passwordHash);
-    
     if (!ok) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
@@ -683,7 +734,6 @@ app.post("/api/auth/login", async (req, res) => {
       email: user.email,
       walletBalance: user.walletBalance,
       currency: user.currency,
-      subscriptionPlan: user.subscriptionPlan,
     });
   } catch (e) {
     console.error("login error", e);
@@ -691,6 +741,9 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
+// =========================
+// VERIFY EMAIL
+// =========================
 app.get("/api/auth/verify-email", async (req, res) => {
   try {
     const { email, token } = req.query || {};
@@ -700,7 +753,10 @@ app.get("/api/auth/verify-email", async (req, res) => {
 
     const existingUser = await getUserByEmail(emailNorm);
     if (!existingUser) return res.status(404).send("User not found");
-    if (existingUser.emailVerified) return res.send("Already verified ✅");
+
+    if (existingUser.emailVerified) {
+      return res.redirect(`${FRONTEND_BASE_URL}/login?verified=1`);
+    }
 
     const verifiedUser = await verifyUserEmail(emailNorm, token);
     if (!verifiedUser) {
@@ -714,17 +770,18 @@ app.get("/api/auth/verify-email", async (req, res) => {
   }
 });
 
+// =========================
+// RESEND VERIFICATION
+// =========================
 app.post("/api/auth/resend-verification", async (req, res) => {
   try {
-    const { email } = req.body || {};
-    if (!email) return res.status(400).json({ error: "Email required" });
+    const emailNorm = String(req.body?.email || "").toLowerCase().trim();
 
-    const emailNorm = String(email).toLowerCase().trim();
     const user = await getUserByEmail(emailNorm);
-
     if (!user) return res.status(404).json({ error: "Email not found" });
+
     if (user.emailVerified) {
-      return res.json({ ok: true, message: "Email already verified" });
+      return res.json({ ok: true });
     }
 
     const verifyToken = user.verifyToken || nanoid(32);
@@ -738,127 +795,64 @@ app.post("/api/auth/resend-verification", async (req, res) => {
     await sendEmail({
       to: emailNorm,
       subject: "Verify your email",
-      text: `Verify your email using this link: ${verifyUrl}`,
-      html: `<p>Verify your email:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
+      html: `<p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
     });
 
-    return res.json({ ok: true, message: "Verification email sent" });
+    return res.json({ ok: true });
   } catch (e) {
     console.error("resend-verification error:", e);
-    return res.status(500).json({ error: "Failed to send verification email" });
+    return res.status(500).json({ error: "Failed" });
   }
 });
 
-app.post("/api/auth/forgot-password", async (req, res) => {
-  try {
-    const emailNorm = String(req.body?.email || "").trim().toLowerCase();
-
-    if (!emailNorm) {
-      return res.status(400).json({ error: "Email is required" });
-    }
-
-    const user = await getUserByEmail(emailNorm);
-
-    if (!user) {
-      return res.json({
-        ok: true,
-        message: "If this email exists, a reset link has been sent.",
-      });
-    }
-
-    const resetToken = nanoid(40);
-    const resetTokenExpiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-
-    await setResetToken(user.id, resetToken, resetTokenExpiresAt);
-
-    const resetUrl =
-      `${FRONTEND_BASE_URL}/reset-password` +
-      `?email=${encodeURIComponent(emailNorm)}` +
-      `&token=${encodeURIComponent(resetToken)}`;
-
-    await sendEmail({
-      to: emailNorm,
-      subject: "Reset your password",
-      html: `
-      <p>Reset your password:</p>
-      <p><a href="${resetUrl}">${resetUrl}</a></p>
-      `,
-    });
-
-    res.json({
-      ok: true,
-      message: "Reset email sent.",
-    });
-  } catch (e) {
-    console.error("forgot-password error:", e);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
+// =========================
+// RESET PASSWORD
+// =========================
 app.post("/api/auth/reset-password", async (req, res) => {
   try {
     const { email, token, newPassword } = req.body || {};
 
-    const emailNorm = String(email || "").toLowerCase().trim();
-    const resetToken = String(token || "").trim();
-    const password = String(newPassword || "");
-
-    if (!emailNorm || !resetToken || !password) {
-      return res.status(400).json({ error: "Email, token, and new password are required" });
-    }
-
-    if (password.length < 8) {
-      return res.status(400).json({ error: "Password must be at least 8 characters" });
-    }
-
-    const user = await getUserByEmail(emailNorm);
-
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    const user = await getUserByEmail(String(email).toLowerCase().trim());
+    if (!user) return res.status(404).json({ error: "User not found" });
 
     if (!user.resetToken || !user.resetTokenExpiresAt) {
-      return res.status(400).json({ error: "Invalid or expired reset token" });
+      return res.status(400).json({ error: "Invalid token" });
     }
 
-    if (String(user.resetToken) !== resetToken) {
-      return res.status(401).json({ error: "Invalid reset token" });
+    if (user.resetToken !== token) {
+      return res.status(401).json({ error: "Invalid token" });
     }
 
-    if (new Date(user.resetTokenExpiresAt).getTime() < Date.now()) {
-      return res.status(410).json({ error: "Reset token expired" });
+    if (new Date(user.resetTokenExpiresAt) < new Date()) {
+      return res.status(410).json({ error: "Expired token" });
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
-    await updateUserPassword(user.id, passwordHash);
+    const hash = await bcrypt.hash(newPassword, 10);
+    await updateUserPassword(user.id, hash);
 
-    return res.json({
-      ok: true,
-      message: "Password reset successfully",
-    });
+    return res.json({ ok: true });
   } catch (e) {
     console.error("reset-password error", e);
-    return res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Failed" });
   }
 });
-app.get("/api/me", requireAuth, async (req, res) => {
-  try {
-    const user = await getUserById(req.userId);
 
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
+// =========================
+// CURRENT USER
+// =========================
+app.get("/api/me", requireUser, async (req, res) => {
+  try {
+    const user = await getUserById(req.user.id);
+
+    if (!user) return res.status(404).json({ error: "User not found" });
 
     return res.json({
       ok: true,
       id: user.id,
       email: user.email,
-      emailVerified: user.emailVerified,
-      subscriptionPlan: user.subscriptionPlan || null,
-      planActivatedAt: user.planActivatedAt || null,
       walletBalance: user.walletBalance ?? 0,
       currency: user.currency || "USD",
-      freeCreditGranted: Boolean(user.freeCreditGranted),
+      subscriptionPlan: user.subscriptionPlan || null,
     });
   } catch (e) {
     console.error("/api/me error:", e);
@@ -866,28 +860,39 @@ app.get("/api/me", requireAuth, async (req, res) => {
   }
 });
 
-
 // ============================================================================
 // WhatsApp OTP
 // ============================================================================
+
+// =========================
+// REQUEST OTP
+// =========================
 app.post("/api/whatsapp/request-otp", async (req, res) => {
   try {
     const { whatsapp } = req.body || {};
 
     if (!whatsapp) {
-      return res.status(400).json({ error: "WhatsApp number missing" });
+      return res.status(400).json({
+        ok: false,
+        error: "WhatsApp number missing",
+      });
     }
 
     const clean = cleanDigits(whatsapp);
 
     if (!/^\d{10,15}$/.test(clean)) {
-      return res.status(400).json({ error: "Invalid WhatsApp number" });
+      return res.status(400).json({
+        ok: false,
+        error: "Invalid WhatsApp number",
+      });
     }
 
-    const already = await getBusinessByWhatsapp(clean);
-    if (already) {
+    const existingBusiness = await getBusinessByWhatsapp(clean);
+    if (existingBusiness) {
       return res.status(409).json({
+        ok: false,
         error: "This WhatsApp number is already registered.",
+        reason: "WHATSAPP_ALREADY_REGISTERED",
       });
     }
 
@@ -902,8 +907,10 @@ app.post("/api/whatsapp/request-otp", async (req, res) => {
       expiresAt: new Date(Date.now() + 5 * 60 * 1000),
     });
 
-    if (!JAVNA_API_KEY) {
+    // Development fallback if JAVNA is not configured
+    if (!JAVNA_API_KEY || !JAVNA_FROM) {
       return res.json({
+        ok: true,
         success: true,
         message: "OTP generated (mock).",
         devOtp: otp,
@@ -918,23 +925,30 @@ app.post("/api/whatsapp/request-otp", async (req, res) => {
 
     if (javnaResp?.stats?.rejected === "1") {
       return res.status(400).json({
-        success: false,
+        ok: false,
         error: "Javna rejected template",
         javna: javnaResp,
       });
     }
 
     return res.json({
+      ok: true,
       success: true,
       message: "OTP sent.",
       javna: javnaResp,
     });
   } catch (e) {
-    console.error("request-otp error", e);
-    return res.status(500).json({ error: "Failed to send OTP" });
+    console.error("request-otp error:", e);
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to send OTP",
+    });
   }
 });
 
+// =========================
+// VERIFY OTP
+// =========================
 app.post("/api/whatsapp/verify-otp", async (req, res) => {
   try {
     const { whatsapp, code } = req.body || {};
@@ -993,7 +1007,11 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
     await consumeOtp(rec.id);
 
     const token = jwt.sign(
-      { whatsapp: clean, purpose: "business_signup", verified: true },
+      {
+        whatsapp: clean,
+        purpose: "business_signup",
+        verified: true,
+      },
       JWT_SECRET,
       { expiresIn: "15m" }
     );
@@ -1006,7 +1024,7 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
       whatsappLink: `https://wa.me/${clean}`,
     });
   } catch (e) {
-    console.error("verify-otp error", e);
+    console.error("verify-otp error:", e);
     return res.status(500).json({
       ok: false,
       error: "Internal server error",
@@ -1014,31 +1032,52 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
   }
 });
 
-
 // =========================
 // CREATE BUSINESS TOPUP ORDER
 // =========================
 app.post("/api/payments/create-topup-order", requireUser, async (req, res) => {
   try {
     const amount = Number(req.body?.amount || 0);
-    const businessId = req.body?.businessId;
+    const businessId = String(req.body?.businessId || "").trim();
 
     if (!businessId) {
-      return res.status(400).json({ error: "businessId required" });
+      return res.status(400).json({
+        ok: false,
+        error: "businessId required",
+      });
     }
 
     if (!amount || amount <= 0) {
-      return res.status(400).json({ error: "Invalid amount" });
+      return res.status(400).json({
+        ok: false,
+        error: "Invalid amount",
+      });
     }
 
     const user = await getUserById(req.user.id);
-    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!user) {
+      return res.status(404).json({
+        ok: false,
+        error: "User not found",
+      });
+    }
 
     const business = await getBusinessById(businessId);
-    if (!business) return res.status(404).json({ error: "Business not found" });
+    if (!business) {
+      return res.status(404).json({
+        ok: false,
+        error: "Business not found",
+      });
+    }
 
-    if (business.ownerUserId && String(business.ownerUserId) !== String(req.user.id)) {
-      return res.status(403).json({ error: "Unauthorized business" });
+    if (
+      business.ownerUserId &&
+      String(business.ownerUserId) !== String(req.user.id)
+    ) {
+      return res.status(403).json({
+        ok: false,
+        error: "Unauthorized business",
+      });
     }
 
     const order = await createTopupOrder({
@@ -1060,43 +1099,70 @@ app.post("/api/payments/create-topup-order", requireUser, async (req, res) => {
     });
   } catch (e) {
     console.error("create-topup-order error:", e);
-    return res.status(500).json({ error: "Failed to create topup order" });
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to create topup order",
+    });
   }
 });
+
 // =========================
-// BUSINESS WALLET TOPUP
+// MANUAL BUSINESS WALLET TOPUP
 // =========================
-app.post("/api/business/topup", async (req, res) => {
+app.post("/api/business/topup", requireUser, async (req, res) => {
   try {
-    const { businessId, amount } = req.body;
+    const businessId = String(req.body?.businessId || "").trim();
+    const amount = Number(req.body?.amount || 0);
 
     if (!businessId) {
-      return res.status(400).json({ error: "businessId required" });
+      return res.status(400).json({
+        ok: false,
+        error: "businessId required",
+      });
     }
 
     if (!amount || amount <= 0) {
-      return res.status(400).json({ error: "Invalid amount" });
+      return res.status(400).json({
+        ok: false,
+        error: "Invalid amount",
+      });
     }
 
-    // تنفيذ الشحن
-   const result = await topupBusinessWallet({
-  businessId,
-  amount: Number(amount),
-  note: "Manual topup",
-});
-    
-    return res.json({
-      success: true,
-      balance: result.balanceAfter,
-      transaction: result.transaction,
+    const business = await getBusinessById(businessId);
+    if (!business) {
+      return res.status(404).json({
+        ok: false,
+        error: "Business not found",
+      });
+    }
+
+    if (
+      business.ownerUserId &&
+      String(business.ownerUserId) !== String(req.user.id)
+    ) {
+      return res.status(403).json({
+        ok: false,
+        error: "Unauthorized business",
+      });
+    }
+
+    const result = await topupBusinessWallet({
+      businessId,
+      amount,
+      note: "Manual topup",
     });
 
+    return res.json({
+      ok: true,
+      balance: result.balanceAfter,
+      currency: result.currency || "USD",
+      transaction: result.transaction || null,
+    });
   } catch (e) {
     console.error("business topup error:", e);
-
     return res.status(400).json({
-      success: false,
-      message: e.message,
+      ok: false,
+      error: e.message || "Failed to top up business wallet",
     });
   }
 });
@@ -1104,40 +1170,64 @@ app.post("/api/business/topup", async (req, res) => {
 // =========================
 // GET BUSINESS TOPUP ORDER
 // =========================
-
 app.get("/api/payments/topup-orders/:id", requireUser, async (req, res) => {
   try {
     const order = await getTopupOrderById(req.params.id);
-    if (!order) return res.status(404).json({ error: "Order not found" });
 
-    if (String(order.userId) !== String(req.user.id)) {
-      return res.status(403).json({ error: "Unauthorized" });
+    if (!order) {
+      return res.status(404).json({
+        ok: false,
+        error: "Order not found",
+      });
     }
 
-    return res.json(order);
+    if (String(order.userId) !== String(req.user.id)) {
+      return res.status(403).json({
+        ok: false,
+        error: "Unauthorized",
+      });
+    }
+
+    return res.json({
+      ok: true,
+      order,
+    });
   } catch (e) {
     console.error("get-topup-order error:", e);
-    return res.status(500).json({ error: "Failed to load order" });
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to load order",
+    });
   }
 });
-
 
 // =========================
 // CONFIRM BUSINESS TOPUP ORDER
 // =========================
 app.post("/api/payments/confirm-topup-order", requireUser, async (req, res) => {
   try {
-    const orderId = req.body?.orderId;
+    const orderId = String(req.body?.orderId || "").trim();
 
     if (!orderId) {
-      return res.status(400).json({ error: "orderId required" });
+      return res.status(400).json({
+        ok: false,
+        error: "orderId required",
+      });
     }
 
     const order = await getTopupOrderById(orderId);
-    if (!order) return res.status(404).json({ error: "Order not found" });
+    if (!order) {
+      return res.status(404).json({
+        ok: false,
+        error: "Order not found",
+      });
+    }
 
     if (String(order.userId) !== String(req.user.id)) {
-      return res.status(403).json({ error: "Unauthorized" });
+      return res.status(403).json({
+        ok: false,
+        error: "Unauthorized",
+      });
     }
 
     if (order.status === "paid") {
@@ -1152,194 +1242,77 @@ app.post("/api/payments/confirm-topup-order", requireUser, async (req, res) => {
     }
 
     if (order.status !== "pending") {
-      return res.status(400).json({ error: "Order is not payable" });
+      return res.status(400).json({
+        ok: false,
+        error: "Order is not payable",
+      });
     }
 
-  const result = await topupBusinessWallet({
-  businessId: order.businessId,
-  amount: order.amount,
-  note: "Topup via order",
-  meta: {
-    orderId: order.id,
-    paymentMethod: order.paymentMethod,
-  },
-});
+    const result = await topupBusinessWallet({
+      businessId: order.businessId,
+      amount: order.amount,
+      note: "Topup via order",
+      meta: {
+        orderId: order.id,
+        paymentMethod: order.paymentMethod,
+      },
+    });
+
     await markTopupOrderPaid(order.id);
 
     return res.json({
       ok: true,
       balance: result.balanceAfter,
-      currency: result.currency,
+      currency: result.currency || "USD",
       orderId: order.id,
     });
   } catch (e) {
     console.error("confirm-topup-order error:", e);
-    return res.status(500).json({ error: "Failed to confirm payment" });
-  }
-});
-  
-// ============================================================================
-// SUBSCRIBE (Choose plan) - requires verified email first
-// ============================================================================
-app.post("/api/subscribe", requireUser, async (req, res) => {
-  try {
-    const { plan } = req.body || {};
-    const p = String(plan || "monthly").trim();
-
-    const user = await getUserOr404(req.user.id, res);
-    if (!user) return;
-
-    if (!user.emailVerified) {
-      return res.status(403).json({ error: "Email not verified" });
-    }
-
-    user.subscriptionPlan = p;
-    user.planActivatedAt = new Date();
-    await user.save();
-
-    return res.json({
-      ok: true,
-      subscriptionPlan: user.subscriptionPlan,
-      planActivatedAt: user.planActivatedAt,
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to confirm payment",
     });
-  } catch (e) {
-    console.error("subscribe error:", e);
-    return res.status(500).json({ error: "Subscription failed" });
   }
 });
 
-// ============================================================================
-// BUSINESS PUBLISH
-// Requires:
-// - user logged in
-// - email verified
-// - subscription selected
-// - whatsapp verified (x-otp-token)
-// ============================================================================
-
-// النشر النهائي
-app.post("/api/business/publish", requireUser, requireOtpToken, publishBusinessHandler);
-
-// Alias للتوافق مع الفرونت الحالي إن كان يستعمل signup
-app.post("/api/business/signup", requireUser, requireOtpToken, publishBusinessHandler);
-
-async function publishBusinessHandler(req, res) {
-  try {
-    const ownerUserId = String(req.user.id);
-    const whatsapp = String(req.otp.whatsapp);
-
-    const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    if (!user.emailVerified) {
-      return res.status(403).json({ error: "Email not verified" });
-    }
-
-    if (!user.subscriptionPlan) {
-      return res.status(403).json({ error: "Subscription required before publish" });
-    }
-
-    const {
-      name,
-      name_ar = "",
-      description = "",
-      category = [],
-      latitude = null,
-      longitude = null,
-      mapLink = "",
-      mediaLink = "",
-    } = req.body || {};
-
-    if (!name) {
-      return res.status(400).json({ error: "Business name required" });
-    }
-
-    const existing = await Business.findOne({ whatsapp });
-    if (existing && String(existing.ownerUserId) !== ownerUserId) {
-      return res.status(409).json({
-        error: "WhatsApp already registered to another account",
-      });
-    }
-
-    let business = await Business.findOne({ ownerUserId });
-
-    if (!business) {
-      business = await Business.create({
-        ownerUserId,
-        name,
-        name_ar,
-        description,
-        category: Array.isArray(category) ? category : [],
-        whatsapp,
-        status: "Active",
-        latitude,
-        longitude,
-        mapLink,
-        mediaLink,
-      });
-    } else {
-      business.name = name;
-      business.name_ar = name_ar;
-      business.description = description;
-      business.category = Array.isArray(category) ? category : [];
-      business.whatsapp = whatsapp;
-      business.status = "Active";
-      business.latitude = latitude;
-      business.longitude = longitude;
-      business.mapLink = mapLink;
-      business.mediaLink = mediaLink;
-
-      await business.save();
-    }
-
-    return res.json({
-      ok: true,
-      message: "Business published successfully",
-      business,
-    });
-  } catch (e) {
-    console.error("publishBusinessHandler error:", e);
-
-    if (e?.code === 11000) {
-      return res.status(409).json({
-        error: "This WhatsApp number is already registered.",
-      });
-    }
-
-    return res.status(500).json({ error: "Failed to publish business" });
-  }
-}
 // ============================================================================
 // USER BUSINESS
 // ============================================================================
+
+// =========================
+// GET CURRENT USER BUSINESS
+// =========================
 app.get("/api/business/me", requireUser, async (req, res) => {
   try {
-    const b = await getBusinessByOwnerUserId(String(req.user.id));
-    if (!b) return res.status(404).json({ error: "Business not found" });
+    const business = await getBusinessByOwnerUserId(String(req.user.id));
+
+    if (!business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
 
     const formatted = {
-      ...b,
+      ...business,
       logo:
-        b.logo ||
-        (b.mediaLink &&
-        /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(String(b.mediaLink))
-          ? b.mediaLink
+        business.logo ||
+        (business.mediaLink &&
+        /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(String(business.mediaLink))
+          ? business.mediaLink
           : null),
-      whatsappLink: b.whatsapp
-        ? `https://wa.me/${String(b.whatsapp).replace(/\D/g, "")}`
+      whatsappLink: business.whatsapp
+        ? `https://wa.me/${String(business.whatsapp).replace(/\D/g, "")}`
         : null,
     };
 
     return res.json(formatted);
   } catch (e) {
     console.error("business/me error:", e);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Failed to load business" });
   }
 });
 
-
+// =========================
+// UPDATE CURRENT USER BUSINESS
+// =========================
 app.put("/api/business/update", requireUser, async (req, res) => {
   try {
     const existing = await getBusinessByOwnerUserId(String(req.user.id));
@@ -1350,6 +1323,9 @@ app.put("/api/business/update", requireUser, async (req, res) => {
     const payload = { ...(req.body || {}) };
     const lang = String(req.body?.lang || "en").toLowerCase();
 
+    // =========================
+    // Auto translation between EN <-> AR
+    // =========================
     if (lang === "ar") {
       const sourceDescription = String(payload.description_ar || "").trim();
       const sourceKeywords = Array.isArray(payload.keywords_ar)
@@ -1417,7 +1393,10 @@ app.put("/api/business/update", requireUser, async (req, res) => {
         : null,
     };
 
-    return res.json({ ok: true, business: formatted });
+    return res.json({
+      ok: true,
+      business: formatted,
+    });
   } catch (e) {
     console.error("update business error:", e);
     return res.status(500).json({ error: "Update failed" });
@@ -1429,63 +1408,71 @@ app.put("/api/business/update", requireUser, async (req, res) => {
 // =========================
 app.post("/api/business/ai-optimize", requireUser, async (req, res) => {
   try {
-   const business = await getBusinessByOwnerUserId(String(req.user.id));
+    const business = await getBusinessByOwnerUserId(String(req.user.id));
+
     if (!business) {
       return res.status(404).json({ error: "Business not found" });
     }
 
-  const {
-  topSearchKeywords = [],
-  lowConversionKeywords = [],
-  correctionNotes = "",
-  lang = "en",
-} = req.body || {};
+    const {
+      topSearchKeywords = [],
+      lowConversionKeywords = [],
+      correctionNotes = "",
+      lang = "en",
+    } = req.body || {};
 
-const result = await optimizeBusinessProfile({
-  businessName: business.name || "",
-  businessNameAr: business.name_ar || "",
-  category: Array.isArray(business.category)
-    ? business.category.join(", ")
-    : toSafeCategoryValue(business.category),
-  description:
-    lang === "ar"
-      ? business.description_ar || business.description || ""
-      : business.description || "",
-  keywords:
-    lang === "ar"
-      ? (Array.isArray(business.keywords_ar) && business.keywords_ar.length
-          ? business.keywords_ar
+    const result = await optimizeBusinessProfile({
+      businessName: business.name || "",
+      businessNameAr: business.name_ar || "",
+      category: Array.isArray(business.category)
+        ? business.category.join(", ")
+        : toSafeCategoryValue(business.category),
+      description:
+        lang === "ar"
+          ? business.description_ar || business.description || ""
+          : business.description || "",
+      keywords:
+        lang === "ar"
+          ? Array.isArray(business.keywords_ar) && business.keywords_ar.length
+            ? business.keywords_ar
+            : Array.isArray(business.keywords)
+            ? business.keywords
+            : []
           : Array.isArray(business.keywords)
           ? business.keywords
-          : [])
-      : (Array.isArray(business.keywords) ? business.keywords : []),
-  topSearchKeywords,
-  lowConversionKeywords,
-  locationText: business.locationText || "",
-  countryName: business.countryName || "",
-  correctionNotes,
-  lang,
-});
+          : [],
+      topSearchKeywords,
+      lowConversionKeywords,
+      locationText: business.locationText || "",
+      countryName: business.countryName || "",
+      correctionNotes,
+      lang,
+    });
 
     return res.json({
       ok: true,
-     businessId: String(business.id),
+      businessId: String(business.id),
       result,
     });
   } catch (e) {
-    console.error("ai optimize error:", e?.message, e);
+    console.error("ai optimize error:", e?.message || e, e);
     return res.status(500).json({
+      ok: false,
       error: "AI optimization failed",
     });
   }
 });
 
 // =========================
-// APPLY AI OPTIMIZATION
+// APPLY AI OPTIMIZATION (Legacy / optional)
+// Note:
+// Frontend currently applies AI locally to form state,
+// then saves through PUT /api/business/update
 // =========================
 app.post("/api/business/apply-ai-optimization", requireUser, async (req, res) => {
   try {
     const business = await getBusinessByOwnerUserId(String(req.user.id));
+
     if (!business) {
       return res.status(404).json({ error: "Business not found" });
     }
@@ -1529,35 +1516,46 @@ app.post("/api/business/apply-ai-optimization", requireUser, async (req, res) =>
         : null,
     };
 
-    return res.json({ ok: true, business: formatted });
+    return res.json({
+      ok: true,
+      business: formatted,
+    });
   } catch (e) {
     console.error("apply ai optimization error:", e);
-    return res.status(500).json({ error: "Update failed" });
+    return res.status(500).json({
+      ok: false,
+      error: "Update failed",
+    });
   }
 });
 
-
+// =========================
+// BUSINESS REPORTS
+// =========================
 app.get("/api/business/reports", requireUser, async (req, res) => {
   try {
-    const b = await getBusinessByOwnerUserId(String(req.user.id));
-    if (!b) return res.status(404).json({ error: "Business not found" });
+    const business = await getBusinessByOwnerUserId(String(req.user.id));
+
+    if (!business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
 
     return res.json({
-      business: b.name || "Business",
+      business: business.name || "Business",
       logo:
-        b.logo ||
-        (b.mediaLink &&
-        /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(String(b.mediaLink))
-          ? b.mediaLink
+        business.logo ||
+        (business.mediaLink &&
+        /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(String(business.mediaLink))
+          ? business.mediaLink
           : null),
-      category: Array.isArray(b.category)
-        ? b.category.join(", ")
-        : toSafeCategoryValue(b.category) || "Category",
+      category: Array.isArray(business.category)
+        ? business.category.join(", ")
+        : toSafeCategoryValue(business.category) || "Category",
 
-      totalClicks: 0,
-      totalMessages: 0,
-      mediaViews: 0,
-      views: 0,
+      totalClicks: Number(business.clicksCount || 0),
+      totalMessages: Number(business.messagesCount || 0),
+      mediaViews: Number(business.mediaViewsCount || 0),
+      views: Number(business.viewsCount || 0),
       weeklyGrowth: 0,
 
       peakHour: "00",
@@ -1569,10 +1567,26 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
       keywords: [],
 
       sources: [
-        { name_en: "WhatsApp", name_ar: "واتساب", value: 0 },
-        { name_en: "Clicks", name_ar: "نقرات", value: 0 },
-        { name_en: "Media", name_ar: "وسائط", value: 0 },
-        { name_en: "Views", name_ar: "مشاهدات", value: 0 },
+        {
+          name_en: "WhatsApp",
+          name_ar: "واتساب",
+          value: Number(business.whatsappClicksCount || 0),
+        },
+        {
+          name_en: "Clicks",
+          name_ar: "نقرات",
+          value: Number(business.clicksCount || 0),
+        },
+        {
+          name_en: "Media",
+          name_ar: "وسائط",
+          value: Number(business.mediaViewsCount || 0),
+        },
+        {
+          name_en: "Views",
+          name_ar: "مشاهدات",
+          value: Number(business.viewsCount || 0),
+        },
       ],
     });
   } catch (e) {
@@ -1580,12 +1594,14 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
     return res.status(500).json({ error: "Failed" });
   }
 });
+
 // =========================
 // BUSINESS BALANCE
 // =========================
 app.get("/api/business/balance/:businessId", requireUser, async (req, res) => {
   try {
     const business = await getBusinessByOwnerUserId(String(req.user.id));
+
     if (!business) {
       return res.status(404).json({ error: "Business not found" });
     }
@@ -1602,6 +1618,7 @@ app.get("/api/business/balance/:businessId", requireUser, async (req, res) => {
     else if (balance < 5) status = "low";
 
     return res.json({
+      ok: true,
       wallet: { balance, currency, status },
     });
   } catch (e) {
@@ -1609,6 +1626,7 @@ app.get("/api/business/balance/:businessId", requireUser, async (req, res) => {
     return res.status(500).json({ error: "Failed to load business balance" });
   }
 });
+
 // =========================
 // BUSINESS TRANSACTIONS
 // =========================
@@ -1622,13 +1640,17 @@ app.get("/api/business/transactions/:businessId", requireUser, async (req, res) 
       return res.status(404).json({ error: "Business not found" });
     }
 
-    if (business.ownerUserId && String(business.ownerUserId) !== String(req.user.id)) {
+    if (
+      business.ownerUserId &&
+      String(business.ownerUserId) !== String(req.user.id)
+    ) {
       return res.status(403).json({ error: "Unauthorized" });
     }
 
     const transactions = await listBusinessTransactions(business.id, limit);
 
     return res.json({
+      ok: true,
       transactions: transactions.map((tx) => ({
         id: String(tx.id),
         type: tx.type,
@@ -1649,22 +1671,45 @@ app.get("/api/business/transactions/:businessId", requireUser, async (req, res) 
   }
 });
 
+// =========================
+// DIRECT BUSINESS TOPUP
+// =========================
 app.post("/api/topup", requireUser, async (req, res) => {
   try {
     const amount = Number(req.body?.amount || 0);
+    const businessId = String(req.body?.businessId || "").trim();
+
+    if (!businessId) {
+      return res.status(400).json({ error: "businessId required" });
+    }
+
     if (!amount || amount <= 0) {
       return res.status(400).json({ error: "Invalid amount" });
     }
 
+    const business = await getBusinessById(businessId);
+    if (!business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+
+    if (
+      business.ownerUserId &&
+      String(business.ownerUserId) !== String(req.user.id)
+    ) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
     const result = await creditWalletBalance({
-      userId: req.user.id,
+      businessId: business.id,
       amount,
       reason: "Wallet top up",
       reference: `topup_${Date.now()}`,
     });
 
     if (!result.ok) {
-      return res.status(404).json({ error: result.error || "User not found" });
+      return res.status(400).json({
+        error: result.error || "Top up failed",
+      });
     }
 
     let status = "active";
@@ -1686,6 +1731,10 @@ app.post("/api/topup", requireUser, async (req, res) => {
 // ============================================================================
 // PUBLIC SEARCH + PUBLIC business endpoints
 // ============================================================================
+
+// =========================
+// SEARCH
+// =========================
 app.get("/api/search", async (req, res) => {
   try {
     const { query = "", category = "all", lat, lng } = req.query;
@@ -1694,6 +1743,7 @@ app.get("/api/search", async (req, res) => {
 
     if (query) {
       const q = String(query).toLowerCase();
+
       results = results.filter((b) => {
         const name = (b.name || "").toLowerCase();
         const nameAr = (b.name_ar || "").toLowerCase();
@@ -1702,12 +1752,18 @@ app.get("/api/search", async (req, res) => {
           ? b.category.join(" ").toLowerCase()
           : toSafeCategoryValue(b.category).toLowerCase();
 
-        return name.includes(q) || nameAr.includes(q) || desc.includes(q) || catStr.includes(q);
+        return (
+          name.includes(q) ||
+          nameAr.includes(q) ||
+          desc.includes(q) ||
+          catStr.includes(q)
+        );
       });
     }
 
     if (category && category !== "all") {
       const c = String(category).toLowerCase();
+
       results = results.filter((b) => {
         const catStr = Array.isArray(b.category)
           ? b.category.join(" ").toLowerCase()
@@ -1717,6 +1773,7 @@ app.get("/api/search", async (req, res) => {
       });
     }
 
+    // Nearby sorting
     if (lat && lng) {
       const userLocation = {
         latitude: parseFloat(lat),
@@ -1737,13 +1794,19 @@ app.get("/api/search", async (req, res) => {
         .sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
     }
 
-    return res.json(results);
+    return res.json({
+      ok: true,
+      results,
+    });
   } catch (e) {
     console.error("/api/search error", e);
     return res.status(500).json({ error: "Failed to search" });
   }
 });
 
+// =========================
+// LIST BUSINESSES
+// =========================
 app.get("/api/businesses", async (_req, res) => {
   try {
     const list = await listActiveBusinesses();
@@ -1761,13 +1824,19 @@ app.get("/api/businesses", async (_req, res) => {
         : null,
     }));
 
-    return res.json(formatted);
+    return res.json({
+      ok: true,
+      results: formatted,
+    });
   } catch (e) {
     console.error("/api/businesses error", e);
     return res.status(500).json({ error: "Failed" });
   }
 });
 
+// =========================
+// GET BUSINESS
+// =========================
 app.get("/api/business/:id", async (req, res) => {
   try {
     const id = req.params.id;
@@ -1795,7 +1864,10 @@ app.get("/api/business/:id", async (req, res) => {
         : null,
     };
 
-    return res.json(formatted);
+    return res.json({
+      ok: true,
+      business: formatted,
+    });
   } catch (e) {
     console.error("/api/business/:id error", e);
     return res.status(404).json({ error: "Not found" });
@@ -1803,9 +1875,13 @@ app.get("/api/business/:id", async (req, res) => {
 });
 
 // ============================================================================
-// Tracking endpoints used by BusinessDetails.jsx
+// TRACKING (Core Monetization)
 // ============================================================================
-async function pushEvent(businessId, field, payload = {}) {
+
+// =========================
+// Internal helper
+// =========================
+async function pushEvent(businessId, field) {
   const fieldMap = {
     views: "views",
     clicks: "clicks",
@@ -1816,6 +1892,7 @@ async function pushEvent(businessId, field, payload = {}) {
   };
 
   const normalizedField = fieldMap[field];
+
   if (!normalizedField) {
     throw new Error(`Unsupported event field: ${field}`);
   }
@@ -1823,10 +1900,16 @@ async function pushEvent(businessId, field, payload = {}) {
   return await incrementBusinessEventField(businessId, normalizedField, 1);
 }
 
+// =========================
+// VIEW (no charge)
+// =========================
 app.post("/api/track-view", async (req, res) => {
   try {
     const { businessId } = req.body || {};
-    if (!businessId) return res.status(400).json({ error: "businessId required" });
+
+    if (!businessId) {
+      return res.status(400).json({ error: "businessId required" });
+    }
 
     const info = await getBusinessOwnerInfo(businessId);
     if (!info) return res.status(404).json({ error: "Business not found" });
@@ -1847,10 +1930,16 @@ app.post("/api/track-view", async (req, res) => {
   }
 });
 
+// =========================
+// CLICK (paid)
+// =========================
 app.post("/api/track-click", async (req, res) => {
   try {
     const { businessId } = req.body || {};
-    if (!businessId) return res.status(400).json({ error: "businessId required" });
+
+    if (!businessId) {
+      return res.status(400).json({ error: "businessId required" });
+    }
 
     const info = await getBusinessOwnerInfo(businessId);
     if (!info) return res.status(404).json({ error: "Business not found" });
@@ -1861,16 +1950,13 @@ app.post("/api/track-click", async (req, res) => {
       eventType: "click",
       reason: "Business profile click charge",
       reference: `click_${businessId}_${Date.now()}`,
-      meta: {
-        source: "business_profile_click",
-      },
+      meta: { source: "business_profile_click" },
     });
 
     if (deduction.insufficient) {
       return res.status(402).json({
         error: "Insufficient balance",
         code: "INSUFFICIENT_BALANCE",
-        balance: deduction.balanceAfter,
       });
     }
 
@@ -1887,7 +1973,6 @@ app.post("/api/track-click", async (req, res) => {
       ok: true,
       charged: true,
       amount: deduction.amount || 0,
-      balance: deduction.balanceAfter,
     });
   } catch (e) {
     console.error("track-click error:", e);
@@ -1895,10 +1980,16 @@ app.post("/api/track-click", async (req, res) => {
   }
 });
 
+// =========================
+// MEDIA (paid)
+// =========================
 app.post("/api/track-media", async (req, res) => {
   try {
     const { businessId } = req.body || {};
-    if (!businessId) return res.status(400).json({ error: "businessId required" });
+
+    if (!businessId) {
+      return res.status(400).json({ error: "businessId required" });
+    }
 
     const info = await getBusinessOwnerInfo(businessId);
     if (!info) return res.status(404).json({ error: "Business not found" });
@@ -1908,62 +1999,33 @@ app.post("/api/track-media", async (req, res) => {
       businessId: info.businessId,
       eventType: "media",
       reason: "Media view charge",
-      reference: `media_${businessId}_${Date.now()}`,
-      meta: {
-        source: "media_open",
-      },
     });
 
     if (deduction.insufficient) {
       return res.status(402).json({
         error: "Insufficient balance",
-        code: "INSUFFICIENT_BALANCE",
-        balance: deduction.balanceAfter,
       });
     }
 
     await pushEvent(businessId, "mediaViews");
 
-    await logBusinessEvent({
-      businessId: info.businessId,
-      ownerUserId: info.ownerUserId,
-      type: "media",
-      source: "media_open",
-    });
-
-    return res.json({
-      ok: true,
-      charged: true,
-      amount: deduction.amount || 0,
-      balance: deduction.balanceAfter,
-    });
+    return res.json({ ok: true, charged: true });
   } catch (e) {
     console.error("track-media error:", e);
     return res.status(500).json({ error: "Failed" });
   }
 });
 
-app.post("/api/track-map", async (req, res) => {
-  try {
-    const { businessId } = req.body || {};
-    if (!businessId) return res.status(400).json({ error: "businessId required" });
-
-    const info = await getBusinessOwnerInfo(businessId);
-    if (!info) return res.status(404).json({ error: "Business not found" });
-
-    await pushEvent(businessId, "mapClicks");
-
-    return res.json({ ok: true, charged: false });
-  } catch (e) {
-    console.error("track-map error:", e);
-    return res.status(500).json({ error: "Failed" });
-  }
-});
-
+// =========================
+// WHATSAPP (paid)
+// =========================
 app.post("/api/track-whatsapp", async (req, res) => {
   try {
     const { businessId } = req.body || {};
-    if (!businessId) return res.status(400).json({ error: "businessId required" });
+
+    if (!businessId) {
+      return res.status(400).json({ error: "businessId required" });
+    }
 
     const info = await getBusinessOwnerInfo(businessId);
     if (!info) return res.status(404).json({ error: "Business not found" });
@@ -1973,36 +2035,18 @@ app.post("/api/track-whatsapp", async (req, res) => {
       businessId: info.businessId,
       eventType: "whatsapp",
       reason: "WhatsApp lead charge",
-      reference: `whatsapp_${businessId}_${Date.now()}`,
-      meta: {
-        source: "whatsapp_button",
-      },
     });
 
     if (deduction.insufficient) {
       return res.status(402).json({
         error: "Insufficient balance",
-        code: "INSUFFICIENT_BALANCE",
-        balance: deduction.balanceAfter,
       });
     }
 
     await pushEvent(businessId, "whatsappClicks");
     await pushEvent(businessId, "messages");
 
-    await logBusinessEvent({
-      businessId: info.businessId,
-      ownerUserId: info.ownerUserId,
-      type: "whatsapp",
-      source: "whatsapp_button",
-    });
-
-    return res.json({
-      ok: true,
-      charged: true,
-      amount: deduction.amount || 0,
-      balance: deduction.balanceAfter,
-    });
+    return res.json({ ok: true, charged: true });
   } catch (e) {
     console.error("track-whatsapp error:", e);
     return res.status(500).json({ error: "Failed" });
@@ -2010,16 +2054,23 @@ app.post("/api/track-whatsapp", async (req, res) => {
 });
 
 // ============================================================================
-// Admin Auth + Admin endpoints
+// Admin Auth + Admin endpoints (Supabase Clean Version)
 // ============================================================================
+
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@trustedlinks.app";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "123456";
 
+// =========================
+// ADMIN LOGIN
+// =========================
 app.post("/api/admin/login", async (req, res) => {
   try {
     const { email, password } = req.body || {};
 
-    if (String(email || "").trim().toLowerCase() !== String(ADMIN_EMAIL).trim().toLowerCase()) {
+    if (
+      String(email || "").trim().toLowerCase() !==
+      String(ADMIN_EMAIL).trim().toLowerCase()
+    ) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
@@ -2027,127 +2078,131 @@ app.post("/api/admin/login", async (req, res) => {
       ? await bcrypt.compare(String(password), ADMIN_PASSWORD)
       : String(password) === String(ADMIN_PASSWORD);
 
-    if (!passOk) return res.status(401).json({ error: "Invalid credentials" });
+    if (!passOk) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
 
     const token = signAdminToken(email);
-    return res.json({ token });
-  } catch {
+
+    return res.json({ ok: true, token });
+  } catch (e) {
+    console.error("admin login error:", e);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
 
+// =========================
+// ADMIN ME
+// =========================
 app.get("/api/admin/me", requireAdmin, async (req, res) => {
-  return res.json({ ok: true, email: req.admin.email, role: "admin" });
+  return res.json({
+    ok: true,
+    email: req.admin.email,
+    role: "admin",
+  });
 });
 
+// =========================
+// ADMIN STATS
+// =========================
 app.get("/api/admin/stats", requireAdmin, async (_req, res) => {
   try {
-    const users = await User.countDocuments();
-    const businesses = await Business.countDocuments();
+    const users = await listAllUsers();
+    const businesses = await listAllBusinesses();
 
-    const all = await Business.find({}, { clicks: 1 }).lean();
-    const clicks = all.reduce(
-      (acc, b) => acc + (Array.isArray(b.clicks) ? b.clicks.length : 0),
+    const totalClicks = businesses.reduce(
+      (acc, b) => acc + Number(b.clicksCount || 0),
       0
     );
 
-    return res.json({ users, businesses, clicks, activity: [], categories: [] });
-  } catch {
+    return res.json({
+      ok: true,
+      users: users.length,
+      businesses: businesses.length,
+      clicks: totalClicks,
+      activity: [],
+      categories: [],
+    });
+  } catch (e) {
+    console.error("admin stats error:", e);
     return res.status(500).json({ error: "Failed" });
   }
 });
 
+// =========================
+// ADMIN BUSINESSES
+// =========================
 app.get("/api/admin/businesses", requireAdmin, async (_req, res) => {
   try {
-    const list = await Business.find({}).lean();
-    return res.json(list);
-  } catch {
+    const list = await listAllBusinesses();
+    return res.json({ ok: true, businesses: list });
+  } catch (e) {
+    console.error("admin businesses error:", e);
     return res.status(500).json({ error: "Failed" });
   }
 });
 
+// =========================
+// ADMIN USERS
+// =========================
 app.get("/api/admin/users", requireAdmin, async (_req, res) => {
   try {
-    const users = await User.find(
-      {},
-      { passwordHash: 0, verifyToken: 0, resetToken: 0, resetTokenExpiresAt: 0 }
-    )
-      .sort({ createdAt: -1 })
-      .lean();
-
-    return res.json(users);
-  } catch {
+    const users = await listAllUsers();
+    return res.json({ ok: true, users });
+  } catch (e) {
+    console.error("admin users error:", e);
     return res.status(500).json({ error: "Failed" });
   }
 });
 
-app.get("/api/admin/plans", requireAdmin, async (_req, res) => {
-  return res.json([
-    { id: "p1", name: "Free", price: 0, period: "mo" },
-    { id: "p2", name: "Pro", price: 15, period: "mo" },
-    { id: "p3", name: "Enterprise", price: 49, period: "mo" },
-  ]);
-});
-
-app.get("/api/admin/subscriptions", requireAdmin, async (_req, res) => {
-  try {
-    const users = await User.find({ subscriptionPlan: { $ne: null } }).lean();
-
-    const rows = await Promise.all(
-      users.map(async (u) => {
-        const b = await Business.findOne({ ownerUserId: String(u._id) }).lean();
-        return {
-          id: String(u._id),
-          business: b?.name || u.email,
-          plan: u.subscriptionPlan || "—",
-          renews: "Monthly",
-        };
-      })
-    );
-
-    return res.json(rows);
-  } catch {
-    return res.json([]);
-  }
-});
-
-// تفعيل النشاط من الأدمن
+// =========================
+// ACTIVATE BUSINESS
+// =========================
 app.post("/api/admin/businesses/:id/activate", requireAdmin, async (req, res) => {
   try {
-    const b = await Business.findById(req.params.id);
-    if (!b) return res.status(404).json({ error: "Not found" });
+    const business = await updateBusinessStatus(req.params.id, "Active");
 
-    b.status = "Active";
-    await b.save();
+    if (!business) {
+      return res.status(404).json({ error: "Not found" });
+    }
 
-    return res.json({ ok: true, business: b });
+    return res.json({ ok: true, business });
   } catch (e) {
     console.error("activate business error:", e);
     return res.status(500).json({ error: "Failed" });
   }
 });
 
+// =========================
+// SUSPEND BUSINESS
+// =========================
 app.post("/api/admin/businesses/:id/suspend", requireAdmin, async (req, res) => {
   try {
-    const b = await Business.findById(req.params.id);
-    if (!b) return res.status(404).json({ error: "Not found" });
+    const business = await updateBusinessStatus(req.params.id, "Suspended");
 
-    b.status = "Suspended";
-    await b.save();
+    if (!business) {
+      return res.status(404).json({ error: "Not found" });
+    }
 
-    return res.json({ ok: true, business: b });
+    return res.json({ ok: true, business });
   } catch (e) {
     console.error("suspend business error:", e);
     return res.status(500).json({ error: "Failed" });
   }
 });
 
+// =========================
+// NOTIFICATIONS (Memory - OK for MVP)
+// =========================
 let NOTIFS = [];
 
-app.get("/api/admin/notifications", requireAdmin, async (_req, res) => res.json(NOTIFS));
+app.get("/api/admin/notifications", requireAdmin, async (_req, res) => {
+  return res.json({ ok: true, notifications: NOTIFS });
+});
 
 app.post("/api/admin/notifications", requireAdmin, async (req, res) => {
   const { message } = req.body || {};
+
   if (!String(message || "").trim()) {
     return res.status(400).json({ error: "Message required" });
   }
@@ -2160,596 +2215,30 @@ app.post("/api/admin/notifications", requireAdmin, async (req, res) => {
   };
 
   NOTIFS = [n, ...NOTIFS].slice(0, 200);
+
   return res.json({ ok: true, notification: n });
 });
 
-app.get("/api/admin/insights", requireAdmin, async (_req, res) => {
-  return res.json({
-    insight:
-      "No AI insights yet. Once tracking grows, this will show top categories, growth, and recommendations.",
-  });
-});
-
-app.post("/api/admin/ai-summary", requireAdmin, async (_req, res) => {
-  return res.json({
-    summary:
-      "AI Summary: System is running. Next step is enabling activity aggregation + insights generation.",
-  });
-});
-
+// =========================
+// SETTINGS
+// =========================
 let ADMIN_SETTINGS = {
   theme: "light",
   email: ADMIN_EMAIL,
 };
 
-app.get("/api/admin/settings", requireAdmin, async (_req, res) => res.json(ADMIN_SETTINGS));
+app.get("/api/admin/settings", requireAdmin, async (_req, res) => {
+  return res.json({ ok: true, settings: ADMIN_SETTINGS });
+});
 
 app.post("/api/admin/settings", requireAdmin, async (req, res) => {
   ADMIN_SETTINGS = { ...ADMIN_SETTINGS, ...(req.body || {}) };
   return res.json({ ok: true, settings: ADMIN_SETTINGS });
 });
 
-function detectLanguage(text = "") {
-  return /[\u0600-\u06FF]/.test(text) ? "ar" : "en";
-}
-
-function isHelpCommand(text = "") {
-  const t = String(text || "").trim().toLowerCase();
-  return ["help", "start", "مساعدة", "ابدأ"].includes(t);
-}
-
-function isThanks(text = "") {
-  const t = String(text).toLowerCase().trim();
-  return ["شكرا", "شكرًا", "thanks", "thank you"].includes(t);
-}
-
-function isGreeting(text = "") {
-  const t = String(text || "").trim().toLowerCase();
-  return [
-    "سلام",
-    "مرحبا",
-    "هلا",
-    "اهلا",
-    "أهلا",
-    "hello",
-    "hi",
-    "hey",
-    "start",
-    "ابدأ",
-  ].includes(t);
-}
-
-function getWelcomeMessage(lang = "ar") {
-  if (lang === "ar") {
-    return (
-      "مرحبًا بك في TrustedLinks 👋\n\n" +
-      "يمكنني مساعدتك في البحث عن الشركات بسهولة.\n\n" +
-      "أمثلة:\n" +
-      "• مطعم\n" +
-      "• قهوة\n" +
-      "• صيدلية\n" +
-      "• كوكو\n\n" +
-      "ويمكنك أيضًا إرسال:\n" +
-      "• أقرب شركة\n" +
-      "• أقرب مطعم\n\n" +
-      "اكتب اسم الشركة أو نوع النشاط للبدء."
-    );
-  }
-
-  return (
-    "Welcome to TrustedLinks 👋\n\n" +
-    "I can help you find businesses easily.\n\n" +
-    "Examples:\n" +
-    "• restaurant\n" +
-    "• coffee\n" +
-    "• pharmacy\n" +
-    "• coco\n\n" +
-    "You can also send:\n" +
-    "• nearest business\n" +
-    "• nearest restaurant\n\n" +
-    "Type a business name or category to begin."
-  );
-}
-
-function parseNearbyIntent(text = "") {
-  const raw = String(text || "").trim();
-  const q = raw.toLowerCase();
-
-  const phrasesToRemove = [
-    "قريبة مني",
-    "قريب مني",
-    "قريبة",
-    "قريب",
-    "أقرب",
-    "اقرب",
-    "بالقرب مني",
-    "بالقرب",
-    "حولي",
-    "مني",
-    "عندي",
-    "near me",
-    "nearest",
-    "closest",
-    "near",
-    "around me",
-    "around",
-    "me",
-  ];
-
-  const isNearby = phrasesToRemove.some((word) =>
-    q.includes(word.toLowerCase())
-  );
-
-  if (!isNearby) {
-    return { isNearby: false, categoryQuery: "" };
-  }
-
-  let categoryQuery = raw;
-
-  phrasesToRemove
-    .sort((a, b) => b.length - a.length)
-    .forEach((word) => {
-      const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const rx = new RegExp(escaped, "ig");
-      categoryQuery = categoryQuery.replace(rx, " ");
-    });
-
-  categoryQuery = categoryQuery.replace(/\s+/g, " ").trim();
-
-  return {
-    isNearby: true,
-    categoryQuery,
-  };
-}
-app.get("/webhooks/javna/whatsapp", (_req, res) => {
-  res.status(200).send("WhatsApp webhook is live");
-});
-
-
-app.post("/webhooks/javna/whatsapp", async (req, res) => {
-  try {
-    console.log("POST WEBHOOK HIT");
-    console.log("HEADERS:", JSON.stringify(req.headers, null, 2));
-    console.log("BODY:", JSON.stringify(req.body, null, 2));
-
-    // Reply immediately to Javna
-    res.status(200).json({ ok: true });
-
-    const body = req.body || {};
-
-    if (body.eventScope !== "whatsapp" || body.event !== "wa.message.received") {
-      console.log("IGNORED EVENT:", body.eventScope, body.event);
-      return;
-    }
-
-    const from = cleanDigits(body.from || body?.data?.from || "");
-    const messageType = body?.data?.type || "";
-    const incomingLocation = body?.data?.location || null;
-    const incomingText = (body?.data?.text?.text || body?.data?.text || "")
-      .toString()
-      .trim();
-
-    console.log("FROM:", from);
-    console.log("TEXT:", incomingText);
-    console.log("MESSAGE TYPE:", messageType);
-    console.log("LOCATION:", incomingLocation);
-
-    if (!from) {
-      console.log("MISSING FROM");
-      return;
-    }
-
-    const lang = detectLanguage(incomingText || "");
-    const normalizedIncomingText = normalizeSearchText(incomingText || "");
-    const pendingNearby = await getPendingNearbySession(from);
-
-    // 1) Thanks
-    if (isThanks(incomingText)) {
-      await javnaSendText({
-        to: from,
-        body:
-          lang === "ar"
-            ? "على الرحب والسعة 😊\nإذا احتجت البحث عن شركة اكتب اسمها أو نوع النشاط."
-            : "You're welcome 😊\nSend a company name or category any time.",
-      });
-      return;
-    }
-
- // 2) Location message
-if (
-  messageType === "location" &&
-  incomingLocation?.latitude != null &&
-  incomingLocation?.longitude != null
-) {
-  const lat = Number(incomingLocation.latitude);
-  const lng = Number(incomingLocation.longitude);
-
-  console.log("PENDING NEARBY SESSION:", JSON.stringify(pendingNearby, null, 2));
-
-  const categoryQuery = pendingNearby?.pendingNearby?.category || "";
-  const cacheKey = buildNearbyCacheKey(lat, lng, categoryQuery);
-
-  let nearest = await getCachedSearch(cacheKey);
-
-  if (!nearest) {
-    nearest = await findNearestBusinesses(lat, lng, 3, categoryQuery);
-    setCachedSearch(cacheKey, (Array.isArray(nearest) ? nearest : []).slice(0, 10), 10)
-      .catch((e) => console.error("CACHE ERROR:", e));
-  }
-
-  const topNearest = (Array.isArray(nearest) ? nearest : []).slice(0, 3);
-
-  const enrichedNearest = await Promise.all(
-    topNearest.map(async (item) => {
-      const trackedLink = await createLeadTrackedLink({
-        businessId: item.id || "",
-        phone: item.whatsapp || item.phone || "",
-        query: categoryQuery || "nearby",
-        userPhone: from,
-      });
-
-      return {
-        ...item,
-        trackedLink,
-      };
-    })
-  );
-
-  const locationReply = formatNearestResults(enrichedNearest, lang, categoryQuery, {
-    userPhone: from,
-  });
-
-  // أرسل الرد أولاً
-  const locationSendResp = await javnaSendText({
-    to: from,
-    body: locationReply,
-  });
-
-  // ثم نفذ التخزين في الخلفية
-  logSearchEvent({
-    type: "nearby_location_received",
-    userPhone: from,
-    rawText: incomingText || null,
-    query: categoryQuery || null,
-    normalizedQuery: categoryQuery || null,
-    intent: "nearby",
-    lang,
-    location: {
-      lat,
-      lng,
-    },
-    resultsCount: Array.isArray(nearest) ? nearest.length : 0,
-    usedAI: false,
-    source: "nearby",
-    timestamp: new Date(),
-  }).catch((e) => console.error("LOG ERROR:", e));
-
-  setSearchSession(from, {
-    userPhone: from,
-    lastQuery: categoryQuery || "",
-    normalizedQuery: categoryQuery || "",
-    lastIntent: "nearby",
-    lastResults: topNearest.map((r) => ({
-      _id: r._id,
-      name: r.name,
-      name_ar: r.name_ar,
-      whatsapp: r.whatsapp,
-      phone: r.phone,
-      distanceKm: r.distanceKm,
-      trackedLink: r.trackedLink,
-    })),
-    pendingNearby: null,
-    updatedAt: new Date(),
-  }).catch((e) => console.error("SESSION ERROR:", e));
-
-  console.log("LOCATION SEND RESP:", JSON.stringify(locationSendResp, null, 2));
-  return;
-}
-    // 3) Empty text
-    if (!incomingText) {
-      const emptyTextResp = await javnaSendText({
-        to: from,
-        body:
-          lang === "ar"
-            ? "أرسل اسم شركة أو نوع نشاط للبحث، أو شارك موقعك لإظهار الأقرب."
-            : "Send a company name or category, or share your location to find nearby results.",
-      });
-
-      console.log("EMPTY TEXT RESP:", JSON.stringify(emptyTextResp, null, 2));
-      return;
-    }
-
-    // 4) Greeting
-    if (isGreeting(incomingText)) {
-      const welcomeReply = getWelcomeMessage(lang);
-
-      const welcomeResp = await javnaSendText({
-        to: from,
-        body: welcomeReply,
-      });
-
-      console.log("WELCOME RESP:", JSON.stringify(welcomeResp, null, 2));
-      return;
-    }
-
-    // 5) Help
-    if (isHelpCommand(incomingText)) {
-      const helpReply =
-        lang === "ar"
-          ? "مرحبًا بك في TrustedLinks 👋\n\nأرسل:\n• اسم شركة\n• أو نوع نشاط مثل: مطعم، قهوة، صيدلية\n\nوللبحث القريب أرسل:\n• أقرب شركة\n• أقرب مطعم\n• أقرب قهوة"
-          : "Welcome to TrustedLinks 👋\n\nSend:\n• a business name\n• or a category like: restaurant, coffee, pharmacy\n\nFor nearby search, send:\n• nearest business\n• nearest restaurant\n• nearest coffee";
-
-      const helpResp = await javnaSendText({
-        to: from,
-        body: helpReply,
-      });
-
-      console.log("HELP RESP:", JSON.stringify(helpResp, null, 2));
-      return;
-    }
-
-   // 6) Nearby intent
-const nearbyIntent = parseNearbyIntent(incomingText);
-console.log("NEARBY INTENT:", nearbyIntent);
-
-if (nearbyIntent.isNearby) {
-  const categoryQuery = normalizeSearchText(nearbyIntent.categoryQuery || "");
-
-  setSearchSession(from, {
-    userPhone: from,
-    lastQuery: categoryQuery || "",
-    normalizedQuery: categoryQuery || "",
-    lastIntent: "nearby_request",
-    lastResults: [],
-    pendingNearby: {
-      category: categoryQuery,
-    },
-    updatedAt: new Date(),
-  }).catch((e) => console.error("SESSION ERROR:", e));
-
-  logSearchEvent({
-    type: "nearby_request",
-    userPhone: from,
-    rawText: incomingText,
-    query: nearbyIntent.categoryQuery || "",
-    normalizedQuery: categoryQuery || "",
-    intent: "nearby",
-    lang,
-    location: null,
-    resultsCount: 0,
-    usedAI: false,
-    source: "nearby_request",
-    timestamp: new Date(),
-  }).catch((e) => console.error("LOG ERROR:", e));
-
-  const nearbyReply =
-    lang === "ar"
-      ? categoryQuery
-        ? `📍 أرسل موقعك عبر واتساب، وسأعرض لك أقرب النتائج لـ "${categoryQuery}".`
-        : "📍 أرسل موقعك عبر واتساب، وسأعرض لك أقرب الأنشطة المسجلة."
-      : categoryQuery
-        ? `📍 Please share your location on WhatsApp, and I’ll show you the nearest results for "${categoryQuery}".`
-        : "📍 Please share your location on WhatsApp, and I’ll show you the nearest listed businesses.";
-
-  const nearbyResp = await javnaSendText({
-    to: from,
-    body: nearbyReply,
-  });
-
-  console.log("NEARBY RESP:", JSON.stringify(nearbyResp, null, 2));
-  return;
-}
-
-    // 7) MORE command
-    if (isMoreCommand(incomingText)) {
-      const session = await getSearchSession(from);
-
-      if (!session?.lastResults || session.lastResults.length === 0) {
-        const noSessionReply =
-          lang === "ar"
-            ? "لا يوجد نتائج سابقة لعرض المزيد منها. اكتب اسم شركة أو نوع نشاط للبحث."
-            : "There are no previous results to continue. Send a company name or category to search.";
-
-        const noSessionResp = await javnaSendText({
-          to: from,
-          body: noSessionReply,
-        });
-
-        console.log("NO SESSION MORE RESP:", JSON.stringify(noSessionResp, null, 2));
-        return;
-      }
-
-      const moreReply =
-        lang === "ar"
-          ? "ميزة المزيد ستعتمد على الترقيم وحفظ الصفحات في المرحلة التالية. حالياً أرسل بحثًا جديدًا أو موقعك."
-          : "The MORE feature will use saved paging in the next step. For now, send a new search or your location.";
-
-      const moreResp = await javnaSendText({
-        to: from,
-        body: moreReply,
-      });
-
-      console.log("MORE RESP:", JSON.stringify(moreResp, null, 2));
-      return;
-    }
-
-    // 8) Normal search
-    let query = normalizedIncomingText;
-
-    console.log("LANG:", lang);
-    console.log("INITIAL QUERY:", query);
-
-    if (!query) {
-      const emptyReply =
-        lang === "ar"
-          ? "أرسل اسم شركة أو نوع النشاط الذي تريد البحث عنه."
-          : "Please send a company name or business category to search for.";
-
-      const emptyResp = await javnaSendText({
-        to: from,
-        body: emptyReply,
-      });
-
-      console.log("EMPTY RESP:", JSON.stringify(emptyResp, null, 2));
-      return;
-    }
-
-   let results = [];
-let usedAI = false;
-let finalSource = "local";
-let aiCategory = null;
-
-const cacheKey = buildSearchCacheKey(query);
-
-const cachedResults = await getCachedSearch(cacheKey);
-if (cachedResults) {
-  results = cachedResults;
-  finalSource = "cache";
-  console.log("CACHE HIT:", cacheKey, "COUNT:", results.length);
-} else {
-  results = await searchBusinesses(query);
-  console.log("LOCAL SEARCH RESULTS COUNT:", results.length);
-
-  if (false && (!results || results.length === 0) && shouldUseAIFallback(incomingText, query)) {
-    try {
-      const ai = await parseSearchIntent(incomingText);
-      console.log("AI RESULT:", ai);
-
-      if (ai?.category) {
-        aiCategory = normalizeSearchText(ai.category);
-        query = aiCategory;
-        usedAI = true;
-        finalSource = "ai_fallback";
-
-        const aiCacheKey = buildSearchCacheKey(query);
-        const cachedAiResults = await getCachedSearch(aiCacheKey);
-
-        if (cachedAiResults) {
-          results = cachedAiResults;
-          finalSource = "ai_fallback_cache";
-        } else {
-          results = await searchBusinesses(query);
-          setCachedSearch(aiCacheKey, (Array.isArray(results) ? results : []).slice(0, 10), 10)
-            .catch((e) => console.error("CACHE ERROR:", e));
-        }
-
-        console.log("AI FALLBACK RESULTS COUNT:", results.length);
-      }
-    } catch (err) {
-      console.error("AI PARSE FAILED:", err);
-    }
-  }
-
-  if (!usedAI) {
-    setCachedSearch(cacheKey, (Array.isArray(results) ? results : []).slice(0, 10), 10)
-      .catch((e) => console.error("CACHE ERROR:", e));
-  }
-}
-
-const topResults = (Array.isArray(results) ? results : []).slice(0, 3);
-
-const enrichedResults = await Promise.all(
-  topResults.map(async (item) => {
-    const trackedLink = await createLeadTrackedLink({
-      businessId: item.id || "",
-      phone: item.whatsapp || item.phone || "",
-      query,
-      userPhone: from,
-    });
-
-    return {
-      ...item,
-      trackedLink,
-    };
-  })
-);
-
- const reply = formatSearchResults(enrichedResults, query, lang, {
-  userPhone: from,
-});
-
-const sendResp = await javnaSendText({
-  to: from,
-  body: reply,
-});
-    
-// ثم التخزين في الخلفية
-logSearchEvent({
-  type: "search",
-  userPhone: from,
-  rawText: incomingText,
-  query,
-  normalizedQuery: query,
-  intent: "search",
-  lang,
-  location: null,
-  resultsCount: Array.isArray(results) ? results.length : 0,
-  usedAI,
-  aiCategory,
-  source: finalSource,
-  timestamp: new Date(),
-}).catch((e) => console.error("LOG ERROR:", e));
-
-setSearchSession(from, {
-  userPhone: from,
-  lastQuery: query,
-  normalizedQuery: query,
-  lastIntent: "search",
-  lastResults: topResults.map((r) => ({
-    _id: r._id,
-    name: r.name,
-    name_ar: r.name_ar,
-    whatsapp: r.whatsapp,
-    phone: r.phone,
-    distanceKm: r.distanceKm,
-    trackedLink: r.trackedLink,
-  })),
-  pendingNearby: null,
-  updatedAt: new Date(),
-}).catch((e) => console.error("SESSION ERROR:", e));
-
-console.log("SEND RESP:", JSON.stringify(sendResp, null, 2));
-  } catch (e) {
-    console.error("WHATSAPP WEBHOOK ERROR:", e);
-  }
-});
-
-
-app.get("/l/:token", async (req, res) => {
-  try {
-    const { token } = req.params;
-
-    if (!token) {
-      return res.status(400).send("Invalid link");
-    }
-
-    // ✅ Supabase
-    const leadToken = await getLeadTokenById(token);
-
-    if (!leadToken) {
-      return res.status(404).send("Link not found or expired");
-    }
-
-    const {
-      businessId = "",
-      businessPhone = "",
-      query = "",
-      userPhone = "",
-    } = leadToken;
-
-    if (!businessPhone) {
-      return res.status(400).send("Invalid destination");
-    }
-
-    const business = await getBusinessById(businessId);
-    if (!business) {
-      return res.status(404).send("Business not found");
-    }
-
     // =========================
     // Tracking
     // =========================
-
     await logBusinessEvent({
       businessId: business.id,
       ownerUserId: String(business.ownerUserId || ""),
@@ -2802,21 +2291,28 @@ app.get("/l/:token", async (req, res) => {
   }
 });
 
-   
 // ---------------------------------------------------------------------------
 // Debug
 // ---------------------------------------------------------------------------
 app.get("/api/debug/resend", (_req, res) => {
-  res.json({
+  return res.json({
+    ok: true,
     hasKey: Boolean(process.env.RESEND_API_KEY),
     hasFrom: Boolean(process.env.MAIL_FROM),
     from: process.env.MAIL_FROM || null,
   });
 });
 
+// ---------------------------------------------------------------------------
+// Process-level error logging
+// ---------------------------------------------------------------------------
+process.on("uncaughtException", (err) => {
+  console.error("UNCAUGHT_EXCEPTION:", err);
+});
 
-process.on("uncaughtException", (err) => console.error("UNCAUGHT_EXCEPTION:", err));
-process.on("unhandledRejection", (reason) => console.error("UNHANDLED_REJECTION:", reason));
+process.on("unhandledRejection", (reason) => {
+  console.error("UNHANDLED_REJECTION:", reason);
+});
 
 // ---------------------------------------------------------------------------
 // Start
