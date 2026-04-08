@@ -2236,22 +2236,176 @@ app.post("/api/admin/settings", requireAdmin, async (req, res) => {
   return res.json({ ok: true, settings: ADMIN_SETTINGS });
 });
 
+// ============================================================================
+// WhatsApp Webhook (FINAL CLEAN VERSION)
+// ============================================================================
+app.get("/webhooks/javna/whatsapp", (_req, res) => {
+  res.status(200).send("WhatsApp webhook is live");
+});
+
+app.post("/webhooks/javna/whatsapp", async (req, res) => {
+  try {
+    res.status(200).json({ ok: true });
+
+    const body = req.body || {};
+
+    if (body.eventScope !== "whatsapp" || body.event !== "wa.message.received") {
+      return;
+    }
+
+    const from = cleanDigits(body.from || body?.data?.from || "");
+    const messageType = body?.data?.type || "";
+    const incomingLocation = body?.data?.location || null;
+    const incomingText = (body?.data?.text?.text || body?.data?.text || "")
+      .toString()
+      .trim();
+
+    if (!from) return;
+
+    const lang = detectLanguage(incomingText || "");
+    const query = normalizeSearchText(incomingText || "");
+
     // =========================
-    // Tracking
+    // Greeting / Help / Thanks
+    // =========================
+    if (isGreeting(incomingText) || isHelpCommand(incomingText)) {
+      return await javnaSendText({
+        to: from,
+        body: getWelcomeMessage(lang),
+      });
+    }
+
+    if (isThanks(incomingText)) {
+      return await javnaSendText({
+        to: from,
+        body: lang === "ar" ? "على الرحب والسعة 😊" : "You're welcome 😊",
+      });
+    }
+
+    // =========================
+    // LOCATION SEARCH
+    // =========================
+    if (
+      messageType === "location" &&
+      incomingLocation?.latitude &&
+      incomingLocation?.longitude
+    ) {
+      const lat = Number(incomingLocation.latitude);
+      const lng = Number(incomingLocation.longitude);
+
+      const nearest = await findNearestBusinesses(lat, lng, 3, "");
+
+      const enriched = await Promise.all(
+        nearest.map(async (item) => ({
+          ...item,
+          trackedLink: await createLeadTrackedLink({
+            businessId: item.id,
+            phone: item.whatsapp,
+            query: "nearby",
+            userPhone: from,
+          }),
+        }))
+      );
+
+      const reply = formatNearestResults(enriched, lang);
+
+      return await javnaSendText({
+        to: from,
+        body: reply,
+      });
+    }
+
+    // =========================
+    // EMPTY
+    // =========================
+    if (!query) {
+      return await javnaSendText({
+        to: from,
+        body:
+          lang === "ar"
+            ? "اكتب اسم شركة أو نوع نشاط."
+            : "Send a business name or category.",
+      });
+    }
+
+    // =========================
+    // NORMAL SEARCH
+    // =========================
+    const results = await searchBusinesses(query);
+    const top = results.slice(0, 3);
+
+    const enriched = await Promise.all(
+      top.map(async (item) => ({
+        ...item,
+        trackedLink: await createLeadTrackedLink({
+          businessId: item.id,
+          phone: item.whatsapp,
+          query,
+          userPhone: from,
+        }),
+      }))
+    );
+
+    const reply = formatSearchResults(enriched, query, lang);
+
+    await javnaSendText({
+      to: from,
+      body: reply,
+    });
+  } catch (e) {
+    console.error("WHATSAPP WEBHOOK ERROR:", e);
+  }
+});
+
+// ============================================================================
+// LEAD TRACKED REDIRECT
+// ============================================================================
+app.get("/l/:token", async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    if (!token) {
+      return res.status(400).send("Invalid link");
+    }
+
+    const leadToken = await getLeadTokenById(token);
+
+    if (!leadToken) {
+      return res.status(404).send("Link not found or expired");
+    }
+
+    const {
+      businessId = "",
+      businessPhone = "",
+      query = "",
+      userPhone = "",
+    } = leadToken;
+
+    if (!businessPhone) {
+      return res.status(400).send("Invalid destination");
+    }
+
+    const business = await getBusinessById(businessId);
+    if (!business) {
+      return res.status(404).send("Business not found");
+    }
+
+    // =========================
+    // TRACKING
     // =========================
     await logBusinessEvent({
       businessId: business.id,
-      ownerUserId: String(business.ownerUserId || ""),
+      ownerUserId: business.ownerUserId,
       type: "click",
-      source: "tracked_lead_link",
+      source: "tracked_link",
       meta: { query, userPhone },
     });
 
     await logBusinessEvent({
       businessId: business.id,
-      ownerUserId: String(business.ownerUserId || ""),
+      ownerUserId: business.ownerUserId,
       type: "whatsapp",
-      source: "tracked_lead_link",
+      source: "tracked_link",
       meta: { query, userPhone },
     });
 
@@ -2260,29 +2414,27 @@ app.post("/api/admin/settings", requireAdmin, async (req, res) => {
     await pushEvent(business.id, "messages");
 
     // =========================
-    // Wallet Deduction
+    // WALLET DEDUCTION
     // =========================
     const deduction = await deductWalletBalance({
       ownerUserId: business.ownerUserId,
       businessId: business.id,
       eventType: "whatsapp",
-      reason: "Tracked lead click + WhatsApp redirect",
+      reason: "Tracked lead",
       reference: `lead_${Date.now()}`,
-      meta: {
-        query,
-        userPhone,
-        source: "tracked_lead_link",
-      },
+      meta: { query, userPhone },
     });
 
     if (deduction.insufficient) {
-      return res.status(402).send("Business wallet balance is insufficient");
+      return res.status(402).send("Insufficient balance");
     }
 
     // =========================
-    // Redirect
+    // REDIRECT
     // =========================
-    const message = encodeURIComponent("Hello, I found you on TrustedLinks");
+    const message = encodeURIComponent(
+      "Hello, I found you on TrustedLinks"
+    );
 
     return res.redirect(`https://wa.me/${businessPhone}?text=${message}`);
   } catch (err) {
@@ -2290,6 +2442,7 @@ app.post("/api/admin/settings", requireAdmin, async (req, res) => {
     return res.status(500).send("Error");
   }
 });
+   
 
 // ---------------------------------------------------------------------------
 // Debug
