@@ -22,11 +22,7 @@ import { searchBusinesses } from "./search/searchService.js";
 import { normalizeSearchText } from "./search/textNormalizer.js";
 import { formatSearchResults, formatNearestResults } from "./search/searchFormatter.js";
 import { findNearestBusinesses } from "./search/nearbyService.js";
-import SearchLog from "./models/SearchLog.js";
-import SearchSession from "./models/SearchSession.js";
-import SearchCache from "./models/SearchCache.js";
 import crypto from "crypto";
-import TopupOrder from "./models/TopupOrder.js";
 import { optimizeBusinessProfile } from "./services/aiOptimizer.js";
 import { requireAuth } from "./middleware/auth.js";
 import authRoutes from "./routes/auth.js";
@@ -211,83 +207,7 @@ function getPendingNearby(from) {
 function clearPendingNearby(from) {
   PENDING_NEARBY_REQUESTS.delete(from);
 }
-async function logSearchEvent(payload) {
-  try {
-    await SearchLog.create(payload);
-  } catch (err) {
-    console.error("SEARCH LOG FAILED:", err);
-  }
-}
 
-async function getSearchSession(userPhone) {
-  try {
-    return await SearchSession.findOne({ userPhone }).lean();
-  } catch (err) {
-    console.error("GET SEARCH SESSION FAILED:", err);
-    return null;
-  }
-}
-
-async function getPendingNearbySession(userPhone) {
-  try {
-    return await SearchSession.findOne({ userPhone }).lean();
-  } catch (err) {
-    console.error("GET PENDING NEARBY SESSION FAILED:", err);
-    return null;
-  }
-}
-
-async function setSearchSession(userPhone, data) {
-  try {
-    await SearchSession.findOneAndUpdate(
-      { userPhone },
-      {
-        $set: {
-          ...data,
-          userPhone,
-          updatedAt: new Date(),
-        },
-      },
-      { upsert: true, new: true }
-    );
-  } catch (err) {
-    console.error("SET SEARCH SESSION FAILED:", err);
-  }
-}
-
-async function getCachedSearch(cacheKey) {
-  try {
-    const cached = await SearchCache.findOne({
-      cacheKey,
-      expiresAt: { $gt: new Date() },
-    }).lean();
-
-    return cached?.results || null;
-  } catch (err) {
-    console.error("GET CACHED SEARCH FAILED:", err);
-    return null;
-  }
-}
-
-async function setCachedSearch(cacheKey, results, ttlMinutes = 10) {
-  try {
-    const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
-
-    await SearchCache.findOneAndUpdate(
-      { cacheKey },
-      {
-        $set: {
-          cacheKey,
-          results: Array.isArray(results) ? results : [],
-          expiresAt,
-        },
-      },
-      { upsert: true, new: true }
-    );
-  } catch (err) {
-    console.error("SET CACHED SEARCH FAILED:", err);
-  }
-}
 
 function buildSearchCacheKey(query) {
   return `search:${normalizeSearchText(query || "")}`;
