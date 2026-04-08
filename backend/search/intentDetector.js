@@ -24,7 +24,9 @@ function parseNearbyIntent(text = "") {
     "me",
   ];
 
-  const isNearby = nearbyWords.some((word) => q.includes(word.toLowerCase()));
+  const isNearby = nearbyWords.some((word) =>
+    q.includes(word.toLowerCase())
+  );
 
   if (!isNearby) {
     return { isNearby: false, categoryQuery: "" };
@@ -32,7 +34,6 @@ function parseNearbyIntent(text = "") {
 
   let categoryQuery = raw;
 
-  // remove longer phrases first
   [...nearbyWords, ...removeWords]
     .sort((a, b) => b.length - a.length)
     .forEach((word) => {
