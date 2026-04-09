@@ -1442,7 +1442,6 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
     const userId = String(req.user.id);
 
     const business = await getBusinessByOwnerUserId(userId);
-
     if (!business) {
       return res.status(404).json({ error: "Business not found" });
     }
@@ -1450,61 +1449,143 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
     const businessId = String(business.id);
 
     // =========================
-    // 1) Get lead tokens count
+    // Fetch all clicks
     // =========================
-    const { count: totalTokens } = await supabase
-      .from("lead_tokens")
-      .select("*", { count: "exact", head: true })
-      .eq("business_id", businessId);
-
-    // =========================
-    // 2) Get lead clicks count
-    // =========================
-    const { count: totalClicks } = await supabase
+    const { data: clicks } = await supabase
       .from("lead_clicks")
-      .select("*", { count: "exact", head: true })
-      .eq("business_id", businessId);
-
-    // =========================
-    // 3) Messages = clicks (for now)
-    // =========================
-    const totalMessages = totalClicks || 0;
-
-    // =========================
-    // 4) Weekly growth (simple calc)
-    // =========================
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-    const { count: lastWeekClicks } = await supabase
-      .from("lead_clicks")
-      .select("*", { count: "exact", head: true })
+      .select("*")
       .eq("business_id", businessId)
-      .gte("clicked_at", sevenDaysAgo.toISOString());
+      .order("clicked_at", { ascending: true });
+
+    const safeClicks = Array.isArray(clicks) ? clicks : [];
+
+    // =========================
+    // TOTALS
+    // =========================
+    const totalClicks = safeClicks.length;
+    const totalMessages = totalClicks; // currently same
+    const views = totalClicks;
+
+    // =========================
+    // ACTIVITY (daily)
+    // =========================
+    const activityMap = {};
+
+    safeClicks.forEach((c) => {
+      const date = new Date(c.clicked_at).toISOString().slice(0, 10);
+
+      if (!activityMap[date]) {
+        activityMap[date] = {
+          date,
+          total: 0,
+          whatsapp: 0,
+          media: 0,
+          messages: 0,
+          views: 0,
+        };
+      }
+
+      activityMap[date].total += 1;
+      activityMap[date].whatsapp += 1;
+      activityMap[date].messages += 1;
+      activityMap[date].views += 1;
+    });
+
+    const activity = Object.values(activityMap);
+
+    // =========================
+    // HOURLY TREND
+    // =========================
+    const hourlyMap = {};
+
+    safeClicks.forEach((c) => {
+      const hour = new Date(c.clicked_at).getHours();
+
+      if (!hourlyMap[hour]) {
+        hourlyMap[hour] = { hour, count: 0 };
+      }
+
+      hourlyMap[hour].count += 1;
+    });
+
+    const hourly = Object.values(hourlyMap);
+
+    const peakHour =
+      hourly.length > 0
+        ? hourly.reduce((a, b) => (b.count > a.count ? b : a)).hour
+        : null;
+
+    // =========================
+    // SOURCES (basic)
+    // =========================
+    const sources = [
+      {
+        name: "WhatsApp",
+        value: totalClicks,
+      },
+    ];
+
+    // =========================
+    // KEYWORDS (from query)
+    // =========================
+    const keywordMap = {};
+
+    safeClicks.forEach((c) => {
+      const q = (c.query || "").toLowerCase().trim();
+      if (!q) return;
+
+      if (!keywordMap[q]) {
+        keywordMap[q] = { keyword: q, searches: 0, clicks: 0 };
+      }
+
+      keywordMap[q].searches += 1;
+      keywordMap[q].clicks += 1;
+    });
+
+    const keywords = Object.values(keywordMap);
+
+    // =========================
+    // PEAK DAY
+    // =========================
+    const peakDay =
+      activity.length > 0
+        ? activity.reduce((a, b) => (b.total > a.total ? b : a)).date
+        : null;
+
+    // =========================
+    // WEEKLY GROWTH
+    // =========================
+    const last7 = safeClicks.filter((c) => {
+      const d = new Date(c.clicked_at);
+      const now = new Date();
+      return (now - d) / (1000 * 60 * 60 * 24) <= 7;
+    });
 
     const weeklyGrowth =
       totalClicks > 0
-        ? Math.round(((lastWeekClicks || 0) / totalClicks) * 100)
+        ? Math.round((last7.length / totalClicks) * 100)
         : 0;
 
-    // =========================
-    // 5) Views (optional fallback)
-    // =========================
-    const views = totalTokens || 0;
-
     return res.json({
-      totalClicks: totalClicks || 0,
+      business: business.name || "",
+      category: business.category || "",
+      totalClicks,
       totalMessages,
       weeklyGrowth,
       views,
       mediaViews: 0,
+      activity,
+      sources,
+      keywords,
+      hourly,
+      peakHour,
+      peakDay,
     });
   } catch (e) {
-    console.error("BUSINESS REPORTS ERROR:", e);
+    console.error("REPORTS ERROR:", e);
     return res.status(500).json({ error: "Failed to load reports" });
   }
 });
-
 // =========================
 // AI OPTIMIZE BUSINESS PROFILE
 // =========================
