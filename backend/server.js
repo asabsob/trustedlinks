@@ -74,7 +74,13 @@ import {
   deductBusinessWallet,
 } from "./services/pg/businessWallet.js";
 
+import { createClient } from "@supabase/supabase-js";
+
 dotenv.config();
+
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
+  throw new Error("Missing Supabase environment variables");
+}
 
 const app = express();
 const PORT = process.env.PORT || 5175;
@@ -93,6 +99,18 @@ const EVENT_COSTS = {
   media: 0.02,
   view: 0,
 };
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY,
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  }
+);
+
 
 // =========================
 // HELPERS
@@ -2524,7 +2542,6 @@ app.get("/l/:token", async (req, res) => {
       return res.status(400).send("Invalid lead token");
     }
 
-    // 1) fetch token row from Supabase
     const { data: tokenRow, error: tokenError } = await supabase
       .from("lead_tokens")
       .select("*")
@@ -2536,7 +2553,6 @@ app.get("/l/:token", async (req, res) => {
       return res.status(404).send("Lead link not found");
     }
 
-    // optional expiry check
     if (tokenRow.expires_at && new Date(tokenRow.expires_at) < new Date()) {
       return res.status(410).send("Lead link expired");
     }
@@ -2546,52 +2562,62 @@ app.get("/l/:token", async (req, res) => {
       return res.status(400).send("Business phone missing");
     }
 
-    // 2) build WhatsApp target
     const text = buildWhatsAppLeadMessage({
       query: tokenRow.query || "",
       businessId: tokenRow.business_id || "",
       userPhone: tokenRow.user_phone || "",
     });
 
-    const whatsappUrl =
-      `https://wa.me/${rawPhone}?text=${encodeURIComponent(text)}`;
+    const whatsappUrl = `https://wa.me/${rawPhone}?text=${encodeURIComponent(text)}`;
 
-    // 3) tracking before redirect
-    await supabase.from("lead_clicks").insert([
-      {
-        token_id: tokenRow.id,
-        business_id: tokenRow.business_id || null,
-        business_phone: rawPhone,
-        user_phone: tokenRow.user_phone || null,
-        query: tokenRow.query || null,
-        clicked_at: new Date().toISOString(),
-        user_agent: req.get("user-agent") || null,
-        referer: req.get("referer") || null,
-        ip_address:
-          req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
-          req.socket?.remoteAddress ||
-          null,
-      },
-    ]);
+    try {
+      const { error: insertError } = await supabase.from("lead_clicks").insert([
+        {
+          token_id: tokenRow.id,
+          business_id: tokenRow.business_id || null,
+          business_phone: rawPhone,
+          user_phone: tokenRow.user_phone || null,
+          query: tokenRow.query || null,
+          clicked_at: new Date().toISOString(),
+          user_agent: req.get("user-agent") || null,
+          referer: req.get("referer") || null,
+          ip_address:
+            req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
+            req.socket?.remoteAddress ||
+            null,
+        },
+      ]);
 
-    // 4) increment counter (optional)
-    const currentClicks = Number(tokenRow.click_count || 0);
-    await supabase
-      .from("lead_tokens")
-      .update({
-        click_count: currentClicks + 1,
-        last_clicked_at: new Date().toISOString(),
-      })
-      .eq("id", tokenRow.id);
+      if (insertError) {
+        console.error("LEAD CLICK INSERT ERROR:", insertError);
+      }
+    } catch (trackingErr) {
+      console.error("LEAD CLICK TRACKING EXCEPTION:", trackingErr);
+    }
 
-    // 5) redirect
+    try {
+      const currentClicks = Number(tokenRow.click_count || 0);
+      const { error: updateError } = await supabase
+        .from("lead_tokens")
+        .update({
+          click_count: currentClicks + 1,
+          last_clicked_at: new Date().toISOString(),
+        })
+        .eq("id", tokenRow.id);
+
+      if (updateError) {
+        console.error("LEAD TOKEN UPDATE ERROR:", updateError);
+      }
+    } catch (updateErr) {
+      console.error("LEAD TOKEN UPDATE EXCEPTION:", updateErr);
+    }
+
     return res.redirect(302, whatsappUrl);
   } catch (err) {
     console.error("LEAD REDIRECT ERROR:", err);
     return res.status(500).send("Internal redirect error");
   }
 });
-
 // ---------------------------------------------------------------------------
 // Debug
 // ---------------------------------------------------------------------------
