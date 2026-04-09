@@ -2531,7 +2531,7 @@ app.get("/l/:token", async (req, res) => {
 
     const safePhone = String(businessPhone || "").replace(/\D/g, "");
     if (!safePhone) {
-      return res.status(400).send("Invalid destination");
+      return res.status(400).send("Invalid destination phone");
     }
 
     const business = await getBusinessById(businessId);
@@ -2539,100 +2539,63 @@ app.get("/l/:token", async (req, res) => {
       return res.status(404).send("Business not found");
     }
 
-    await logBusinessEvent({
-      businessId: business.id,
-      ownerUserId: String(business.ownerUserId || ""),
-      type: "click",
-      source: "tracked_lead_link",
-      meta: { query, userPhone },
-    });
-
-    await logBusinessEvent({
-      businessId: business.id,
-      ownerUserId: String(business.ownerUserId || ""),
-      type: "whatsapp",
-      source: "tracked_lead_link",
-      meta: { query, userPhone },
-    });
-
-    await pushEvent(business.id, "clicks");
-    await pushEvent(business.id, "whatsappClicks");
-    await pushEvent(business.id, "messages");
-
-    const deduction = await deductWalletBalance({
-      ownerUserId: business.ownerUserId,
-      businessId: business.id,
-      eventType: "whatsapp",
-      reason: "Tracked lead click + WhatsApp redirect",
-      reference: `lead_${Date.now()}`,
-      meta: {
-        query,
-        userPhone,
+    try {
+      await logBusinessEvent({
+        businessId: business.id,
+        ownerUserId: String(business.ownerUserId || ""),
+        type: "click",
         source: "tracked_lead_link",
-      },
-    });
+        meta: { query, userPhone },
+      });
 
-    if (deduction.insufficient) {
+      await logBusinessEvent({
+        businessId: business.id,
+        ownerUserId: String(business.ownerUserId || ""),
+        type: "whatsapp",
+        source: "tracked_lead_link",
+        meta: { query, userPhone },
+      });
+
+      await pushEvent(business.id, "clicks");
+      await pushEvent(business.id, "whatsappClicks");
+      await pushEvent(business.id, "messages");
+    } catch (trackingErr) {
+      console.error("TRACKING ERROR:", trackingErr);
+      return res.status(500).send("Tracking failed");
+    }
+
+    let deduction;
+    try {
+      deduction = await deductWalletBalance({
+        ownerUserId: business.ownerUserId,
+        businessId: business.id,
+        eventType: "whatsapp",
+        reason: "Tracked lead click + WhatsApp redirect",
+        reference: `lead_${Date.now()}`,
+        meta: {
+          query,
+          userPhone,
+          source: "tracked_lead_link",
+        },
+      });
+    } catch (walletErr) {
+      console.error("WALLET ERROR:", walletErr);
+      return res.status(500).send("Wallet deduction failed");
+    }
+
+    if (deduction?.insufficient) {
       return res.status(402).send("Business wallet balance is insufficient");
     }
 
     const message = encodeURIComponent("Hello, I found you on TrustedLinks");
     const whatsappUrl = `https://api.whatsapp.com/send?phone=${safePhone}&text=${message}`;
 
-    return res.send(`
-      <!doctype html>
-      <html lang="en">
-      <head>
-        <meta charset="utf-8" />
-        <meta http-equiv="refresh" content="0;url=${whatsappUrl}" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Opening WhatsApp...</title>
-        <style>
-          body {
-            font-family: Arial, sans-serif;
-            background: #f7f7f7;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-          }
-          .box {
-            background: white;
-            padding: 24px;
-            border-radius: 14px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
-            max-width: 420px;
-            text-align: center;
-          }
-          a {
-            display: inline-block;
-            margin-top: 16px;
-            padding: 12px 18px;
-            background: #25D366;
-            color: white;
-            text-decoration: none;
-            border-radius: 10px;
-            font-weight: 600;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="box">
-          <h2>Opening WhatsApp...</h2>
-          <p>If nothing happens, tap the button below.</p>
-          <a href="${whatsappUrl}">Open WhatsApp</a>
-        </div>
-      </body>
-      </html>
-    `);
+    return res.redirect(whatsappUrl);
   } catch (err) {
     console.error("LEAD CLICK ERROR:", err);
-    return res.status(500).send("Error");
+    return res.status(500).send("Lead redirect failed");
   }
 });
-   
-
 // ---------------------------------------------------------------------------
 // Debug
 // ---------------------------------------------------------------------------
