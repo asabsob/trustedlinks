@@ -229,12 +229,11 @@ const getDisplayKeywords = (b) => {
 if (q && normalize(displayDescription).includes(q)) score += 4;
 
 if (isArabic) {
-  if (q && normalize(b.name_ar).includes(q)) score += 6;
-  if (q && normalize(b.description_ar).includes(q)) score += 4;
-} else {
-  if (q && normalize(b.name).includes(q)) score += 6;
-  if (q && normalize(b.description).includes(q)) score += 4;
-}
+if (q && normalize(b.name_ar || "").includes(q)) score += 6;
+if (q && normalize(b.description_ar || "").includes(q)) score += 4;
+if (q && normalize(b.name || "").includes(q)) score += 6;
+if (q && normalize(b.description || "").includes(q)) score += 4;
+  
         q.split(/\s+/)
           .filter(Boolean)
           .forEach((word) => {
@@ -274,10 +273,10 @@ if (isArabic) {
   };
 
   const getWhatsappUrl = (b) => {
-    if (b.whatsappLink) return b.whatsappLink;
-    const phone = (b.whatsapp || "").toString().replace(/\D/g, "");
-    return phone ? `https://wa.me/${phone}` : "#";
-  };
+  if (b.lead_link) return b.lead_link; // 🔥 مهم
+  const phone = (b.whatsapp || "").toString().replace(/\D/g, "");
+  return phone ? `https://wa.me/${phone}` : "#";
+};
 
   const getMapUrl = (b) => {
     if (b.mapLink && String(b.mapLink).startsWith("http")) return b.mapLink;
@@ -312,9 +311,11 @@ if (isArabic) {
     return String(url).startsWith("http") ? url : `https://${url}`;
   };
 
-  const getDisplayLocation = (b) => {
-  if (isArabic) return String(b.locationText_ar || b.locationText || "").trim();
-  return String(b.locationText_en || "").trim();
+ const getDisplayLocation = (b) => {
+  if (isArabic) {
+    return String(b.locationText_ar || b.locationText || b.locationText_en || "").trim();
+  }
+  return String(b.locationText_en || b.locationText || b.locationText_ar || "").trim();
 };
 
   return (
