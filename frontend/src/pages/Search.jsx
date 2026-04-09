@@ -49,20 +49,22 @@ export default function Search({ lang = "en" }) {
 
   useEffect(() => {
     let cancelled = false;
+    
+async function loadBusinesses() {
+  try {
+    setLoading(true);
+    const res = await fetch(`${API_BASE}/api/businesses`);
+    const data = await res.json().catch(() => null);
 
-    async function loadBusinesses() {
-      try {
-        setLoading(true);
-        const res = await fetch(`${API_BASE}/api/businesses`);
-        const data = await res.json().catch(() => []);
-        if (!cancelled) setBusinesses(Array.isArray(data) ? data : []);
-      } catch {
-        if (!cancelled) setBusinesses([]);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+    if (!cancelled) {
+      setBusinesses(Array.isArray(data?.results) ? data.results : []);
     }
-
+  } catch {
+    if (!cancelled) setBusinesses([]);
+  } finally {
+    if (!cancelled) setLoading(false);
+  }
+}
     loadBusinesses();
     return () => {
       cancelled = true;
@@ -254,12 +256,9 @@ if (isArabic) {
 
         return queryOk && categoryOk;
       })
-  .filter((b) => {
-  if (isArabic) {
-    return Boolean(b.name_ar || b.description_ar);
-  } else {
-    return Boolean(b.name || b.description);
-  }
+  
+      .filter((b) => {
+  return Boolean(b.name_ar || b.description_ar || b.name || b.description);
 })
       .sort((a, b) => b._score - a._score);
   }, [businesses, query, category, isArabic]);
