@@ -1435,6 +1435,77 @@ app.put("/api/business/update", requireUser, async (req, res) => {
 });
 
 // =========================
+// BUSINESS REPORTS
+// =========================
+app.get("/api/business/reports", requireUser, async (req, res) => {
+  try {
+    const userId = String(req.user.id);
+
+    const business = await getBusinessByOwnerUserId(userId);
+
+    if (!business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+
+    const businessId = String(business.id);
+
+    // =========================
+    // 1) Get lead tokens count
+    // =========================
+    const { count: totalTokens } = await supabase
+      .from("lead_tokens")
+      .select("*", { count: "exact", head: true })
+      .eq("business_id", businessId);
+
+    // =========================
+    // 2) Get lead clicks count
+    // =========================
+    const { count: totalClicks } = await supabase
+      .from("lead_clicks")
+      .select("*", { count: "exact", head: true })
+      .eq("business_id", businessId);
+
+    // =========================
+    // 3) Messages = clicks (for now)
+    // =========================
+    const totalMessages = totalClicks || 0;
+
+    // =========================
+    // 4) Weekly growth (simple calc)
+    // =========================
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const { count: lastWeekClicks } = await supabase
+      .from("lead_clicks")
+      .select("*", { count: "exact", head: true })
+      .eq("business_id", businessId)
+      .gte("clicked_at", sevenDaysAgo.toISOString());
+
+    const weeklyGrowth =
+      totalClicks > 0
+        ? Math.round(((lastWeekClicks || 0) / totalClicks) * 100)
+        : 0;
+
+    // =========================
+    // 5) Views (optional fallback)
+    // =========================
+    const views = totalTokens || 0;
+
+    return res.json({
+      totalClicks: totalClicks || 0,
+      totalMessages,
+      weeklyGrowth,
+      views,
+      mediaViews: 0,
+    });
+  } catch (e) {
+    console.error("BUSINESS REPORTS ERROR:", e);
+    return res.status(500).json({ error: "Failed to load reports" });
+  }
+});
+
+// =========================
 // AI OPTIMIZE BUSINESS PROFILE
 // =========================
 app.post("/api/business/ai-optimize", requireUser, async (req, res) => {
