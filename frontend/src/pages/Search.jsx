@@ -233,6 +233,7 @@ if (q && normalize(b.name_ar || "").includes(q)) score += 6;
 if (q && normalize(b.description_ar || "").includes(q)) score += 4;
 if (q && normalize(b.name || "").includes(q)) score += 6;
 if (q && normalize(b.description || "").includes(q)) score += 4;
+  if (q && normalize(getDisplayLocation(b)).includes(q)) score += 3;
   
         q.split(/\s+/)
           .filter(Boolean)
@@ -495,11 +496,11 @@ if (q && normalize(b.description || "").includes(q)) score += 4;
                   ? b.mediaLink
                   : null;
               const displayName = getDisplayName(b) || (isArabic ? "نشاط" : "Business");
-       const displayDescription =
+   const displayDescription =
   getDisplayDescription(b) ||
   (isArabic
-    ? "⚠️ لا يوجد وصف عربي — يرجى التحديث"
-    : "⚠️ No English description — please update");
+    ? "تفاصيل النشاط غير محدثة بعد"
+    : "Business details will be updated soon");
               return (
                 <div
                   key={businessId}
