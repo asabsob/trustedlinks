@@ -2528,6 +2528,29 @@ await javnaSendText({
   }
 });
 
+function buildWhatsAppLeadMessage({
+  query = "",
+  businessId = "",
+  userPhone = "",
+}) {
+  const parts = [
+    "مرحبا، وصلت إليكم عبر TrustedLinks.",
+    "Hello, I found you through TrustedLinks.",
+  ];
+
+  if (query) {
+    parts.push(`البحث: ${query}`);
+    parts.push(`Search: ${query}`);
+  }
+
+  if (userPhone) {
+    parts.push(`رقمي: ${userPhone}`);
+  }
+
+  parts.push("أرغب بمعرفة المزيد.");
+
+  return parts.join("\n");
+}
 // ============================================================================
 // LEAD TRACKED REDIRECT
 // ============================================================================
