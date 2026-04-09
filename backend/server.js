@@ -270,33 +270,37 @@ async function createLeadTrackedLink({
   query = "",
   userPhone = "",
 }) {
-  const safePhone = String(phone || "").replace(/\D/g, "").trim();
+  const safePhone = String(phone || "").replace(/\D/g, "");
   const safeBusinessId = String(businessId || "").trim();
+  const safeUserPhone = String(userPhone || "").replace(/\D/g, "");
+  const safeQuery = String(query || "").trim();
 
   if (!safePhone || !safeBusinessId) return "";
 
   const token = await createLeadToken({
     businessId: safeBusinessId,
     businessPhone: safePhone,
-    userPhone: String(userPhone || "").trim(),
-    query: String(query || "").trim(),
+    userPhone: safeUserPhone,
+    query: safeQuery,
   });
 
   const tokenId = token?.id || token?._id?.toString();
-  const baseUrl = String(process.env.BASE_URL || "").trim().replace(/\/+$/, "");
+  const baseUrl = String(process.env.BASE_URL || "")
+    .trim()
+    .replace(/\/+$/, "");
 
   if (!tokenId || !baseUrl) {
     console.error("Failed to create tracked link", {
       hasToken: !!token,
       tokenId,
       baseUrl,
+      businessId: safeBusinessId,
     });
     return "";
   }
 
-  return `${baseUrl}/l/${encodeURIComponent(tokenId)}`;
+  return `${baseUrl}/l/${tokenId}`;
 }
-
 // =========================
 // Business Activity Log
 // =========================
@@ -2509,93 +2513,85 @@ await javnaSendText({
 // ============================================================================
 // LEAD TRACKED REDIRECT
 // ============================================================================
+// =========================
+// Lead Redirect Route
+// =========================
 app.get("/l/:token", async (req, res) => {
   try {
-    const { token } = req.params;
+    const tokenId = String(req.params.token || "").trim();
 
-    if (!token) {
-      return res.status(400).send("Invalid link");
+    if (!tokenId) {
+      return res.status(400).send("Invalid lead token");
     }
 
-    const leadToken = await getLeadTokenById(token);
-    if (!leadToken) {
-      return res.status(404).send("Link not found or expired");
+    // 1) fetch token row from Supabase
+    const { data: tokenRow, error: tokenError } = await supabase
+      .from("lead_tokens")
+      .select("*")
+      .eq("id", tokenId)
+      .single();
+
+    if (tokenError || !tokenRow) {
+      console.error("LEAD TOKEN FETCH ERROR:", tokenError);
+      return res.status(404).send("Lead link not found");
     }
 
-    const {
-      businessId = "",
-      businessPhone = "",
-      query = "",
-      userPhone = "",
-    } = leadToken;
-
-    const safePhone = String(businessPhone || "").replace(/\D/g, "");
-    if (!safePhone) {
-      return res.status(400).send("Invalid destination phone");
+    // optional expiry check
+    if (tokenRow.expires_at && new Date(tokenRow.expires_at) < new Date()) {
+      return res.status(410).send("Lead link expired");
     }
 
-    const business = await getBusinessById(businessId);
-    if (!business) {
-      return res.status(404).send("Business not found");
+    const rawPhone = String(tokenRow.business_phone || "").replace(/\D/g, "");
+    if (!rawPhone) {
+      return res.status(400).send("Business phone missing");
     }
 
-    try {
-      await logBusinessEvent({
-        businessId: business.id,
-        ownerUserId: String(business.ownerUserId || ""),
-        type: "click",
-        source: "tracked_lead_link",
-        meta: { query, userPhone },
-      });
+    // 2) build WhatsApp target
+    const text = buildWhatsAppLeadMessage({
+      query: tokenRow.query || "",
+      businessId: tokenRow.business_id || "",
+      userPhone: tokenRow.user_phone || "",
+    });
 
-      await logBusinessEvent({
-        businessId: business.id,
-        ownerUserId: String(business.ownerUserId || ""),
-        type: "whatsapp",
-        source: "tracked_lead_link",
-        meta: { query, userPhone },
-      });
+    const whatsappUrl =
+      `https://wa.me/${rawPhone}?text=${encodeURIComponent(text)}`;
 
-      await pushEvent(business.id, "clicks");
-      await pushEvent(business.id, "whatsappClicks");
-      await pushEvent(business.id, "messages");
-    } catch (trackingErr) {
-      console.error("TRACKING ERROR:", trackingErr);
-      return res.status(500).send("Tracking failed");
-    }
+    // 3) tracking before redirect
+    await supabase.from("lead_clicks").insert([
+      {
+        token_id: tokenRow.id,
+        business_id: tokenRow.business_id || null,
+        business_phone: rawPhone,
+        user_phone: tokenRow.user_phone || null,
+        query: tokenRow.query || null,
+        clicked_at: new Date().toISOString(),
+        user_agent: req.get("user-agent") || null,
+        referer: req.get("referer") || null,
+        ip_address:
+          req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
+          req.socket?.remoteAddress ||
+          null,
+      },
+    ]);
 
-    let deduction;
-    try {
-      deduction = await deductWalletBalance({
-        ownerUserId: business.ownerUserId,
-        businessId: business.id,
-        eventType: "whatsapp",
-        reason: "Tracked lead click + WhatsApp redirect",
-        reference: `lead_${Date.now()}`,
-        meta: {
-          query,
-          userPhone,
-          source: "tracked_lead_link",
-        },
-      });
-    } catch (walletErr) {
-      console.error("WALLET ERROR:", walletErr);
-      return res.status(500).send("Wallet deduction failed");
-    }
+    // 4) increment counter (optional)
+    const currentClicks = Number(tokenRow.click_count || 0);
+    await supabase
+      .from("lead_tokens")
+      .update({
+        click_count: currentClicks + 1,
+        last_clicked_at: new Date().toISOString(),
+      })
+      .eq("id", tokenRow.id);
 
-    if (deduction?.insufficient) {
-      return res.status(402).send("Business wallet balance is insufficient");
-    }
-
-    const message = encodeURIComponent("Hello, I found you on TrustedLinks");
-    const whatsappUrl = `https://api.whatsapp.com/send?phone=${safePhone}&text=${message}`;
-
-    return res.redirect(whatsappUrl);
+    // 5) redirect
+    return res.redirect(302, whatsappUrl);
   } catch (err) {
-    console.error("LEAD CLICK ERROR:", err);
-    return res.status(500).send("Lead redirect failed");
+    console.error("LEAD REDIRECT ERROR:", err);
+    return res.status(500).send("Internal redirect error");
   }
 });
+
 // ---------------------------------------------------------------------------
 // Debug
 // ---------------------------------------------------------------------------
