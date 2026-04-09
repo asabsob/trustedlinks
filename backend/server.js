@@ -264,16 +264,13 @@ function isMoreCommand(text) {
   ].includes(t);
 }
 
-// =========================
-// Create Lead Tracked Link
-// =========================
 async function createLeadTrackedLink({
   businessId = "",
   phone = "",
   query = "",
   userPhone = "",
 }) {
-  const safePhone = String(phone || "").replace(/\D/g, "");
+  const safePhone = String(phone || "").replace(/\D/g, "").trim();
   const safeBusinessId = String(businessId || "").trim();
 
   if (!safePhone || !safeBusinessId) return "";
@@ -285,7 +282,19 @@ async function createLeadTrackedLink({
     query: String(query || "").trim(),
   });
 
-  return `${process.env.BASE_URL}/l/${token.id}`;
+  const tokenId = token?.id || token?._id?.toString();
+  const baseUrl = String(process.env.BASE_URL || "").trim().replace(/\/+$/, "");
+
+  if (!tokenId || !baseUrl) {
+    console.error("Failed to create tracked link", {
+      hasToken: !!token,
+      tokenId,
+      baseUrl,
+    });
+    return "";
+  }
+
+  return `${baseUrl}/l/${encodeURIComponent(tokenId)}`;
 }
 
 // =========================
@@ -2509,7 +2518,6 @@ app.get("/l/:token", async (req, res) => {
     }
 
     const leadToken = await getLeadTokenById(token);
-
     if (!leadToken) {
       return res.status(404).send("Link not found or expired");
     }
@@ -2521,7 +2529,8 @@ app.get("/l/:token", async (req, res) => {
       userPhone = "",
     } = leadToken;
 
-    if (!businessPhone) {
+    const safePhone = String(businessPhone || "").replace(/\D/g, "");
+    if (!safePhone) {
       return res.status(400).send("Invalid destination");
     }
 
@@ -2530,22 +2539,19 @@ app.get("/l/:token", async (req, res) => {
       return res.status(404).send("Business not found");
     }
 
-    // =========================
-    // TRACKING
-    // =========================
     await logBusinessEvent({
       businessId: business.id,
-      ownerUserId: business.ownerUserId,
+      ownerUserId: String(business.ownerUserId || ""),
       type: "click",
-      source: "tracked_link",
+      source: "tracked_lead_link",
       meta: { query, userPhone },
     });
 
     await logBusinessEvent({
       businessId: business.id,
-      ownerUserId: business.ownerUserId,
+      ownerUserId: String(business.ownerUserId || ""),
       type: "whatsapp",
-      source: "tracked_link",
+      source: "tracked_lead_link",
       meta: { query, userPhone },
     });
 
@@ -2553,30 +2559,73 @@ app.get("/l/:token", async (req, res) => {
     await pushEvent(business.id, "whatsappClicks");
     await pushEvent(business.id, "messages");
 
-    // =========================
-    // WALLET DEDUCTION
-    // =========================
     const deduction = await deductWalletBalance({
       ownerUserId: business.ownerUserId,
       businessId: business.id,
       eventType: "whatsapp",
-      reason: "Tracked lead",
+      reason: "Tracked lead click + WhatsApp redirect",
       reference: `lead_${Date.now()}`,
-      meta: { query, userPhone },
+      meta: {
+        query,
+        userPhone,
+        source: "tracked_lead_link",
+      },
     });
 
     if (deduction.insufficient) {
-      return res.status(402).send("Insufficient balance");
+      return res.status(402).send("Business wallet balance is insufficient");
     }
 
-    // =========================
-    // REDIRECT
-    // =========================
-    const message = encodeURIComponent(
-      "Hello, I found you on TrustedLinks"
-    );
+    const message = encodeURIComponent("Hello, I found you on TrustedLinks");
+    const whatsappUrl = `https://api.whatsapp.com/send?phone=${safePhone}&text=${message}`;
 
-    return res.redirect(`https://wa.me/${businessPhone}?text=${message}`);
+    return res.send(`
+      <!doctype html>
+      <html lang="en">
+      <head>
+        <meta charset="utf-8" />
+        <meta http-equiv="refresh" content="0;url=${whatsappUrl}" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Opening WhatsApp...</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            background: #f7f7f7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+          }
+          .box {
+            background: white;
+            padding: 24px;
+            border-radius: 14px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+            max-width: 420px;
+            text-align: center;
+          }
+          a {
+            display: inline-block;
+            margin-top: 16px;
+            padding: 12px 18px;
+            background: #25D366;
+            color: white;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: 600;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="box">
+          <h2>Opening WhatsApp...</h2>
+          <p>If nothing happens, tap the button below.</p>
+          <a href="${whatsappUrl}">Open WhatsApp</a>
+        </div>
+      </body>
+      </html>
+    `);
   } catch (err) {
     console.error("LEAD CLICK ERROR:", err);
     return res.status(500).send("Error");
