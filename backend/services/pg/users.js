@@ -159,3 +159,13 @@ export async function updateUserSubscription(
   if (error) throw error;
   return mapUser(data);
 }
+
+export async function listAllUsers() {
+  const { data, error } = await supabase
+    .from("users")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return (data || []).map(mapUser);
+}
