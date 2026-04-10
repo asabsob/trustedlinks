@@ -2002,8 +2002,14 @@ app.get("/api/businesses", async (_req, res) => {
         /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(String(b.mediaLink))
           ? b.mediaLink
           : null),
+
       whatsappLink: b.whatsapp
         ? `https://wa.me/${String(b.whatsapp).replace(/\D/g, "")}`
+        : null,
+
+      // ✅ tracked lead link
+      lead_link: b.id
+        ? `${String(process.env.BASE_URL || "").replace(/\/+$/, "")}/l/${b.id}`
         : null,
     }));
 
