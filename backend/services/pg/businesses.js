@@ -248,6 +248,7 @@ export async function getBusinessById(id) {
   if (error) throw error;
   return mapBusiness(data);
 }
+
 export async function incrementBusinessEventField(businessId, fieldName) {
   const allowedFields = ["views", "clicks", "whatsapp", "media"];
   if (!allowedFields.includes(fieldName)) {
@@ -275,6 +276,8 @@ export async function incrementBusinessEventField(businessId, fieldName) {
       media: 0,
       messages: 0,
       total: 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
       [fieldName]: 1,
     };
 
@@ -304,6 +307,7 @@ export async function incrementBusinessEventField(businessId, fieldName) {
       fieldName === "whatsapp"
         ? Number(existingRow.messages || 0) + 1
         : Number(existingRow.messages || 0),
+    updated_at: new Date().toISOString(),
   };
 
   const nextViews =
