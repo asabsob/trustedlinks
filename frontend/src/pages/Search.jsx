@@ -288,13 +288,11 @@ const getDisplayKeywords = (b) => {
     } catch {}
   };
 
-  const getWhatsappUrl = (b) => {
+ const getWhatsappUrl = (b) => {
   if (b.lead_link) return b.lead_link;
 
-  if (b.whatsappLink) return b.whatsappLink;
-
-  const phone = (b.whatsapp || "").toString().replace(/\D/g, "");
-  return phone ? `https://wa.me/${phone}` : "#";
+  // ❌ لا fallback مباشر
+  return "#";
 };
 
   const getMapUrl = (b) => {
