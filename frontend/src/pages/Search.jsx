@@ -656,22 +656,34 @@ const getDisplayKeywords = (b) => {
                       </button>
 
                       <a
-                        href={fixUrl(whatsappUrl)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={() => trackAction("/api/track-whatsapp", businessId)}
-                        style={{
-                          textAlign: "center",
-                          background: "#16a34a",
-                          color: "#fff",
-                          borderRadius: 12,
-                          padding: "12px 14px",
-                          textDecoration: "none",
-                          fontWeight: 700,
-                        }}
-                      >
-                        💬 {t("Chat Now", "تواصل الآن")}
-                      </a>
+  href={fixUrl(whatsappUrl)}
+  target="_blank"
+  rel="noopener noreferrer"
+  onClick={(e) => {
+    if (!whatsappUrl || whatsappUrl === "#") {
+      e.preventDefault();
+      alert(
+        isArabic
+          ? "هذا النشاط غير جاهز للتواصل"
+          : "Business not ready for contact"
+      );
+      return;
+    }
+
+    trackAction("/api/track-whatsapp", businessId);
+  }}
+  style={{
+    textAlign: "center",
+    background: "#16a34a",
+    color: "#fff",
+    borderRadius: 12,
+    padding: "12px 14px",
+    textDecoration: "none",
+    fontWeight: 700,
+  }}
+>
+  💬 {t("Chat Now", "تواصل الآن")}
+</a>
                     </div>
 
                     {mapUrl && (
