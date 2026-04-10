@@ -35,6 +35,7 @@ import {
 
 import {
   getBusinessByWhatsapp,
+  listAllBusinesses,
   createBusiness,
   getBusinessByOwnerUserId,
   updateBusinessByOwnerUserId,
@@ -43,6 +44,8 @@ import {
   listActiveBusinesses,
   incrementBusinessEventField,
 } from "./services/pg/businesses.js";
+
+import { listAllUsers } from "./services/pg/users.js";
 
 import {
   deleteOtpByWhatsappPurpose,
