@@ -207,6 +207,18 @@ export async function getBusinessByOwnerUserId(ownerUserId) {
   if (error) throw error;
   return mapBusiness(data);
 }
+
+export async function listActiveBusinesses() {
+  const { data, error } = await supabase
+    .from("businesses")
+    .select("*")
+    .eq("status", "Active")
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+
+  return (data || []).map(mapBusiness);
+}
 export async function getBusinessById(id) {
   const { data, error } = await supabase
     .from("businesses")
