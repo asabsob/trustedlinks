@@ -184,10 +184,7 @@ export default function BusinessDetails({ lang = "en" }) {
         ""
     : "";
 
-  const whatsappUrl =
-    business?.lead_link ||
-    business?.whatsappLink ||
-    `https://wa.me/${(business?.whatsapp || "").toString().replace(/\D/g, "")}`;
+  const whatsappUrl = business?.lead_link || "#";
 
   const mapUrl =
     business?.mapLink ||
