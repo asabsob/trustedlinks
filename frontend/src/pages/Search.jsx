@@ -211,57 +211,64 @@ const getDisplayKeywords = (b) => {
     ].join(" ")
   );
 
-  const filteredBusinesses = useMemo(() => {
-    const typedCategory = detectSmartCategory(query);
-    const selectedCategory = category !== "all" ? category : typedCategory;
-    const q = normalize(query);
+ const filteredBusinesses = useMemo(() => {
+  const typedCategory = detectSmartCategory(query);
+  const selectedCategory = category !== "all" ? category : typedCategory;
+  const q = normalize(query);
 
-    return businesses
-      .map((b) => {
-        const blob = getSearchBlob(b);
-        const categories = extractCategoryValues(b);
-        const displayName = getDisplayName(b);
-        const displayDescription = getDisplayDescription(b);
-        let score = 0;
+  return businesses
+    .map((b) => {
+      const blob = getSearchBlob(b);
+      const categories = extractCategoryValues(b);
+      const displayName = getDisplayName(b);
+      const displayDescription = getDisplayDescription(b);
+      const displayLocation = getDisplayLocation(b);
 
-        if (!q) score += 1;
-       if (q && normalize(displayName).includes(q)) score += 10;
-if (q && normalize(displayDescription).includes(q)) score += 4;
+      let score = 0;
 
-if (isArabic) {
-if (q && normalize(b.name_ar || "").includes(q)) score += 6;
-if (q && normalize(b.description_ar || "").includes(q)) score += 4;
-if (q && normalize(b.name || "").includes(q)) score += 6;
-if (q && normalize(b.description || "").includes(q)) score += 4;
-  if (q && normalize(getDisplayLocation(b)).includes(q)) score += 3;
-  
-        q.split(/\s+/)
-          .filter(Boolean)
-          .forEach((word) => {
-            if (blob.includes(word)) score += 1.2;
-          });
+      if (!q) score += 1;
 
-        if (selectedCategory && categories.includes(selectedCategory)) {
-          score += 6;
-        }
+      if (q && normalize(displayName).includes(q)) score += 10;
+      if (q && normalize(displayDescription).includes(q)) score += 4;
+      if (q && normalize(displayLocation).includes(q)) score += 3;
 
-        return { ...b, _score: score };
-      })
-      .filter((b) => {
-        const categories = extractCategoryValues(b);
-        const selectedCategory = category !== "all" ? category : detectSmartCategory(query);
+      if (isArabic) {
+        if (q && normalize(b.name_ar || "").includes(q)) score += 6;
+        if (q && normalize(b.description_ar || "").includes(q)) score += 4;
+      } else {
+        if (q && normalize(b.name || "").includes(q)) score += 6;
+        if (q && normalize(b.description || "").includes(q)) score += 4;
+      }
 
-        const queryOk = !q || b._score > 0;
-        const categoryOk = !selectedCategory || categories.includes(selectedCategory);
+      q
+        .split(/\s+/)
+        .filter(Boolean)
+        .forEach((word) => {
+          if (blob.includes(word)) score += 1.2;
+        });
 
-        return queryOk && categoryOk;
-      })
-  
-      .filter((b) => {
-  return Boolean(b.name_ar || b.description_ar || b.name || b.description);
-})
-      .sort((a, b) => b._score - a._score);
-  }, [businesses, query, category, isArabic]);
+      if (selectedCategory && categories.includes(selectedCategory)) {
+        score += 6;
+      }
+
+      return { ...b, _score: score };
+    })
+    .filter((b) => {
+      const categories = extractCategoryValues(b);
+      const selectedCategory =
+        category !== "all" ? category : detectSmartCategory(query);
+
+      const queryOk = !q || b._score > 0;
+      const categoryOk =
+        !selectedCategory || categories.includes(selectedCategory);
+
+      return queryOk && categoryOk;
+    })
+    .filter((b) => {
+      return Boolean(b.name_ar || b.description_ar || b.name || b.description);
+    })
+    .sort((a, b) => b._score - a._score);
+}, [businesses, query, category, isArabic]);
 
   const trackAction = async (endpoint, businessId) => {
     try {
