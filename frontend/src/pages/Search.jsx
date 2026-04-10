@@ -487,7 +487,7 @@ if (q && normalize(b.description || "").includes(q)) score += 4;
             }}
           >
             {filteredBusinesses.map((b) => {
-              const businessId = b._id || b.id;
+              const businessId = b.id || b.custom_id || b._id;
               const logoUrl = getLogoUrl(b);
               const whatsappUrl = getWhatsappUrl(b);
               const mapUrl = getMapUrl(b);
