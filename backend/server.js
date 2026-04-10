@@ -2022,9 +2022,15 @@ app.get("/api/businesses", async (_req, res) => {
 // =========================
 app.get("/api/business/:id", async (req, res) => {
   try {
-    const id = req.params.id;
+    const id = String(req.params.id || "").trim();
+    let business = null;
 
-    let business = await getBusinessById(id);
+    const isUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+
+    if (isUuid) {
+      business = await getBusinessById(id);
+    }
 
     if (!business) {
       business = await getBusinessByCustomId(id);
@@ -2056,7 +2062,6 @@ app.get("/api/business/:id", async (req, res) => {
     return res.status(404).json({ error: "Not found" });
   }
 });
-
 // ============================================================================
 // TRACKING (Core Monetization)
 // ============================================================================
