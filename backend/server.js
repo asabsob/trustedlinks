@@ -2304,28 +2304,35 @@ app.get("/api/admin/me", requireAdmin, async (req, res) => {
 // =========================
 app.get("/api/admin/stats", requireAdmin, async (_req, res) => {
   try {
-    const users = await listAllUsers();
-    const businesses = await listAllBusinesses();
-
-    const totalClicks = businesses.reduce(
-      (acc, b) => acc + Number(b.clicksCount || 0),
-      0
-    );
+    const [users, businesses] = await Promise.all([
+      listAllUsers(),
+      listAllBusinesses(),
+    ]);
 
     return res.json({
       ok: true,
-      users: users.length,
-      businesses: businesses.length,
-      clicks: totalClicks,
-      activity: [],
-      categories: [],
+      totalUsers: users.length,
+      totalBusinesses: businesses.length,
     });
   } catch (e) {
     console.error("admin stats error:", e);
-    return res.status(500).json({ error: "Failed" });
+    return res.status(500).json({ error: "Failed to load admin stats" });
   }
 });
 
+app.get("/api/admin/businesses", requireAdmin, async (_req, res) => {
+  try {
+    const businesses = await listAllBusinesses();
+
+    return res.json({
+      ok: true,
+      results: businesses,
+    });
+  } catch (e) {
+    console.error("admin businesses error:", e);
+    return res.status(500).json({ error: "Failed to load businesses" });
+  }
+});
 // =========================
 // ADMIN BUSINESSES
 // =========================
