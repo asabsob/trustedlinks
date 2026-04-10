@@ -65,6 +65,7 @@ export async function getBusinessByWhatsapp(whatsapp) {
 }
 
 export async function createBusiness(payload) {
+   const customId = String(payload.customId || "").trim() || null;
  const insertData = {
   owner_user_id: payload.ownerUserId ?? null,
   name: payload.name || "",
@@ -84,8 +85,9 @@ export async function createBusiness(payload) {
   location_text: payload.locationText || "",
   country_code: payload.countryCode || "",
   country_name: payload.countryName || "",
-  custom_id: payload.customId || "",
 
+   custom_id: customId,
+   
   wallet_balance: Number(payload.walletBalance ?? 5),
   wallet_currency: payload.walletCurrency || "USD",
   wallet_status: payload.walletStatus || "active",
