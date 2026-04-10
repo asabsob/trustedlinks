@@ -215,77 +215,93 @@ export async function getBusinessById(id) {
   if (error) throw error;
   return mapBusiness(data);
 }
-export async function incrementBusinessEventField(businessId, fieldName, amount = 1) {
-  const allowed = [
-    "views",
-    "clicks",
-    "media_views",
-    "map_clicks",
-    "whatsapp_clicks",
-    "messages",
-  ];
-
-  if (!allowed.includes(fieldName)) {
-    throw new Error(`Unsupported business counter field: ${fieldName}`);
+export async function incrementBusinessEventField(businessId, fieldName) {
+  const allowedFields = ["views", "clicks", "whatsapp", "media"];
+  if (!allowedFields.includes(fieldName)) {
+    throw new Error(`Invalid field name: ${fieldName}`);
   }
 
-  const business = await getBusinessById(businessId);
-  if (!business) return null;
+  const eventDate = new Date().toISOString().slice(0, 10);
 
-  const currentRowFieldMap = {
-    views: "views_count",
-    clicks: "clicks_count",
-    media_views: "media_views_count",
-    map_clicks: "map_clicks_count",
-    whatsapp_clicks: "whatsapp_clicks_count",
-    messages: "messages_count",
-    viewsCount: Number(row.views_count ?? 0),
-  };
-
-  const rowField = currentRowFieldMap[fieldName];
-
-  const currentValueMap = {
-    views: Number(business.viewsCount ?? 0),
-    clicks: Number(business.clicksCount ?? 0),
-    media_views: Number(business.mediaViewsCount ?? 0),
-    map_clicks: Number(business.mapClicksCount ?? 0),
-    whatsapp_clicks: Number(business.whatsappClicksCount ?? 0),
-    messages: Number(business.messagesCount ?? 0),
-  };
-
-  const nextValue = currentValueMap[fieldName] + Number(amount || 1);
-
-  const { data, error } = await supabase
-    .from("businesses")
-    .update({
-      [rowField]: nextValue,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", businessId)
+  const { data: existingRow, error: fetchError } = await supabase
+    .from("business_events")
     .select("*")
-    .single();
-
-  if (error) throw error;
-  return mapBusiness(data);
-}
-export async function listActiveBusinesses() {
-  const { data, error } = await supabase
-    .from("businesses")
-    .select("*")
-    .eq("status", "Active")
-    .order("created_at", { ascending: false });
-
-  if (error) throw error;
-  return (data || []).map(mapBusiness);
-}
-
-export async function getBusinessByCustomId(customId) {
-  const { data, error } = await supabase
-    .from("businesses")
-    .select("*")
-    .eq("custom_id", String(customId || "").trim())
+    .eq("business_id", businessId)
+    .eq("event_date", eventDate)
     .maybeSingle();
 
-  if (error) throw error;
-  return mapBusiness(data);
+  if (fetchError) throw fetchError;
+
+  if (!existingRow) {
+    const newRow = {
+      business_id: businessId,
+      event_date: eventDate,
+      views: 0,
+      clicks: 0,
+      whatsapp: 0,
+      media: 0,
+      messages: 0,
+      total: 0,
+      [fieldName]: 1,
+    };
+
+    if (fieldName === "whatsapp") {
+      newRow.messages = 1;
+    }
+
+    newRow.total =
+      Number(newRow.views || 0) +
+      Number(newRow.clicks || 0) +
+      Number(newRow.whatsapp || 0) +
+      Number(newRow.media || 0);
+
+    const { data: insertedRow, error: insertError } = await supabase
+      .from("business_events")
+      .insert([newRow])
+      .select()
+      .single();
+
+    if (insertError) throw insertError;
+    return insertedRow;
+  }
+
+  const updatePayload = {
+    [fieldName]: Number(existingRow[fieldName] || 0) + 1,
+    messages:
+      fieldName === "whatsapp"
+        ? Number(existingRow.messages || 0) + 1
+        : Number(existingRow.messages || 0),
+  };
+
+  const nextViews =
+    fieldName === "views"
+      ? updatePayload.views
+      : Number(existingRow.views || 0);
+
+  const nextClicks =
+    fieldName === "clicks"
+      ? updatePayload.clicks
+      : Number(existingRow.clicks || 0);
+
+  const nextWhatsapp =
+    fieldName === "whatsapp"
+      ? updatePayload.whatsapp
+      : Number(existingRow.whatsapp || 0);
+
+  const nextMedia =
+    fieldName === "media"
+      ? updatePayload.media
+      : Number(existingRow.media || 0);
+
+  updatePayload.total = nextViews + nextClicks + nextWhatsapp + nextMedia;
+
+  const { data: updatedRow, error: updateError } = await supabase
+    .from("business_events")
+    .update(updatePayload)
+    .eq("id", existingRow.id)
+    .select()
+    .single();
+
+  if (updateError) throw updateError;
+  return updatedRow;
 }
