@@ -211,6 +211,14 @@ const getDisplayKeywords = (b) => {
     ].join(" ")
   );
 
+  const getDisplayLocation = (b) => {
+  if (isArabic) {
+    return String(b.locationText_ar || b.locationText || b.locationText_en || "").trim();
+  }
+  return String(b.locationText_en || b.locationText || b.locationText_ar || "").trim();
+};
+
+  
  const filteredBusinesses = useMemo(() => {
   const typedCategory = detectSmartCategory(query);
   const selectedCategory = category !== "all" ? category : typedCategory;
@@ -321,13 +329,6 @@ const getDisplayKeywords = (b) => {
     if (!url) return "";
     return String(url).startsWith("http") ? url : `https://${url}`;
   };
-
- const getDisplayLocation = (b) => {
-  if (isArabic) {
-    return String(b.locationText_ar || b.locationText || b.locationText_en || "").trim();
-  }
-  return String(b.locationText_en || b.locationText || b.locationText_ar || "").trim();
-};
 
   return (
     <div
