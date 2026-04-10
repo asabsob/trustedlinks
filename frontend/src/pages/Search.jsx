@@ -274,7 +274,10 @@ if (q && normalize(b.description || "").includes(q)) score += 4;
   };
 
   const getWhatsappUrl = (b) => {
-  if (b.lead_link) return b.lead_link; // 🔥 مهم
+  if (b.lead_link) return b.lead_link;
+
+  if (b.whatsappLink) return b.whatsappLink;
+
   const phone = (b.whatsapp || "").toString().replace(/\D/g, "");
   return phone ? `https://wa.me/${phone}` : "#";
 };
