@@ -48,13 +48,17 @@ export default function BusinessDetails({ lang = "en" }) {
 
     return arr
       .map((c) => {
-        const key = String(c).toUpperCase().trim();
+        const raw =
+          typeof c === "string" ? c : c?.key || c?.name || c?.value || "";
+        const key = String(raw).toUpperCase().trim();
+
         return metaCategories[key]
           ? isArabic
             ? metaCategories[key].ar
             : metaCategories[key].en
-          : c;
+          : raw;
       })
+      .filter(Boolean)
       .join(" • ");
   };
 
@@ -70,9 +74,11 @@ export default function BusinessDetails({ lang = "en" }) {
       return b.mediaLink;
     }
 
-    if (b.name) {
+    const displayName = getBusinessDisplayName(b);
+
+    if (displayName) {
       return `https://ui-avatars.com/api/?name=${encodeURIComponent(
-        b.name
+        displayName
       )}&background=22c55e&color=fff&size=128`;
     }
 
@@ -86,12 +92,14 @@ export default function BusinessDetails({ lang = "en" }) {
 
   const trackEvent = async (endpoint) => {
     try {
+      if (!business?.id) return {};
+
       const res = await fetch(`${API_BASE}${endpoint}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ businessId: id }),
+        body: JSON.stringify({ businessId: business.id }),
       });
 
       const data = await res.json().catch(() => null);
@@ -119,12 +127,12 @@ export default function BusinessDetails({ lang = "en" }) {
         const res = await fetch(`${API_BASE}/api/business/${id}`);
         const data = await res.json().catch(() => null);
 
-        if (!res.ok || !data) {
+        if (!res.ok || !data?.business) {
           if (!cancelled) setBusiness(null);
           return;
         }
 
-        if (!cancelled) setBusiness(data);
+        if (!cancelled) setBusiness(data.business);
       } catch (e) {
         console.error("Business load error:", e);
         if (!cancelled) setBusiness(null);
@@ -141,20 +149,43 @@ export default function BusinessDetails({ lang = "en" }) {
   }, [id]);
 
   useEffect(() => {
-    if (!business) return;
+    if (!business?.id) return;
 
     fetch(`${API_BASE}/api/track-view`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ businessId: id }),
+      body: JSON.stringify({ businessId: business.id }),
     }).catch((e) => {
       console.error("track-view error:", e);
     });
-  }, [business, id]);
+  }, [business]);
+
+  const displayDescription = business
+    ? isArabic
+      ? business.description_ar ||
+        business.description ||
+        t("No description available.", "لا يوجد وصف متاح.")
+      : business.description ||
+        business.description_ar ||
+        t("No description available.", "لا يوجد وصف متاح.")
+    : "";
+
+  const displayLocation = business
+    ? isArabic
+      ? business.locationText_ar ||
+        business.locationText ||
+        business.locationText_en ||
+        ""
+      : business.locationText_en ||
+        business.locationText ||
+        business.locationText_ar ||
+        ""
+    : "";
 
   const whatsappUrl =
+    business?.lead_link ||
     business?.whatsappLink ||
     `https://wa.me/${(business?.whatsapp || "").toString().replace(/\D/g, "")}`;
 
@@ -171,6 +202,14 @@ export default function BusinessDetails({ lang = "en" }) {
 
   const handleWhatsAppClick = async (e) => {
     e.preventDefault();
+
+    if (!whatsappUrl || whatsappUrl === "#") return;
+
+    // إذا كان الرابط tracked lead link، افتحه مباشرة
+    if (business?.lead_link) {
+      window.open(fixUrl(whatsappUrl), "_blank", "noopener,noreferrer");
+      return;
+    }
 
     const result = await trackEvent("/api/track-whatsapp");
     if (result?.blocked) return;
@@ -312,7 +351,7 @@ export default function BusinessDetails({ lang = "en" }) {
           >
             <img
               src={getLogoUrl(business)}
-              alt={business.name || "logo"}
+              alt={getBusinessDisplayName(business) || "logo"}
               style={{
                 width: "100%",
                 height: "100%",
@@ -358,10 +397,10 @@ export default function BusinessDetails({ lang = "en" }) {
               fontSize: 15,
             }}
           >
-            {business.description || t("No description available.", "لا يوجد وصف متاح.")}
+            {displayDescription}
           </p>
 
-          {business.locationText && (
+          {displayLocation && (
             <div
               style={{
                 color: "#0f766e",
@@ -374,7 +413,7 @@ export default function BusinessDetails({ lang = "en" }) {
                 fontWeight: 600,
               }}
             >
-              📍 {business.locationText}
+              📍 {displayLocation}
             </div>
           )}
 
