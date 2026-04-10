@@ -208,6 +208,15 @@ export async function getBusinessByOwnerUserId(ownerUserId) {
   return mapBusiness(data);
 }
 
+export async function listAllBusinesses() {
+  const { data, error } = await supabase
+    .from("businesses")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return (data || []).map(mapBusiness);
+}
 export async function getBusinessByCustomId(customId) {
   const { data, error } = await supabase
     .from("businesses")
