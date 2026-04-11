@@ -98,18 +98,23 @@ export default function Dashboard({ lang = "en" }) {
     return business.category;
   }, [business, lang]);
 
-  const walletText = useMemo(() => {
-  if (!business?.wallet) return "0 USD";
+ const walletText = useMemo(() => {
+  if (!business) return "0 USD";
+
   const balance =
-    typeof business.wallet.balance === "number" ? business.wallet.balance : 0;
-  const currency = business.wallet.currency || "USD";
+    typeof business.wallet_balance === "number"
+      ? business.wallet_balance
+      : 0;
+
+  const currency = business.wallet_currency || "USD";
+
   return `${balance} ${currency}`;
 }, [business]);
   
 const walletStatus = useMemo(() => {
-  if (!business?.wallet) return "active";
+  if (!business) return "active";
 
-  const balance = Number(business.wallet.balance || 0);
+  const balance = Number(business.wallet_balance || 0);
 
   if (balance <= 0) return "out";
   if (balance < 5) return "low";
