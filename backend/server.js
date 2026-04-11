@@ -2082,19 +2082,19 @@ async function pushEvent(businessId, field) {
   const fieldMap = {
     views: "views",
     clicks: "clicks",
-    mediaViews: "media_views",
-    mapClicks: "map_clicks",
-    whatsappClicks: "whatsapp_clicks",
-    messages: "messages",
+    mediaViews: "media",
+    mapClicks: "clicks",
+    whatsappClicks: "whatsapp",
+    messages: "whatsapp",
   };
 
-  const normalizedField = fieldMap[field];
+  const mappedField = fieldMap[field];
 
-  if (!normalizedField) {
+  if (!mappedField) {
     throw new Error(`Unsupported event field: ${field}`);
   }
 
-  return await incrementBusinessEventField(businessId, normalizedField, 1);
+  return incrementBusinessEventField(businessId, mappedField);
 }
 
 // =========================
@@ -2157,7 +2157,7 @@ app.post("/api/track-click", async (req, res) => {
       });
     }
 
-    await pushEvent(businessId, "clicks");
+  await pushEvent(info.businessId, "clicks");
 
     await logBusinessEvent({
       businessId: info.businessId,
@@ -2204,7 +2204,8 @@ app.post("/api/track-media", async (req, res) => {
       });
     }
 
-    await pushEvent(businessId, "mediaViews");
+   await pushEvent(info.businessId, "mediaViews");
+  
 
     return res.json({ ok: true, charged: true });
   } catch (e) {
@@ -2239,10 +2240,10 @@ app.post("/api/track-whatsapp", async (req, res) => {
         error: "Insufficient balance",
       });
     }
-
-    await pushEvent(businessId, "whatsappClicks");
-    await pushEvent(businessId, "messages");
-
+    
+await pushEvent(info.businessId, "whatsappClicks");
+await pushEvent(info.businessId, "messages");
+    
     return res.json({ ok: true, charged: true });
   } catch (e) {
     console.error("track-whatsapp error:", e);
