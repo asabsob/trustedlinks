@@ -288,10 +288,8 @@ const getDisplayKeywords = (b) => {
     } catch {}
   };
 
- const getWhatsappUrl = (b) => {
+const getWhatsappUrl = (b) => {
   if (b.lead_link) return b.lead_link;
-
-  // ❌ لا fallback مباشر
   return "#";
 };
 
