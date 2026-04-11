@@ -105,76 +105,74 @@ export default function Wallet({ lang = "en" }) {
     return "active";
   };
 
-const loadWallet = async () => {
-  try {
-    setLoading(true);
-    setMessage("");
-    setMessageType("info");
+  const loadWallet = async () => {
+    try {
+      setLoading(true);
+      setMessage("");
+      setMessageType("info");
 
-    const token = localStorage.getItem("token");
-    const businessId = localStorage.getItem("businessId") || "";
+      const token = localStorage.getItem("token");
+      const businessId = localStorage.getItem("businessId") || "";
 
-    if (!token) {
-      setMessage("You are not logged in");
+      if (!token) {
+        setMessage("You are not logged in");
+        setMessageType("error");
+        return;
+      }
+
+      if (!businessId) {
+        setMessage("businessId missing");
+        setMessageType("error");
+        return;
+      }
+
+      const [bizRes, txRes] = await Promise.all([
+        fetch(`${API_BASE}/api/business/me`, {
+          cache: "no-store",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Cache-Control": "no-cache",
+          },
+        }),
+        fetch(`${API_BASE}/api/business/transactions/${businessId}?limit=10`, {
+          cache: "no-store",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Cache-Control": "no-cache",
+          },
+        }),
+      ]);
+
+      const bizData = await bizRes.json().catch(() => null);
+      const txData = await txRes.json().catch(() => null);
+
+      if (!bizRes.ok) {
+        throw new Error(bizData?.error || "Failed to load wallet");
+      }
+
+      const nextBalance = Number(bizData?.wallet_balance || 0);
+      setBalance(nextBalance);
+      setCurrency(bizData?.wallet_currency || "USD");
+      setStatus(bizData?.wallet_status || inferStatus(nextBalance));
+
+      if (txRes.ok) {
+        const txList = Array.isArray(txData)
+          ? txData
+          : Array.isArray(txData?.transactions)
+          ? txData.transactions
+          : [];
+        setTransactions(txList);
+      } else {
+        setTransactions([]);
+      }
+    } catch (error) {
+      console.error("loadWallet error:", error);
+      setMessage(t.failedLoad);
       setMessageType("error");
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    if (!businessId) {
-      setMessage("businessId missing");
-      setMessageType("error");
-      return;
-    }
-
-  const [bizRes, txRes] = await Promise.all([
-  fetch(`${API_BASE}/api/business/me`, {
-    cache: "no-store",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Cache-Control": "no-cache",
-    },
-  }),
-  fetch(`${API_BASE}/api/business/transactions/${businessId}?limit=10`, {
-    cache: "no-store",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Cache-Control": "no-cache",
-    },
-  }),
-]);
-    
-const bizData = await bizRes.json().catch(() => null);
-
-   
-    const txData = await txRes.json().catch(() => null);
-
-   if (!bizRes.ok) {
-  throw new Error(bizData?.error || "Failed to load wallet");
-}
-
-   const nextBalance = Number(bizData?.wallet_balance || 0);
-setBalance(nextBalance);
-setCurrency(bizData?.wallet_currency || "USD");
-setStatus(bizData?.wallet_status || inferStatus(nextBalance));
-
-    if (txRes.ok) {
-      const txList = Array.isArray(txData)
-        ? txData
-        : Array.isArray(txData?.transactions)
-        ? txData.transactions
-        : [];
-      setTransactions(txList);
-    } else {
-      setTransactions([]);
-    }
-  } catch (error) {
-    console.error("loadWallet error:", error);
-    setMessage(t.failedLoad);
-    setMessageType("error");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const getStatusLabel = (value) => {
     if (value === "out") return t.out;
@@ -200,61 +198,61 @@ setStatus(bizData?.wallet_status || inferStatus(nextBalance));
     return "border-slate-200 bg-white text-slate-700";
   };
 
- const submitTopup = async (amountValue) => {
-  const amount = Number(amountValue);
+  const submitTopup = async (amountValue) => {
+    const amount = Number(amountValue);
 
-  const token = localStorage.getItem("token");
-  const businessId = localStorage.getItem("businessId") || "";
+    const token = localStorage.getItem("token");
+    const businessId = localStorage.getItem("businessId") || "";
 
-  if (!token) {
-    setMessage("You are not logged in");
-    setMessageType("error");
-    return;
-  }
-
-  if (!businessId) {
-    setMessage("businessId missing");
-    setMessageType("error");
-    return;
-  }
-
-  if (!amount || amount <= 0) {
-    setMessage(t.invalidAmount);
-    setMessageType("error");
-    return;
-  }
-
-  try {
-    setSubmitting(true);
-    setMessage("");
-    setMessageType("info");
-
-    const res = await fetch(`${API_BASE}/api/payments/create-topup-order`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ amount, businessId }),
-    });
-
-    const data = await res.json().catch(() => null);
-
-    if (!res.ok) {
-      throw new Error(data?.error || "Failed to create topup order");
+    if (!token) {
+      setMessage("You are not logged in");
+      setMessageType("error");
+      return;
     }
 
-    setPendingOrder(data);
-    setMessage(t.orderCreated);
-    setMessageType("success");
-  } catch (error) {
-    console.error("submitTopup error:", error);
-    setMessage(error.message || t.failedLoad);
-    setMessageType("error");
-  } finally {
-    setSubmitting(false);
-  }
-};
+    if (!businessId) {
+      setMessage("businessId missing");
+      setMessageType("error");
+      return;
+    }
+
+    if (!amount || amount <= 0) {
+      setMessage(t.invalidAmount);
+      setMessageType("error");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setMessage("");
+      setMessageType("info");
+
+      const res = await fetch(`${API_BASE}/api/payments/create-topup-order`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ amount, businessId }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to create topup order");
+      }
+
+      setPendingOrder(data);
+      setMessage(t.orderCreated);
+      setMessageType("success");
+    } catch (error) {
+      console.error("submitTopup error:", error);
+      setMessage(error.message || t.failedLoad);
+      setMessageType("error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const confirmPendingPayment = async () => {
     if (!pendingOrder?.orderId) return;
