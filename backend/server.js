@@ -1997,24 +1997,32 @@ app.get("/api/businesses", async (_req, res) => {
   try {
     const list = await listActiveBusinesses();
 
-    const formatted = list.map((b) => ({
-      ...b,
-      logo:
-        b.logo ||
-        (b.mediaLink &&
-        /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(String(b.mediaLink))
-          ? b.mediaLink
-          : null),
+    const formatted = await Promise.all(
+      list.map(async (b) => ({
+        ...b,
+        logo:
+          b.logo ||
+          (b.mediaLink &&
+          /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(String(b.mediaLink))
+            ? b.mediaLink
+            : null),
 
-      whatsappLink: b.whatsapp
-        ? `https://wa.me/${String(b.whatsapp).replace(/\D/g, "")}`
-        : null,
+        whatsappLink: b.whatsapp
+          ? `https://wa.me/${String(b.whatsapp).replace(/\D/g, "")}`
+          : null,
 
-      // ✅ tracked lead link
-      lead_link: b.id
-        ? `${String(process.env.BASE_URL || "").replace(/\/+$/, "")}/l/${b.id}`
-        : null,
-    }));
+        // ✅ tracked lead link باستخدام token حقيقي
+        lead_link:
+          b.id && b.whatsapp
+            ? await createLeadTrackedLink({
+                businessId: b.id,
+                phone: b.whatsapp,
+                query: "",
+                userPhone: "",
+              })
+            : null,
+      }))
+    );
 
     return res.json({
       ok: true,
