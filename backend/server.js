@@ -79,6 +79,10 @@ import {
 
 import { createClient } from "@supabase/supabase-js";
 
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import morgan from "morgan";
+
 dotenv.config();
 
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
@@ -88,6 +92,78 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
 const app = express();
 const PORT = process.env.PORT || 5175;
 
+const isProd = process.env.NODE_ENV === "production";
+
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.trim().length < 32) {
+  throw new Error("JWT_SECRET is missing or too short");
+}
+
+if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) {
+  throw new Error("Missing admin credentials");
+}
+
+if (!process.env.BASE_URL || !/^https?:\/\//i.test(process.env.BASE_URL)) {
+  throw new Error("Missing or invalid BASE_URL");
+}
+
+app.set("trust proxy", 1);
+
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: false,
+  })
+);
+
+app.use(
+  morgan(isProd ? "combined" : "dev", {
+    skip: (req) => req.path === "/healthz",
+  })
+);
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests, please try again later." },
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many auth attempts, please try again later." },
+});
+
+const otpLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many OTP attempts, please try again later." },
+});
+
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many admin login attempts, please try again later." },
+});
+
+app.use("/api", apiLimiter);
+app.use("/api/auth/login", authLimiter);
+app.use("/api/auth/signup", authLimiter);
+app.use("/api/auth/resend-verification", authLimiter);
+app.use("/api/auth/reset-password", authLimiter);
+app.use("/api/whatsapp/request-otp", otpLimiter);
+app.use("/api/whatsapp/verify-otp", otpLimiter);
+app.use("/api/admin/login", adminLimiter);
+
+app.use(express.json({ limit: "200kb" }));
+app.use(express.urlencoded({ extended: true, limit: "200kb" }));
 // =========================
 // MEMORY (instead of Mongo sessions)
 // =========================
@@ -2845,6 +2921,14 @@ process.on("uncaughtException", (err) => {
 
 process.on("unhandledRejection", (reason) => {
   console.error("UNHANDLED_REJECTION:", reason);
+});
+
+app.use((err, _req, res, _next) => {
+  console.error("UNHANDLED ERROR:", err);
+  return res.status(500).json({ error: "Internal server error" });
+});app.use((err, _req, res, _next) => {
+  console.error("UNHANDLED ERROR:", err);
+  return res.status(500).json({ error: "Internal server error" });
 });
 
 // ---------------------------------------------------------------------------
