@@ -259,11 +259,21 @@ export async function incrementBusinessEventField(businessId, fieldName) {
     messages: "messages",
   };
 
+  const eventTypeMap = {
+    views: "view",
+    clicks: "click",
+    media: "media",
+    whatsapp: "whatsapp",
+    messages: "message",
+  };
+
   const safeField = fieldMap[fieldName];
 
   if (!safeField) {
     throw new Error(`Invalid field name: ${fieldName}`);
   }
+
+  const eventType = eventTypeMap[safeField] || safeField;
 
   const business = await getBusinessById(businessId);
   if (!business) {
@@ -277,6 +287,7 @@ export async function incrementBusinessEventField(businessId, fieldName) {
     .select("*")
     .eq("business_id", businessId)
     .eq("event_date", eventDate)
+    .eq("type", eventType)
     .maybeSingle();
 
   if (fetchError) throw fetchError;
@@ -285,7 +296,7 @@ export async function incrementBusinessEventField(businessId, fieldName) {
     const newRow = {
       business_id: businessId,
       owner_user_id: business.ownerUserId,
-      type: safeField, // ✅ مهم جدًا
+      type: eventType,
       event_date: eventDate,
       views: 0,
       clicks: 0,
