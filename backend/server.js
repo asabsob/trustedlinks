@@ -379,6 +379,46 @@ function clearPendingNearby(from) {
   PENDING_NEARBY_REQUESTS.delete(from);
 }
 
+const CLICK_GUARD = new Map();
+const LEAD_GUARD = new Map();
+
+function getClientIp(req) {
+  return (
+    req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
+    req.socket?.remoteAddress ||
+    "unknown"
+  );
+}
+
+function makeGuardKey({ businessId, ip, action }) {
+  return `${action}:${businessId}:${ip}`;
+}
+
+function isWithinCooldown(map, key, cooldownMs) {
+  const now = Date.now();
+  const last = map.get(key) || 0;
+
+  if (now - last < cooldownMs) {
+    return true;
+  }
+
+  map.set(key, now);
+  return false;
+}
+
+function cleanupGuardMap(map, olderThanMs = 60 * 60 * 1000) {
+  const now = Date.now();
+  for (const [key, ts] of map.entries()) {
+    if (now - ts > olderThanMs) {
+      map.delete(key);
+    }
+  }
+}
+
+setInterval(() => {
+  cleanupGuardMap(CLICK_GUARD);
+  cleanupGuardMap(LEAD_GUARD);
+}, 30 * 60 * 1000);
 // =========================
 // SEARCH HELPERS (NO CACHE NOW)
 // =========================
@@ -2294,6 +2334,7 @@ app.post("/api/track-view", async (req, res) => {
   }
 });
 
+
 // =========================
 // CLICK (paid)
 // =========================
@@ -2307,20 +2348,41 @@ app.post("/api/track-click", async (req, res) => {
 
     const info = await getBusinessOwnerInfo(businessId);
     if (!info) return res.status(404).json({ error: "Business not found" });
+    
+const ip = getClientIp(req);
+const guardKey = makeGuardKey({
+  businessId: info.businessId,
+  ip,
+  action: "click",
+});
 
+if (isWithinCooldown(CLICK_GUARD, guardKey, 30 * 1000)) {
+  return res.status(429).json({
+    error: "Too many repeated clicks",
+    code: "CLICK_COOLDOWN",
+  });
+}
+    meta: { source: "whatsapp_lead", ip },
+    
     // ✅ هنا تضيفه
     const ip =
-      req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
-      req.socket?.remoteAddress ||
-      "unknown";
+  req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
+  req.socket?.remoteAddress ||
+  "unknown";
+
+const leadKey = `lead:${tokenRow.id}:${ip}`;
+
+if (isWithinCooldown(LEAD_GUARD, leadKey, 60 * 1000)) {
+  return res.status(429).send("Too many repeated lead requests");
+}
 
     const deduction = await deductWalletBalance({
       ownerUserId: info.ownerUserId,
       businessId: info.businessId,
       eventType: "click",
       reason: "Business profile click charge",
-      reference: `click_${businessId}_${ip}_${Date.now()}`, // 👈 استخدم ip هنا
-      meta: { source: "business_profile_click", ip },
+     reference: `click_${info.businessId}_${ip}_${Date.now()}`,
+meta: { source: "business_profile_click", ip },
     });
 
     await pushEvent(businessId, "clicks");
@@ -2335,6 +2397,11 @@ app.post("/api/track-click", async (req, res) => {
     return res.status(500).json({ error: "Failed" });
   }
 });
+console.warn("ANTI_FRAUD_BLOCK_CLICK", {
+  businessId: info.businessId,
+  ip,
+});
+
 // =========================
 // MEDIA (paid)
 // =========================
@@ -2348,7 +2415,19 @@ app.post("/api/track-media", async (req, res) => {
 
     const info = await getBusinessOwnerInfo(businessId);
     if (!info) return res.status(404).json({ error: "Business not found" });
+const ip = getClientIp(req);
+const guardKey = makeGuardKey({
+  businessId: info.businessId,
+  ip,
+  action: "whatsapp",
+});
 
+if (isWithinCooldown(LEAD_GUARD, guardKey, 60 * 1000)) {
+  return res.status(429).json({
+    error: "Too many repeated WhatsApp leads",
+    code: "WHATSAPP_COOLDOWN",
+  });
+}
     const deduction = await deductWalletBalance({
       ownerUserId: info.ownerUserId,
       businessId: info.businessId,
@@ -2407,6 +2486,11 @@ await pushEvent(info.businessId, "messages");
     console.error("track-whatsapp error:", e);
     return res.status(500).json({ error: "Failed" });
   }
+});
+
+console.warn("ANTI_FRAUD_BLOCK_WHATSAPP", {
+  businessId: info.businessId,
+  ip,
 });
 
 // ============================================================================
