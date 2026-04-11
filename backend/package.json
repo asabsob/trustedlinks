@@ -23,5 +23,8 @@
     "openai": "^4.104.0",
     "react-router-dom": "^7.9.4",
     "recharts": "^3.3.0"
+    "helmet": "^7.0.0",
+"express-rate-limit": "^7.0.0",
+"morgan": "^1.10.0"
   }
 }
