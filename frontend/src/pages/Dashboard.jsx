@@ -35,26 +35,38 @@ export default function Dashboard({ lang = "en" }) {
         setLoading(true);
         setError("");
 
-        const meRes = await fetch(`${API_BASE}/api/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const meData = await meRes.json().catch(() => null);
+       const meRes = await fetch(`${API_BASE}/api/me`, {
+  cache: "no-store",
+  headers: {
+    Authorization: `Bearer ${token}`,
+    "Cache-Control": "no-cache",
+  },
+});
+const meData = await meRes.json().catch(() => null);
 
-        if (!meRes.ok) {
-          throw new Error(meData?.error || "Auth failed");
-        }
+if (!meRes.ok) {
+  throw new Error(meData?.error || "Auth failed");
+}
 
-        if (cancelled) return;
-        setUser(meData);
+if (cancelled) return;
+setUser(meData);
 
-        const [bizRes, repRes] = await Promise.all([
-          fetch(`${API_BASE}/api/business/me`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(`${API_BASE}/api/business/reports`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-        ]);
+const [bizRes, repRes] = await Promise.all([
+  fetch(`${API_BASE}/api/business/me`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Cache-Control": "no-cache",
+    },
+  }),
+  fetch(`${API_BASE}/api/business/reports`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Cache-Control": "no-cache",
+    },
+  }),
+]);
 
         const bizData = await bizRes.json().catch(() => null);
         const repData = await repRes.json().catch(() => null);
