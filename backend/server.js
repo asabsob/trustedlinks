@@ -90,7 +90,64 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
 }
 
 const app = express();
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
+
+app.use(express.json({ limit: "200kb" }));
+app.use(express.urlencoded({ extended: true, limit: "200kb" }));
+
+app.use(helmet(...));
+app.use(morgan(...));
+
 const PORT = process.env.PORT || 5175;
+
+const allowedOrigins = [
+  "https://trustedlinks.net",
+  "http://localhost:5173",
+];
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Not allowed by CORS"));
+    },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: false,
+    optionsSuccessStatus: 204,
+  })
+);
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = [
+      "https://trustedlinks.net",
+      "http://localhost:5173",
+    ];
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error("Not allowed by CORS"));
+  },
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: false,
+  optionsSuccessStatus: 204,
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -159,11 +216,6 @@ const trackingLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many tracking requests, please try again later." },
-});
-
-app.use((req, res, next) => {
-  res.setHeader("Cache-Control", "no-store");
-  next();
 });
 
 app.use("/api", apiLimiter);
