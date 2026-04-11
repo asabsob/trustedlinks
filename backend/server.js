@@ -161,6 +161,11 @@ const trackingLimiter = rateLimit({
   message: { error: "Too many tracking requests, please try again later." },
 });
 
+app.use((req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
+  next();
+});
+
 app.use("/api", apiLimiter);
 
 app.use("/api/auth/login", authLimiter);
