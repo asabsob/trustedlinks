@@ -21,7 +21,7 @@ export default function Dashboard({ lang = "en" }) {
   const [error, setError] = useState("");
 
   useEffect(() => {
-  const token = localStorage.getItem("token");
+    const token = localStorage.getItem("token");
 
     if (!token) {
       navigate("/login", { replace: true });
@@ -35,38 +35,38 @@ export default function Dashboard({ lang = "en" }) {
         setLoading(true);
         setError("");
 
-       const meRes = await fetch(`${API_BASE}/api/me`, {
-  cache: "no-store",
-  headers: {
-    Authorization: `Bearer ${token}`,
-    "Cache-Control": "no-cache",
-  },
-});
-const meData = await meRes.json().catch(() => null);
+        const meRes = await fetch(`${API_BASE}/api/me`, {
+          cache: "no-store",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Cache-Control": "no-cache",
+          },
+        });
+        const meData = await meRes.json().catch(() => null);
 
-if (!meRes.ok) {
-  throw new Error(meData?.error || "Auth failed");
-}
+        if (!meRes.ok) {
+          throw new Error(meData?.error || "Auth failed");
+        }
 
-if (cancelled) return;
-setUser(meData);
+        if (cancelled) return;
+        setUser(meData);
 
-const [bizRes, repRes] = await Promise.all([
-  fetch(`${API_BASE}/api/business/me`, {
-    cache: "no-store",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Cache-Control": "no-cache",
-    },
-  }),
-  fetch(`${API_BASE}/api/business/reports`, {
-    cache: "no-store",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Cache-Control": "no-cache",
-    },
-  }),
-]);
+        const [bizRes, repRes] = await Promise.all([
+          fetch(`${API_BASE}/api/business/me`, {
+            cache: "no-store",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Cache-Control": "no-cache",
+            },
+          }),
+          fetch(`${API_BASE}/api/business/reports`, {
+            cache: "no-store",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Cache-Control": "no-cache",
+            },
+          }),
+        ]);
 
         const bizData = await bizRes.json().catch(() => null);
         const repData = await repRes.json().catch(() => null);
@@ -75,9 +75,10 @@ const [bizRes, repRes] = await Promise.all([
 
         setBusiness(bizRes.ok ? bizData : null);
 
-       if (bizRes.ok && bizData?.id) {
-  localStorage.setItem("businessId", bizData.id);
-}
+        if (bizRes.ok && bizData?.id) {
+          localStorage.setItem("businessId", bizData.id);
+        }
+
         setReports(repRes.ok ? repData : null);
       } catch (e) {
         if (cancelled) return;
@@ -99,6 +100,7 @@ const [bizRes, repRes] = await Promise.all([
       cancelled = true;
     };
   }, [lang, navigate]);
+
   const businessName = useMemo(() => {
     if (!business) return t("Your Business", "نشاطك التجاري");
     return business.name_ar || business.name || t("Your Business", "نشاطك التجاري");
@@ -110,29 +112,29 @@ const [bizRes, repRes] = await Promise.all([
     return business.category;
   }, [business, lang]);
 
- const walletText = useMemo(() => {
-  if (!business) return "0 USD";
+  const walletText = useMemo(() => {
+    if (!business) return "0 USD";
 
-  const balance =
-    typeof business.wallet_balance === "number"
-      ? business.wallet_balance
-      : 0;
+    const balance =
+      typeof business.wallet_balance === "number"
+        ? business.wallet_balance
+        : 0;
 
-  const currency = business.wallet_currency || "USD";
+    const currency = business.wallet_currency || "USD";
 
-  return `${balance} ${currency}`;
-}, [business]);
-  
-const walletStatus = useMemo(() => {
-  if (!business) return "active";
+    return `${balance.toFixed(2)} ${currency}`;
+  }, [business]);
 
-  const balance = Number(business.wallet_balance || 0);
+  const walletStatus = useMemo(() => {
+    if (!business) return "active";
 
-  if (balance <= 0) return "out";
-  if (balance < 5) return "low";
-  return "active";
-}, [business]);
-  
+    const balance = Number(business.wallet_balance || 0);
+
+    if (balance <= 0) return "out";
+    if (balance < 5) return "low";
+    return "active";
+  }, [business]);
+
   const shortMapLink = useMemo(() => {
     if (!business?.mapLink) return null;
     try {
@@ -170,7 +172,6 @@ const walletStatus = useMemo(() => {
 
   return (
     <div style={pageWrap(isAr)}>
-      {/* Hero */}
       <section style={heroCard}>
         <div>
           <div style={heroBadge}>{t("Business Dashboard", "لوحة تحكم النشاط")}</div>
@@ -238,7 +239,6 @@ const walletStatus = useMemo(() => {
         </div>
       )}
 
-      {/* Summary Cards */}
       <section style={statsGrid}>
         <StatCard
           title={t("Wallet Balance", "الرصيد الحالي")}
@@ -275,7 +275,6 @@ const walletStatus = useMemo(() => {
         />
       </section>
 
-      {/* Main Content */}
       <section style={mainGrid}>
         <div style={panelCard}>
           <div style={panelHeader}>
@@ -356,14 +355,8 @@ const walletStatus = useMemo(() => {
             <div style={miniStatsGrid}>
               <MiniStat title={t("Views", "المشاهدات")} value={reports.views ?? 0} />
               <MiniStat title={t("Clicks", "النقرات")} value={reports.totalClicks ?? 0} />
-              <MiniStat
-                title={t("Messages", "الرسائل")}
-                value={reports.totalMessages ?? 0}
-              />
-              <MiniStat
-                title={t("Media Views", "مشاهدات الوسائط")}
-                value={reports.mediaViews ?? 0}
-              />
+              <MiniStat title={t("Messages", "الرسائل")} value={reports.totalMessages ?? 0} />
+              <MiniStat title={t("Media Views", "مشاهدات الوسائط")} value={reports.mediaViews ?? 0} />
             </div>
           ) : (
             <EmptyState
