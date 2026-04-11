@@ -153,17 +153,70 @@ const adminLimiter = rateLimit({
   message: { error: "Too many admin login attempts, please try again later." },
 });
 
+const trackingLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many tracking requests, please try again later." },
+});
+
 app.use("/api", apiLimiter);
+
 app.use("/api/auth/login", authLimiter);
 app.use("/api/auth/signup", authLimiter);
 app.use("/api/auth/resend-verification", authLimiter);
 app.use("/api/auth/reset-password", authLimiter);
+
 app.use("/api/whatsapp/request-otp", otpLimiter);
 app.use("/api/whatsapp/verify-otp", otpLimiter);
+
 app.use("/api/admin/login", adminLimiter);
+app.use("/api/admin", (req, res, next) => {
+  if (req.path === "/login") return next();
+  return adminApiLimiter(req, res, next);
+});
+
+app.use("/api/track-click", trackingLimiter);
+app.use("/api/track-whatsapp", trackingLimiter);
+app.use("/api/track-media", trackingLimiter);
 
 app.use(express.json({ limit: "200kb" }));
 app.use(express.urlencoded({ extended: true, limit: "200kb" }));
+
+const leadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: "Too many lead requests, please try again later.",
+});
+
+app.use("/l", leadLimiter);
+
+const adminApiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many admin requests, please try again later." },
+});
+
+app.use("/api/admin", adminApiLimiter);
+
+app.use((err, _req, res, _next) => {
+  console.error("UNHANDLED ERROR:", err);
+
+  return res.status(500).json({
+    error: "Internal server error",
+  });
+});
+
+const getIP = (req) =>
+  req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+  req.socket?.remoteAddress ||
+  null;
+
 // =========================
 // MEMORY (instead of Mongo sessions)
 // =========================
@@ -199,7 +252,11 @@ function cleanDigits(v = "") {
   return String(v).replace(/\D/g, "");
 }
 
-const JWT_SECRET = (process.env.JWT_SECRET || "trustedlinks_secret").trim();
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  throw new Error("Invalid JWT_SECRET");
+}
 
 function signUserToken(userId) {
   return jwt.sign({ id: userId, role: "user" }, JWT_SECRET, { expiresIn: "7d" });
@@ -215,6 +272,9 @@ function readBearer(req) {
   return m ? m[1] : "";
 }
 
+function safeString(v) {
+  return String(v || "").trim().slice(0, 500);
+}
 // =========================
 // AUTH MIDDLEWARE
 // =========================
@@ -1431,7 +1491,21 @@ app.put("/api/business/update", requireUser, async (req, res) => {
       return res.status(404).json({ error: "Business not found" });
     }
 
-    const payload = { ...(req.body || {}) };
+    const payload = {
+  name: req.body.name,
+  name_ar: req.body.name_ar,
+  description: req.body.description,
+  description_ar: req.body.description_ar,
+  keywords: Array.isArray(req.body.keywords) ? req.body.keywords : [],
+  keywords_ar: Array.isArray(req.body.keywords_ar) ? req.body.keywords_ar : [],
+  category: Array.isArray(req.body.category) ? req.body.category : [],
+  whatsapp: req.body.whatsapp,
+  mediaLink: req.body.mediaLink,
+  logo: req.body.logo,
+  locationText: req.body.locationText,
+  countryCode: req.body.countryCode,
+  countryName: req.body.countryName,
+};
     const lang = String(req.body?.lang || "en").toLowerCase();
 
     // =========================
@@ -1504,10 +1578,18 @@ app.put("/api/business/update", requireUser, async (req, res) => {
         : null,
     };
 
-    return res.json({
-      ok: true,
-      business: formatted,
-    });
+   const safeResults = results.map((b) => ({
+  id: b.id,
+  name: b.name,
+  name_ar: b.name_ar,
+  description: b.description,
+  category: b.category,
+  logo: b.logo,
+  whatsappLink: b.whatsapp
+    ? `https://wa.me/${String(b.whatsapp).replace(/\D/g, "")}`
+    : null,
+}));
+    
   } catch (e) {
     console.error("update business error:", e);
     return res.status(500).json({ error: "Update failed" });
@@ -2231,7 +2313,7 @@ app.post("/api/track-click", async (req, res) => {
       businessId: info.businessId,
       eventType: "click",
       reason: "Business profile click charge",
-      reference: `click_${businessId}_${Date.now()}`,
+      reference: `click_${businessId}_${req.ip}_${Date.now()}`
       meta: { source: "business_profile_click" },
     });
 
@@ -2340,8 +2422,12 @@ await pushEvent(info.businessId, "messages");
 // Admin Auth + Admin endpoints (Supabase Clean Version)
 // ============================================================================
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@trustedlinks.app";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "123456";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+
+if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+  throw new Error("Missing admin credentials");
+}
 
 // =========================
 // ADMIN LOGIN
@@ -2417,18 +2503,6 @@ app.get("/api/admin/businesses", requireAdmin, async (_req, res) => {
   } catch (e) {
     console.error("admin businesses error:", e);
     return res.status(500).json({ error: "Failed to load businesses" });
-  }
-});
-// =========================
-// ADMIN BUSINESSES
-// =========================
-app.get("/api/admin/businesses", requireAdmin, async (_req, res) => {
-  try {
-    const list = await listAllBusinesses();
-    return res.json({ ok: true, businesses: list });
-  } catch (e) {
-    console.error("admin businesses error:", e);
-    return res.status(500).json({ error: "Failed" });
   }
 });
 
