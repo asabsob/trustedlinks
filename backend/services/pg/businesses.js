@@ -255,7 +255,8 @@ export async function incrementBusinessEventField(businessId, fieldName) {
     clicks: "clicks",
     media: "media",
     whatsapp: "whatsapp",
-    whatsapp_clicks: "whatsapp", // دعم الاسم القديم
+    whatsapp_clicks: "whatsapp",
+    messages: "messages",
   };
 
   const safeField = fieldMap[fieldName];
@@ -283,7 +284,7 @@ export async function incrementBusinessEventField(businessId, fieldName) {
   if (!existingRow) {
     const newRow = {
       business_id: businessId,
-      owner_user_id: business.ownerUserId || null,
+      owner_user_id: business.ownerUserId,
       event_date: eventDate,
       views: 0,
       clicks: 0,
@@ -295,10 +296,6 @@ export async function incrementBusinessEventField(businessId, fieldName) {
       updated_at: new Date().toISOString(),
       [safeField]: 1,
     };
-
-    if (safeField === "whatsapp") {
-      newRow.messages = 1;
-    }
 
     newRow.total =
       Number(newRow.views || 0) +
@@ -318,10 +315,6 @@ export async function incrementBusinessEventField(businessId, fieldName) {
 
   const updatePayload = {
     [safeField]: Number(existingRow[safeField] || 0) + 1,
-    messages:
-      safeField === "whatsapp"
-        ? Number(existingRow.messages || 0) + 1
-        : Number(existingRow.messages || 0),
     updated_at: new Date().toISOString(),
   };
 
