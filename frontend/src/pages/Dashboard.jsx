@@ -21,7 +21,7 @@ export default function Dashboard({ lang = "en" }) {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const token = localStorage.getItem("trustedlinks_token");
+  const token = localStorage.getItem("token");
 
     if (!token) {
       navigate("/login", { replace: true });
