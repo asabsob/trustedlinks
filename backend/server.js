@@ -1935,6 +1935,20 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
       return res.status(404).json({ error: "Business not found" });
     }
 
+    const commissionPerLead = Number(business.billingWhatsappCost || 0.1);
+    const commissionPerClick = Number(business.billingClickCost || 0.01);
+    const commissionPerMedia = Number(business.billingMediaCost || 0.02);
+
+    const totalClicks = Number(business.clicksCount || 0);
+    const totalMessages = Number(business.messagesCount || 0);
+    const mediaViews = Number(business.mediaViewsCount || 0);
+    const views = Number(business.viewsCount || 0);
+
+    const estimatedRevenue =
+      totalMessages * commissionPerLead +
+      totalClicks * commissionPerClick +
+      mediaViews * commissionPerMedia;
+
     return res.json({
       business: business.name || "Business",
       logo:
@@ -1947,10 +1961,10 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
         ? business.category.join(", ")
         : toSafeCategoryValue(business.category) || "Category",
 
-      totalClicks: Number(business.clicksCount || 0),
-      totalMessages: Number(business.messagesCount || 0),
-      mediaViews: Number(business.mediaViewsCount || 0),
-      views: Number(business.viewsCount || 0),
+      totalClicks,
+      totalMessages,
+      mediaViews,
+      views,
       weeklyGrowth: 0,
 
       peakHour: "00",
@@ -1961,6 +1975,13 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
       hourly: [],
       keywords: [],
 
+      commission_per_lead: commissionPerLead,
+      commission_per_click: commissionPerClick,
+      commission_per_media: commissionPerMedia,
+
+      estimated_revenue: Number(estimatedRevenue.toFixed(2)),
+      currency: business.walletCurrency || "USD",
+
       sources: [
         {
           name_en: "WhatsApp",
@@ -1970,17 +1991,17 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
         {
           name_en: "Clicks",
           name_ar: "نقرات",
-          value: Number(business.clicksCount || 0),
+          value: totalClicks,
         },
         {
           name_en: "Media",
           name_ar: "وسائط",
-          value: Number(business.mediaViewsCount || 0),
+          value: mediaViews,
         },
         {
           name_en: "Views",
           name_ar: "مشاهدات",
-          value: Number(business.viewsCount || 0),
+          value: views,
         },
       ],
     });
@@ -1989,7 +2010,6 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
     return res.status(500).json({ error: "Failed" });
   }
 });
-
 // =========================
 // BUSINESS BALANCE
 // =========================
