@@ -126,18 +126,20 @@ const loadWallet = async () => {
       return;
     }
 
-    const [meRes, txRes] = await Promise.all([
-      fetch(`${API_BASE}/api/me`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }),
-      fetch(`${API_BASE}/api/business/transactions/${businessId}?limit=10`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }),
-    ]);
+   const [bizRes, txRes] = await Promise.all([
+  fetch(`${API_BASE}/api/business/me`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  }),
+  fetch(`${API_BASE}/api/business/transactions/${businessId}?limit=10`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  }),
+]);
+
+const bizData = await bizRes.json().catch(() => null);
 
     const meData = await meRes.json().catch(() => null);
     const txData = await txRes.json().catch(() => null);
@@ -146,10 +148,10 @@ const loadWallet = async () => {
       throw new Error(meData?.error || "Failed to load wallet");
     }
 
-    const nextBalance = Number(meData?.walletBalance || 0);
-    setBalance(nextBalance);
-    setCurrency(meData?.currency || "USD");
-    setStatus(inferStatus(nextBalance));
+   const nextBalance = Number(bizData?.wallet_balance || 0);
+setBalance(nextBalance);
+setCurrency(bizData?.wallet_currency || "USD");
+setStatus(bizData?.wallet_status || inferStatus(nextBalance));
 
     if (txRes.ok) {
       const txList = Array.isArray(txData)
