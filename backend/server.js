@@ -3064,8 +3064,8 @@ app.get("/l/:token", async (req, res) => {
       .from("lead_tokens")
       .select("*")
       .eq("id", tokenId)
-      .single();
-
+     .maybeSingle()
+    
     if (tokenError || !tokenRow) {
       console.error("LEAD TOKEN FETCH ERROR:", tokenError);
       return res.status(404).send("Lead link not found");
