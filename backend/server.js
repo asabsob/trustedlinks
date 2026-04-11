@@ -2371,6 +2371,7 @@ app.post("/api/track-view", async (req, res) => {
 // =========================
 // CLICK (paid)
 // =========================
+
 app.post("/api/track-click", async (req, res) => {
   try {
     const { businessId } = req.body || {};
@@ -2400,6 +2401,20 @@ app.post("/api/track-click", async (req, res) => {
       return res.status(429).json({
         error: "Too many repeated clicks",
         code: "CLICK_COOLDOWN",
+      });
+    }
+
+    const dailyKey = `click:${info.businessId}:${ip}`;
+
+    if (incrementDailyLimit(dailyKey, 50)) {
+      console.warn("ANTI_FRAUD_DAILY_LIMIT_CLICK", {
+        businessId: info.businessId,
+        ip,
+      });
+
+      return res.status(429).json({
+        error: "Daily click limit exceeded",
+        code: "DAILY_LIMIT",
       });
     }
 
