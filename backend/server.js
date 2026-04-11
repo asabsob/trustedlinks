@@ -1656,6 +1656,13 @@ app.put("/api/business/update", requireUser, async (req, res) => {
   }
 });
 
+const updatedBusiness = await updateBusiness(...);
+
+return res.json({
+  ok: true,
+  business: updatedBusiness,
+});
+
 // =========================
 // BUSINESS REPORTS
 // =========================
