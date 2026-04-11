@@ -178,7 +178,7 @@ searchCount: "عدد مرات البحث",
     let cancelled = false;
 
     async function load() {
-    const token = localStorage.getItem("trustedlinks_token");
+    const token = localStorage.getItem("token");
 
       if (!token) {
         navigate("/login", { replace: true });
@@ -299,7 +299,10 @@ searchCount: "عدد مرات البحث",
   const convRateNumber = totalClicks > 0 ? Math.round((totalMessages / totalClicks) * 100) : 0;
   const convRate = totalClicks > 0 ? `${convRateNumber}%` : "-";
 
-  const estimatedValue = `${(totalMessages * 0.15).toFixed(2)} USD`;
+ const commission = Number(data?.commission_per_lead || 0.1);
+
+const estimatedValue = `${(totalMessages * commission).toFixed(2)} USD`;
+  
   const lostOpportunities = Math.max(0, totalClicks - totalMessages);
   const averageDaily = filteredActivity.length
     ? (totalClicks / filteredActivity.length).toFixed(1)
