@@ -285,6 +285,7 @@ export async function incrementBusinessEventField(businessId, fieldName) {
     const newRow = {
       business_id: businessId,
       owner_user_id: business.ownerUserId,
+      type: safeField, // ✅ مهم جدًا
       event_date: eventDate,
       views: 0,
       clicks: 0,
