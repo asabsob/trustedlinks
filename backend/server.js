@@ -700,7 +700,7 @@ app.post("/api/auth/signup", async (req, res) => {
       walletBalance: 5,
       walletCurrency: "USD",
       walletStatus: "active",
-      walletAllowNegative: false,
+     walletAllowNegative: true,
       walletNegativeLimit: -5,
       walletLowBalanceThreshold: 5,
 
