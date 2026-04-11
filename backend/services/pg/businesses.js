@@ -250,9 +250,23 @@ export async function getBusinessById(id) {
 }
 
 export async function incrementBusinessEventField(businessId, fieldName) {
-  const allowedFields = ["views", "clicks", "whatsapp", "media"];
-  if (!allowedFields.includes(fieldName)) {
+  const fieldMap = {
+    views: "views",
+    clicks: "clicks",
+    media: "media",
+    whatsapp: "whatsapp",
+    whatsapp_clicks: "whatsapp", // دعم الاسم القديم
+  };
+
+  const safeField = fieldMap[fieldName];
+
+  if (!safeField) {
     throw new Error(`Invalid field name: ${fieldName}`);
+  }
+
+  const business = await getBusinessById(businessId);
+  if (!business) {
+    throw new Error("Business not found");
   }
 
   const eventDate = new Date().toISOString().slice(0, 10);
@@ -269,6 +283,7 @@ export async function incrementBusinessEventField(businessId, fieldName) {
   if (!existingRow) {
     const newRow = {
       business_id: businessId,
+      owner_user_id: business.ownerUserId || null,
       event_date: eventDate,
       views: 0,
       clicks: 0,
@@ -278,10 +293,10 @@ export async function incrementBusinessEventField(businessId, fieldName) {
       total: 0,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      [fieldName]: 1,
+      [safeField]: 1,
     };
 
-    if (fieldName === "whatsapp") {
+    if (safeField === "whatsapp") {
       newRow.messages = 1;
     }
 
@@ -302,31 +317,31 @@ export async function incrementBusinessEventField(businessId, fieldName) {
   }
 
   const updatePayload = {
-    [fieldName]: Number(existingRow[fieldName] || 0) + 1,
+    [safeField]: Number(existingRow[safeField] || 0) + 1,
     messages:
-      fieldName === "whatsapp"
+      safeField === "whatsapp"
         ? Number(existingRow.messages || 0) + 1
         : Number(existingRow.messages || 0),
     updated_at: new Date().toISOString(),
   };
 
   const nextViews =
-    fieldName === "views"
+    safeField === "views"
       ? updatePayload.views
       : Number(existingRow.views || 0);
 
   const nextClicks =
-    fieldName === "clicks"
+    safeField === "clicks"
       ? updatePayload.clicks
       : Number(existingRow.clicks || 0);
 
   const nextWhatsapp =
-    fieldName === "whatsapp"
+    safeField === "whatsapp"
       ? updatePayload.whatsapp
       : Number(existingRow.whatsapp || 0);
 
   const nextMedia =
-    fieldName === "media"
+    safeField === "media"
       ? updatePayload.media
       : Number(existingRow.media || 0);
 
