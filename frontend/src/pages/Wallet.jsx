@@ -145,12 +145,12 @@ const loadWallet = async () => {
     
 const bizData = await bizRes.json().catch(() => null);
 
-    const meData = await meRes.json().catch(() => null);
+   
     const txData = await txRes.json().catch(() => null);
 
-    if (!meRes.ok) {
-      throw new Error(meData?.error || "Failed to load wallet");
-    }
+   if (!bizRes.ok) {
+  throw new Error(bizData?.error || "Failed to load wallet");
+}
 
    const nextBalance = Number(bizData?.wallet_balance || 0);
 setBalance(nextBalance);
