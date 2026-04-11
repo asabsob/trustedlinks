@@ -3052,6 +3052,9 @@ function buildWhatsAppLeadMessage({
 // =========================
 // Lead Redirect Route
 // =========================
+// =========================
+// Lead Redirect Route
+// =========================
 app.get("/l/:token", async (req, res) => {
   try {
     const tokenId = String(req.params.token || "").trim();
@@ -3064,8 +3067,8 @@ app.get("/l/:token", async (req, res) => {
       .from("lead_tokens")
       .select("*")
       .eq("id", tokenId)
-     .maybeSingle()
-    
+      .maybeSingle();
+
     if (tokenError || !tokenRow) {
       console.error("LEAD TOKEN FETCH ERROR:", tokenError);
       return res.status(404).send("Lead link not found");
@@ -3073,6 +3076,17 @@ app.get("/l/:token", async (req, res) => {
 
     if (tokenRow.expires_at && new Date(tokenRow.expires_at) < new Date()) {
       return res.status(410).send("Lead link expired");
+    }
+
+    const ip =
+      req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
+      req.socket?.remoteAddress ||
+      "unknown";
+
+    const leadKey = `lead:${tokenRow.id}:${ip}`;
+
+    if (isWithinCooldown(LEAD_GUARD, leadKey, 60 * 1000)) {
+      return res.status(429).send("Too many repeated lead requests");
     }
 
     const rawPhone = String(tokenRow.business_phone || "").replace(/\D/g, "");
@@ -3099,10 +3113,7 @@ app.get("/l/:token", async (req, res) => {
           clicked_at: new Date().toISOString(),
           user_agent: req.get("user-agent") || null,
           referer: req.get("referer") || null,
-          ip_address:
-            req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
-            req.socket?.remoteAddress ||
-            null,
+          ip_address: ip,
         },
       ]);
 
