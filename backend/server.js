@@ -399,6 +399,7 @@ async function deductWalletBalance({
       balanceBefore: result.balanceBefore,
       balanceAfter: result.balanceAfter,
       currency: result.currency,
+      isNegative: Number(result.balanceAfter) < 0,
     };
   } catch (e) {
     if (e.message === "INSUFFICIENT_BALANCE") {
