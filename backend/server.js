@@ -2308,30 +2308,22 @@ app.post("/api/track-click", async (req, res) => {
     const info = await getBusinessOwnerInfo(businessId);
     if (!info) return res.status(404).json({ error: "Business not found" });
 
+    // ✅ هنا تضيفه
+    const ip =
+      req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
+      req.socket?.remoteAddress ||
+      "unknown";
+
     const deduction = await deductWalletBalance({
       ownerUserId: info.ownerUserId,
       businessId: info.businessId,
       eventType: "click",
       reason: "Business profile click charge",
-      reference: `click_${businessId}_${req.ip}_${Date.now()}`
-      meta: { source: "business_profile_click" },
+      reference: `click_${businessId}_${ip}_${Date.now()}`, // 👈 استخدم ip هنا
+      meta: { source: "business_profile_click", ip },
     });
 
-    if (deduction.insufficient) {
-      return res.status(402).json({
-        error: "Insufficient balance",
-        code: "INSUFFICIENT_BALANCE",
-      });
-    }
-
-  await pushEvent(info.businessId, "clicks");
-
-    await logBusinessEvent({
-      businessId: info.businessId,
-      ownerUserId: info.ownerUserId,
-      type: "click",
-      source: "business_profile_click",
-    });
+    await pushEvent(businessId, "clicks");
 
     return res.json({
       ok: true,
@@ -2343,7 +2335,6 @@ app.post("/api/track-click", async (req, res) => {
     return res.status(500).json({ error: "Failed" });
   }
 });
-
 // =========================
 // MEDIA (paid)
 // =========================
