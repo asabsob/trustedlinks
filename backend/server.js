@@ -1552,20 +1552,21 @@ app.put("/api/business/update", requireUser, async (req, res) => {
     }
 
     const payload = {
-  name: req.body.name,
-  name_ar: req.body.name_ar,
-  description: req.body.description,
-  description_ar: req.body.description_ar,
-  keywords: Array.isArray(req.body.keywords) ? req.body.keywords : [],
-  keywords_ar: Array.isArray(req.body.keywords_ar) ? req.body.keywords_ar : [],
-  category: Array.isArray(req.body.category) ? req.body.category : [],
-  whatsapp: req.body.whatsapp,
-  mediaLink: req.body.mediaLink,
-  logo: req.body.logo,
-  locationText: req.body.locationText,
-  countryCode: req.body.countryCode,
-  countryName: req.body.countryName,
-};
+      name: req.body.name,
+      name_ar: req.body.name_ar,
+      description: req.body.description,
+      description_ar: req.body.description_ar,
+      keywords: Array.isArray(req.body.keywords) ? req.body.keywords : [],
+      keywords_ar: Array.isArray(req.body.keywords_ar) ? req.body.keywords_ar : [],
+      category: Array.isArray(req.body.category) ? req.body.category : [],
+      whatsapp: req.body.whatsapp,
+      mediaLink: req.body.mediaLink,
+      logo: req.body.logo,
+      locationText: req.body.locationText,
+      countryCode: req.body.countryCode,
+      countryName: req.body.countryName,
+    };
+
     const lang = String(req.body?.lang || "en").toLowerCase();
 
     // =========================
@@ -1621,8 +1622,6 @@ app.put("/api/business/update", requireUser, async (req, res) => {
       }
     }
 
-    delete payload.lang;
-
     const updated = await updateBusinessByOwnerUserId(String(req.user.id), payload);
 
     const formatted = {
@@ -1638,31 +1637,15 @@ app.put("/api/business/update", requireUser, async (req, res) => {
         : null,
     };
 
-   const safeResults = results.map((b) => ({
-  id: b.id,
-  name: b.name,
-  name_ar: b.name_ar,
-  description: b.description,
-  category: b.category,
-  logo: b.logo,
-  whatsappLink: b.whatsapp
-    ? `https://wa.me/${String(b.whatsapp).replace(/\D/g, "")}`
-    : null,
-}));
-    
+    return res.json({
+      ok: true,
+      business: formatted,
+    });
   } catch (e) {
     console.error("update business error:", e);
     return res.status(500).json({ error: "Update failed" });
   }
 });
-
-const updatedBusiness = await updateBusiness(...);
-
-return res.json({
-  ok: true,
-  business: updatedBusiness,
-});
-
 // =========================
 // BUSINESS REPORTS
 // =========================
