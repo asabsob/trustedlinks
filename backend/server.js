@@ -217,6 +217,25 @@ const getIP = (req) =>
   req.socket?.remoteAddress ||
   null;
 
+const DAILY_LIMIT = new Map();
+
+function incrementDailyLimit(key, limit = 50) {
+  const now = Date.now();
+  const day = Math.floor(now / (1000 * 60 * 60 * 24));
+
+  const data = DAILY_LIMIT.get(key) || { count: 0, day };
+
+  if (data.day !== day) {
+    data.count = 0;
+    data.day = day;
+  }
+
+  data.count++;
+
+  DAILY_LIMIT.set(key, data);
+
+  return data.count > limit;
+}
 // =========================
 // MEMORY (instead of Mongo sessions)
 // =========================
@@ -406,6 +425,19 @@ function isWithinCooldown(map, key, cooldownMs) {
   return false;
 }
 
+const dailyKey = `click:${info.businessId}:${ip}`;
+
+if (incrementDailyLimit(dailyKey, 50)) {
+  console.warn("ANTI_FRAUD_DAILY_LIMIT_CLICK", {
+    businessId: info.businessId,
+    ip,
+  });
+
+  return res.status(429).json({
+    error: "Daily click limit exceeded",
+    code: "DAILY_LIMIT",
+  });
+}
 function cleanupGuardMap(map, olderThanMs = 60 * 60 * 1000) {
   const now = Date.now();
   for (const [key, ts] of map.entries()) {
@@ -2505,7 +2537,19 @@ app.post("/api/track-whatsapp", async (req, res) => {
         code: "WHATSAPP_COOLDOWN",
       });
     }
+const dailyKey = `whatsapp:${info.businessId}:${ip}`;
 
+if (incrementDailyLimit(dailyKey, 20)) {
+  console.warn("ANTI_FRAUD_DAILY_LIMIT_WHATSAPP", {
+    businessId: info.businessId,
+    ip,
+  });
+
+  return res.status(429).json({
+    error: "Daily WhatsApp limit exceeded",
+    code: "DAILY_LIMIT",
+  });
+}
     const deduction = await deductWalletBalance({
       ownerUserId: info.ownerUserId,
       businessId: info.businessId,
