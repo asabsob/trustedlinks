@@ -425,19 +425,6 @@ function isWithinCooldown(map, key, cooldownMs) {
   return false;
 }
 
-const dailyKey = `click:${info.businessId}:${ip}`;
-
-if (incrementDailyLimit(dailyKey, 50)) {
-  console.warn("ANTI_FRAUD_DAILY_LIMIT_CLICK", {
-    businessId: info.businessId,
-    ip,
-  });
-
-  return res.status(429).json({
-    error: "Daily click limit exceeded",
-    code: "DAILY_LIMIT",
-  });
-}
 function cleanupGuardMap(map, olderThanMs = 60 * 60 * 1000) {
   const now = Date.now();
   for (const [key, ts] of map.entries()) {
