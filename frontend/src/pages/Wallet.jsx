@@ -126,22 +126,20 @@ export default function Wallet({ lang = "en" }) {
         return;
       }
 
-      const [bizRes, txRes] = await Promise.all([
-        fetch(`${API_BASE}/api/business/me`, {
-          cache: "no-store",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Cache-Control": "no-cache",
-          },
-        }),
-        fetch(`${API_BASE}/api/business/transactions/${businessId}?limit=10`, {
-          cache: "no-store",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Cache-Control": "no-cache",
-          },
-        }),
-      ]);
+     const [bizRes, txRes] = await Promise.all([
+  fetch(`${API_BASE}/api/business/me`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  }),
+  fetch(`${API_BASE}/api/business/transactions/${businessId}?limit=10`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  }),
+]);
 
       const bizData = await bizRes.json().catch(() => null);
       const txData = await txRes.json().catch(() => null);
