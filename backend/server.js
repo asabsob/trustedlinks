@@ -97,7 +97,7 @@ app.options("*", cors(corsOptions));
 app.use(express.json({ limit: "200kb" }));
 app.use(express.urlencoded({ extended: true, limit: "200kb" }));
 
-app.use(helmet(...));
+app.use(helmet());
 app.use(morgan(...));
 
 const PORT = process.env.PORT || 5175;
