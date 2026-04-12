@@ -1574,12 +1574,7 @@ app.get("/api/business/me", requireUser, async (req, res) => {
     if (!business) {
       return res.status(404).json({ error: "Business not found" });
     }
-
-    console.log("BUSINESS FROM getBusinessByOwnerUserId =", business);
-    console.log("wallet =", business?.wallet);
-    console.log("id =", business?.id);
-    console.log("_id =", business?._id);
-
+    
     const formatted = {
       ...business,
 
