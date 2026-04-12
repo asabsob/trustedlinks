@@ -98,7 +98,7 @@ app.use(express.json({ limit: "200kb" }));
 app.use(express.urlencoded({ extended: true, limit: "200kb" }));
 
 app.use(helmet());
-app.use(morgan(...));
+app.use(morgan("dev"));
 
 const PORT = process.env.PORT || 5175;
 
