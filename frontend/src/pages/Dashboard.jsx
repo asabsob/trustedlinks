@@ -114,9 +114,11 @@ export default function Dashboard({ lang = "en" }) {
     if (!business) return "0 USD";
 
     const balance =
-      typeof business.wallet_balance === "number"
-        ? business.wallet_balance
-        : 0;
+  typeof business.wallet_balance === "number"
+    ? business.wallet_balance
+    : typeof business.balance === "number"
+    ? business.balance
+    : 0;
 
     const currency = business.wallet_currency || "USD";
 
