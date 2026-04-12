@@ -1576,20 +1576,24 @@ app.get("/api/business/me", requireUser, async (req, res) => {
     }
 
     console.log("BUSINESS FROM getBusinessByOwnerUserId =", business);
-console.log("wallet_balance =", business?.wallet_balance);
-console.log("wallet_currency =", business?.wallet_currency);
-console.log("balance =", business?.balance);
-console.log("id =", business?.id);
-console.log("_id =", business?._id);
-    
+    console.log("wallet =", business?.wallet);
+    console.log("id =", business?.id);
+    console.log("_id =", business?._id);
+
     const formatted = {
       ...business,
+
+      wallet_balance: Number(business?.wallet?.balance ?? 0),
+      wallet_currency: business?.wallet?.currency || "USD",
+      wallet_status: business?.wallet?.status || "active",
+
       logo:
         business.logo ||
         (business.mediaLink &&
         /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(String(business.mediaLink))
           ? business.mediaLink
           : null),
+
       whatsappLink: business.whatsapp
         ? `https://wa.me/${String(business.whatsapp).replace(/\D/g, "")}`
         : null,
