@@ -84,6 +84,7 @@ import rateLimit from "express-rate-limit";
 import morgan from "morgan";
 
 dotenv.config();
+console.log("🚀 SERVER VERSION: TEST 1 - SAMEER");
 
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
   throw new Error("Missing Supabase environment variables");
