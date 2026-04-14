@@ -161,7 +161,6 @@ if (!process.env.BASE_URL || !/^https?:\/\//i.test(process.env.BASE_URL)) {
   throw new Error("Missing or invalid BASE_URL");
 }
 
-app.set("trust proxy", 1);
 
 app.use(
   helmet({
@@ -184,12 +183,27 @@ const apiLimiter = rateLimit({
   message: { error: "Too many requests, please try again later." },
 });
 
+app.set("trust proxy", true);
+
+app.use("/api/auth/login", (req, _res, next) => {
+  console.log("LOGIN LIMIT DEBUG", {
+    ip: req.ip,
+    forwarded: req.headers["x-forwarded-for"],
+    realIp: req.headers["x-real-ip"],
+  });
+  next();
+});
+
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many auth attempts, please try again later." },
+  keyGenerator: (req) =>
+    String(req.headers["x-forwarded-for"] || req.ip || "unknown")
+      .split(",")[0]
+      .trim(),
 });
 
 const otpLimiter = rateLimit({
