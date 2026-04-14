@@ -185,14 +185,6 @@ const apiLimiter = rateLimit({
 
 app.set("trust proxy", true);
 
-app.use("/api/auth/login", (req, _res, next) => {
-  console.log("LOGIN LIMIT DEBUG", {
-    ip: req.ip,
-    forwarded: req.headers["x-forwarded-for"],
-    realIp: req.headers["x-real-ip"],
-  });
-  next();
-});
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
