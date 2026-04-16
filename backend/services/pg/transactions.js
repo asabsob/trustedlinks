@@ -89,3 +89,28 @@ export async function createTransaction(payload) {
 
   return tx;
 }
+
+export async function listBusinessTransactions(businessId, limit = 10) {
+  const { data, error } = await supabase
+    .from("transactions")
+    .select("*")
+    .eq("business_id", businessId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    await logEvent({
+      event: "transaction_list_failed",
+      level: "error",
+      meta: {
+        businessId,
+        limit,
+        error: error.message,
+      },
+    });
+
+    throw error;
+  }
+
+  return (data || []).map(mapTransaction);
+}
