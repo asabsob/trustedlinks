@@ -1,4 +1,5 @@
 import supabase from "../../db/postgres.js";
+import { logEvent } from "./auditLogs.js";
 
 function mapTransaction(row) {
   if (!row) return null;
@@ -46,18 +47,45 @@ export async function createTransaction(payload) {
     .select("*")
     .single();
 
-  if (error) throw error;
-  return mapTransaction(data);
-}
+  if (error) {
+    await logEvent({
+      event: "transaction_create_failed",
+      level: "error",
+      meta: {
+        userId: insertData.user_id,
+        businessId: insertData.business_id,
+        type: insertData.type,
+        amount: insertData.amount,
+        currency: insertData.currency,
+        reason: insertData.reason,
+        reference: insertData.reference,
+        error: error.message,
+      },
+    });
 
-export async function listBusinessTransactions(businessId, limit = 10) {
-  const { data, error } = await supabase
-    .from("transactions")
-    .select("*")
-    .eq("business_id", businessId)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+    throw error;
+  }
 
-  if (error) throw error;
-  return (data || []).map(mapTransaction);
+  const tx = mapTransaction(data);
+
+  await logEvent({
+    event: "transaction_created",
+    level: "info",
+    meta: {
+      transactionId: tx.id,
+      userId: tx.userId,
+      businessId: tx.businessId,
+      type: tx.type,
+      amount: tx.amount,
+      currency: tx.currency,
+      reason: tx.reason,
+      eventType: tx.eventType,
+      reference: tx.reference,
+      status: tx.status,
+      balanceBefore: tx.balanceBefore,
+      balanceAfter: tx.balanceAfter,
+    },
+  });
+
+  return tx;
 }
