@@ -85,6 +85,18 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import morgan from "morgan";
 
+import { logEvent } from "./services/pg/auditLogs.js";
+
+function getClientMeta(req) {
+  return {
+    ip:
+      req.headers["x-forwarded-for"] ||
+      req.socket?.remoteAddress ||
+      null,
+    userAgent: req.headers["user-agent"] || null,
+  };
+}
+
 dotenv.config();
 console.log("🚀 SERVER VERSION: TEST 1 - SAMEER");
 
@@ -1193,24 +1205,35 @@ app.post("/api/whatsapp/request-otp", async (req, res) => {
       });
     }
 
+    const { ip, userAgent } = getClientMeta(req);
+
     // Check cooldown before generating a new OTP
-   const existingOtp = await getOtp(clean, "business_signup");
-const otpCreatedAt = existingOtp?.createdAt || existingOtp?.created_at;
+    const existingOtp = await getOtp(clean, "business_signup");
+    const otpCreatedAt = existingOtp?.createdAt || existingOtp?.created_at;
 
-if (otpCreatedAt) {
-  const createdAtMs = new Date(otpCreatedAt).getTime();
-  const elapsedSeconds = Math.floor((Date.now() - createdAtMs) / 1000);
-  const retryAfter = OTP_RESEND_COOLDOWN_SECONDS - elapsedSeconds;
+    if (otpCreatedAt) {
+      const createdAtMs = new Date(otpCreatedAt).getTime();
+      const elapsedSeconds = Math.floor((Date.now() - createdAtMs) / 1000);
+      const retryAfter = OTP_RESEND_COOLDOWN_SECONDS - elapsedSeconds;
 
-  if (retryAfter > 0) {
-    return res.status(429).json({
-      ok: false,
-      error: "Please wait before requesting a new OTP.",
-      reason: "OTP_COOLDOWN",
-      retryAfter,
-    });
-  }
-}
+      if (retryAfter > 0) {
+        await logEvent({
+          event: "otp_request_cooldown_blocked",
+          level: "warn",
+          whatsapp: clean,
+          ip,
+          userAgent,
+          meta: { retryAfter },
+        });
+
+        return res.status(429).json({
+          ok: false,
+          error: "Please wait before requesting a new OTP.",
+          reason: "OTP_COOLDOWN",
+          retryAfter,
+        });
+      }
+    }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -1225,6 +1248,15 @@ if (otpCreatedAt) {
 
     // Development fallback if JAVNA is not configured
     if (!JAVNA_API_KEY || !JAVNA_FROM) {
+      await logEvent({
+        event: "otp_request_success",
+        level: "info",
+        whatsapp: clean,
+        ip,
+        userAgent,
+        meta: { provider: "mock" },
+      });
+
       return res.json({
         ok: true,
         success: true,
@@ -1242,12 +1274,30 @@ if (otpCreatedAt) {
     });
 
     if (javnaResp?.stats?.rejected === "1") {
+      await logEvent({
+        event: "otp_request_rejected",
+        level: "warn",
+        whatsapp: clean,
+        ip,
+        userAgent,
+        meta: { javna: javnaResp },
+      });
+
       return res.status(400).json({
         ok: false,
         error: "Javna rejected template",
         javna: javnaResp,
       });
     }
+
+    await logEvent({
+      event: "otp_request_success",
+      level: "info",
+      whatsapp: clean,
+      ip,
+      userAgent,
+      meta: { provider: "javna" },
+    });
 
     return res.json({
       ok: true,
@@ -1265,6 +1315,7 @@ if (otpCreatedAt) {
     });
   }
 });
+
 // =========================
 // VERIFY OTP
 // =========================
@@ -1300,9 +1351,19 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
       });
     }
 
+    const { ip, userAgent } = getClientMeta(req);
+
     const rec = await getOtp(clean, "business_signup");
 
     if (!rec) {
+      await logEvent({
+        event: "otp_verify_no_otp",
+        level: "warn",
+        whatsapp: clean,
+        ip,
+        userAgent,
+      });
+
       return res.status(404).json({
         ok: false,
         error: "No OTP found.",
@@ -1311,6 +1372,17 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
     }
 
     if (rec.blockedAt) {
+      await logEvent({
+        event: "otp_verify_blocked",
+        level: "error",
+        whatsapp: clean,
+        ip,
+        userAgent,
+        meta: {
+          attempts: rec.attempts || 0,
+        },
+      });
+
       return res.status(423).json({
         ok: false,
         error: "OTP is blocked due to too many failed attempts.",
@@ -1319,6 +1391,14 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
     }
 
     if (!rec.expiresAt || rec.expiresAt.getTime() < Date.now()) {
+      await logEvent({
+        event: "otp_verify_expired",
+        level: "warn",
+        whatsapp: clean,
+        ip,
+        userAgent,
+      });
+
       return res.status(410).json({
         ok: false,
         error: "OTP expired.",
@@ -1334,6 +1414,18 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
       if (attempts >= OTP_MAX_VERIFY_ATTEMPTS) {
         await blockOtp(rec.id);
 
+        await logEvent({
+          event: "otp_verify_blocked",
+          level: "error",
+          whatsapp: clean,
+          ip,
+          userAgent,
+          meta: {
+            attempts,
+            reason: "max_attempts_reached",
+          },
+        });
+
         return res.status(423).json({
           ok: false,
           error: "OTP blocked due to too many failed attempts.",
@@ -1342,6 +1434,18 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
           remainingAttempts: 0,
         });
       }
+
+      await logEvent({
+        event: "otp_verify_bad_code",
+        level: "warn",
+        whatsapp: clean,
+        ip,
+        userAgent,
+        meta: {
+          attempts,
+          remainingAttempts,
+        },
+      });
 
       return res.status(401).json({
         ok: false,
@@ -1364,6 +1468,14 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
       { expiresIn: "15m" }
     );
 
+    await logEvent({
+      event: "otp_verify_success",
+      level: "info",
+      whatsapp: clean,
+      ip,
+      userAgent,
+    });
+
     return res.json({
       ok: true,
       message: "OTP verified ✅",
@@ -1379,7 +1491,6 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
     });
   }
 });
-
 // =========================
 // CREATE BUSINESS TOPUP ORDER
 // =========================
