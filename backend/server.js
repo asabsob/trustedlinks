@@ -204,8 +204,7 @@ const apiLimiter = rateLimit({
   message: { error: "Too many requests, please try again later." },
 });
 
-app.set("trust proxy", true);
-
+app.set("trust proxy", 1);
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -1820,6 +1819,13 @@ app.post("/api/payments/confirm-topup-order", requireUser, async (req, res) => {
       return res.json(responseBody);
     }
 
+    if (!orderId) {
+  console.log("confirm-topup-order: missing orderId");
+  return res.status(400).json({
+    ok: false,
+    error: "orderId required",
+  });
+}
     if (order.status !== "pending") {
       return res.status(400).json({
         ok: false,
