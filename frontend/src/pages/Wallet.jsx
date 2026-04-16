@@ -91,7 +91,7 @@ export default function Wallet({ lang = "en" }) {
     []
   )[lang];
 
-  const quickPackages = useMemo(() => [10, 25, 50, 100], []);
+ const quickPackages = useMemo(() => [5, 10, 15, 20], []);
 
   useEffect(() => {
     document.title =
@@ -237,8 +237,19 @@ export default function Wallet({ lang = "en" }) {
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        throw new Error(data?.error || "Failed to create topup order");
-      }
+  if (data?.reason === "TOPUP_LIMIT_EXCEEDED") {
+    const remaining = Number(data?.remainingAllowed || 0);
+
+    const msg =
+      lang === "ar"
+        ? `الحد التجريبي للشحن هو 20$. المتبقي لك: ${remaining.toFixed(2)}`
+        : `Trial limit is $20. Remaining allowed: ${remaining.toFixed(2)}`;
+
+    throw new Error(msg);
+  }
+
+  throw new Error(data?.error || "Failed to create topup order");
+}
 
       setPendingOrder(data);
       setMessage(t.orderCreated);
@@ -432,15 +443,20 @@ const res = await fetch(`${API_BASE}/api/payments/confirm-topup-order`, {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 className="mb-2 text-lg font-semibold text-slate-900">
-              {t.addBalance}
-            </h3>
-            <p className="mb-4 text-sm text-slate-500">{t.customAmount}</p>
+         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+  <h3 className="mb-2 text-lg font-semibold text-slate-900">
+    {t.addBalance}
+  </h3>
+<p className="mb-2 text-xs text-slate-500">
+  {lang === "ar"
+    ? `الحد التجريبي: 20$ | المتبقي: ${(20 - balance).toFixed(2)}`
+    : `Trial limit: $20 | Remaining: ${(20 - balance).toFixed(2)}`}
+</p>
 
             <form onSubmit={handleTopup} className="space-y-4">
               <input
                 type="number"
+                max="20"
                 min="1"
                 step="0.01"
                 value={topupAmount}
