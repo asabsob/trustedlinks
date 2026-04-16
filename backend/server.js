@@ -52,7 +52,9 @@ import {
   createOtp,
   getOtp,
   consumeOtp,
-} from "./services/pg/otps.js";
+  incrementOtpAttempts,
+  blockOtp,
+} from "../services/pg/otps.js";
 
 import {
   createTransaction,
@@ -1266,6 +1268,9 @@ if (otpCreatedAt) {
 // =========================
 // VERIFY OTP
 // =========================
+
+const OTP_MAX_VERIFY_ATTEMPTS = 5;
+
 app.post("/api/whatsapp/verify-otp", async (req, res) => {
   try {
     const { whatsapp, code } = req.body || {};
@@ -1305,23 +1310,47 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
       });
     }
 
-   const otpExpiresAt = rec.expiresAt || rec.expires_at;
+    if (rec.blockedAt) {
+      return res.status(423).json({
+        ok: false,
+        error: "OTP is blocked due to too many failed attempts.",
+        reason: "OTP_BLOCKED",
+      });
+    }
 
-if (!otpExpiresAt || new Date(otpExpiresAt).getTime() < Date.now()) {
-  return res.status(410).json({
-    ok: false,
-    error: "OTP expired.",
-    reason: "EXPIRED",
-  });
-}
+    if (!rec.expiresAt || rec.expiresAt.getTime() < Date.now()) {
+      return res.status(410).json({
+        ok: false,
+        error: "OTP expired.",
+        reason: "EXPIRED",
+      });
+    }
 
-if (String(rec.code) !== String(code)) {
-  return res.status(401).json({
-    ok: false,
-    error: "Invalid OTP code.",
-    reason: "BAD_CODE",
-  });
-}
+    if (String(rec.code) !== String(code)) {
+      const updatedOtp = await incrementOtpAttempts(rec.id);
+      const attempts = Number(updatedOtp?.attempts || 0);
+      const remainingAttempts = Math.max(0, OTP_MAX_VERIFY_ATTEMPTS - attempts);
+
+      if (attempts >= OTP_MAX_VERIFY_ATTEMPTS) {
+        await blockOtp(rec.id);
+
+        return res.status(423).json({
+          ok: false,
+          error: "OTP blocked due to too many failed attempts.",
+          reason: "OTP_BLOCKED",
+          attempts,
+          remainingAttempts: 0,
+        });
+      }
+
+      return res.status(401).json({
+        ok: false,
+        error: "Invalid OTP code.",
+        reason: "BAD_CODE",
+        attempts,
+        remainingAttempts,
+      });
+    }
 
     await consumeOtp(rec.id);
 
