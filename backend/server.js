@@ -87,6 +87,13 @@ import morgan from "morgan";
 
 import { logEvent } from "./services/pg/auditLogs.js";
 
+import {
+  buildRequestHash,
+  getIdempotencyRecord,
+  createIdempotencyRecord,
+  completeIdempotencyRecord,
+} from "./services/pg/idempotency.js";
+
 function getClientMeta(req) {
   return {
     ip:
@@ -312,6 +319,91 @@ function incrementDailyLimit(key, limit = 50) {
   DAILY_LIMIT.set(key, data);
 
   return data.count > limit;
+}
+
+async function beginIdempotentRequest({
+  req,
+  scope,
+  payload,
+  ttlHours = 24,
+}) {
+  const idempotencyKey = req.headers["idempotency-key"];
+
+  if (!idempotencyKey) {
+    return {
+      ok: false,
+      type: "missing_key",
+      response: {
+        status: 400,
+        body: {
+          ok: false,
+          error: "Missing Idempotency-Key header",
+          reason: "MISSING_IDEMPOTENCY_KEY",
+        },
+      },
+    };
+  }
+
+  const requestHash = buildRequestHash(payload || {});
+  const existing = await getIdempotencyRecord(scope, idempotencyKey);
+
+  if (existing) {
+    if (existing.requestHash && existing.requestHash !== requestHash) {
+      return {
+        ok: false,
+        type: "hash_mismatch",
+        response: {
+          status: 409,
+          body: {
+            ok: false,
+            error: "Idempotency-Key was already used with different payload.",
+            reason: "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD",
+          },
+        },
+      };
+    }
+
+    if (existing.status === "completed") {
+      return {
+        ok: false,
+        type: "replay",
+        response: {
+          status: existing.responseCode || 200,
+          body: existing.responseBody || {
+            ok: true,
+            replayed: true,
+          },
+        },
+      };
+    }
+
+    return {
+      ok: false,
+      type: "still_processing",
+      response: {
+        status: 409,
+        body: {
+          ok: false,
+          error: "Request with this Idempotency-Key is already processing.",
+          reason: "IDEMPOTENT_REQUEST_IN_PROGRESS",
+        },
+      },
+    };
+  }
+
+  await createIdempotencyRecord({
+    scope,
+    idempotencyKey,
+    requestHash,
+    ttlHours,
+  });
+
+  return {
+    ok: true,
+    idempotencyKey,
+    scope,
+    requestHash,
+  };
 }
 // =========================
 // MEMORY (instead of Mongo sessions)
@@ -1665,6 +1757,9 @@ app.get("/api/payments/topup-orders/:id", requireUser, async (req, res) => {
 // =========================
 // CONFIRM BUSINESS TOPUP ORDER
 // =========================
+// =========================
+// CONFIRM BUSINESS TOPUP ORDER
+// =========================
 app.post("/api/payments/confirm-topup-order", requireUser, async (req, res) => {
   try {
     const orderId = String(req.body?.orderId || "").trim();
@@ -1674,6 +1769,19 @@ app.post("/api/payments/confirm-topup-order", requireUser, async (req, res) => {
         ok: false,
         error: "orderId required",
       });
+    }
+
+    const idem = await beginIdempotentRequest({
+      req,
+      scope: "confirm_topup_order",
+      payload: {
+        orderId,
+        userId: req.user.id,
+      },
+    });
+
+    if (!idem.ok) {
+      return res.status(idem.response.status).json(idem.response.body);
     }
 
     const order = await getTopupOrderById(orderId);
@@ -1694,12 +1802,22 @@ app.post("/api/payments/confirm-topup-order", requireUser, async (req, res) => {
     if (order.status === "paid") {
       const business = await getBusinessById(order.businessId);
 
-      return res.json({
+      const responseBody = {
         ok: true,
         alreadyPaid: true,
         balance: business?.wallet?.balance || 0,
         currency: business?.wallet?.currency || "USD",
+        orderId: order.id,
+      };
+
+      await completeIdempotencyRecord({
+        scope: "confirm_topup_order",
+        idempotencyKey: idem.idempotencyKey,
+        responseCode: 200,
+        responseBody,
       });
+
+      return res.json(responseBody);
     }
 
     if (order.status !== "pending") {
@@ -1721,12 +1839,21 @@ app.post("/api/payments/confirm-topup-order", requireUser, async (req, res) => {
 
     await markTopupOrderPaid(order.id);
 
-    return res.json({
+    const responseBody = {
       ok: true,
       balance: result.balanceAfter,
       currency: result.currency || "USD",
       orderId: order.id,
+    };
+
+    await completeIdempotencyRecord({
+      scope: "confirm_topup_order",
+      idempotencyKey: idem.idempotencyKey,
+      responseCode: 200,
+      responseBody,
     });
+
+    return res.json(responseBody);
   } catch (e) {
     console.error("confirm-topup-order error:", e);
     return res.status(500).json({
