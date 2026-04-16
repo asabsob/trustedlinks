@@ -1591,7 +1591,7 @@ app.post("/api/payments/create-topup-order", requireUser, async (req, res) => {
       });
     }
 
-    if (!amount || amount <= 0) {
+    if (!Number.isFinite(amount) || amount <= 0) {
       return res.status(400).json({
         ok: false,
         error: "Invalid amount",
@@ -1625,16 +1625,35 @@ app.post("/api/payments/create-topup-order", requireUser, async (req, res) => {
     }
 
     const MAX_TOPUP_LIMIT = 20;
+    const requestedAmount = Number(amount);
     const currentBalance = Number(business?.wallet?.balance || 0);
-    const requestedAmount = Number(amount || 0);
 
     const pendingOrders = await getPendingTopupOrders(businessId);
     const pendingTotal = pendingOrders.reduce(
-      (sum, o) => sum + Number(o.amount || 0),
+      (sum, order) => sum + Number(order.amount || 0),
       0
     );
 
-    if (currentBalance + pendingTotal + requestedAmount > MAX_TOPUP_LIMIT) {
+    const remainingAllowed = Math.max(
+      0,
+      MAX_TOPUP_LIMIT - currentBalance - pendingTotal
+    );
+
+    if (requestedAmount > remainingAllowed) {
+      await logEvent({
+        event: "topup_limit_blocked",
+        level: "warn",
+        userId: user.id,
+        businessId: business.id,
+        meta: {
+          requestedAmount,
+          currentBalance,
+          pendingTotal,
+          limit: MAX_TOPUP_LIMIT,
+          remainingAllowed,
+        },
+      });
+
       return res.status(400).json({
         ok: false,
         error: "Top-up limit exceeded for trial mode.",
@@ -1643,7 +1662,7 @@ app.post("/api/payments/create-topup-order", requireUser, async (req, res) => {
         currentBalance,
         pendingTotal,
         requestedAmount,
-        remainingAllowed: Math.max(0, MAX_TOPUP_LIMIT - currentBalance - pendingTotal),
+        remainingAllowed,
       });
     }
 
@@ -1653,6 +1672,24 @@ app.post("/api/payments/create-topup-order", requireUser, async (req, res) => {
       amount: requestedAmount,
       currency: business.wallet?.currency || "USD",
       reference: `topup_order_${Date.now()}`,
+    });
+
+    await logEvent({
+      event: "topup_order_created",
+      level: "info",
+      userId: user.id,
+      businessId: business.id,
+      meta: {
+        orderId: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        currentBalance,
+        pendingTotal,
+        remainingAllowedAfterCreate: Math.max(
+          0,
+          MAX_TOPUP_LIMIT - currentBalance - pendingTotal - requestedAmount
+        ),
+      },
     });
 
     return res.json({
@@ -1671,6 +1708,18 @@ app.post("/api/payments/create-topup-order", requireUser, async (req, res) => {
     });
   } catch (e) {
     console.error("create-topup-order error:", e);
+
+    await logEvent({
+      event: "topup_order_create_failed",
+      level: "error",
+      userId: req.user?.id,
+      businessId: String(req.body?.businessId || "").trim() || null,
+      meta: {
+        amount: Number(req.body?.amount || 0),
+        error: e.message,
+      },
+    });
+
     return res.status(500).json({
       ok: false,
       error: "Failed to create topup order",
@@ -1800,11 +1849,33 @@ app.post("/api/payments/confirm-topup-order", requireUser, async (req, res) => {
     });
 
     if (!idem.ok) {
+      await logEvent({
+        event: "topup_confirm_idempotency_blocked",
+        level: "warn",
+        userId: req.user.id,
+        meta: {
+          orderId,
+          type: idem.type,
+          status: idem.response?.status,
+          reason: idem.response?.body?.reason || null,
+        },
+      });
+
       return res.status(idem.response.status).json(idem.response.body);
     }
 
     const order = await getTopupOrderById(orderId);
+
     if (!order) {
+      await logEvent({
+        event: "topup_confirm_order_not_found",
+        level: "warn",
+        userId: req.user.id,
+        meta: {
+          orderId,
+        },
+      });
+
       return res.status(404).json({
         ok: false,
         error: "Order not found",
@@ -1812,6 +1883,17 @@ app.post("/api/payments/confirm-topup-order", requireUser, async (req, res) => {
     }
 
     if (String(order.userId) !== String(req.user.id)) {
+      await logEvent({
+        event: "topup_confirm_unauthorized",
+        level: "warn",
+        userId: req.user.id,
+        businessId: order.businessId,
+        meta: {
+          orderId: order.id,
+          ownerUserId: order.userId,
+        },
+      });
+
       return res.status(403).json({
         ok: false,
         error: "Unauthorized",
@@ -1829,6 +1911,16 @@ app.post("/api/payments/confirm-topup-order", requireUser, async (req, res) => {
         orderId: order.id,
       };
 
+      await logEvent({
+        event: "topup_already_paid",
+        level: "info",
+        userId: req.user.id,
+        businessId: order.businessId,
+        meta: {
+          orderId: order.id,
+        },
+      });
+
       await completeIdempotencyRecord({
         scope: "confirm_topup_order",
         idempotencyKey: idem.idempotencyKey,
@@ -1839,19 +1931,36 @@ app.post("/api/payments/confirm-topup-order", requireUser, async (req, res) => {
       return res.json(responseBody);
     }
 
-    if (!orderId) {
-  console.log("confirm-topup-order: missing orderId");
-  return res.status(400).json({
-    ok: false,
-    error: "orderId required",
-  });
-}
     if (order.status !== "pending") {
+      await logEvent({
+        event: "topup_confirm_not_payable",
+        level: "warn",
+        userId: req.user.id,
+        businessId: order.businessId,
+        meta: {
+          orderId: order.id,
+          status: order.status,
+        },
+      });
+
       return res.status(400).json({
         ok: false,
         error: "Order is not payable",
       });
     }
+
+    await logEvent({
+      event: "topup_confirm_started",
+      level: "info",
+      userId: req.user.id,
+      businessId: order.businessId,
+      meta: {
+        orderId: order.id,
+        amount: order.amount,
+        currency: order.currency || "USD",
+        paymentMethod: order.paymentMethod || null,
+      },
+    });
 
     const result = await topupBusinessWallet({
       businessId: order.businessId,
@@ -1872,6 +1981,19 @@ app.post("/api/payments/confirm-topup-order", requireUser, async (req, res) => {
       orderId: order.id,
     };
 
+    await logEvent({
+      event: "topup_confirmed",
+      level: "info",
+      userId: req.user.id,
+      businessId: order.businessId,
+      meta: {
+        orderId: order.id,
+        amount: order.amount,
+        balanceAfter: result.balanceAfter,
+        currency: result.currency || "USD",
+      },
+    });
+
     await completeIdempotencyRecord({
       scope: "confirm_topup_order",
       idempotencyKey: idem.idempotencyKey,
@@ -1882,6 +2004,17 @@ app.post("/api/payments/confirm-topup-order", requireUser, async (req, res) => {
     return res.json(responseBody);
   } catch (e) {
     console.error("confirm-topup-order error:", e);
+
+    await logEvent({
+      event: "topup_confirm_failed",
+      level: "error",
+      userId: req.user?.id,
+      meta: {
+        orderId: String(req.body?.orderId || "").trim() || null,
+        error: e.message,
+      },
+    });
+
     return res.status(500).json({
       ok: false,
       error: "Failed to confirm payment",
