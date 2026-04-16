@@ -54,7 +54,7 @@ import {
   consumeOtp,
   incrementOtpAttempts,
   blockOtp,
-} from "../services/pg/otps.js";
+} from "./services/pg/otps.js"
 
 import {
   createTransaction,
