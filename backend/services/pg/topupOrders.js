@@ -49,6 +49,17 @@ export async function getTopupOrderById(id) {
   return mapTopupOrder(data);
 }
 
+export async function getPendingTopupOrders(businessId) {
+  const { data, error } = await supabase
+    .from("topup_orders")
+    .select("*")
+    .eq("business_id", businessId)
+    .eq("status", "pending");
+
+  if (error) throw error;
+  return (data || []).map(mapTopupOrder);
+}
+
 export async function markTopupOrderPaid(id) {
   const { data, error } = await supabase
     .from("topup_orders")
