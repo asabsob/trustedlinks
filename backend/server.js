@@ -144,24 +144,34 @@ app.use(
   })
 );
 
+const allowedOrigins = [
+  "https://trustedlinks.net",
+  "http://localhost:5173",
+  "http://localhost:3000",
+];
+
 const corsOptions = {
   origin(origin, callback) {
     if (!origin) return callback(null, true);
-
-    const allowedOrigins = [
-      "https://trustedlinks.net",
-      "http://localhost:5173",
-    ];
 
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
 
+    console.log("Blocked by CORS:", origin); // مهم للتشخيص
     return callback(new Error("Not allowed by CORS"));
   },
+
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: false,
+
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "Idempotency-Key",
+  ],
+
+  credentials: true, // 🔥 مهم جدًا
+
   optionsSuccessStatus: 204,
 };
 
