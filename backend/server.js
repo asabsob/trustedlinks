@@ -1623,10 +1623,33 @@ app.post("/api/payments/create-topup-order", requireUser, async (req, res) => {
       });
     }
 
+    const MAX_TOPUP_LIMIT = 20;
+    const currentBalance = Number(business?.wallet?.balance || 0);
+    const requestedAmount = Number(amount || 0);
+
+    const pendingOrders = await getPendingTopupOrders(businessId);
+    const pendingTotal = pendingOrders.reduce(
+      (sum, o) => sum + Number(o.amount || 0),
+      0
+    );
+
+    if (currentBalance + pendingTotal + requestedAmount > MAX_TOPUP_LIMIT) {
+      return res.status(400).json({
+        ok: false,
+        error: "Top-up limit exceeded for trial mode.",
+        reason: "TOPUP_LIMIT_EXCEEDED",
+        limit: MAX_TOPUP_LIMIT,
+        currentBalance,
+        pendingTotal,
+        requestedAmount,
+        remainingAllowed: Math.max(0, MAX_TOPUP_LIMIT - currentBalance - pendingTotal),
+      });
+    }
+
     const order = await createTopupOrder({
       businessId: business.id,
       userId: user.id,
-      amount,
+      amount: requestedAmount,
       currency: business.wallet?.currency || "USD",
       reference: `topup_order_${Date.now()}`,
     });
@@ -1639,6 +1662,11 @@ app.post("/api/payments/create-topup-order", requireUser, async (req, res) => {
       currency: order.currency,
       status: order.status,
       reference: order.reference,
+      trialLimit: MAX_TOPUP_LIMIT,
+      remainingAllowed: Math.max(
+        0,
+        MAX_TOPUP_LIMIT - currentBalance - pendingTotal - requestedAmount
+      ),
     });
   } catch (e) {
     console.error("create-topup-order error:", e);
