@@ -120,30 +120,6 @@ app.use(helmet());
 app.use(morgan("dev"));
 
 const PORT = process.env.PORT || 5175;
-
-const allowedOrigins = [
-  "https://trustedlinks.net",
-  "http://localhost:5173",
-];
-
-app.use(
-  cors({
-    origin(origin, callback) {
-      if (!origin) return callback(null, true);
-
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      return callback(new Error("Not allowed by CORS"));
-    },
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: false,
-    optionsSuccessStatus: 204,
-  })
-);
-
 const allowedOrigins = [
   "https://trustedlinks.net",
   "http://localhost:5173",
@@ -154,11 +130,16 @@ const corsOptions = {
   origin(origin, callback) {
     if (!origin) return callback(null, true);
 
+    // دعم Vercel preview domains (مهم)
+    if (origin.includes("vercel.app")) {
+      return callback(null, true);
+    }
+
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
 
-    console.log("Blocked by CORS:", origin); // مهم للتشخيص
+    console.log("Blocked by CORS:", origin);
     return callback(new Error("Not allowed by CORS"));
   },
 
@@ -170,7 +151,7 @@ const corsOptions = {
     "Idempotency-Key",
   ],
 
-  credentials: true, // 🔥 مهم جدًا
+  credentials: true,
 
   optionsSuccessStatus: 204,
 };
