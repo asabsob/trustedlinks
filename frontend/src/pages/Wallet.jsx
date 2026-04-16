@@ -282,15 +282,19 @@ const confirmPendingPayment = async () => {
     const token = localStorage.getItem("token");
     const idempotencyKey = getOrCreateIdempotencyKey(pendingOrder.orderId);
 
-    const res = await fetch(`${API_BASE}/api/payments/confirm-topup-order`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Idempotency-Key": idempotencyKey,
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({ orderId: pendingOrder.orderId }),
-    }).catch(() => null);
+   const idempotencyKey =
+  globalThis.crypto?.randomUUID?.() ||
+  `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+const res = await fetch(`${API_BASE}/api/payments/confirm-topup-order`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Idempotency-Key": idempotencyKey,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  },
+  body: JSON.stringify({ orderId: pendingOrder.orderId }),
+});
 
     if (res && res.ok) {
       const data = await res.json();
