@@ -252,48 +252,74 @@ export default function Wallet({ lang = "en" }) {
     }
   };
 
-  const confirmPendingPayment = async () => {
-    if (!pendingOrder?.orderId) return;
+  const getOrCreateIdempotencyKey = (orderId) => {
+  if (!orderId) return "";
 
-    try {
-      setSubmitting(true);
+  const storageKey = `topup_confirm_idem_${orderId}`;
+  let key = localStorage.getItem(storageKey);
 
-      const token = localStorage.getItem("token");
+  if (!key) {
+    key =
+      globalThis.crypto?.randomUUID?.() ||
+      `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    localStorage.setItem(storageKey, key);
+  }
 
-      const res = await fetch(`${API_BASE}/api/payments/confirm-topup-order`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ orderId: pendingOrder.orderId }),
-      }).catch(() => null);
+  return key;
+};
 
-      if (res && res.ok) {
-        const data = await res.json();
-        const nextBalance = Number(data.balance || 0);
+const clearIdempotencyKey = (orderId) => {
+  if (!orderId) return;
+  localStorage.removeItem(`topup_confirm_idem_${orderId}`);
+};
+  
+const confirmPendingPayment = async () => {
+  if (!pendingOrder?.orderId) return;
 
-        setBalance(nextBalance);
-        setCurrency(data.currency || currency || "USD");
-        setStatus(data.status || inferStatus(nextBalance));
-        setPendingOrder(null);
-        setTopupAmount("");
-        setMessage(t.topupSuccess);
-        setMessageType("success");
-        await loadWallet();
-        return;
-      }
+  try {
+    setSubmitting(true);
 
-      setMessage(t.confirmPaymentFailed);
-      setMessageType("error");
-    } catch (error) {
-      setMessage(t.failedLoad);
-      setMessageType("error");
-    } finally {
-      setSubmitting(false);
+    const token = localStorage.getItem("token");
+    const idempotencyKey = getOrCreateIdempotencyKey(pendingOrder.orderId);
+
+    const res = await fetch(`${API_BASE}/api/payments/confirm-topup-order`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotencyKey,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ orderId: pendingOrder.orderId }),
+    }).catch(() => null);
+
+    if (res && res.ok) {
+      const data = await res.json();
+      const nextBalance = Number(data.balance || 0);
+
+      setBalance(nextBalance);
+      setCurrency(data.currency || currency || "USD");
+      setStatus(data.status || inferStatus(nextBalance));
+      clearIdempotencyKey(pendingOrder.orderId);
+      setPendingOrder(null);
+      setTopupAmount("");
+      setMessage(t.topupSuccess);
+      setMessageType("success");
+      await loadWallet();
+      return;
     }
-  };
 
+    const errorData = await res?.json?.().catch(() => null);
+
+    setMessage(errorData?.error || t.confirmPaymentFailed);
+    setMessageType("error");
+  } catch (error) {
+    setMessage(t.failedLoad);
+    setMessageType("error");
+  } finally {
+    setSubmitting(false);
+  }
+};
+  
   const handleTopup = async (e) => {
     e.preventDefault();
     await submitTopup(topupAmount);
