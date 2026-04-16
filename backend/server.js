@@ -1159,6 +1159,9 @@ app.get("/api/me", requireUser, async (req, res) => {
 // =========================
 // REQUEST OTP
 // =========================
+const OTP_EXPIRES_SECONDS = 5 * 60;
+const OTP_RESEND_COOLDOWN_SECONDS = 60;
+
 app.post("/api/whatsapp/request-otp", async (req, res) => {
   try {
     const { whatsapp } = req.body || {};
@@ -1188,6 +1191,25 @@ app.post("/api/whatsapp/request-otp", async (req, res) => {
       });
     }
 
+    // Check cooldown before generating a new OTP
+   const existingOtp = await getOtp(clean, "business_signup");
+const otpCreatedAt = existingOtp?.createdAt || existingOtp?.created_at;
+
+if (otpCreatedAt) {
+  const createdAtMs = new Date(otpCreatedAt).getTime();
+  const elapsedSeconds = Math.floor((Date.now() - createdAtMs) / 1000);
+  const retryAfter = OTP_RESEND_COOLDOWN_SECONDS - elapsedSeconds;
+
+  if (retryAfter > 0) {
+    return res.status(429).json({
+      ok: false,
+      error: "Please wait before requesting a new OTP.",
+      reason: "OTP_COOLDOWN",
+      retryAfter,
+    });
+  }
+}
+
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     await deleteOtpByWhatsappPurpose(clean, "business_signup");
@@ -1196,7 +1218,7 @@ app.post("/api/whatsapp/request-otp", async (req, res) => {
       whatsapp: clean,
       code: otp,
       purpose: "business_signup",
-      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+      expiresAt: new Date(Date.now() + OTP_EXPIRES_SECONDS * 1000),
     });
 
     // Development fallback if JAVNA is not configured
@@ -1206,6 +1228,8 @@ app.post("/api/whatsapp/request-otp", async (req, res) => {
         success: true,
         message: "OTP generated (mock).",
         devOtp: otp,
+        expiresIn: OTP_EXPIRES_SECONDS,
+        retryAfter: OTP_RESEND_COOLDOWN_SECONDS,
       });
     }
 
@@ -1227,6 +1251,8 @@ app.post("/api/whatsapp/request-otp", async (req, res) => {
       ok: true,
       success: true,
       message: "OTP sent.",
+      expiresIn: OTP_EXPIRES_SECONDS,
+      retryAfter: OTP_RESEND_COOLDOWN_SECONDS,
       javna: javnaResp,
     });
   } catch (e) {
@@ -1237,7 +1263,6 @@ app.post("/api/whatsapp/request-otp", async (req, res) => {
     });
   }
 });
-
 // =========================
 // VERIFY OTP
 // =========================
@@ -1280,21 +1305,23 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
       });
     }
 
-    if (String(rec.code) !== String(code)) {
-      return res.status(401).json({
-        ok: false,
-        error: "Invalid OTP code.",
-        reason: "BAD_CODE",
-      });
-    }
+   const otpExpiresAt = rec.expiresAt || rec.expires_at;
 
-    if (!rec.expiresAt || rec.expiresAt.getTime() < Date.now()) {
-      return res.status(410).json({
-        ok: false,
-        error: "OTP expired.",
-        reason: "EXPIRED",
-      });
-    }
+if (!otpExpiresAt || new Date(otpExpiresAt).getTime() < Date.now()) {
+  return res.status(410).json({
+    ok: false,
+    error: "OTP expired.",
+    reason: "EXPIRED",
+  });
+}
+
+if (String(rec.code) !== String(code)) {
+  return res.status(401).json({
+    ok: false,
+    error: "Invalid OTP code.",
+    reason: "BAD_CODE",
+  });
+}
 
     await consumeOtp(rec.id);
 
