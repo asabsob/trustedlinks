@@ -8,6 +8,8 @@ function mapOtp(row) {
     whatsapp: row.whatsapp,
     code: row.code,
     purpose: row.purpose,
+    attempts: Number(row.attempts || 0),
+    blockedAt: row.blocked_at ? new Date(row.blocked_at) : null,
     expiresAt: row.expires_at ? new Date(row.expires_at) : null,
     usedAt: row.used_at ? new Date(row.used_at) : null,
     createdAt: row.created_at,
@@ -30,11 +32,21 @@ export async function createOtp(payload) {
     whatsapp: String(payload.whatsapp || "").trim(),
     code: String(payload.code || "").trim(),
     purpose: payload.purpose || "business_signup",
-    expires_at: payload.expiresAt instanceof Date ? payload.expiresAt.toISOString() : payload.expiresAt,
+    attempts: 0,
+    blocked_at: null,
+    expires_at:
+      payload.expiresAt instanceof Date
+        ? payload.expiresAt.toISOString()
+        : payload.expiresAt,
     used_at: null,
   };
 
-  const { data, error } = await supabase.from("otps").insert(insertData).select("*").single();
+  const { data, error } = await supabase
+    .from("otps")
+    .insert(insertData)
+    .select("*")
+    .single();
+
   if (error) throw error;
   return mapOtp(data);
 }
@@ -63,6 +75,47 @@ export async function consumeOtp(id) {
     })
     .eq("id", id)
     .is("used_at", null)
+    .select("*")
+    .maybeSingle();
+
+  if (error) throw error;
+  return mapOtp(data);
+}
+
+export async function incrementOtpAttempts(id) {
+  const { data: current, error: readError } = await supabase
+    .from("otps")
+    .select("id, attempts")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (readError) throw readError;
+  if (!current) return null;
+
+  const nextAttempts = Number(current.attempts || 0) + 1;
+
+  const { data, error } = await supabase
+    .from("otps")
+    .update({
+      attempts: nextAttempts,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .select("*")
+    .maybeSingle();
+
+  if (error) throw error;
+  return mapOtp(data);
+}
+
+export async function blockOtp(id) {
+  const { data, error } = await supabase
+    .from("otps")
+    .update({
+      blocked_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
     .select("*")
     .maybeSingle();
 
