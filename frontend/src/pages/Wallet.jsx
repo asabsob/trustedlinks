@@ -282,9 +282,6 @@ const confirmPendingPayment = async () => {
     const token = localStorage.getItem("token");
     const idempotencyKey = getOrCreateIdempotencyKey(pendingOrder.orderId);
 
-   const idempotencyKey =
-  globalThis.crypto?.randomUUID?.() ||
-  `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 const res = await fetch(`${API_BASE}/api/payments/confirm-topup-order`, {
   method: "POST",
