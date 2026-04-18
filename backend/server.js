@@ -781,25 +781,6 @@ async function createLeadTrackedLink({
   return `${baseUrl}/l/${tokenId}`;
 }
 
-async function enrichBusinessesWithTrackedLinks({
-  items = [],
-  query = "",
-  userPhone = "",
-}) {
-  const safeItems = Array.isArray(items) ? items : [];
-
-  return await Promise.all(
-    safeItems.map(async (item) => ({
-      ...item,
-      trackedLink: await createLeadTrackedLink({
-        businessId: item.id,
-        phone: item.whatsapp,
-        query,
-        userPhone,
-      }),
-    }))
-  );
-}
 // =========================
 // Business Activity Log
 // =========================
@@ -808,7 +789,7 @@ async function logBusinessEvent({
   ownerUserId,
   type,
   source = "",
-  meta = {},
+  meta = {},async function enrichBusinessesWithTrackedLinks
 }) {
   try {
     await createBusinessEvent({
@@ -3498,25 +3479,6 @@ function getWelcomeMessage(lang = "ar") {
   );
 }
 
-  async function enrichBusinessesWithTrackedLinks({
-  items = [],
-  query = "",
-  userPhone = "",
-}) {
-  const safeItems = Array.isArray(items) ? items : [];
-
-  return await Promise.all(
-    safeItems.map(async (item) => ({
-      ...item,
-      trackedLink: await createLeadTrackedLink({
-        businessId: item.id,
-        phone: item.whatsapp,
-        query,
-        userPhone,
-      }),
-    }))
-  );
-}
 
   async function enrichBusinessesWithTrackedLinks({
   items = [],
