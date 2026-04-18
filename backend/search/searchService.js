@@ -169,6 +169,54 @@ function getRefinementQuestions(lang = "ar") {
   ];
 }
 
+function applyRefinementAnswers(results = [], refinementAnswers = {}) {
+  let filtered = [...results];
+
+  const preference = normalizeSearchText(refinementAnswers?.preference || "");
+  const area = normalizeSearchText(refinementAnswers?.area || "");
+  const priority = normalizeSearchText(refinementAnswers?.priority || "");
+
+  if (preference) {
+    filtered = filtered.filter((item) => {
+      const text = getBusinessFields(item)
+        .map((v) => normalizeSearchText(v))
+        .join(" ");
+
+      return text.includes(preference);
+    });
+  }
+
+  if (area) {
+    filtered = filtered.filter((item) => {
+      const areaText = [
+        item?.locationText || "",
+        item?.location_text || "",
+        item?.city || "",
+        item?.area || "",
+        item?.countryName || "",
+      ]
+        .map((v) => normalizeSearchText(v))
+        .join(" ");
+
+      return areaText.includes(area);
+    });
+  }
+
+  if (priority) {
+    if (priority.includes("budget") || priority.includes("اقتصادي")) {
+      filtered = filtered.sort((a, b) => Number(a._matchScore || 0) - Number(b._matchScore || 0));
+    } else if (
+      priority.includes("top") ||
+      priority.includes("best") ||
+      priority.includes("تقييم") ||
+      priority.includes("افضل")
+    ) {
+      filtered = filtered.sort((a, b) => Number(b._matchScore || 0) - Number(a._matchScore || 0));
+    }
+  }
+
+  return filtered;
+}
 export async function searchBusinesses({
   query = "",
   lang = "ar",
@@ -201,46 +249,49 @@ export async function searchBusinesses({
     }))
     .filter((item) => item._matchScore > 0)
     .sort((a, b) => b._matchScore - a._matchScore);
+const needsRefinement =
+  !refinementAnswers &&
+  shouldAskRefinement({
+    intent: intentData.intent,
+    query: effectiveQuery,
+    results: matched,
+  });
 
-  const needsRefinement =
-    !refinementAnswers &&
-    shouldAskRefinement({
-      intent: intentData.intent,
-      query: effectiveQuery,
-      results: matched,
-    });
-
-  if (needsRefinement) {
-    return {
-      ok: true,
-      mode: "refinement_required",
-      query: safeQuery,
-      effectiveQuery,
-      intent: intentData.intent,
-      intentMeta: intentData,
-      totalMatched: matched.length,
-      results: [],
-      refinement: {
-        enabled: true,
-        questions: getRefinementQuestions(lang),
-      },
-    };
-  }
-
-  const limit = RESULT_LIMITS[intentData.intent] || 8;
-  const finalResults = matched.slice(0, limit);
-
+if (needsRefinement) {
   return {
     ok: true,
-    mode: "results",
+    mode: "refinement_required",
     query: safeQuery,
     effectiveQuery,
     intent: intentData.intent,
     intentMeta: intentData,
     totalMatched: matched.length,
-    results: finalResults,
+    results: [],
     refinement: {
-      enabled: false,
+      enabled: true,
+      questions: getRefinementQuestions(lang),
     },
   };
 }
+
+const refinedMatched = refinementAnswers
+  ? applyRefinementAnswers(matched, refinementAnswers)
+  : matched;
+
+const limit = RESULT_LIMITS[intentData.intent] || 8;
+const finalResults = refinedMatched.slice(0, limit);
+
+return {
+  ok: true,
+  mode: "results",
+  query: safeQuery,
+  effectiveQuery,
+  intent: intentData.intent,
+  intentMeta: intentData,
+  totalMatched: refinedMatched.length,
+  results: finalResults,
+  refinement: {
+    enabled: false,
+    answers: refinementAnswers || null,
+  },
+};
