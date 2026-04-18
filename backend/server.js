@@ -3516,7 +3516,26 @@ function getWelcomeMessage(lang = "ar") {
     }))
   );
 }
-  async function enrichBusinessesWithTrackedLinks(...)
+
+  async function enrichBusinessesWithTrackedLinks({
+  items = [],
+  query = "",
+  userPhone = "",
+}) {
+  const safeItems = Array.isArray(items) ? items : [];
+
+  return await Promise.all(
+    safeItems.map(async (item) => ({
+      ...item,
+      trackedLink: await createLeadTrackedLink({
+        businessId: item.id,
+        phone: item.whatsapp,
+        query,
+        userPhone,
+      }),
+    }))
+  );
+}
   
 app.get("/webhooks/javna/whatsapp", (_req, res) => {
   res.status(200).send("WhatsApp webhook is live");
