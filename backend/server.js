@@ -11,13 +11,13 @@ import bcrypt from "bcrypt";
 import geolib from "geolib";
 import { nanoid } from "nanoid";
 
-import { parseSearchIntent } from "./server/utils/aiSearchParser.js";
+
 import { searchBusinesses } from "./search/searchService.js";
 import { normalizeSearchText } from "./search/textNormalizer.js";
-import { formatSearchResults, formatNearestResults } from "./search/searchFormatter.js";
+import { formatSearchResponse, formatNearestResults } from "./search/searchFormatter.js";
 import { findNearestBusinesses } from "./search/nearbyService.js";
 import crypto from "crypto";
-
+import { parseSearchIntent } from "./search/intentDetector.js";
 import { optimizeBusinessProfile } from "./services/aiOptimizer.js";
 import { translateBusinessContent } from "./services/ai/translateBusiness.js";
 
@@ -535,9 +535,10 @@ async function getUserOr404(userId, res) {
 // NEARBY MEMORY (NO MONGO)
 // =========================
 
-function setPendingNearby(from, category = "") {
+function setPendingNearby(from, data = {}) {
   PENDING_NEARBY_REQUESTS.set(from, {
-    category: category || "",
+    category: data.category || "",
+    rawQuery: data.rawQuery || "",
     createdAt: Date.now(),
   });
 }
@@ -603,29 +604,6 @@ setInterval(() => {
 // SEARCH HELPERS (NO CACHE NOW)
 // =========================
 
-function buildSearchCacheKey(query) {
-  return `search:${normalizeSearchText(query || "")}`;
-}
-
-function buildNearbyCacheKey(lat, lng, categoryQuery = "") {
-  const roundedLat = Number(lat).toFixed(3);
-  const roundedLng = Number(lng).toFixed(3);
-  const normalizedCategory = normalizeSearchText(categoryQuery || "");
-  return `nearby:${roundedLat}:${roundedLng}:${normalizedCategory}`;
-}
-
-function shouldUseAIFallback(incomingText, query) {
-  const text = (incomingText || "").trim();
-  const normalized = (query || "").trim();
-
-  if (!text || text.length <= 3) return false;
-  if (!normalized) return false;
-
-  const words = normalized.split(/\s+/).filter(Boolean);
-  if (words.length === 1 && words[0].length <= 4) return false;
-
-  return true;
-}
 
 function isMoreCommand(text) {
   const t = (text || "").trim().toLowerCase();
@@ -677,6 +655,26 @@ async function createLeadTrackedLink({
   }
 
   return `${baseUrl}/l/${tokenId}`;
+}
+
+ async function enrichBusinessesWithTrackedLinks({
+  items = [],
+  query = "",
+  userPhone = "",
+}) {
+  const safeItems = Array.isArray(items) ? items : [];
+
+  return await Promise.all(
+    safeItems.map(async (item) => ({
+      ...item,
+      trackedLink: await createLeadTrackedLink({
+        businessId: item.id,
+        phone: item.whatsapp,
+        query,
+        userPhone,
+      }),
+    }))
+  );
 }
 // =========================
 // Business Activity Log
@@ -2670,74 +2668,27 @@ app.post("/api/topup", requireUser, async (req, res) => {
 // ============================================================================
 
 // =========================
-// SEARCH
+// SEARCH API
 // =========================
 app.get("/api/search", async (req, res) => {
   try {
-    const { query = "", category = "all", lat, lng } = req.query;
+    const {
+      query = "",
+      lang = "ar",
+    } = req.query;
 
-    let results = await listActiveBusinesses();
-
-    if (query) {
-      const q = String(query).toLowerCase();
-
-      results = results.filter((b) => {
-        const name = (b.name || "").toLowerCase();
-        const nameAr = (b.name_ar || "").toLowerCase();
-        const desc = (b.description || "").toLowerCase();
-        const catStr = Array.isArray(b.category)
-          ? b.category.join(" ").toLowerCase()
-          : toSafeCategoryValue(b.category).toLowerCase();
-
-        return (
-          name.includes(q) ||
-          nameAr.includes(q) ||
-          desc.includes(q) ||
-          catStr.includes(q)
-        );
-      });
-    }
-
-    if (category && category !== "all") {
-      const c = String(category).toLowerCase();
-
-      results = results.filter((b) => {
-        const catStr = Array.isArray(b.category)
-          ? b.category.join(" ").toLowerCase()
-          : toSafeCategoryValue(b.category).toLowerCase();
-
-        return catStr.includes(c);
-      });
-    }
-
-    // Nearby sorting
-    if (lat && lng) {
-      const userLocation = {
-        latitude: parseFloat(lat),
-        longitude: parseFloat(lng),
-      };
-
-      results = results
-        .map((b) => {
-          if (b.latitude && b.longitude) {
-            const distance = geolib.getDistance(userLocation, {
-              latitude: b.latitude,
-              longitude: b.longitude,
-            });
-            return { ...b, distance };
-          }
-          return { ...b, distance: null };
-        })
-        .sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
-    }
-
-    return res.json({
-      ok: true,
-      results,
+    const searchData = await searchBusinesses({
+      query: String(query || "").trim(),
+      lang: String(lang || "ar").trim(),
     });
+
+    return res.json(searchData);
   } catch (e) {
     console.error("/api/search error", e);
-    return res.status(500).json({ error: "Failed to search" });
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to search",
+    });
   }
 });
 
@@ -3482,21 +3433,19 @@ if (
 
   const nearest = await findNearestBusinesses(lat, lng, 3, categoryQuery);
 
-  const enriched = await Promise.all(
-    nearest.map(async (item) => ({
-      ...item,
-      trackedLink: await createLeadTrackedLink({
-        businessId: item.id,
-        phone: item.whatsapp,
-        query: categoryQuery || "nearby",
-        userPhone: from,
-      }),
-    }))
-  );
+  const enriched = await enrichBusinessesWithTrackedLinks({
+    items: nearest,
+    query: categoryQuery || "nearby",
+    userPhone: from,
+  });
 
   clearPendingNearby(from);
 
-  const reply = formatNearestResults(enriched, lang, categoryQuery);
+  const reply = formatNearestResults(
+    enriched,
+    lang,
+    categoryQuery || pendingNearby?.rawQuery || ""
+  );
 
   return await javnaSendText({
     to: from,
@@ -3536,58 +3485,76 @@ if (parsed.isNearby) {
   });
 }
 
+
 // =========================
-// NORMAL SEARCH
+// NORMAL SEARCH (NEW ENGINE)
 // =========================
-const results = await searchBusinesses(query);
-const top = results.slice(0, 3);
 
-const enriched = await Promise.all(
-  top.map(async (item) => ({
-    ...item,
-    trackedLink: await createLeadTrackedLink({
-      businessId: item.id,
-      phone: item.whatsapp,
-      query,
-      userPhone: from,
-    }),
-  }))
-);
+const intentData = parseSearchIntent(incomingText || "");
+const effectiveQuery =
+  intentData.categoryQuery || normalizeSearchText(incomingText || "");
 
-const reply = formatSearchResults(enriched, query, lang);
+// =========================
+// NEARBY → ask for location
+// =========================
+if (intentData.isNearby) {
+  setPendingNearby(from, {
+    category: intentData.categoryQuery || "",
+    rawQuery: incomingText || "",
+  });
 
-await javnaSendText({
+  const body =
+    lang === "ar"
+      ? "📍 أرسل موقعك الحالي لأعرض لك أقرب النتائج."
+      : "📍 Please share your location so I can show nearest results.";
+
+  return await javnaSendText({
+    to: from,
+    body,
+  });
+}
+
+// =========================
+// RUN SEARCH ENGINE
+// =========================
+const searchData = await searchBusinesses({
+  query: incomingText || "",
+  lang,
+});
+
+// =========================
+// REFINEMENT MODE
+// =========================
+if (searchData.mode === "refinement_required") {
+  const reply = formatSearchResponse(searchData, lang);
+
+  return await javnaSendText({
+    to: from,
+    body: reply,
+  });
+}
+
+// =========================
+// RESULTS MODE
+// =========================
+const enrichedResults = await enrichBusinessesWithTrackedLinks({
+  items: searchData.results || [],
+  query: searchData.effectiveQuery || effectiveQuery,
+  userPhone: from,
+});
+
+const finalSearchData = {
+  ...searchData,
+  results: enrichedResults,
+};
+
+const reply = formatSearchResponse(finalSearchData, lang);
+
+return await javnaSendText({
   to: from,
   body: reply,
 });
-      } catch (e) {
-    console.error("WHATSAPP WEBHOOK ERROR:", e);
-  }
-});
-
-function buildWhatsAppLeadMessage({
-  query = "",
-  businessId = "",
-  userPhone = "",
-}) {
-  const parts = [
-    "مرحبا، وصلت إليكم عبر TrustedLinks.",
-    "Hello, I found you through TrustedLinks.",
-  ];
-
-  if (query) {
-    parts.push(`البحث: ${query}`);
-    parts.push(`Search: ${query}`);
-  }
-
-  if (userPhone) {
-    parts.push(`رقمي: ${userPhone}`);
-  }
-
-  parts.push("أرغب بمعرفة المزيد.");
-
-  return parts.join("\n");
-}
+    
 // ============================================================================
 // LEAD TRACKED REDIRECT
 // ============================================================================
