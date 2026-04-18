@@ -3720,6 +3720,10 @@ return await javnaSendText({
   to: from,
   body: reply,
 });
+      } catch (e) {
+    console.error("WHATSAPP WEBHOOK ERROR:", e);
+  }
+});
     
 // ============================================================================
 // LEAD TRACKED REDIRECT
@@ -3851,7 +3855,12 @@ process.on("unhandledRejection", (reason) => {
 app.use((err, _req, res, _next) => {
   console.error("UNHANDLED ERROR:", err);
   return res.status(500).json({ error: "Internal server error" });
+});
 
+// ---------------------------------------------------------------------------
+// Start
+// ---------------------------------------------------------------------------
+app.listen(PORT, "0.0.0.0", () => {
 
 // ---------------------------------------------------------------------------
 // Start
