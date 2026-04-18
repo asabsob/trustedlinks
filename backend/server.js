@@ -692,17 +692,18 @@ function saveRefinementAnswer(session, answer = "") {
 
   const cleanAnswer = String(answer || "").trim();
 
- const nextAnswers = {
-  ...session.answers,
-  [currentQuestion.key]: cleanAnswer,
-};
+  const nextAnswers = {
+    ...session.answers,
+    [currentQuestion.key]: cleanAnswer,
+  };
 
-return {
-  ...session,
-  answers: nextAnswers,
-  step: session.step + 1,
-  createdAt: Date.now(),
-};
+  return {
+    ...session,
+    answers: nextAnswers,
+    step: session.step + 1,
+    createdAt: Date.now(),
+  };
+}
 
 function isRefinementComplete(session) {
   if (!session) return false;
