@@ -4,20 +4,11 @@ import { normalizeSearchText } from "./textNormalizer.js";
 
 export const SEARCH_SYNONYMS = {
   beverages: [
-    "قهوة",
-    "كوفي",
-    "coffee",
-    "cafe",
-    "شاي",
-    "tea",
-    "مشروبات",
-    "drinks",
-    "beverages",
-    "juice",
-    "عصير",
-    "بوبل تي",
-    "بابل تي",
-  ],
+  "قهوة","كوفي","coffee","cafe",
+  "شاي","tea",
+  "مشروبات","مشروب","مشاريب","drink","drinks","beverages",
+  "عصير","juice"
+]
   restaurant: [
     "مطعم",
     "مطاعم",
