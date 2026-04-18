@@ -3565,11 +3565,10 @@ if (messageType === "text" && incomingText && !isMoreCommand(incomingText)) {
       refinementAnswers: updatedSession.answers,
     });
 
-    const enrichedResults = await enrichBusinessesWithTrackedLinks({
-      items: refinedSearchData.results || [],
-      query: refinedSearchData.effectiveQuery || updatedSession.query,
-      userPhone: from,
-    });
+   const enrichedResults = (refinedSearchData.results || []).map((item) => ({
+  ...item,
+  trackedLink: null,
+}));
 
    const finalSearchData = {
   ...refinedSearchData,
@@ -3616,11 +3615,10 @@ if (
 
   const nearest = await findNearestBusinesses(lat, lng, 3, categoryQuery);
 
-  const enriched = await enrichBusinessesWithTrackedLinks({
-    items: nearest,
-    query: categoryQuery || "nearby",
-    userPhone: from,
-  });
+  const enriched = (nearest || []).map((item) => ({
+  ...item,
+  trackedLink: null,
+}));
 
   clearPendingNearby(from);
 
@@ -3712,11 +3710,11 @@ if (searchData.mode === "refinement_required") {
 // =========================
 // RESULTS MODE
 // =========================
-const enrichedResults = await enrichBusinessesWithTrackedLinks({
-  items: searchData.results || [],
-  query: searchData.effectiveQuery || effectiveQuery,
-  userPhone: from,
-});
+
+const enrichedResults = (searchData.results || []).map((item) => ({
+  ...item,
+  trackedLink: null,
+}));
 
 const finalSearchData = {
   ...searchData,
