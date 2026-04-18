@@ -1,21 +1,90 @@
+// search/synonyms.js
+
+import { normalizeSearchText } from "./textNormalizer.js";
+
 export const SEARCH_SYNONYMS = {
-  beverages: ["قهوة","كوفي","coffee","cafe","شاي","tea","مشروبات","drinks","beverages","juice","عصير"],
-  restaurant: ["مطعم","مطاعم","restaurant","restaurants","food","اكل","وجبات"],
-  pharmacy: ["صيدلية","صيدليات","pharmacy","drugstore","medicine","دواء"],
-  dessert: ["حلويات","dessرت","dessert","sweets","cake","pastry"],
-  grill: ["مشاوي","grill","bbq","kebab"]
+  beverages: [
+    "قهوة",
+    "كوفي",
+    "coffee",
+    "cafe",
+    "شاي",
+    "tea",
+    "مشروبات",
+    "drinks",
+    "beverages",
+    "juice",
+    "عصير",
+    "بوبل تي",
+    "بابل تي",
+  ],
+  restaurant: [
+    "مطعم",
+    "مطاعم",
+    "restaurant",
+    "restaurants",
+    "food",
+    "اكل",
+    "وجبات",
+    "برغر",
+    "burger",
+    "shawarma",
+    "شاورما",
+    "pizza",
+    "بيتزا",
+  ],
+  pharmacy: [
+    "صيدلية",
+    "صيدليات",
+    "pharmacy",
+    "drugstore",
+    "medicine",
+    "دواء",
+    "ادويه",
+  ],
+  dessert: [
+    "حلويات",
+    "dessert",
+    "desserts",
+    "sweets",
+    "cake",
+    "pastry",
+    "كيك",
+  ],
+  grill: [
+    "مشاوي",
+    "grill",
+    "bbq",
+    "kebab",
+    "كباب",
+  ],
 };
 
-export function expandTerms(query){
-  const q = String(query || "").toLowerCase().trim();
+function uniqueTerms(terms = []) {
+  return [...new Set(terms.map((t) => normalizeSearchText(t)).filter(Boolean))];
+}
 
-  for(const key in SEARCH_SYNONYMS){
-    const list = SEARCH_SYNONYMS[key].map(v => v.toLowerCase());
-    if(list.includes(q)){
-      // نرجع الفئة + كل المرادفات
-      return [key, ...SEARCH_SYNONYMS[key]];
+export function expandTerms(query = "") {
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedQuery) return [];
+
+  const queryWords = normalizedQuery.split(/\s+/).filter(Boolean);
+  const expanded = new Set(queryWords);
+
+  for (const [groupKey, synonyms] of Object.entries(SEARCH_SYNONYMS)) {
+    const normalizedSynonyms = uniqueTerms([groupKey, ...synonyms]);
+
+    const matched = normalizedSynonyms.some((term) => {
+      return (
+        normalizedQuery.includes(term) ||
+        queryWords.includes(term)
+      );
+    });
+
+    if (matched) {
+      normalizedSynonyms.forEach((term) => expanded.add(term));
     }
   }
 
-  return [q];
+  return [...expanded];
 }
