@@ -95,6 +95,28 @@ import {
   completeIdempotencyRecord,
 } from "./services/pg/idempotency.js";
 
+import {
+  maskPhone,
+  hashPhone,
+  redactIp,
+  normalizeQueryForStorage,
+  buildSafeSearchLog,
+} from "./utils/privacy.js";
+
+
+function hash(value = "") {
+  return crypto.createHash("sha256").update(String(value)).digest("hex");
+}
+
+function maskIP(ip = "") {
+  if (!ip) return "";
+  if (ip.includes(".")) {
+    const parts = ip.split(".");
+    return `${parts[0]}.${parts[1]}.x.x`;
+  }
+  return "masked";
+}
+
 function getClientMeta(req) {
   return {
     ip:
@@ -3514,6 +3536,12 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
 
     const query = normalizeSearchText(incomingText || "");
 
+    console.log("SEARCH_EVENT", {
+  intent: parseSearchIntent(incomingText || "").intent,
+  query: normalizeSearchText(incomingText),
+  lang,
+});
+
 // =========================
 // REFINEMENT ANSWER FLOW (PUT IT HERE)
 // =========================
@@ -3658,7 +3686,7 @@ if (intentData.isNearby) {
 // RUN SEARCH ENGINE
 // =========================
 const searchData = await searchBusinesses({
-  query: incomingText || "",
+ query: normalizeSearchText(incomingText)
   lang,
 });
 
@@ -3667,7 +3695,7 @@ const searchData = await searchBusinesses({
 // =========================
 if (searchData.mode === "refinement_required") {
   const session = {
-    query: incomingText || "",
+    query: normalizeSearchText(incomingText)
     lang,
     answers: {
       preference: "",
@@ -3769,20 +3797,23 @@ app.get("/l/:token", async (req, res) => {
     const whatsappUrl = `https://wa.me/${rawPhone}?text=${encodeURIComponent(text)}`;
 
     try {
-      const { error: insertError } = await supabase.from("lead_clicks").insert([
-        {
-          token_id: tokenRow.id,
-          business_id: tokenRow.business_id || null,
-          business_phone: rawPhone,
-          user_phone: tokenRow.user_phone || null,
-          query: tokenRow.query || null,
-          clicked_at: new Date().toISOString(),
-          user_agent: req.get("user-agent") || null,
-          referer: req.get("referer") || null,
-          ip_address: ip,
-        },
-      ]);
+     const { error: insertError } = await supabase.from("lead_clicks").insert([
+  {
+    token_id: tokenRow.id,
+    business_id: tokenRow.business_id || null,
+    business_phone: rawPhone,
 
+    // 🔒 PRIVACY
+    user_phone: null,
+    user_phone_hash: hash(tokenRow.user_phone || ""),
+    query: normalizeSearchText(tokenRow.query || "") || null,
+    ip_address: maskIP(ip),
+
+    clicked_at: new Date().toISOString(),
+    user_agent: req.get("user-agent") || null,
+    referer: req.get("referer") || null,
+  },
+]);
       if (insertError) {
         console.error("LEAD CLICK INSERT ERROR:", insertError);
       }
@@ -3839,10 +3870,7 @@ process.on("unhandledRejection", (reason) => {
 app.use((err, _req, res, _next) => {
   console.error("UNHANDLED ERROR:", err);
   return res.status(500).json({ error: "Internal server error" });
-});app.use((err, _req, res, _next) => {
-  console.error("UNHANDLED ERROR:", err);
-  return res.status(500).json({ error: "Internal server error" });
-});
+
 
 // ---------------------------------------------------------------------------
 // Start
