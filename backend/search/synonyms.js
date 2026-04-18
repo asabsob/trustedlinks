@@ -1,14 +1,24 @@
-// search/synonyms.js
-
 import { normalizeSearchText } from "./textNormalizer.js";
 
 export const SEARCH_SYNONYMS = {
   beverages: [
-  "قهوة","كوفي","coffee","cafe",
-  "شاي","tea",
-  "مشروبات","مشروب","مشاريب","drink","drinks","beverages",
-  "عصير","juice"
-]
+    "قهوة",
+    "كوفي",
+    "coffee",
+    "cafe",
+    "شاي",
+    "tea",
+    "مشروبات",
+    "مشروب",
+    "مشاريب",
+    "drinks",
+    "drink",
+    "beverages",
+    "juice",
+    "عصير",
+    "بوبل تي",
+    "بابل تي",
+  ],
   restaurant: [
     "مطعم",
     "مطاعم",
@@ -16,6 +26,7 @@ export const SEARCH_SYNONYMS = {
     "restaurants",
     "food",
     "اكل",
+    "أكل",
     "وجبات",
     "برغر",
     "burger",
@@ -32,6 +43,7 @@ export const SEARCH_SYNONYMS = {
     "medicine",
     "دواء",
     "ادويه",
+    "أدوية",
   ],
   dessert: [
     "حلويات",
@@ -52,7 +64,11 @@ export const SEARCH_SYNONYMS = {
 };
 
 function uniqueTerms(terms = []) {
-  return [...new Set(terms.map((t) => normalizeSearchText(t)).filter(Boolean))];
+  return [
+    ...new Set(
+      terms.map((t) => normalizeSearchText(t)).filter(Boolean)
+    ),
+  ];
 }
 
 export function expandTerms(query = "") {
@@ -66,10 +82,7 @@ export function expandTerms(query = "") {
     const normalizedSynonyms = uniqueTerms([groupKey, ...synonyms]);
 
     const matched = normalizedSynonyms.some((term) => {
-      return (
-        normalizedQuery.includes(term) ||
-        queryWords.includes(term)
-      );
+      return normalizedQuery.includes(term) || queryWords.includes(term);
     });
 
     if (matched) {
