@@ -3653,7 +3653,6 @@ if (!query) {
 // =========================
 // NORMAL SEARCH (NEW ENGINE)
 // =========================
-
 const intentData = parseSearchIntent(incomingText || "");
 const effectiveQuery =
   intentData.categoryQuery || normalizeSearchText(incomingText || "");
@@ -3682,7 +3681,7 @@ if (intentData.isNearby) {
 // RUN SEARCH ENGINE
 // =========================
 const searchData = await searchBusinesses({
- query: normalizeSearchText(incomingText)
+  query: normalizeSearchText(incomingText || ""),
   lang,
 });
 
@@ -3691,7 +3690,7 @@ const searchData = await searchBusinesses({
 // =========================
 if (searchData.mode === "refinement_required") {
   const session = {
-    query: normalizeSearchText(incomingText)
+    query: normalizeSearchText(incomingText || ""),
     lang,
     answers: {
       preference: "",
@@ -3730,10 +3729,6 @@ const reply = formatSearchResponse(finalSearchData, lang);
 return await javnaSendText({
   to: from,
   body: reply,
-});
-  } catch (e) {
-    console.error("WHATSAPP WEBHOOK ERROR:", e);
-  }
 });
     
 // ============================================================================
