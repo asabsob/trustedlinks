@@ -3424,7 +3424,8 @@ function parseNearbyIntent(text = "") {
 }
 
 function detectLanguage(text = "") {
-  return /[\u0600-\u06FF]/.test(text) ? "ar" : "en";
+  const hasArabic = /[\u0600-\u06FF]/.test(text);
+  return hasArabic ? "ar" : "en";
 }
 
 function isHelpCommand(text = "") {
@@ -3547,11 +3548,10 @@ if (messageType === "text" && incomingText && !isMoreCommand(incomingText)) {
       userPhone: from,
     });
 
-    const finalSearchData = {
-      ...refinedSearchData,
-      results: enrichedResults,
-    };
-
+   const finalSearchData = {
+  ...refinedSearchData,
+  results: enrichedResults,
+};
     const reply = formatSearchResponse(finalSearchData, updatedSession.lang);
 
     return await javnaSendText({
