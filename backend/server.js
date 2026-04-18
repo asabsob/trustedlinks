@@ -2818,6 +2818,8 @@ app.get("/api/businesses", async (_req, res) => {
         whatsappLink: b.whatsapp
           ? `https://wa.me/${String(b.whatsapp).replace(/\D/g, "")}`
           : null,
+      }))
+    );
 
     return res.json({
       ok: true,
