@@ -410,6 +410,40 @@ async function beginIdempotentRequest({
     requestHash,
   };
 }
+
+async function enrichTopResultWithTrackedLink({
+  items = [],
+  query = "",
+  userPhone = "",
+}) {
+  const safeItems = Array.isArray(items) ? items : [];
+  if (!safeItems.length) return [];
+
+  const first = safeItems[0];
+  const rest = safeItems.slice(1);
+
+  let trackedLink = null;
+
+  if (first?.id && first?.whatsapp) {
+    trackedLink = await createLeadTrackedLink({
+      businessId: first.id,
+      phone: first.whatsapp,
+      query,
+      userPhone,
+    });
+  }
+
+  return [
+    {
+      ...first,
+      trackedLink,
+    },
+    ...rest.map((item) => ({
+      ...item,
+      trackedLink: null,
+    })),
+  ];
+}
 // =========================
 // MEMORY (instead of Mongo sessions)
 // =========================
@@ -3565,11 +3599,12 @@ if (messageType === "text" && incomingText && !isMoreCommand(incomingText)) {
       refinementAnswers: updatedSession.answers,
     });
 
-   const enrichedResults = (refinedSearchData.results || []).map((item) => ({
-  ...item,
-  trackedLink: null,
-}));
-
+ const enrichedResults = await enrichTopResultWithTrackedLink({
+  items: refinedSearchData.results || [],
+  query: refinedSearchData.effectiveQuery || updatedSession.query,
+  userPhone: from,
+});
+    
    const finalSearchData = {
   ...refinedSearchData,
   results: enrichedResults,
@@ -3615,10 +3650,11 @@ if (
 
   const nearest = await findNearestBusinesses(lat, lng, 3, categoryQuery);
 
-  const enriched = (nearest || []).map((item) => ({
-  ...item,
-  trackedLink: null,
-}));
+ const enriched = await enrichTopResultWithTrackedLink({
+  items: nearest || [],
+  query: categoryQuery || "nearby",
+  userPhone: from,
+});
 
   clearPendingNearby(from);
 
@@ -3711,10 +3747,11 @@ if (searchData.mode === "refinement_required") {
 // RESULTS MODE
 // =========================
 
-const enrichedResults = (searchData.results || []).map((item) => ({
-  ...item,
-  trackedLink: null,
-}));
+const enrichedResults = await enrichTopResultWithTrackedLink({
+  items: searchData.results || [],
+  query: searchData.effectiveQuery || effectiveQuery,
+  userPhone: from,
+});
 
 const finalSearchData = {
   ...searchData,
