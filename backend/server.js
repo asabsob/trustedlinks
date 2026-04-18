@@ -769,7 +769,7 @@ async function createLeadTrackedLink({
   return `${baseUrl}/l/${tokenId}`;
 }
 
- async function enrichBusinessesWithTrackedLinks({
+async function enrichBusinessesWithTrackedLinks({
   items = [],
   query = "",
   userPhone = "",
@@ -3509,7 +3509,7 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
     if (!from) return;
 
    const lang = detectLanguage(incomingText || "");
-const parsed = parseNearbyIntent(incomingText);
+
 
     const query = normalizeSearchText(incomingText || "");
 
@@ -3625,26 +3625,6 @@ if (!query) {
         : "Send a business name or category.",
   });
 }
-
-// =========================
-// NEARBY REQUEST
-// =========================
-if (parsed.isNearby) {
-  setPendingNearby(from, parsed.categoryQuery || "");
-
-  return await javnaSendText({
-    to: from,
-    body:
-      lang === "ar"
-        ? parsed.categoryQuery
-          ? `أرسل موقعك لنعرض لك أقرب النتائج لـ "${parsed.categoryQuery}" 📍`
-          : "أرسل موقعك لنعرض لك أقرب النتائج 📍"
-        : parsed.categoryQuery
-        ? `Please send your location to show nearby results for "${parsed.categoryQuery}" 📍`
-        : "Please send your location to show nearby results 📍",
-  });
-}
-
 
 // =========================
 // NORMAL SEARCH (NEW ENGINE)
