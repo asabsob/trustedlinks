@@ -692,18 +692,17 @@ function saveRefinementAnswer(session, answer = "") {
 
   const cleanAnswer = String(answer || "").trim();
 
-  const nextAnswers = {
-    ...session.answers,
-    [currentQuestion.key]: cleanAnswer,
-  };
+ const nextAnswers = {
+  ...session.answers,
+  [currentQuestion.key]: cleanAnswer,
+};
 
-  return {
-    ...session,
-    answers: nextAnswers,
-    step: session.step + 1,
-    createdAt: Date.now(),
-  };
-}
+return {
+  ...session,
+  answers: nextAnswers,
+  step: session.step + 1,
+  createdAt: Date.now(),
+};
 
 function isRefinementComplete(session) {
   if (!session) return false;
@@ -3856,11 +3855,6 @@ app.use((err, _req, res, _next) => {
   console.error("UNHANDLED ERROR:", err);
   return res.status(500).json({ error: "Internal server error" });
 });
-
-// ---------------------------------------------------------------------------
-// Start
-// ---------------------------------------------------------------------------
-app.listen(PORT, "0.0.0.0", () => {
 
 // ---------------------------------------------------------------------------
 // Start
