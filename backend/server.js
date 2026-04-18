@@ -804,25 +804,6 @@ async function logBusinessEvent({
   }
 }
 
-async function enrichBusinessesWithTrackedLinks({
-  items = [],
-  query = "",
-  userPhone = "",
-}) {
-  const safeItems = Array.isArray(items) ? items : [];
-
-  return await Promise.all(
-    safeItems.map(async (item) => ({
-      ...item,
-      trackedLink: await createLeadTrackedLink({
-        businessId: item.id,
-        phone: item.whatsapp,
-        query,
-        userPhone,
-      }),
-    }))
-  );
-}
 
 // =========================
 // Business Owner Info
