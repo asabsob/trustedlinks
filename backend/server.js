@@ -400,6 +400,7 @@ async function beginIdempotentRequest({
 // MEMORY (instead of Mongo sessions)
 // =========================
 const PENDING_NEARBY_REQUESTS = new Map();
+const PENDING_REFINEMENT_REQUESTS = new Map();
 
 // =========================
 // CONFIG
@@ -600,6 +601,117 @@ setInterval(() => {
   cleanupGuardMap(LEAD_GUARD);
 }, 30 * 60 * 1000);
 
+// =========================
+// REFINEMENT MEMORY
+// =========================
+
+function getRefinementQuestions(lang = "ar") {
+  return [
+    {
+      key: "preference",
+      text:
+        lang === "ar"
+          ? "ماذا تفضل بالتحديد؟"
+          : "What exactly do you prefer?",
+    },
+    {
+      key: "area",
+      text:
+        lang === "ar"
+          ? "في أي منطقة؟"
+          : "Which area?",
+    },
+    {
+      key: "priority",
+      text:
+        lang === "ar"
+          ? "هل تريد خيارًا اقتصاديًا أم الأفضل تقييمًا؟"
+          : "Do you want a budget option or top-rated?",
+    },
+  ];
+}
+
+function setPendingRefinement(from, data = {}) {
+  PENDING_REFINEMENT_REQUESTS.set(from, {
+    query: data.query || "",
+    lang: data.lang || "ar",
+    answers: {
+      preference: data.answers?.preference || "",
+      area: data.answers?.area || "",
+      priority: data.answers?.priority || "",
+    },
+    step: Number(data.step || 0),
+    createdAt: Date.now(),
+  });
+}
+
+function getPendingRefinement(from) {
+  const item = PENDING_REFINEMENT_REQUESTS.get(from);
+  if (!item) return null;
+
+  if (Date.now() - item.createdAt > 15 * 60 * 1000) {
+    PENDING_REFINEMENT_REQUESTS.delete(from);
+    return null;
+  }
+
+  return item;
+}
+
+function clearPendingRefinement(from) {
+  PENDING_REFINEMENT_REQUESTS.delete(from);
+}
+
+function getCurrentRefinementQuestion(session) {
+  if (!session) return null;
+
+  const questions = getRefinementQuestions(session.lang || "ar");
+  return questions[session.step] || null;
+}
+
+function saveRefinementAnswer(session, answer = "") {
+  if (!session) return null;
+
+  const questions = getRefinementQuestions(session.lang || "ar");
+  const currentQuestion = questions[session.step];
+
+  if (!currentQuestion) return session;
+
+  const cleanAnswer = String(answer || "").trim();
+
+  const nextAnswers = {
+    ...session.answers,
+    [currentQuestion.key]: cleanAnswer,
+  };
+
+  return {
+    ...session,
+    answers: nextAnswers,
+    step: session.step + 1,
+    createdAt: Date.now(),
+  };
+}
+
+function isRefinementComplete(session) {
+  if (!session) return false;
+  return (
+    String(session.answers?.preference || "").trim() &&
+    String(session.answers?.area || "").trim() &&
+    String(session.answers?.priority || "").trim()
+  );
+}
+
+function formatSingleRefinementQuestion(session) {
+  const question = getCurrentRefinementQuestion(session);
+  const lang = session?.lang || "ar";
+
+  if (!question) {
+    return lang === "ar"
+      ? "شكرًا، سأعرض لك النتائج الآن."
+      : "Thanks, I’ll show you the results now.";
+  }
+
+  return `${session.step + 1}) ${question.text}`;
+}
 // =========================
 // SEARCH HELPERS (NO CACHE NOW)
 // =========================
