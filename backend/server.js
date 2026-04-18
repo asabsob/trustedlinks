@@ -3536,11 +3536,7 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
 
     const query = normalizeSearchText(incomingText || "");
 
-    console.log("SEARCH_EVENT", {
-  intent: parseSearchIntent(incomingText || "").intent,
-  query: normalizeSearchText(incomingText),
-  lang,
-});
+
 
 // =========================
 // REFINEMENT ANSWER FLOW (PUT IT HERE)
