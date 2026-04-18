@@ -3510,8 +3510,56 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
 
    const lang = detectLanguage(incomingText || "");
 const parsed = parseNearbyIntent(incomingText);
-const query = normalizeSearchText(incomingText || "");
 
+    const query = normalizeSearchText(incomingText || "");
+
+// =========================
+// REFINEMENT ANSWER FLOW (PUT IT HERE)
+// =========================
+if (messageType === "text" && incomingText && !isMoreCommand(incomingText)) {
+  const pendingRefinement = getPendingRefinement(from);
+
+  if (pendingRefinement) {
+    const updatedSession = saveRefinementAnswer(pendingRefinement, incomingText);
+
+    if (!isRefinementComplete(updatedSession)) {
+      setPendingRefinement(from, updatedSession);
+
+      const nextQuestion = formatSingleRefinementQuestion(updatedSession);
+
+      return await javnaSendText({
+        to: from,
+        body: nextQuestion,
+      });
+    }
+
+    clearPendingRefinement(from);
+
+    const refinedSearchData = await searchBusinesses({
+      query: updatedSession.query,
+      lang: updatedSession.lang,
+      refinementAnswers: updatedSession.answers,
+    });
+
+    const enrichedResults = await enrichBusinessesWithTrackedLinks({
+      items: refinedSearchData.results || [],
+      query: refinedSearchData.effectiveQuery || updatedSession.query,
+      userPhone: from,
+    });
+
+    const finalSearchData = {
+      ...refinedSearchData,
+      results: enrichedResults,
+    };
+
+    const reply = formatSearchResponse(finalSearchData, updatedSession.lang);
+
+    return await javnaSendText({
+      to: from,
+      body: reply,
+    });
+  }
+}
 // =========================
 // Greeting / Help / Thanks
 // =========================
@@ -3638,11 +3686,24 @@ const searchData = await searchBusinesses({
 // REFINEMENT MODE
 // =========================
 if (searchData.mode === "refinement_required") {
-  const reply = formatSearchResponse(searchData, lang);
+  const session = {
+    query: incomingText || "",
+    lang,
+    answers: {
+      preference: "",
+      area: "",
+      priority: "",
+    },
+    step: 0,
+  };
+
+  setPendingRefinement(from, session);
+
+  const firstQuestion = formatSingleRefinementQuestion(session);
 
   return await javnaSendText({
     to: from,
-    body: reply,
+    body: firstQuestion,
   });
 }
 
