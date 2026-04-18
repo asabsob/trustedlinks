@@ -1,5 +1,3 @@
-// search/searchService.js
-
 import { expandTerms } from "./synonyms.js";
 import { parseSearchIntent } from "./intentDetector.js";
 import { normalizeSearchText } from "./textNormalizer.js";
@@ -34,17 +32,19 @@ function getBusinessFields(item) {
     item?.name_ar || "",
     item?.description || "",
     item?.description_ar || "",
-    ...(Array.isArray(item?.keywords) ? item.keywords : []),
-    ...(Array.isArray(item?.keywords_ar) ? item.keywords_ar : []),
-    ...(Array.isArray(item?.category) ? item.category : []),
+    ...toArray(item?.keywords),
+    ...toArray(item?.keywords_ar),
+    ...toArray(item?.category),
     item?.locationText || "",
     item?.location_text || "",
     item?.city || "",
     item?.area || "",
+    item?.countryName || "",
   ].map((v) => String(v || ""));
 }
 
 function matchesBusiness(item, regexList) {
+  if (!regexList.length) return true;
   const fields = getBusinessFields(item);
   return regexList.some((rx) => fields.some((field) => rx.test(field)));
 }
@@ -59,14 +59,15 @@ function calculateMatchScore(item, query = "", terms = [], intent = "category") 
   const keywordsAr = toArray(item?.keywords_ar).map((v) => normalizeSearchText(v)).join(" ");
   const categories = toArray(item?.category).map((v) => normalizeSearchText(v)).join(" ");
   const locationText = normalizeSearchText(
-    item?.locationText || item?.location_text || item?.city || item?.area || ""
+    item?.locationText || item?.location_text || item?.city || item?.area || item?.countryName || ""
   );
 
   let score = 0;
 
-  // Exact / near exact name match
-  if (name === normalizedQuery) score += 120;
-  if (nameAr === normalizedQuery) score += 120;
+  if (!normalizedQuery) score += 1;
+
+  if (name === normalizedQuery && normalizedQuery) score += 120;
+  if (nameAr === normalizedQuery && normalizedQuery) score += 120;
 
   if (name.includes(normalizedQuery) && normalizedQuery) score += 80;
   if (nameAr.includes(normalizedQuery) && normalizedQuery) score += 80;
@@ -79,7 +80,6 @@ function calculateMatchScore(item, query = "", terms = [], intent = "category") 
   if (descriptionAr.includes(normalizedQuery) && normalizedQuery) score += 18;
   if (locationText.includes(normalizedQuery) && normalizedQuery) score += 12;
 
-  // Per-term scoring
   terms.forEach((term) => {
     const t = normalizeSearchText(term);
     if (!t) return;
@@ -94,7 +94,6 @@ function calculateMatchScore(item, query = "", terms = [], intent = "category") 
     if (locationText.includes(t)) score += 4;
   });
 
-  // Intent weighting
   if (intent === "brand") {
     if (name.includes(normalizedQuery) || nameAr.includes(normalizedQuery)) {
       score += 40;
@@ -102,7 +101,7 @@ function calculateMatchScore(item, query = "", terms = [], intent = "category") 
   }
 
   if (intent === "category") {
-    if (categories.includes(normalizedQuery)) {
+    if (categories.includes(normalizedQuery) && normalizedQuery) {
       score += 18;
     }
   }
@@ -143,18 +142,12 @@ function getRefinementQuestions(lang = "ar") {
   return [
     {
       key: "preference",
-      text:
-        lang === "ar"
-          ? "ماذا تفضل بالتحديد؟"
-          : "What exactly do you prefer?",
+      text: lang === "ar" ? "ماذا تفضل بالتحديد؟" : "What exactly do you prefer?",
       type: "text",
     },
     {
       key: "area",
-      text:
-        lang === "ar"
-          ? "في أي منطقة؟"
-          : "Which area?",
+      text: lang === "ar" ? "في أي منطقة؟" : "Which area?",
       type: "text",
     },
     {
@@ -217,6 +210,7 @@ function applyRefinementAnswers(results = [], refinementAnswers = {}) {
 
   return filtered;
 }
+
 export async function searchBusinesses({
   query = "",
   lang = "ar",
@@ -240,58 +234,55 @@ export async function searchBusinesses({
   matched = matched
     .map((item) => ({
       ...item,
-      _matchScore: calculateMatchScore(
-        item,
-        effectiveQuery,
-        terms,
-        intentData.intent
-      ),
+      _matchScore: calculateMatchScore(item, effectiveQuery, terms, intentData.intent),
     }))
     .filter((item) => item._matchScore > 0)
     .sort((a, b) => b._matchScore - a._matchScore);
-const needsRefinement =
-  !refinementAnswers &&
-  shouldAskRefinement({
-    intent: intentData.intent,
-    query: effectiveQuery,
-    results: matched,
-  });
 
-if (needsRefinement) {
+  const needsRefinement =
+    !refinementAnswers &&
+    shouldAskRefinement({
+      intent: intentData.intent,
+      query: effectiveQuery,
+      results: matched,
+    });
+
+  if (needsRefinement) {
+    return {
+      ok: true,
+      mode: "refinement_required",
+      query: safeQuery,
+      effectiveQuery,
+      intent: intentData.intent,
+      intentMeta: intentData,
+      totalMatched: matched.length,
+      results: [],
+      refinement: {
+        enabled: true,
+        questions: getRefinementQuestions(lang),
+      },
+    };
+  }
+
+  const refinedMatched = refinementAnswers
+    ? applyRefinementAnswers(matched, refinementAnswers)
+    : matched;
+
+  const limit = RESULT_LIMITS[intentData.intent] || 8;
+  const finalResults = refinedMatched.slice(0, limit);
+
   return {
     ok: true,
-    mode: "refinement_required",
+    mode: "results",
     query: safeQuery,
     effectiveQuery,
     intent: intentData.intent,
     intentMeta: intentData,
-    totalMatched: matched.length,
-    results: [],
+    totalMatched: refinedMatched.length,
+    results: finalResults,
     refinement: {
-      enabled: true,
-      questions: getRefinementQuestions(lang),
+      enabled: false,
+      answers: refinementAnswers || null,
     },
   };
 }
-
-const refinedMatched = refinementAnswers
-  ? applyRefinementAnswers(matched, refinementAnswers)
-  : matched;
-
-const limit = RESULT_LIMITS[intentData.intent] || 8;
-const finalResults = refinedMatched.slice(0, limit);
-
-return {
-  ok: true,
-  mode: "results",
-  query: safeQuery,
-  effectiveQuery,
-  intent: intentData.intent,
-  intentMeta: intentData,
-  totalMatched: refinedMatched.length,
-  results: finalResults,
-  refinement: {
-    enabled: false,
-    answers: refinementAnswers || null,
-  },
-};
