@@ -2819,19 +2819,6 @@ app.get("/api/businesses", async (_req, res) => {
           ? `https://wa.me/${String(b.whatsapp).replace(/\D/g, "")}`
           : null,
 
-        // ✅ tracked lead link باستخدام token حقيقي
-        lead_link:
-          b.id && b.whatsapp
-            ? await createLeadTrackedLink({
-                businessId: b.id,
-                phone: b.whatsapp,
-                query: "",
-                userPhone: "",
-              })
-            : null,
-      }))
-    );
-
     return res.json({
       ok: true,
       results: formatted,
@@ -3481,25 +3468,42 @@ function getWelcomeMessage(lang = "ar") {
 }
 
 
-  async function enrichBusinessesWithTrackedLinks({
-  items = [],
-  query = "",
-  userPhone = "",
-}) {
-  const safeItems = Array.isArray(items) ? items : [];
+ app.post("/api/leads/create", async (req, res) => {
+  try {
+    const businessId = String(req.body?.businessId || "").trim();
+    const query = String(req.body?.query || "").trim();
+    const userPhone = String(req.body?.userPhone || "").replace(/\D/g, "");
 
-  return await Promise.all(
-    safeItems.map(async (item) => ({
-      ...item,
-      trackedLink: await createLeadTrackedLink({
-        businessId: item.id,
-        phone: item.whatsapp,
-        query,
-        userPhone,
-      }),
-    }))
-  );
-}
+    if (!businessId) {
+      return res.status(400).json({ error: "businessId required" });
+    }
+
+    const business = await getBusinessById(businessId);
+    if (!business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+
+    const safePhone = String(business.whatsapp || "").replace(/\D/g, "");
+    if (!safePhone) {
+      return res.status(400).json({ error: "Business phone missing" });
+    }
+
+    const trackedLink = await createLeadTrackedLink({
+      businessId: business.id,
+      phone: safePhone,
+      query,
+      userPhone,
+    });
+
+    return res.json({
+      ok: true,
+      trackedLink,
+    });
+  } catch (e) {
+    console.error("/api/leads/create error:", e);
+    return res.status(500).json({ error: "Failed to create lead" });
+  }
+});
   
 app.get("/webhooks/javna/whatsapp", (_req, res) => {
   res.status(200).send("WhatsApp webhook is live");
@@ -3755,6 +3759,7 @@ function buildWhatsAppLeadMessage({
 
   return parts.join("\n");
 }
+
 // ============================================================================
 // LEAD TRACKED REDIRECT
 // ============================================================================
@@ -3786,12 +3791,6 @@ app.get("/l/:token", async (req, res) => {
       req.socket?.remoteAddress ||
       "unknown";
 
-    const leadKey = `lead:${tokenRow.id}:${ip}`;
-
-    if (isWithinCooldown(LEAD_GUARD, leadKey, 60 * 1000)) {
-      return res.status(429).send("Too many repeated lead requests");
-    }
-
     const rawPhone = String(tokenRow.business_phone || "").replace(/\D/g, "");
     if (!rawPhone) {
       return res.status(400).send("Business phone missing");
@@ -3805,8 +3804,15 @@ app.get("/l/:token", async (req, res) => {
 
     const whatsappUrl = `https://wa.me/${rawPhone}?text=${encodeURIComponent(text)}`;
 
-    try {
-      const { error: insertError } = await supabase.from("lead_clicks").insert([
+    const leadKey = `lead:${tokenRow.id}:${ip}`;
+    const isDuplicateLead = isWithinCooldown(LEAD_GUARD, leadKey, 60 * 1000);
+
+    res.redirect(302, whatsappUrl);
+
+    if (isDuplicateLead) return;
+
+    Promise.allSettled([
+      supabase.from("lead_clicks").insert([
         {
           token_id: tokenRow.id,
           business_id: tokenRow.business_id || null,
@@ -3819,33 +3825,31 @@ app.get("/l/:token", async (req, res) => {
           user_agent: req.get("user-agent") || null,
           referer: req.get("referer") || null,
         },
-      ]);
-
-      if (insertError) {
-        console.error("LEAD CLICK INSERT ERROR:", insertError);
-      }
-    } catch (trackingErr) {
-      console.error("LEAD CLICK TRACKING EXCEPTION:", trackingErr);
-    }
-
-    try {
-      const currentClicks = Number(tokenRow.click_count || 0);
-      const { error: updateError } = await supabase
+      ]),
+      supabase
         .from("lead_tokens")
         .update({
-          click_count: currentClicks + 1,
+          click_count: Number(tokenRow.click_count || 0) + 1,
           last_clicked_at: new Date().toISOString(),
         })
-        .eq("id", tokenRow.id);
+        .eq("id", tokenRow.id),
+    ]).then((results) => {
+      const [insertResult, updateResult] = results;
 
-      if (updateError) {
-        console.error("LEAD TOKEN UPDATE ERROR:", updateError);
+      if (insertResult.status === "fulfilled" && insertResult.value?.error) {
+        console.error("LEAD CLICK INSERT ERROR:", insertResult.value.error);
       }
-    } catch (updateErr) {
-      console.error("LEAD TOKEN UPDATE EXCEPTION:", updateErr);
-    }
+      if (insertResult.status === "rejected") {
+        console.error("LEAD CLICK TRACKING EXCEPTION:", insertResult.reason);
+      }
 
-    return res.redirect(302, whatsappUrl);
+      if (updateResult.status === "fulfilled" && updateResult.value?.error) {
+        console.error("LEAD TOKEN UPDATE ERROR:", updateResult.value.error);
+      }
+      if (updateResult.status === "rejected") {
+        console.error("LEAD TOKEN UPDATE EXCEPTION:", updateResult.reason);
+      }
+    });
   } catch (err) {
     console.error("LEAD REDIRECT ERROR:", err);
     return res.status(500).send("Internal redirect error");
