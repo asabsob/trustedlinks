@@ -789,7 +789,7 @@ async function logBusinessEvent({
   ownerUserId,
   type,
   source = "",
-  meta = {},async function enrichBusinessesWithTrackedLinks
+  meta = {},
 }) {
   try {
     await createBusinessEvent({
@@ -802,6 +802,26 @@ async function logBusinessEvent({
   } catch (e) {
     console.error("logBusinessEvent error:", e);
   }
+}
+
+async function enrichBusinessesWithTrackedLinks({
+  items = [],
+  query = "",
+  userPhone = "",
+}) {
+  const safeItems = Array.isArray(items) ? items : [];
+
+  return await Promise.all(
+    safeItems.map(async (item) => ({
+      ...item,
+      trackedLink: await createLeadTrackedLink({
+        businessId: item.id,
+        phone: item.whatsapp,
+        query,
+        userPhone,
+      }),
+    }))
+  );
 }
 
 // =========================
