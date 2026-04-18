@@ -301,14 +301,6 @@ const adminApiLimiter = rateLimit({
 
 app.use("/api/admin", adminApiLimiter);
 
-app.use((err, _req, res, _next) => {
-  console.error("UNHANDLED ERROR:", err);
-
-  return res.status(500).json({
-    error: "Internal server error",
-  });
-});
-
 const getIP = (req) =>
   req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
   req.socket?.remoteAddress ||
@@ -774,9 +766,7 @@ async function createLeadTrackedLink({
   });
 
   const tokenId = token?.id || token?._id?.toString();
-  const baseUrl = String(process.env.BASE_URL || "")
-    .trim()
-    .replace(/\/+$/, "");
+  const baseUrl = String(process.env.BASE_URL || "").trim().replace(/\/+$/, "");
 
   if (!tokenId || !baseUrl) {
     console.error("Failed to create tracked link", {
