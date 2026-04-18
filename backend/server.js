@@ -3707,6 +3707,10 @@ return await javnaSendText({
   to: from,
   body: reply,
 });
+  } catch (e) {
+    console.error("WHATSAPP WEBHOOK ERROR:", e);
+  }
+});
     
 // ============================================================================
 // LEAD TRACKED REDIRECT
