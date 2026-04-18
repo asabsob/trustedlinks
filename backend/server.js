@@ -3719,20 +3719,14 @@ return await javnaSendText({
   to: from,
   body: reply,
 });
-      } catch (e) {
+  } catch (e) {
     console.error("WHATSAPP WEBHOOK ERROR:", e);
   }
 });
-    
+
 // ============================================================================
 // LEAD TRACKED REDIRECT
 // ============================================================================
-// =========================
-// Lead Redirect Route
-// =========================
-// =========================
-// Lead Redirect Route
-// =========================
 app.get("/l/:token", async (req, res) => {
   try {
     const tokenId = String(req.params.token || "").trim();
@@ -3781,23 +3775,21 @@ app.get("/l/:token", async (req, res) => {
     const whatsappUrl = `https://wa.me/${rawPhone}?text=${encodeURIComponent(text)}`;
 
     try {
-     const { error: insertError } = await supabase.from("lead_clicks").insert([
-  {
-    token_id: tokenRow.id,
-    business_id: tokenRow.business_id || null,
-    business_phone: rawPhone,
+      const { error: insertError } = await supabase.from("lead_clicks").insert([
+        {
+          token_id: tokenRow.id,
+          business_id: tokenRow.business_id || null,
+          business_phone: rawPhone,
+          user_phone: null,
+          user_phone_hash: hash(tokenRow.user_phone || ""),
+          query: normalizeSearchText(tokenRow.query || "") || null,
+          ip_address: maskIP(ip),
+          clicked_at: new Date().toISOString(),
+          user_agent: req.get("user-agent") || null,
+          referer: req.get("referer") || null,
+        },
+      ]);
 
-    // 🔒 PRIVACY
-    user_phone: null,
-    user_phone_hash: hash(tokenRow.user_phone || ""),
-    query: normalizeSearchText(tokenRow.query || "") || null,
-    ip_address: maskIP(ip),
-
-    clicked_at: new Date().toISOString(),
-    user_agent: req.get("user-agent") || null,
-    referer: req.get("referer") || null,
-  },
-]);
       if (insertError) {
         console.error("LEAD CLICK INSERT ERROR:", insertError);
       }
@@ -3828,6 +3820,7 @@ app.get("/l/:token", async (req, res) => {
     return res.status(500).send("Internal redirect error");
   }
 });
+
 // ---------------------------------------------------------------------------
 // Debug
 // ---------------------------------------------------------------------------
