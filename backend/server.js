@@ -3407,7 +3407,7 @@ const enrichedResults = await enrichTopResultWithTrackedLink({
   items: searchData.results || [],
   query: searchData.effectiveQuery || effectiveQuery,
   userPhone: from,
-  intentType: searchData.intentType || "direct",
+ intentType: resolvedIntentType,
 });
     
 const finalSearchData = {
