@@ -258,21 +258,25 @@ export default function Dashboard({ lang = "en" }) {
               : "#16a34a"
           }
         />
-        <StatCard
-          title={t("Total Clicks", "إجمالي النقرات")}
-          value={reports?.totalClicks ?? 0}
-          subtitle={t("Business interactions", "تفاعلات النشاط")}
-        />
-        <StatCard
-          title={t("Total Messages", "إجمالي الرسائل")}
-          value={reports?.totalMessages ?? 0}
-          subtitle={t("WhatsApp conversations", "محادثات واتساب")}
-        />
-        <StatCard
-          title={t("Weekly Growth", "النمو الأسبوعي")}
-          value={`${reports?.weeklyGrowth ?? 0}%`}
-          subtitle={t("Performance trend", "اتجاه الأداء")}
-        />
+       <StatCard
+  title="Direct Starts"
+  value={reports?.direct_starts ?? 0}
+/>
+
+<StatCard
+  title="Category Starts"
+  value={reports?.category_starts ?? 0}
+/>
+
+<StatCard
+  title="Nearby Starts"
+  value={reports?.nearby_starts ?? 0}
+/>
+
+<StatCard
+  title="Revenue"
+  value={`${reports?.estimated_revenue ?? 0} ${reports?.currency || "USD"}`}
+/>
       </section>
 
       <section style={mainGrid}>
@@ -353,10 +357,10 @@ export default function Dashboard({ lang = "en" }) {
 
           {reports ? (
             <div style={miniStatsGrid}>
-              <MiniStat title={t("Views", "المشاهدات")} value={reports.views ?? 0} />
-              <MiniStat title={t("Clicks", "النقرات")} value={reports.totalClicks ?? 0} />
-              <MiniStat title={t("Messages", "الرسائل")} value={reports.totalMessages ?? 0} />
-              <MiniStat title={t("Media Views", "مشاهدات الوسائط")} value={reports.mediaViews ?? 0} />
+              <MiniStat title={t("Views", "المشاهدات")} value={reports.total_billed_conversations ?? 0} />
+              <MiniStat title={t("Clicks", "النقرات")} value={reports.direct_starts ?? 0} />
+              <MiniStat title={t("Messages", "الرسائل")} value={reports.category_starts ?? 0} />
+              <MiniStat title={t("Media Views", "مشاهدات الوسائط")} value={reports.nearby_starts ?? 0} />
             </div>
           ) : (
             <EmptyState
