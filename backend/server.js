@@ -3378,6 +3378,13 @@ if (searchData.mode === "refinement_required") {
 // RESULTS MODE
 // =========================
 
+    const enrichedResults = await enrichTopResultWithTrackedLink({
+  items: searchData.results || [],
+  query: searchData.effectiveQuery || effectiveQuery,
+  userPhone: from,
+  intentType: searchData.intentType || "direct",
+});
+    
 const finalSearchData = {
   ...searchData,
   results: enrichedResults,
