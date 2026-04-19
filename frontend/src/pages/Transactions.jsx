@@ -182,11 +182,13 @@ export default function Transactions({ lang = "en" }) {
                     <td className="px-3 py-3 text-slate-600">
   {tx.eventType === "topup"
     ? "Top up"
-    : tx.eventType === "whatsapp"
-    ? "WhatsApp Lead"
-    : tx.eventType === "click"
-    ? "Click"
-    : tx.reason || "-"}
+  tx.eventType === "conversation_start_direct"
+  ? "Direct Lead"
+  : tx.eventType === "conversation_start_category"
+  ? "Category Lead"
+  : tx.eventType === "conversation_start_nearby"
+  ? "Nearby Lead"
+  : tx.reason
 </td>
                       <td className="px-3 py-3 text-slate-500">{tx.reference || tx.id || "-"}</td>
                       <td className="px-3 py-3 text-slate-500">
