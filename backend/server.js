@@ -411,7 +411,7 @@ async function enrichTopResultWithTrackedLink({
   items = [],
   query = "",
   userPhone = "",
-  intentType: searchData.intentType || "direct",
+  intentType = "direct",
 }) {
   const safeItems = Array.isArray(items) ? items : [];
   if (!safeItems.length) return [];
@@ -442,7 +442,6 @@ async function enrichTopResultWithTrackedLink({
     })),
   ];
 }
-
 
 // =========================
 // MEMORY (instead of Mongo sessions)
@@ -3236,8 +3235,8 @@ const enrichedResults = await enrichTopResultWithTrackedLink({
   intentType: searchData.intentType || "direct",
 });
     
-   const finalSearchData = {
-  ...refinedSearchData,
+ const finalSearchData = {
+  ...searchData,
   results: enrichedResults,
 };
     const reply = formatSearchResponse(finalSearchData, updatedSession.lang);
@@ -3378,12 +3377,6 @@ if (searchData.mode === "refinement_required") {
 // =========================
 // RESULTS MODE
 // =========================
-
-const enrichedResults = await enrichTopResultWithTrackedLink({
-  items: searchData.results || [],
-  query: searchData.effectiveQuery || effectiveQuery,
-  userPhone: from,
-});
 
 const finalSearchData = {
   ...searchData,
