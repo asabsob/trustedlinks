@@ -3449,19 +3449,36 @@ app.get("/l/:token", async (req, res) => {
     if (!rawPhone) return res.status(400).send("No phone");
 
     const businessId = String(tokenRow.businessId || "").trim();
-    const intentType = String(tokenRow.intentType || "direct");
-    const userPhoneHash = hash(tokenRow.userPhone || "");
+    const intentType = String(tokenRow.intentType || "direct").trim();
+    const rawUserPhone = String(tokenRow.userPhone || "").replace(/\D/g, "");
+    const userPhoneHash = rawUserPhone ? hash(rawUserPhone) : "";
 
     const text = `Hello, I found you on TrustedLinks`;
     const whatsappUrl = `https://wa.me/${rawPhone}?text=${encodeURIComponent(text)}`;
 
     res.redirect(302, whatsappUrl);
 
-    if (!businessId || !userPhoneHash) return;
+    console.log("LEAD TOKEN DATA:", {
+      tokenId: tokenRow.id,
+      businessId,
+      intentType,
+      rawUserPhone,
+      hasUserPhone: !!rawUserPhone,
+    });
+
+    if (!businessId) {
+      console.log("SKIP BILLING: missing businessId");
+      return;
+    }
+
+    if (!rawUserPhone) {
+      console.log("SKIP BILLING: missing userPhone");
+      return;
+    }
 
     const since = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
 
-    const { data: existing } = await supabase
+    const { data: existing, error: existingError } = await supabase
       .from("lead_clicks")
       .select("id")
       .eq("business_id", businessId)
@@ -3470,10 +3487,24 @@ app.get("/l/:token", async (req, res) => {
       .limit(1)
       .maybeSingle();
 
-    if (existing) return;
+    if (existingError) {
+      console.error("EXISTING LEAD CHECK ERROR:", existingError);
+      return;
+    }
+
+    if (existing) {
+      console.log("SKIP BILLING: duplicate lead within 72h", {
+        businessId,
+        userPhoneHash,
+      });
+      return;
+    }
 
     const ownerInfo = await getBusinessOwnerInfo(businessId);
-    if (!ownerInfo) return;
+    if (!ownerInfo) {
+      console.log("SKIP BILLING: ownerInfo not found", { businessId });
+      return;
+    }
 
     const billing = await deductWalletBalance({
       ownerUserId: ownerInfo.ownerUserId,
@@ -3484,7 +3515,9 @@ app.get("/l/:token", async (req, res) => {
       meta: { userPhoneHash },
     });
 
-    await supabase.from("lead_clicks").insert([
+    console.log("BILLING RESULT:", billing);
+
+    const { error: insertError } = await supabase.from("lead_clicks").insert([
       {
         token_id: tokenRow.id,
         business_id: businessId,
@@ -3496,11 +3529,21 @@ app.get("/l/:token", async (req, res) => {
       },
     ]);
 
+    if (insertError) {
+      console.error("LEAD CLICK INSERT ERROR:", insertError);
+      return;
+    }
+
+    console.log("LEAD CLICK INSERTED:", {
+      businessId,
+      intentType,
+      billingApplied: Boolean(billing?.ok && !billing?.skipped),
+      billingAmount: Number(billing?.amount || 0),
+    });
   } catch (e) {
     console.error("lead redirect error:", e);
   }
 });
-
 // ---------------------------------------------------------------------------
 // Debug
 // ---------------------------------------------------------------------------
