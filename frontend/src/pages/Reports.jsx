@@ -1,25 +1,21 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  LineChart,
-  Line,
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   Legend,
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
 } from "recharts";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE ||
   "https://trustedlinks-backend-production.up.railway.app";
-const COLORS = ["#22c55e", "#34d399", "#4ade80", "#86efac", "#f59e0b", "#3b82f6"];
 
 export default function Reports({ lang = "en" }) {
   const isAr = lang === "ar";
@@ -31,154 +27,129 @@ export default function Reports({ lang = "en" }) {
   const [range, setRange] = useState("30d");
 
   const t = useMemo(
-    () => ({
-      en: {
-        title: "Performance Reports",
-        subtitle: "Track your business activity, engagement, and trends",
-        business: "Business",
-        category: "Category",
-        loading: "Loading reports...",
-        noData: "No data available.",
-        noActivity: "No activity data available yet.",
-        noSources: "No interaction sources available yet.",
-        noKeywords: "No keyword insights available yet.",
-        totalClicks: "Total Clicks",
-        totalMessages: "Total Messages",
-        totalMediaViews: "Total Media Views",
-        totalViews: "Total Views",
-        conversionRate: "Conversion Rate",
-        weeklyGrowth: "Weekly Growth",
-        currentPeriod: "Current Period",
-        previousPeriod: "Previous Period",
-        change: "Change",
-        comparedToPrevious: "Compared to previous period",
-        activityTrend: "Activity Trend",
-        interactionSources: "Interaction Sources",
-        latestActivity: "Latest Activity",
-        date: "Date",
-        total: "Total",
-        whatsapp: "WhatsApp",
-        media: "Media",
-        messages: "Messages",
-        views: "Views",
-        week: "Last 7 Days",
-        month: "Last 30 Days",
-        quarter: "Last 90 Days",
-        from: "From",
-        to: "To",
-        periodSummary: "Period Summary",
-        currentVsPrevious: "Current vs Previous",
-        estimatedValue: "Estimated Value",
-        noBusiness: "Business",
-        noCategory: "Category",
-        vsPrevious: "vs previous",
-        keyInsights: "Key Insights",
-        recommendations: "Smart Recommendations",
-        topKeywords: "Top Search Keywords",
-        keyword: "Keyword",
-        searches: "Searches",
-        clicks: "Clicks",
-        conversion: "Conversion",
-        lostOpportunities: "Lost Opportunities",
-        peakDay: "Peak Activity Day",
-        bestSource: "Best Interaction Source",
-        totalLeads: "Total Leads",
-        lowConversionAlert:
-          "Low conversion rate detected. Improve your description, profile image, or category targeting.",
-        recommendationKeywords:
-          "Add more keywords related to your most searched category to improve discoverability.",
-        recommendationProfile:
-          "Complete your business profile with stronger description, logo, and clearer branding.",
-        recommendationLocation:
-          "Improve your location accuracy to increase nearby search visibility.",
-        recommendationConversion:
-          "Your clicks are high but WhatsApp leads are low. Improve trust elements and offer clarity.",
-        recommendationStrong:
-          "Your business is performing well. Keep monitoring peak times and top-performing keywords.",
-        score: "Performance Score",
-        averageDaily: "Avg Daily Activity",
-        peakHour: "Peak Hour",
-hourlyTrend: "Hourly Search Trend",
-searchCount: "Search Count",
-      },
-      ar: {
-        title: "تقارير الأداء",
-        subtitle: "تابع نشاط عملك والتفاعل واتجاهات الأداء",
-        business: "النشاط",
-        category: "الفئة",
-        loading: "جارٍ تحميل التقارير...",
-        noData: "لا توجد بيانات متاحة.",
-        noActivity: "لا توجد بيانات نشاط كافية بعد.",
-        noSources: "لا توجد مصادر تفاعل بعد.",
-        noKeywords: "لا توجد بيانات كلمات بحث بعد.",
-        totalClicks: "إجمالي النقرات",
-        totalMessages: "إجمالي الرسائل",
-        totalMediaViews: "إجمالي مشاهدات الوسائط",
-        totalViews: "إجمالي المشاهدات",
-        conversionRate: "معدل التحويل",
-        weeklyGrowth: "النمو الأسبوعي",
-        currentPeriod: "الفترة الحالية",
-        previousPeriod: "الفترة السابقة",
-        change: "التغير",
-        comparedToPrevious: "مقارنة بالفترة السابقة",
-        activityTrend: "اتجاه النشاط",
-        interactionSources: "مصادر التفاعل",
-        latestActivity: "آخر النشاط",
-        date: "التاريخ",
-        total: "الإجمالي",
-        whatsapp: "واتساب",
-        media: "الوسائط",
-        messages: "الرسائل",
-        views: "المشاهدات",
-        week: "آخر 7 أيام",
-        month: "آخر 30 يوم",
-        quarter: "آخر 90 يوم",
-        from: "من",
-        to: "إلى",
-        periodSummary: "ملخص الفترة",
-        currentVsPrevious: "الحالي مقابل السابق",
-        estimatedValue: "القيمة التقديرية",
-        noBusiness: "النشاط",
-        noCategory: "الفئة",
-        vsPrevious: "مقارنة بالسابق",
-        keyInsights: "أهم النتائج",
-        recommendations: "التوصيات الذكية",
-        topKeywords: "أهم كلمات البحث",
-        keyword: "الكلمة",
-        searches: "مرات البحث",
-        clicks: "النقرات",
-        conversion: "التحويل",
-        lostOpportunities: "فرص مهدورة",
-        peakDay: "أعلى يوم نشاطًا",
-        bestSource: "أفضل مصدر تفاعل",
-        totalLeads: "إجمالي العملاء المتوقعين",
-        lowConversionAlert:
-          "⚠️ تم رصد معدل تحويل منخفض. حسّن الوصف أو الشعار أو استهداف الفئة.",
-        recommendationKeywords:
-          "أضف كلمات مفتاحية مرتبطة أكثر بالنشاط الأكثر بحثًا لزيادة الظهور.",
-        recommendationProfile:
-          "طوّر ملف النشاط بوصف أقوى وشعار أوضح وهوية أكثر احترافية.",
-        recommendationLocation:
-          "حسّن دقة الموقع لزيادة الظهور في نتائج البحث القريب.",
-        recommendationConversion:
-          "النقرات مرتفعة لكن التحويل إلى واتساب منخفض. حسّن عناصر الثقة ووضوح العرض.",
-        recommendationStrong:
-          "أداء النشاط جيد. استمر بمراقبة أوقات الذروة والكلمات الأفضل أداءً.",
-        score: "تقييم الأداء",
-        averageDaily: "متوسط النشاط اليومي",
-        peakHour: "ساعة الذروة",
-hourlyTrend: "اتجاه البحث حسب الساعة",
-searchCount: "عدد مرات البحث",
-      },
-    }),
-    [isAr]
-  )[lang];
+    () =>
+      ({
+        en: {
+          title: "Performance Reports",
+          subtitle: "Track billed conversations, revenue, and smart insights",
+          business: "Business",
+          category: "Category",
+          loading: "Loading reports...",
+          noData: "No data available.",
+          noActivity: "No activity data available yet.",
+          noRevenue: "No revenue data available yet.",
+          noSources: "No source data available yet.",
+          noKeywords: "No keyword data available yet.",
+          direct: "Direct",
+          categoryIntent: "Category",
+          nearby: "Nearby",
+          totalConversations: "Total Conversations",
+          revenue: "Revenue",
+          averageDaily: "Avg Daily Conversations",
+          avgRevenueDaily: "Avg Daily Revenue",
+          periodSummary: "Period Summary",
+          currentPeriod: "Current Period",
+          pricing: "Pricing",
+          activityTrend: "Conversation Activity Trend",
+          revenueTrend: "Revenue Trend",
+          sourceSplit: "Intent Split",
+          keyInsights: "AI Insights",
+          recommendations: "Recommendations",
+          from: "From",
+          to: "To",
+          week: "Last 7 Days",
+          month: "Last 30 Days",
+          quarter: "Last 90 Days",
+          peakDay: "Peak Day",
+          strongestIntent: "Strongest Intent",
+          performanceScore: "Performance Score",
+          noBusiness: "Business",
+          noCategory: "Category",
+          stableMessage:
+            "Your activity is stable. Keep monitoring which intent generates the strongest lead flow.",
+          growthMessage:
+            "Your category and nearby intent are creating momentum. Consider allocating more budget there.",
+          directMessage:
+            "Direct intent is strong. Focus on brand trust and clearer conversion messaging.",
+          nearbyMessage:
+            "Nearby intent is working. Improve map accuracy and local relevance to grow faster.",
+          categoryMessage:
+            "Category intent is leading. Expand keywords and category-specific positioning.",
+          lowActivityMessage:
+            "Activity is still limited. Increase discoverability through stronger descriptions, keywords, and location accuracy.",
+          balanceTip:
+            "Use your wallet balance together with recent conversation volume to plan your next budget step.",
+          forecastTitle: "Forecast",
+          estimatedNext7Days: "Estimated next 7 days",
+          estimatedNext30Days: "Estimated next 30 days",
+          conversations: "conversations",
+          currency: "USD",
+        },
+        ar: {
+          title: "تقارير الأداء",
+          subtitle: "تابع المحادثات المدفوعة والإيرادات والتحليلات الذكية",
+          business: "النشاط",
+          category: "الفئة",
+          loading: "جارٍ تحميل التقارير...",
+          noData: "لا توجد بيانات متاحة.",
+          noActivity: "لا توجد بيانات نشاط بعد.",
+          noRevenue: "لا توجد بيانات إيرادات بعد.",
+          noSources: "لا توجد بيانات مصادر بعد.",
+          noKeywords: "لا توجد بيانات كلمات بحث بعد.",
+          direct: "مباشر",
+          categoryIntent: "فئة",
+          nearby: "قريب",
+          totalConversations: "إجمالي المحادثات",
+          revenue: "الإيراد",
+          averageDaily: "متوسط المحادثات اليومي",
+          avgRevenueDaily: "متوسط الإيراد اليومي",
+          periodSummary: "ملخص الفترة",
+          currentPeriod: "الفترة الحالية",
+          pricing: "التسعير",
+          activityTrend: "اتجاه المحادثات",
+          revenueTrend: "اتجاه الإيراد",
+          sourceSplit: "توزيع النوايا",
+          keyInsights: "تحليلات ذكية",
+          recommendations: "التوصيات",
+          from: "من",
+          to: "إلى",
+          week: "آخر 7 أيام",
+          month: "آخر 30 يوم",
+          quarter: "آخر 90 يوم",
+          peakDay: "أفضل يوم",
+          strongestIntent: "أقوى نية",
+          performanceScore: "تقييم الأداء",
+          noBusiness: "النشاط",
+          noCategory: "الفئة",
+          stableMessage:
+            "الأداء مستقر. استمر في مراقبة النية التي تولد أعلى تدفق من العملاء.",
+          growthMessage:
+            "نية الفئة والقريب تصنعان زخمًا جيدًا. فكر في تخصيص ميزانية أكبر لهما.",
+          directMessage:
+            "النية المباشرة قوية. ركّز على الثقة بالعلامة التجارية ورسالة تحويل أوضح.",
+          nearbyMessage:
+            "نية البحث القريب فعالة. حسّن دقة الموقع والظهور المحلي لزيادة النتائج.",
+          categoryMessage:
+            "نية الفئة تتصدر. وسّع الكلمات المفتاحية وتموضعك داخل الفئة.",
+          lowActivityMessage:
+            "النشاط ما زال محدودًا. حسّن الوصف والكلمات المفتاحية ودقة الموقع لزيادة الظهور.",
+          balanceTip:
+            "استخدم رصيد المحفظة مع حجم المحادثات الأخير لتخطيط خطوتك القادمة في الميزانية.",
+          forecastTitle: "التوقعات",
+          estimatedNext7Days: "المتوقع خلال 7 أيام",
+          estimatedNext30Days: "المتوقع خلال 30 يوم",
+          conversations: "محادثة",
+          currency: "USD",
+        },
+      })[lang],
+    [lang]
+  );
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
-    const token = localStorage.getItem("token");
+      const token = localStorage.getItem("token");
 
       if (!token) {
         navigate("/login", { replace: true });
@@ -189,7 +160,8 @@ searchCount: "عدد مرات البحث",
         setLoading(true);
         setMsg("");
 
-        const res = await fetch(`${API_BASE}/api/business/reports`, {
+        const res = await fetch(`${API_BASE}/api/business/reports?t=${Date.now()}`, {
+          cache: "no-store",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
@@ -205,28 +177,15 @@ searchCount: "عدد مرات البحث",
             return;
           }
 
-          if (res.status === 404) {
-            throw new Error(isAr ? "لا توجد بيانات تقارير متاحة بعد." : "No report data available yet.");
-          }
-
           throw new Error(d?.error || `HTTP ${res.status}`);
         }
 
         if (cancelled) return;
-
-        setData({
-          ...d,
-          sources: Array.isArray(d?.sources) ? d.sources : [],
-          activity: Array.isArray(d?.activity) ? normalizeActivity(d.activity) : [],
-          keywords: Array.isArray(d?.keywords) ? normalizeKeywords(d.keywords) : [],
-        });
+        setData(normalizeReportsData(d));
       } catch (e) {
         console.error("Reports load error:", e);
         if (!cancelled) {
-          setMsg(
-            e?.message ||
-              (isAr ? "تعذر تحميل التقارير حالياً." : "Unable to load reports right now.")
-          );
+          setMsg(e?.message || t.noData);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -238,7 +197,7 @@ searchCount: "عدد مرات البحث",
     return () => {
       cancelled = true;
     };
-  }, [isAr, navigate]);
+  }, [navigate, t.noData]);
 
   const rangeDays = useMemo(() => {
     if (range === "7d") return 7;
@@ -252,670 +211,349 @@ searchCount: "عدد مرات البحث",
     return all.slice(-rangeDays);
   }, [data?.activity, rangeDays]);
 
-  const previousActivity = useMemo(() => {
-    const all = Array.isArray(data?.activity) ? data.activity : [];
-    if (!all.length) return [];
-    const startIndex = Math.max(0, all.length - rangeDays * 2);
-    const endIndex = Math.max(0, all.length - rangeDays);
-    return all.slice(startIndex, endIndex);
-  }, [data?.activity, rangeDays]);
+  const chartData = useMemo(() => {
+    return filteredActivity.map((d) => ({
+      date: formatShortDate(d.date, isAr),
+      rawDate: d.date,
+      total: Number(d.total || 0),
+      direct: Number(d.direct || 0),
+      category: Number(d.category || 0),
+      nearby: Number(d.nearby || 0),
+      revenue:
+        Number(d.direct || 0) * Number(data?.pricing?.direct || 0.25) +
+        Number(d.category || 0) * Number(data?.pricing?.category || 0.3) +
+        Number(d.nearby || 0) * Number(data?.pricing?.nearby || 0.4),
+    }));
+  }, [filteredActivity, data?.pricing, isAr]);
 
-  const pieData = useMemo(
-    () =>
-      (data?.sources || []).map((s) => ({
-        name: isAr ? s.name_ar || s.name || "" : s.name_en || s.name || "",
-        value: Number(s.value || 0),
-      })),
-    [data?.sources, isAr]
-  );
+  const totalConversations = Number(data?.total_billed_conversations || 0);
+  const directStarts = Number(data?.direct_starts || 0);
+  const categoryStarts = Number(data?.category_starts || 0);
+  const nearbyStarts = Number(data?.nearby_starts || 0);
+  const revenue = Number(data?.estimated_revenue || 0);
+  const currency = data?.currency || t.currency;
 
-  const keywordData = useMemo(() => {
-    return (data?.keywords || []).slice(0, 5);
-  }, [data?.keywords]);
-
-  const hourlyData = useMemo(() => {
-  return Array.isArray(data?.hourly) ? data.hourly : [];
-}, [data?.hourly]);
-
-  const currentTotals = useMemo(() => sumActivity(filteredActivity), [filteredActivity]);
-  const previousTotals = useMemo(() => sumActivity(previousActivity), [previousActivity]);
-
-  const totalClicks = filteredActivity.length
-    ? currentTotals.total
-    : Number(data?.totalClicks || 0);
-
-  const totalMessages = filteredActivity.length
-    ? currentTotals.messages
-    : Number(data?.totalMessages || 0);
-
-  const mediaViews = filteredActivity.length
-    ? currentTotals.media
-    : Number(data?.mediaViews || 0);
-
-  const totalViews = filteredActivity.length
-    ? currentTotals.views
-    : Number(data?.views || 0);
-
-  const convRateNumber = totalClicks > 0 ? Math.round((totalMessages / totalClicks) * 100) : 0;
-  const convRate = totalClicks > 0 ? `${convRateNumber}%` : "-";
-
- const commission = Number(data?.commission_per_lead || 0.1);
-
-const estimatedValue = `${(totalMessages * commission).toFixed(2)} USD`;
-  
-  const lostOpportunities = Math.max(0, totalClicks - totalMessages);
-  const averageDaily = filteredActivity.length
-    ? (totalClicks / filteredActivity.length).toFixed(1)
+  const averageDaily = chartData.length
+    ? (chartData.reduce((sum, item) => sum + item.total, 0) / chartData.length).toFixed(1)
     : "0";
 
-  const periodStart = filteredActivity[0]?.date || null;
-  const periodEnd = filteredActivity[filteredActivity.length - 1]?.date || null;
+  const avgRevenueDaily = chartData.length
+    ? (chartData.reduce((sum, item) => sum + item.revenue, 0) / chartData.length).toFixed(2)
+    : "0.00";
 
-  const comparisonCards = [
-    {
-      label: t.totalClicks,
-      current: totalClicks,
-      previous: previousTotals.total || 0,
-    },
-    {
-      label: t.totalMessages,
-      current: totalMessages,
-      previous: previousTotals.messages || 0,
-    },
-    {
-      label: t.totalMediaViews,
-      current: mediaViews,
-      previous: previousTotals.media || 0,
-    },
-    {
-      label: t.totalViews,
-      current: totalViews,
-      previous: previousTotals.views || 0,
-    },
-  ];
+  const peakDay = useMemo(() => {
+    if (!chartData.length) return "-";
+    const best = [...chartData].sort((a, b) => b.total - a.total)[0];
+    return best?.date || "-";
+  }, [chartData]);
 
-  const peakDay = data?.peakDay ? formatDate(data.peakDay, isAr) : getPeakDay(filteredActivity, isAr);
-const peakHour = data?.peakHour ? `${data.peakHour}:00` : "-";
-const bestSource = getBestSource(pieData);
-  const performanceScore = getPerformanceScore({
-    totalClicks,
-    totalMessages,
-    totalViews,
-    mediaViews,
-  });
-  
-const recommendations = getRecommendations({
-  totalClicks,
-  totalMessages,
-  totalViews,
-  mediaViews,
-  keywordData,
-  peakHour,
-  t,
-});
+  const strongestIntent = useMemo(() => {
+    const entries = [
+      { key: "direct", label: t.direct, value: directStarts },
+      { key: "category", label: t.categoryIntent, value: categoryStarts },
+      { key: "nearby", label: t.nearby, value: nearbyStarts },
+    ].sort((a, b) => b.value - a.value);
 
-  if (peakHour && peakHour !== "-") {
-  recommendations.unshift(
-    isAr
-      ? `ركّز العروض أو التفاعل في وقت الذروة: ${peakHour}`
-      : `Focus promotions and responsiveness around peak hour: ${peakHour}`
+    return entries[0]?.label || "-";
+  }, [directStarts, categoryStarts, nearbyStarts, t]);
+
+  const performanceScore = useMemo(() => {
+    const volumeScore = Math.min(40, totalConversations * 2);
+    const revenueScore = Math.min(35, revenue * 2);
+    const diversityCount = [directStarts, categoryStarts, nearbyStarts].filter((v) => v > 0).length;
+    const diversityScore = diversityCount * 8;
+    const consistencyScore = chartData.length >= 7 ? 9 : chartData.length >= 3 ? 5 : 2;
+    return Math.min(100, Math.round(volumeScore + revenueScore + diversityScore + consistencyScore));
+  }, [totalConversations, revenue, directStarts, categoryStarts, nearbyStarts, chartData.length]);
+
+  const sourceData = useMemo(
+    () => [
+      { name: t.direct, value: directStarts },
+      { name: t.categoryIntent, value: categoryStarts },
+      { name: t.nearby, value: nearbyStarts },
+    ].filter((item) => item.value > 0),
+    [t, directStarts, categoryStarts, nearbyStarts]
   );
-}
+
+  const insights = useMemo(() => {
+    const items = [];
+
+    if (totalConversations <= 5) {
+      items.push(t.lowActivityMessage);
+    } else {
+      items.push(t.stableMessage);
+    }
+
+    if (categoryStarts >= directStarts && categoryStarts >= nearbyStarts && categoryStarts > 0) {
+      items.push(t.categoryMessage);
+    }
+
+    if (nearbyStarts >= directStarts && nearbyStarts >= categoryStarts && nearbyStarts > 0) {
+      items.push(t.nearbyMessage);
+    }
+
+    if (directStarts >= categoryStarts && directStarts >= nearbyStarts && directStarts > 0) {
+      items.push(t.directMessage);
+    }
+
+    if (categoryStarts + nearbyStarts > directStarts) {
+      items.push(t.growthMessage);
+    }
+
+    items.push(t.balanceTip);
+
+    return items.slice(0, 4);
+  }, [
+    totalConversations,
+    directStarts,
+    categoryStarts,
+    nearbyStarts,
+    t.lowActivityMessage,
+    t.stableMessage,
+    t.categoryMessage,
+    t.nearbyMessage,
+    t.directMessage,
+    t.growthMessage,
+    t.balanceTip,
+  ]);
+
+  const forecast = useMemo(() => {
+    const dailyAvg = Number(averageDaily || 0);
+    return {
+      next7: Math.round(dailyAvg * 7),
+      next30: Math.round(dailyAvg * 30),
+    };
+  }, [averageDaily]);
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 px-4 py-10 md:px-8">
-        <div className="mx-auto max-w-6xl rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-500 shadow-sm">
-          {t.loading}
-        </div>
-      </div>
+      <PageWrap isAr={isAr}>
+        <Panel>{t.loading}</Panel>
+      </PageWrap>
     );
   }
 
   if (!data) {
     return (
-      <div className="min-h-screen bg-slate-50 px-4 py-10 md:px-8">
-        <div className="mx-auto max-w-6xl rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-500 shadow-sm">
-          {msg || t.noData}
-        </div>
-      </div>
+      <PageWrap isAr={isAr}>
+        <Panel>{msg || t.noData}</Panel>
+      </PageWrap>
     );
   }
 
+  return (
+    <PageWrap isAr={isAr}>
+      <div className="mx-auto max-w-7xl space-y-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 md:text-3xl">{t.title}</h1>
+            <p className="mt-2 text-sm text-slate-600 md:text-base">{t.subtitle}</p>
+            <p className="mt-2 text-sm text-slate-500">
+              {t.from}: {chartData[0]?.date || "-"} {" — "} {t.to}:{" "}
+              {chartData[chartData.length - 1]?.date || "-"}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <RangeButton active={range === "7d"} onClick={() => setRange("7d")} label={t.week} />
+            <RangeButton active={range === "30d"} onClick={() => setRange("30d")} label={t.month} />
+            <RangeButton active={range === "90d"} onClick={() => setRange("90d")} label={t.quarter} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <SummaryCard label={t.direct} value={directStarts} />
+          <SummaryCard label={t.categoryIntent} value={categoryStarts} />
+          <SummaryCard label={t.nearby} value={nearbyStarts} />
+          <SummaryCard label={t.totalConversations} value={totalConversations} />
+          <SummaryCard label={t.revenue} value={`${revenue.toFixed(2)} ${currency}`} />
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <Panel>
+            <h3 className="text-base font-semibold text-slate-900">{t.periodSummary}</h3>
+            <div className="mt-4 space-y-3 text-sm">
+              <MiniRow label={t.business} value={data.business || t.noBusiness} />
+              <MiniRow label={t.category} value={data.category || t.noCategory} />
+              <MiniRow label={t.averageDaily} value={averageDaily} />
+              <MiniRow label={t.avgRevenueDaily} value={`${avgRevenueDaily} ${currency}`} />
+              <MiniRow label={t.peakDay} value={peakDay} />
+              <MiniRow label={t.strongestIntent} value={strongestIntent} />
+              <MiniRow label={t.performanceScore} value={`${performanceScore}/100`} />
+            </div>
+          </Panel>
+
+          <Panel>
+            <h3 className="text-base font-semibold text-slate-900">{t.pricing}</h3>
+            <div className="mt-4 space-y-3 text-sm">
+              <MiniRow label={t.direct} value={`${Number(data?.pricing?.direct || 0).toFixed(2)} ${currency}`} />
+              <MiniRow label={t.categoryIntent} value={`${Number(data?.pricing?.category || 0).toFixed(2)} ${currency}`} />
+              <MiniRow label={t.nearby} value={`${Number(data?.pricing?.nearby || 0).toFixed(2)} ${currency}`} />
+            </div>
+          </Panel>
+
+          <Panel>
+            <h3 className="text-base font-semibold text-slate-900">{t.forecastTitle}</h3>
+            <div className="mt-4 space-y-3 text-sm">
+              <MiniRow label={t.estimatedNext7Days} value={`${forecast.next7} ${t.conversations}`} />
+              <MiniRow label={t.estimatedNext30Days} value={`${forecast.next30} ${t.conversations}`} />
+            </div>
+          </Panel>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          <Panel>
+            <SectionTitle>{t.activityTrend}</SectionTitle>
+            {chartData.length ? (
+              <div className="h-[360px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                    <Legend />
+                    <Area type="monotone" dataKey="direct" stackId="1" stroke="#22c55e" fill="#22c55e" name={t.direct} />
+                    <Area type="monotone" dataKey="category" stackId="1" stroke="#3b82f6" fill="#3b82f6" name={t.categoryIntent} />
+                    <Area type="monotone" dataKey="nearby" stackId="1" stroke="#f59e0b" fill="#f59e0b" name={t.nearby} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <EmptyText>{t.noActivity}</EmptyText>
+            )}
+          </Panel>
+
+          <Panel>
+            <SectionTitle>{t.revenueTrend}</SectionTitle>
+            {chartData.length ? (
+              <div className="h-[360px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="revenue" fill="#16a34a" name={t.revenue} radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <EmptyText>{t.noRevenue}</EmptyText>
+            )}
+          </Panel>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          <Panel>
+            <SectionTitle>{t.sourceSplit}</SectionTitle>
+            {sourceData.length ? (
+              <div className="space-y-4">
+                {sourceData.map((item) => {
+                  const percentage = totalConversations > 0 ? Math.round((item.value / totalConversations) * 100) : 0;
+                  return (
+                    <div key={item.name}>
+                      <div className="mb-2 flex items-center justify-between text-sm">
+                        <span>{item.name}</span>
+                        <span>{item.value} · {percentage}%</span>
+                      </div>
+                      <div className="h-3 w-full rounded-full bg-slate-100">
+                        <div
+                          className="h-3 rounded-full bg-slate-900"
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <EmptyText>{t.noSources}</EmptyText>
+            )}
+          </Panel>
+
+          <Panel>
+            <SectionTitle>{t.keyInsights}</SectionTitle>
+            <div className="space-y-3">
+              {insights.map((item, idx) => (
+                <div
+                  key={`${item}-${idx}`}
+                  className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800"
+                >
+                  {item}
+                </div>
+              ))}
+            </div>
+          </Panel>
+        </div>
+      </div>
+    </PageWrap>
+  );
+}
+
+function normalizeReportsData(d) {
+  return {
+    ...d,
+    activity: Array.isArray(d?.activity)
+      ? d.activity.map((item) => ({
+          date: item.date,
+          total: Number(item.total || 0),
+          direct: Number(item.direct || 0),
+          category: Number(item.category || 0),
+          nearby: Number(item.nearby || 0),
+        }))
+      : [],
+    pricing: {
+      direct: Number(d?.pricing?.direct || 0.25),
+      category: Number(d?.pricing?.category || 0.3),
+      nearby: Number(d?.pricing?.nearby || 0.4),
+    },
+  };
+}
+
+function formatShortDate(dateStr, isAr) {
+  if (!dateStr) return "-";
+  try {
+    return new Date(dateStr).toLocaleDateString(isAr ? "ar-JO" : "en-US", {
+      month: "short",
+      day: "numeric",
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
+function PageWrap({ children, isAr }) {
   return (
     <div
       dir={isAr ? "rtl" : "ltr"}
       className="min-h-screen bg-slate-50 px-4 py-8 md:px-8"
       style={{ fontFamily: "Tajawal, Inter, sans-serif" }}
     >
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 md:text-3xl">{t.title}</h1>
-            <p className="mt-2 text-sm text-slate-600 md:text-base">{t.subtitle}</p>
-            <p className="mt-2 text-sm text-slate-500">
-              {t.from}: {periodStart ? formatDate(periodStart, isAr) : "-"} {" — "}
-              {t.to}: {periodEnd ? formatDate(periodEnd, isAr) : "-"}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <RangeButton
-              active={range === "7d"}
-              onClick={() => setRange("7d")}
-              label={t.week}
-            />
-            <RangeButton
-              active={range === "30d"}
-              onClick={() => setRange("30d")}
-              label={t.month}
-            />
-            <RangeButton
-              active={range === "90d"}
-              onClick={() => setRange("90d")}
-              label={t.quarter}
-            />
-          </div>
-        </div>
-
-        {totalClicks > 20 && totalMessages / Math.max(totalClicks, 1) < 0.2 && (
-          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {t.lowConversionAlert}
-          </div>
-        )}
-
-        <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <InfoItem label={t.business} value={data.business || t.noBusiness} />
-              <InfoItem label={t.category} value={data.category || t.noCategory} />
-              <InfoItem
-                label={t.from}
-                value={periodStart ? formatDate(periodStart, isAr) : "-"}
-              />
-              <InfoItem
-                label={t.to}
-                value={periodEnd ? formatDate(periodEnd, isAr) : "-"}
-              />
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <p className="text-sm text-slate-500">{t.periodSummary}</p>
-            <div className="mt-4 space-y-3">
-              <MiniStat label={t.totalClicks} value={totalClicks} />
-              <MiniStat label={t.totalMessages} value={totalMessages} />
-              <MiniStat label={t.conversionRate} value={convRate} />
-              <MiniStat label={t.averageDaily} value={averageDaily} />
-            </div>
-          </div>
-        </div>
-
-        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard label={t.totalClicks} value={totalClicks} colorClass="text-green-600" />
-          <SummaryCard label={t.totalMessages} value={totalMessages} colorClass="text-emerald-500" />
-          <SummaryCard label={t.totalMediaViews} value={mediaViews} colorClass="text-lime-500" />
-          <SummaryCard label={t.totalViews} value={totalViews} colorClass="text-blue-500" />
-          <SummaryCard label={t.conversionRate} value={convRate} colorClass="text-orange-500" />
-          <SummaryCard
-            label={t.weeklyGrowth}
-            value={`${Number(data.weeklyGrowth || 0)}%`}
-            colorClass="text-teal-600"
-          />
-          <SummaryCard
-            label={t.estimatedValue}
-            value={estimatedValue}
-            colorClass="text-green-700"
-          />
-          <SummaryCard
-            label={t.lostOpportunities}
-            value={lostOpportunities}
-            colorClass="text-red-500"
-          />
-        </div>
-
-        <div className="mb-8 rounded-2xl border border-green-200 bg-green-50 p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-green-800">{t.keyInsights}</h2>
-          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <InsightCard
-              label={t.peakDay}
-              value={peakDay}
-            />
-            <InsightCard
-  label={t.peakHour}
-  value={peakHour}
-/>
-            <InsightCard
-              label={t.bestSource}
-              value={bestSource}
-            />
-            <InsightCard
-              label={t.totalLeads}
-              value={String(totalMessages)}
-            />
-            <InsightCard
-              label={t.score}
-              value={`${performanceScore}/100`}
-            />
-          </div>
-        </div>
-
-        <div className="mb-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-          <div className="mb-5">
-            <h2 className="text-lg font-semibold text-slate-900">{t.currentVsPrevious}</h2>
-            <p className="text-sm text-slate-500">{t.comparedToPrevious}</p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {comparisonCards.map((item) => (
-              <ComparisonCard
-                key={item.label}
-                label={item.label}
-                current={item.current}
-                previous={item.previous}
-                isAr={isAr}
-                t={t}
-              />
-            ))}
-          </div>
-        </div>
-
-        <div className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-3">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-2 md:p-6">
-            <h2 className="mb-4 text-lg font-semibold text-slate-900">{t.activityTrend}</h2>
-
-            {filteredActivity.length ? (
-              <div className="h-[320px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={filteredActivity}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis
-                      dataKey="date"
-                      tickFormatter={(value) => shortDate(value, isAr)}
-                      minTickGap={24}
-                    />
-                    <YAxis />
-                    <Tooltip
-                      formatter={(value, name) => [value, name]}
-                      labelFormatter={(label) => formatDate(label, isAr)}
-                    />
-                    <Legend />
-                    <Line
-                      type="monotone"
-                      dataKey="total"
-                      stroke="#22c55e"
-                      strokeWidth={3}
-                      dot={false}
-                      name={t.totalClicks}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="whatsapp"
-                      stroke="#10b981"
-                      strokeWidth={2}
-                      dot={false}
-                      name={t.whatsapp}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="media"
-                      stroke="#f59e0b"
-                      strokeWidth={2}
-                      dot={false}
-                      name={t.media}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="messages"
-                      stroke="#3b82f6"
-                      strokeWidth={2}
-                      dot={false}
-                      name={t.messages}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <EmptyState text={t.noActivity} />
-            )}
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-            <h2 className="mb-4 text-lg font-semibold text-slate-900">{t.interactionSources}</h2>
-
-            {pieData.length ? (
-              <div className="h-[320px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      dataKey="value"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={95}
-                      paddingAngle={2}
-                      isAnimationActive
-                    >
-                      {pieData.map((_, index) => (
-                        <Cell key={index} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <EmptyState text={t.noSources} />
-            )}
-          </div>
-        </div>
-
-   <div className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-2">
-  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-    <h2 className="mb-4 text-lg font-semibold text-slate-900">{t.topKeywords}</h2>
-
-    {keywordData.length ? (
-      <div className="h-[320px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={keywordData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="keyword" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Bar
-              dataKey="searches"
-              fill="#22c55e"
-              name={t.searches}
-              radius={[6, 6, 0, 0]}
-            />
-            <Bar
-              dataKey="clicks"
-              fill="#3b82f6"
-              name={t.clicks}
-              radius={[6, 6, 0, 0]}
-            />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    ) : (
-      <EmptyState text={t.noKeywords} />
-    )}
-  </div>
-
-  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-    <h2 className="mb-4 text-lg font-semibold text-slate-900">{t.recommendations}</h2>
-
-    <div className="space-y-3">
-      {recommendations.map((item, idx) => (
-        <div
-          key={`${item}-${idx}`}
-          className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700"
-        >
-          {item}
-        </div>
-      ))}
-    </div>
-  </div>
-</div>
-
-<div className="mb-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-  <h2 className="mb-4 text-lg font-semibold text-slate-900">{t.hourlyTrend}</h2>
-
-  {hourlyData.length ? (
-    <>
-      {data?.peakHour && (
-        <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-          {isAr
-            ? `🔥 أعلى وقت نشاط: ${data.peakHour}:00 — يفضل التفاعل أو نشر العروض في هذا الوقت`
-            : `🔥 Peak activity at ${data.peakHour}:00 — best time to engage or promote`}
-        </div>
-      )}
-
-      <div className="h-[320px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={hourlyData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="hour" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Bar dataKey="count" radius={[6, 6, 0, 0]} name={t.searchCount}>
-              {hourlyData.map((entry, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={entry.hour === data?.peakHour ? "#16a34a" : "#22c55e"}
-                />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </>
-  ) : (
-    <EmptyState text={t.noActivity} />
-  )}
-</div>
-
-<div className="mb-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-  <div className="mb-4 flex items-center justify-between">
-    <h2 className="text-lg font-semibold text-slate-900">{t.topKeywords}</h2>
-  </div>
-
-  {keywordData.length ? (
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-left text-sm">
-        <thead>
-          <tr className="border-b border-slate-200 text-slate-500">
-            <th className="px-3 py-3 font-medium">{t.keyword}</th>
-            <th className="px-3 py-3 font-medium">{t.searches}</th>
-            <th className="px-3 py-3 font-medium">{t.clicks}</th>
-            <th className="px-3 py-3 font-medium">{t.conversion}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {keywordData.map((row, idx) => (
-            <tr key={`${row.keyword}-${idx}`} className="border-b border-slate-100">
-              <td className="px-3 py-3 text-slate-700">{row.keyword}</td>
-              <td className="px-3 py-3 font-medium text-slate-900">{row.searches}</td>
-              <td className="px-3 py-3 text-slate-700">{row.clicks}</td>
-              <td className="px-3 py-3 text-slate-700">{row.conversion}%</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  ) : (
-    <EmptyState text={t.noKeywords} />
-  )}
-</div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900">{t.latestActivity}</h2>
-          </div>
-
-          {filteredActivity.length ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 text-slate-500">
-                    <th className="px-3 py-3 font-medium">{t.date}</th>
-                    <th className="px-3 py-3 font-medium">{t.total}</th>
-                    <th className="px-3 py-3 font-medium">{t.whatsapp}</th>
-                    <th className="px-3 py-3 font-medium">{t.media}</th>
-                    <th className="px-3 py-3 font-medium">{t.messages}</th>
-                    <th className="px-3 py-3 font-medium">{t.views}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[...filteredActivity].reverse().slice(0, 10).map((row, idx) => (
-                    <tr key={`${row.date}-${idx}`} className="border-b border-slate-100">
-                      <td className="px-3 py-3 text-slate-700">{formatDate(row.date, isAr)}</td>
-                      <td className="px-3 py-3 font-medium text-slate-900">{row.total || 0}</td>
-                      <td className="px-3 py-3 text-slate-700">{row.whatsapp || 0}</td>
-                      <td className="px-3 py-3 text-slate-700">{row.media || 0}</td>
-                      <td className="px-3 py-3 text-slate-700">{row.messages || 0}</td>
-                      <td className="px-3 py-3 text-slate-700">{row.views || 0}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <EmptyState text={t.noActivity} />
-          )}
-        </div>
-      </div>
+      {children}
     </div>
   );
 }
 
-function normalizeActivity(activity = []) {
-  return activity.map((item) => ({
-    date: normalizeDate(item.date),
-    total: Number(item.total || item.clicks || 0),
-    whatsapp: Number(item.whatsapp || 0),
-    media: Number(item.media || item.mediaViews || 0),
-    messages: Number(item.messages || item.totalMessages || 0),
-    views: Number(item.views || 0),
-  }));
+function Panel({ children }) {
+  return <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">{children}</div>;
 }
 
-function normalizeKeywords(keywords = []) {
-  return keywords.map((item) => {
-    const searches = Number(item.searches || item.count || 0);
-    const clicks = Number(item.clicks || item.leads || 0);
-    const conversion = searches > 0 ? Math.round((clicks / searches) * 100) : 0;
-
-    return {
-      keyword: item.keyword || item.query || "-",
-      searches,
-      clicks,
-      conversion,
-    };
-  });
+function SectionTitle({ children }) {
+  return <h2 className="mb-5 text-lg font-semibold text-slate-900">{children}</h2>;
 }
 
-function sumActivity(rows = []) {
-  return rows.reduce(
-    (acc, row) => {
-      acc.total += Number(row.total || 0);
-      acc.whatsapp += Number(row.whatsapp || 0);
-      acc.media += Number(row.media || 0);
-      acc.messages += Number(row.messages || 0);
-      acc.views += Number(row.views || 0);
-      return acc;
-    },
-    { total: 0, whatsapp: 0, media: 0, messages: 0, views: 0 }
-  );
-}
-
-function normalizeDate(value) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
-  return date.toISOString().slice(0, 10);
-}
-
-function formatDate(value, isAr) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-
-  return new Intl.DateTimeFormat(isAr ? "ar" : "en", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  }).format(date);
-}
-
-function shortDate(value, isAr) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-
-  return new Intl.DateTimeFormat(isAr ? "ar" : "en", {
-    month: "short",
-    day: "numeric",
-  }).format(date);
-}
-
-function percentageChange(current, previous) {
-  const curr = Number(current || 0);
-  const prev = Number(previous || 0);
-
-  if (prev === 0 && curr === 0) return 0;
-  if (prev === 0) return 100;
-
-  return Math.round(((curr - prev) / prev) * 100);
-}
-
-function getPeakDay(activity = [], isAr) {
-  if (!activity.length) return "-";
-  const max = activity.reduce((a, b) => (Number(b.total || 0) > Number(a.total || 0) ? b : a));
-  return formatDate(max.date, isAr);
-}
-
-function getBestSource(sources = []) {
-  if (!sources.length) return "-";
-  const max = sources.reduce((a, b) => (Number(b.value || 0) > Number(a.value || 0) ? b : a));
-  return max.name || "-";
-}
-
-function getPerformanceScore({ totalClicks, totalMessages, totalViews, mediaViews }) {
-  const clicksScore = Math.min(30, Number(totalClicks || 0));
-  const leadsScore = Math.min(30, Number(totalMessages || 0) * 2);
-  const viewsScore = Math.min(20, Math.round(Number(totalViews || 0) / 5));
-  const mediaScore = Math.min(20, Math.round(Number(mediaViews || 0) / 3));
-
-  return Math.min(100, clicksScore + leadsScore + viewsScore + mediaScore);
-}
-
-function getRecommendations({ totalClicks, totalMessages, totalViews, mediaViews, keywordData, peakHour, t }) {
-  const items = [];
-
-  if (keywordData?.length > 0) {
-    items.push(t.recommendationKeywords);
-  }
-
-  if (totalViews < 20 || mediaViews < 5) {
-    items.push(t.recommendationProfile);
-  }
-
-  if (totalClicks > 20 && totalMessages / Math.max(totalClicks, 1) < 0.2) {
-    items.push(t.recommendationConversion);
-  }
-
-  if (totalViews < 10) {
-    items.push(t.recommendationLocation);
-  }
-
-  if (peakHour && peakHour !== "-") {
-    items.push(
-      t === undefined
-        ? ""
-        : typeof peakHour === "string"
-        ? ""
-        : ""
-    );
-  }
-
-  if (!items.length) {
-    items.push(t.recommendationStrong);
-  }
-
-  return items.slice(0, 4);
+function EmptyText({ children }) {
+  return <div className="rounded-xl bg-slate-50 p-6 text-sm text-slate-500">{children}</div>;
 }
 
 function RangeButton({ active, onClick, label }) {
   return (
     <button
       onClick={onClick}
-      className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
-        active
-          ? "bg-slate-900 text-white"
-          : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+      className={`rounded-xl px-4 py-2 text-sm font-medium ${
+        active ? "bg-slate-900 text-white" : "border border-slate-300 bg-white text-slate-700"
       }`}
     >
       {label}
@@ -923,74 +561,20 @@ function RangeButton({ active, onClick, label }) {
   );
 }
 
-function SummaryCard({ label, value, colorClass = "text-slate-900" }) {
+function SummaryCard({ label, value }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <p className="text-sm text-slate-500">{label}</p>
-      <h3 className={`mt-2 text-3xl font-bold ${colorClass}`}>{value || 0}</h3>
+      <h3 className="mt-2 text-2xl font-bold text-slate-900">{value}</h3>
     </div>
   );
 }
 
-function MiniStat({ label, value }) {
+function MiniRow({ label, value }) {
   return (
-    <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
-      <span className="text-sm text-slate-600">{label}</span>
+    <div className="flex items-center justify-between gap-4 rounded-xl bg-slate-50 px-3 py-2">
+      <span className="text-slate-500">{label}</span>
       <span className="font-semibold text-slate-900">{value}</span>
-    </div>
-  );
-}
-
-function InfoItem({ label, value }) {
-  return (
-    <div className="rounded-xl bg-slate-50 px-4 py-3">
-      <p className="text-xs font-medium text-slate-500">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-slate-900">{value}</p>
-    </div>
-  );
-}
-
-function ComparisonCard({ label, current, previous, t }) {
-  const change = percentageChange(current, previous);
-  const isPositive = change >= 0;
-
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-sm text-slate-500">{label}</p>
-
-      <div className="mt-3">
-        <p className="text-2xl font-bold text-slate-900">{current || 0}</p>
-
-        <div className="mt-2 flex items-center gap-2">
-          <span
-            className={`rounded-full px-2 py-1 text-xs font-semibold ${
-              isPositive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-            }`}
-          >
-            {isPositive ? "+" : ""}
-            {change}%
-          </span>
-
-          <span className="text-xs text-slate-500">{t.vsPrevious}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function InsightCard({ label, value }) {
-  return (
-    <div className="rounded-xl border border-green-200 bg-white px-4 py-3">
-      <p className="text-xs font-medium text-green-700">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-slate-900">{value}</p>
-    </div>
-  );
-}
-
-function EmptyState({ text }) {
-  return (
-    <div className="flex min-h-[220px] items-center justify-center rounded-xl bg-slate-50 px-6 text-center text-sm text-slate-500">
-      {text}
     </div>
   );
 }
