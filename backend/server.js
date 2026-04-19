@@ -3278,19 +3278,19 @@ if (
   const pendingNearby = getPendingNearby(from);
   const categoryQuery = pendingNearby?.category || "";
 
-  const nearest = await findNearestBusinesses(lat, lng, 3, categoryQuery);
+  const nearestResults = await findNearestBusinesses(lat, lng, 3, categoryQuery);
 
- const enriched = await enrichTopResultWithTrackedLink({
-  items: nearestResults,
-  query,
-  userPhone: from,
-  intentType: "nearby",
-});
+  const enrichedNearbyResults = await enrichTopResultWithTrackedLink({
+    items: nearestResults || [],
+    query: categoryQuery || pendingNearby?.rawQuery || incomingText,
+    userPhone: from,
+    intentType: "nearby",
+  });
 
   clearPendingNearby(from);
 
   const reply = formatNearestResults(
-    enriched,
+    enrichedNearbyResults,
     lang,
     categoryQuery || pendingNearby?.rawQuery || ""
   );
