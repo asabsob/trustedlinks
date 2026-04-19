@@ -442,7 +442,6 @@ async function enrichTopResultWithTrackedLink({
     })),
   ];
 }
-
 // =========================
 // MEMORY (instead of Mongo sessions)
 // =========================
@@ -3217,7 +3216,7 @@ if (messageType === "text" && incomingText && !isMoreCommand(incomingText)) {
 
     clearPendingRefinement(from);
 
-   const refinedResults = await enrichTopResultWithTrackedLink({
+   const refinedResults = await enrichTopResultWithTrackedLink({ 
   items: refinedSearchData.results || [],
   query: refinedSearchData.effectiveQuery || updatedSession.query,
   userPhone: from,
@@ -3228,11 +3227,19 @@ if (messageType === "text" && incomingText && !isMoreCommand(incomingText)) {
   results: refinedResults,
 };
     
+const resolvedIntentType = parsedIntent.isNearby
+  ? "nearby"
+  : parsedIntent.intent === "brand"
+  ? "direct"
+  : parsedIntent.intent === "category"
+  ? "category"
+  : "direct";
+
 const enrichedResults = await enrichTopResultWithTrackedLink({
   items: searchData.results || [],
   query: searchData.effectiveQuery || effectiveQuery,
   userPhone: from,
-  intentType: searchData.intentType || "direct",
+  intentType: resolvedIntentType,
 });
     
  const finalSearchData = {
@@ -3280,7 +3287,7 @@ if (
 
   const nearestResults = await findNearestBusinesses(lat, lng, 3, categoryQuery);
 
-  const enrichedNearbyResults = await enrichTopResultWithTrackedLink({
+  const enrichedNearbyResults = await enrichTopResultWithTrackedLink({ 
     items: nearestResults || [],
     query: categoryQuery || pendingNearby?.rawQuery || incomingText,
     userPhone: from,
@@ -3320,6 +3327,16 @@ if (!query) {
 const intentData = parseSearchIntent(incomingText || "");
 const effectiveQuery =
   intentData.categoryQuery || normalizeSearchText(incomingText || "");
+
+    const parsedIntent = parseSearchIntent(incomingText || "");
+
+const intentType = parsedIntent.isNearby
+  ? "nearby"
+  : parsedIntent.intent === "brand"
+  ? "direct"
+  : parsedIntent.intent === "category"
+  ? "category"
+  : "direct";
 
 // =========================
 // NEARBY → ask for location
@@ -3378,7 +3395,15 @@ if (searchData.mode === "refinement_required") {
 // RESULTS MODE
 // =========================
 
-    const enrichedResults = await enrichTopResultWithTrackedLink({
+   const resolvedIntentType = parsedIntent.isNearby
+  ? "nearby"
+  : parsedIntent.intent === "brand"
+  ? "direct"
+  : parsedIntent.intent === "category"
+  ? "category"
+  : "direct";
+
+const enrichedResults = await enrichTopResultWithTrackedLink({
   items: searchData.results || [],
   query: searchData.effectiveQuery || effectiveQuery,
   userPhone: from,
