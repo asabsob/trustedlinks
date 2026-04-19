@@ -179,17 +179,27 @@ export default function Transactions({ lang = "en" }) {
                       <td className="px-3 py-3 font-medium">
                        {Number(tx.amount || 0).toFixed(2)} {tx.currency || "USD"}
                       </td>
-                    <td className="px-3 py-3 text-slate-600">
+
+                      <td className="px-3 py-3 text-slate-600">
   {tx.eventType === "topup"
-    ? "Top up"
-  tx.eventType === "conversation_start_direct"
-  ? "Direct Lead"
-  : tx.eventType === "conversation_start_category"
-  ? "Category Lead"
-  : tx.eventType === "conversation_start_nearby"
-  ? "Nearby Lead"
-  : tx.reason
+    ? lang === "ar"
+      ? "شحن رصيد"
+      : "Top up"
+    : tx.eventType === "conversation_start_direct"
+    ? lang === "ar"
+      ? "عميل مباشر"
+      : "Direct Lead"
+    : tx.eventType === "conversation_start_category"
+    ? lang === "ar"
+      ? "عميل من الفئة"
+      : "Category Lead"
+    : tx.eventType === "conversation_start_nearby"
+    ? lang === "ar"
+      ? "عميل قريب"
+      : "Nearby Lead"
+    : tx.reason || "-"}
 </td>
+
                       <td className="px-3 py-3 text-slate-500">{tx.reference || tx.id || "-"}</td>
                       <td className="px-3 py-3 text-slate-500">
                         {tx.date ? new Date(tx.date).toLocaleString() : "-"}
