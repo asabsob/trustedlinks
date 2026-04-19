@@ -3501,7 +3501,7 @@ app.get("/l/:token", async (req, res) => {
       return;
     }
 
-    const since = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
     const { data: existing, error: existingError } = await supabase
       .from("lead_clicks")
