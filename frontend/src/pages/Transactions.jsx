@@ -52,6 +52,14 @@ export default function Transactions({ lang = "en" }) {
     loadTransactions();
   }, [lang]);
 
+  useEffect(() => {
+  const interval = setInterval(() => {
+    loadTransactions();
+  }, 10000);
+
+  return () => clearInterval(interval);
+}, []); 
+  
   const loadTransactions = async () => {
     try {
       setLoading(true);
@@ -64,10 +72,14 @@ export default function Transactions({ lang = "en" }) {
   return;
 }
 
-      const token = localStorage.getItem("trustedlinks_token")
-  const res = await fetch(`${API_BASE}/api/business/transactions/${businessId}?limit=100`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      }).catch(() => null);
+      const token = localStorage.getItem("token")
+ const res = await fetch(
+  `${API_BASE}/api/business/transactions/${businessId}?limit=100&t=${Date.now()}`,
+  {
+    cache: "no-store",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  }
+);
 
       if (res && res.ok) {
         const data = await res.json();
