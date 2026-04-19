@@ -274,11 +274,7 @@ app.use("/api/admin", (req, res, next) => {
   return adminApiLimiter(req, res, next);
 });
 
-app.use("/api/track-click", trackingLimiter);
-app.use("/api/track-whatsapp", trackingLimiter);
-app.use("/api/track-media", trackingLimiter);
 
-app.use(express.json({ limit: "200kb" }));
 app.use(express.urlencoded({ extended: true, limit: "200kb" }));
 
 const leadLimiter = rateLimit({
@@ -415,6 +411,7 @@ async function enrichTopResultWithTrackedLink({
   items = [],
   query = "",
   userPhone = "",
+  intentType: searchData.intentType || "direct",
 }) {
   const safeItems = Array.isArray(items) ? items : [];
   if (!safeItems.length) return [];
@@ -430,6 +427,7 @@ async function enrichTopResultWithTrackedLink({
       phone: first.whatsapp,
       query,
       userPhone,
+      intentType,
     });
   }
 
@@ -444,6 +442,8 @@ async function enrichTopResultWithTrackedLink({
     })),
   ];
 }
+
+
 // =========================
 // MEMORY (instead of Mongo sessions)
 // =========================
@@ -453,12 +453,6 @@ const PENDING_REFINEMENT_REQUESTS = new Map();
 // =========================
 // CONFIG
 // =========================
-const EVENT_COSTS = {
-  click: 0.01,
-  whatsapp: 0.25,
-  media: 0.02,
-  view: 0,
-};
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -608,46 +602,9 @@ function clearPendingNearby(from) {
   PENDING_NEARBY_REQUESTS.delete(from);
 }
 
-const CLICK_GUARD = new Map();
-const LEAD_GUARD = new Map();
 
-function getClientIp(req) {
-  return (
-    req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
-    req.socket?.remoteAddress ||
-    "unknown"
-  );
-}
 
-function makeGuardKey({ businessId, ip, action }) {
-  return `${action}:${businessId}:${ip}`;
-}
 
-function isWithinCooldown(map, key, cooldownMs) {
-  const now = Date.now();
-  const last = map.get(key) || 0;
-
-  if (now - last < cooldownMs) {
-    return true;
-  }
-
-  map.set(key, now);
-  return false;
-}
-
-function cleanupGuardMap(map, olderThanMs = 60 * 60 * 1000) {
-  const now = Date.now();
-  for (const [key, ts] of map.entries()) {
-    if (now - ts > olderThanMs) {
-      map.delete(key);
-    }
-  }
-}
-
-setInterval(() => {
-  cleanupGuardMap(CLICK_GUARD);
-  cleanupGuardMap(LEAD_GUARD);
-}, 30 * 60 * 1000);
 
 // =========================
 // REFINEMENT MEMORY
@@ -784,6 +741,7 @@ async function createLeadTrackedLink({
   phone = "",
   query = "",
   userPhone = "",
+  intentType = "direct",
 }) {
   const safePhone = String(phone || "").replace(/\D/g, "");
   const safeBusinessId = String(businessId || "").trim();
@@ -797,6 +755,7 @@ async function createLeadTrackedLink({
     businessPhone: safePhone,
     userPhone: safeUserPhone,
     query: safeQuery,
+    intentType,
   });
 
   const tokenId = token?.id || token?._id?.toString();
@@ -813,6 +772,79 @@ async function createLeadTrackedLink({
   }
 
   return `${baseUrl}/l/${tokenId}`;
+}
+
+ function getConversationStartPrice(business, intentType) {
+  switch (intentType) {
+    case "direct":
+      return Number(business?.billingDirectIntentCost ?? 0.25);
+    case "category":
+      return Number(business?.billingCategoryIntentCost ?? 0.30);
+    case "nearby":
+      return Number(business?.billingNearbyIntentCost ?? 0.40);
+    default:
+      return 0;
+  }
+}
+
+async function deductWalletBalance({
+  ownerUserId,
+  businessId = null,
+  intentType = "direct",
+  reason,
+  reference = "",
+  meta = {},
+}) {
+  try {
+    if (!businessId) {
+      return { ok: false, error: "businessId required" };
+    }
+
+    const business = await getBusinessById(businessId);
+    if (!business) {
+      return { ok: false, error: "Business not found" };
+    }
+
+    const amount = getConversationStartPrice(business, intentType);
+
+    if (!amount || amount <= 0) {
+      return { ok: true, skipped: true, reason: "No charge for this event" };
+    }
+
+    const result = await deductBusinessWallet({
+      businessId,
+      amount,
+      eventType: `conversation_start_${intentType}`,
+      note: reason,
+      meta: {
+        ...meta,
+        reference,
+        ownerUserId,
+        intentType,
+      },
+    });
+
+    return {
+      ok: true,
+      amount,
+      balanceBefore: result.balanceBefore,
+      balanceAfter: result.balanceAfter,
+      currency: result.currency,
+      isNegative: Number(result.balanceAfter) < 0,
+    };
+  } catch (e) {
+    if (e.message === "INSUFFICIENT_BALANCE") {
+      return {
+        ok: false,
+        insufficient: true,
+        balanceBefore: 0,
+        balanceAfter: 0,
+      };
+    }
+
+    console.error("deductWalletBalance error:", e);
+    return { ok: false, error: "Deduction failed" };
+  }
 }
 
 // =========================
@@ -856,59 +888,6 @@ async function getBusinessOwnerInfo(businessId) {
 // =========================
 // Deduct From Business Wallet
 // =========================
-async function deductWalletBalance({
-  ownerUserId,
-  businessId = null,
-  eventType,
-  reason,
-  reference = "",
-  meta = {},
-}) {
-  try {
-    const amount = Number(EVENT_COSTS[eventType] || 0);
-
-    if (!amount || amount <= 0) {
-      return { ok: true, skipped: true, reason: "No charge for this event" };
-    }
-
-    if (!businessId) {
-      return { ok: false, error: "businessId required" };
-    }
-
-    const result = await deductBusinessWallet({
-      businessId,
-      amount,
-      eventType,
-      note: reason,
-      meta: {
-        ...meta,
-        reference,
-        ownerUserId,
-      },
-    });
-
-    return {
-      ok: true,
-      amount,
-      balanceBefore: result.balanceBefore,
-      balanceAfter: result.balanceAfter,
-      currency: result.currency,
-      isNegative: Number(result.balanceAfter) < 0,
-    };
-  } catch (e) {
-    if (e.message === "INSUFFICIENT_BALANCE") {
-      return {
-        ok: false,
-        insufficient: true,
-        balanceBefore: 0,
-        balanceAfter: 0,
-      };
-    }
-
-    console.error("deductWalletBalance error:", e);
-    return { ok: false, error: "Deduction failed" };
-  }
-}
 
 // =========================
 // Credit Business Wallet
@@ -1198,10 +1177,11 @@ app.post("/api/auth/signup", async (req, res) => {
      walletAllowNegative: true,
       walletNegativeLimit: -5,
       walletLowBalanceThreshold: 5,
-
-      // Billing
-      billingClickCost: 0.05,
-      billingWhatsappCost: 0.1,
+      
+     planName: "standard",
+billingDirectIntentCost: 0.25,
+billingCategoryIntentCost: 0.30,
+billingNearbyIntentCost: 0.40,
     });
 
     const verifyUrl =
@@ -2306,158 +2286,11 @@ app.put("/api/business/update", requireUser, async (req, res) => {
     return res.status(500).json({ error: "Update failed" });
   }
 });
-// =========================
-// BUSINESS REPORTS
-// =========================
-app.get("/api/business/reports", requireUser, async (req, res) => {
-  try {
-    const userId = String(req.user.id);
 
-    const business = await getBusinessByOwnerUserId(userId);
-    if (!business) {
-      return res.status(404).json({ error: "Business not found" });
-    }
 
-    const businessId = String(business.id);
+  
 
-    // =========================
-    // Fetch all clicks
-    // =========================
-    const { data: clicks } = await supabase
-      .from("lead_clicks")
-      .select("*")
-      .eq("business_id", businessId)
-      .order("clicked_at", { ascending: true });
-
-    const safeClicks = Array.isArray(clicks) ? clicks : [];
-
-    // =========================
-    // TOTALS
-    // =========================
-    const totalClicks = safeClicks.length;
-    const totalMessages = totalClicks; // currently same
-    const views = totalClicks;
-
-    // =========================
-    // ACTIVITY (daily)
-    // =========================
-    const activityMap = {};
-
-    safeClicks.forEach((c) => {
-      const date = new Date(c.clicked_at).toISOString().slice(0, 10);
-
-      if (!activityMap[date]) {
-        activityMap[date] = {
-          date,
-          total: 0,
-          whatsapp: 0,
-          media: 0,
-          messages: 0,
-          views: 0,
-        };
-      }
-
-      activityMap[date].total += 1;
-      activityMap[date].whatsapp += 1;
-      activityMap[date].messages += 1;
-      activityMap[date].views += 1;
-    });
-
-    const activity = Object.values(activityMap);
-
-    // =========================
-    // HOURLY TREND
-    // =========================
-    const hourlyMap = {};
-
-    safeClicks.forEach((c) => {
-      const hour = new Date(c.clicked_at).getHours();
-
-      if (!hourlyMap[hour]) {
-        hourlyMap[hour] = { hour, count: 0 };
-      }
-
-      hourlyMap[hour].count += 1;
-    });
-
-    const hourly = Object.values(hourlyMap);
-
-    const peakHour =
-      hourly.length > 0
-        ? hourly.reduce((a, b) => (b.count > a.count ? b : a)).hour
-        : null;
-
-    // =========================
-    // SOURCES (basic)
-    // =========================
-    const sources = [
-      {
-        name: "WhatsApp",
-        value: totalClicks,
-      },
-    ];
-
-    // =========================
-    // KEYWORDS (from query)
-    // =========================
-    const keywordMap = {};
-
-    safeClicks.forEach((c) => {
-      const q = (c.query || "").toLowerCase().trim();
-      if (!q) return;
-
-      if (!keywordMap[q]) {
-        keywordMap[q] = { keyword: q, searches: 0, clicks: 0 };
-      }
-
-      keywordMap[q].searches += 1;
-      keywordMap[q].clicks += 1;
-    });
-
-    const keywords = Object.values(keywordMap);
-
-    // =========================
-    // PEAK DAY
-    // =========================
-    const peakDay =
-      activity.length > 0
-        ? activity.reduce((a, b) => (b.total > a.total ? b : a)).date
-        : null;
-
-    // =========================
-    // WEEKLY GROWTH
-    // =========================
-    const last7 = safeClicks.filter((c) => {
-      const d = new Date(c.clicked_at);
-      const now = new Date();
-      return (now - d) / (1000 * 60 * 60 * 24) <= 7;
-    });
-
-    const weeklyGrowth =
-      totalClicks > 0
-        ? Math.round((last7.length / totalClicks) * 100)
-        : 0;
-
-    return res.json({
-      business: business.name || "",
-      category: business.category || "",
-      totalClicks,
-      totalMessages,
-      weeklyGrowth,
-      views,
-      mediaViews: 0,
-      activity,
-      sources,
-      keywords,
-      hourly,
-      peakHour,
-      peakDay,
-    });
-  } catch (e) {
-    console.error("REPORTS ERROR:", e);
-    return res.status(500).json({ error: "Failed to load reports" });
-  }
-});
+  
 // =========================
 // AI OPTIMIZE BUSINESS PROFILE
 // =========================
@@ -2595,19 +2428,62 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
       return res.status(404).json({ error: "Business not found" });
     }
 
-    const commissionPerLead = Number(business.billingWhatsappCost || 0.1);
-    const commissionPerClick = Number(business.billingClickCost || 0.01);
-    const commissionPerMedia = Number(business.billingMediaCost || 0.02);
+    const businessId = String(business.id);
 
-    const totalClicks = Number(business.clicksCount || 0);
-    const totalMessages = Number(business.messagesCount || 0);
-    const mediaViews = Number(business.mediaViewsCount || 0);
-    const views = Number(business.viewsCount || 0);
+    const { data: rows, error } = await supabase
+      .from("lead_clicks")
+      .select("intent_type, clicked_at, billing_applied, billing_amount, query")
+      .eq("business_id", businessId)
+      .order("clicked_at", { ascending: true });
 
-    const estimatedRevenue =
-      totalMessages * commissionPerLead +
-      totalClicks * commissionPerClick +
-      mediaViews * commissionPerMedia;
+    if (error) {
+      console.error("business/reports fetch error:", error);
+      return res.status(500).json({ error: "Failed to load reports" });
+    }
+
+    const safeRows = Array.isArray(rows) ? rows : [];
+
+    const directStarts = safeRows.filter(
+      (r) => r.billing_applied === true && r.intent_type === "direct"
+    ).length;
+
+    const categoryStarts = safeRows.filter(
+      (r) => r.billing_applied === true && r.intent_type === "category"
+    ).length;
+
+    const nearbyStarts = safeRows.filter(
+      (r) => r.billing_applied === true && r.intent_type === "nearby"
+    ).length;
+
+    const totalBilledConversations =
+      directStarts + categoryStarts + nearbyStarts;
+
+    const estimatedRevenue = safeRows
+      .filter((r) => r.billing_applied === true)
+      .reduce((sum, r) => sum + Number(r.billing_amount || 0), 0);
+
+    const activityMap = {};
+    for (const row of safeRows) {
+      const date = new Date(row.clicked_at).toISOString().slice(0, 10);
+      if (!activityMap[date]) {
+        activityMap[date] = {
+          date,
+          direct: 0,
+          category: 0,
+          nearby: 0,
+          total: 0,
+        };
+      }
+
+      if (row.billing_applied) {
+        activityMap[date].total += 1;
+        if (row.intent_type === "direct") activityMap[date].direct += 1;
+        if (row.intent_type === "category") activityMap[date].category += 1;
+        if (row.intent_type === "nearby") activityMap[date].nearby += 1;
+      }
+    }
+
+    const activity = Object.values(activityMap);
 
     return res.json({
       business: business.name || "Business",
@@ -2621,48 +2497,30 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
         ? business.category.join(", ")
         : toSafeCategoryValue(business.category) || "Category",
 
-      totalClicks,
-      totalMessages,
-      mediaViews,
-      views,
-      weeklyGrowth: 0,
+      direct_starts: directStarts,
+      category_starts: categoryStarts,
+      nearby_starts: nearbyStarts,
+      total_billed_conversations: totalBilledConversations,
+      estimated_revenue: Number(estimatedRevenue.toFixed(2)),
+      currency: business.wallet?.currency || "USD",
 
-      peakHour: "00",
-      peakHourCount: 0,
-      peakDay: null,
+      pricing: {
+        direct: Number(business.billingDirectIntentCost ?? 0.25),
+        category: Number(business.billingCategoryIntentCost ?? 0.30),
+        nearby: Number(business.billingNearbyIntentCost ?? 0.40),
+      },
 
-      activity: [],
+      activity,
       hourly: [],
       keywords: [],
-
-      commission_per_lead: commissionPerLead,
-      commission_per_click: commissionPerClick,
-      commission_per_media: commissionPerMedia,
-
-      estimated_revenue: Number(estimatedRevenue.toFixed(2)),
-      currency: business.walletCurrency || "USD",
+      peakHour: null,
+      peakDay: null,
+      weeklyGrowth: 0,
 
       sources: [
-        {
-          name_en: "WhatsApp",
-          name_ar: "واتساب",
-          value: Number(business.whatsappClicksCount || 0),
-        },
-        {
-          name_en: "Clicks",
-          name_ar: "نقرات",
-          value: totalClicks,
-        },
-        {
-          name_en: "Media",
-          name_ar: "وسائط",
-          value: mediaViews,
-        },
-        {
-          name_en: "Views",
-          name_ar: "مشاهدات",
-          value: views,
-        },
+        { name_en: "Direct", name_ar: "مباشر", value: directStarts },
+        { name_en: "Category", name_ar: "فئة", value: categoryStarts },
+        { name_en: "Nearby", name_ar: "قريب", value: nearbyStarts },
       ],
     });
   } catch (e) {
@@ -2962,242 +2820,6 @@ app.post("/api/track-view", async (req, res) => {
     return res.json({ ok: true, charged: false });
   } catch (e) {
     console.error("track-view error:", e);
-    return res.status(500).json({ error: "Failed" });
-  }
-});
-
-
-// =========================
-// CLICK (paid)
-// =========================
-
-app.post("/api/track-click", async (req, res) => {
-  try {
-    const { businessId } = req.body || {};
-
-    if (!businessId) {
-      return res.status(400).json({ error: "businessId required" });
-    }
-
-    const info = await getBusinessOwnerInfo(businessId);
-    if (!info) {
-      return res.status(404).json({ error: "Business not found" });
-    }
-
-    const ip = getClientIp(req);
-    const guardKey = makeGuardKey({
-      businessId: info.businessId,
-      ip,
-      action: "click",
-    });
-
-    if (isWithinCooldown(CLICK_GUARD, guardKey, 30 * 1000)) {
-      console.warn("ANTI_FRAUD_BLOCK_CLICK", {
-        businessId: info.businessId,
-        ip,
-      });
-
-      return res.status(429).json({
-        error: "Too many repeated clicks",
-        code: "CLICK_COOLDOWN",
-      });
-    }
-
-    const dailyKey = `click:${info.businessId}:${ip}`;
-
-    if (incrementDailyLimit(dailyKey, 50)) {
-      console.warn("ANTI_FRAUD_DAILY_LIMIT_CLICK", {
-        businessId: info.businessId,
-        ip,
-      });
-
-      return res.status(429).json({
-        error: "Daily click limit exceeded",
-        code: "DAILY_LIMIT",
-      });
-    }
-
-    const deduction = await deductWalletBalance({
-      ownerUserId: info.ownerUserId,
-      businessId: info.businessId,
-      eventType: "click",
-      reason: "Business profile click charge",
-      reference: `click_${info.businessId}_${ip}_${Date.now()}`,
-      meta: { source: "business_profile_click", ip },
-    });
-
-    if (deduction.insufficient) {
-      return res.status(402).json({
-        error: "Insufficient balance",
-        code: "INSUFFICIENT_BALANCE",
-      });
-    }
-
-    await pushEvent(info.businessId, "clicks");
-
-    await logBusinessEvent({
-      businessId: info.businessId,
-      ownerUserId: info.ownerUserId,
-      type: "click",
-      source: "business_profile_click",
-      meta: { ip },
-    });
-
-    return res.json({
-      ok: true,
-      charged: true,
-      amount: deduction.amount || 0,
-    });
-  } catch (e) {
-    console.error("track-click error:", e);
-    return res.status(500).json({ error: "Failed" });
-  }
-});
-
-// =========================
-// MEDIA (paid)
-// =========================
-app.post("/api/track-media", async (req, res) => {
-  try {
-    const { businessId } = req.body || {};
-
-    if (!businessId) {
-      return res.status(400).json({ error: "businessId required" });
-    }
-
-    const info = await getBusinessOwnerInfo(businessId);
-    if (!info) {
-      return res.status(404).json({ error: "Business not found" });
-    }
-
-    const ip = getClientIp(req);
-    const guardKey = makeGuardKey({
-      businessId: info.businessId,
-      ip,
-      action: "media",
-    });
-
-    if (isWithinCooldown(CLICK_GUARD, guardKey, 30 * 1000)) {
-      return res.status(429).json({
-        error: "Too many repeated media actions",
-        code: "MEDIA_COOLDOWN",
-      });
-    }
-
-    const deduction = await deductWalletBalance({
-      ownerUserId: info.ownerUserId,
-      businessId: info.businessId,
-      eventType: "media",
-      reason: "Media view charge",
-      reference: `media_${info.businessId}_${ip}_${Date.now()}`,
-      meta: { source: "media_view", ip },
-    });
-
-    if (deduction.insufficient) {
-      return res.status(402).json({
-        error: "Insufficient balance",
-        code: "INSUFFICIENT_BALANCE",
-      });
-    }
-
-    await pushEvent(info.businessId, "mediaViews");
-
-    await logBusinessEvent({
-      businessId: info.businessId,
-      ownerUserId: info.ownerUserId,
-      type: "media",
-      source: "media_view",
-      meta: { ip },
-    });
-
-    return res.json({ ok: true, charged: true });
-  } catch (e) {
-    console.error("track-media error:", e);
-    return res.status(500).json({ error: "Failed" });
-  }
-});
-
-// =========================
-// WHATSAPP (paid)
-// =========================
-app.post("/api/track-whatsapp", async (req, res) => {
-  try {
-    const { businessId } = req.body || {};
-
-    if (!businessId) {
-      return res.status(400).json({ error: "businessId required" });
-    }
-
-    const info = await getBusinessOwnerInfo(businessId);
-    if (!info) {
-      return res.status(404).json({ error: "Business not found" });
-    }
-
-    const ip = getClientIp(req);
-    const guardKey = makeGuardKey({
-      businessId: info.businessId,
-      ip,
-      action: "whatsapp",
-    });
-
-    if (isWithinCooldown(LEAD_GUARD, guardKey, 60 * 1000)) {
-      console.warn("ANTI_FRAUD_BLOCK_WHATSAPP", {
-        businessId: info.businessId,
-        ip,
-      });
-
-      return res.status(429).json({
-        error: "Too many repeated WhatsApp leads",
-        code: "WHATSAPP_COOLDOWN",
-      });
-    }
-const dailyKey = `whatsapp:${info.businessId}:${ip}`;
-
-if (incrementDailyLimit(dailyKey, 20)) {
-  console.warn("ANTI_FRAUD_DAILY_LIMIT_WHATSAPP", {
-    businessId: info.businessId,
-    ip,
-  });
-
-  return res.status(429).json({
-    error: "Daily WhatsApp limit exceeded",
-    code: "DAILY_LIMIT",
-  });
-}
-    const deduction = await deductWalletBalance({
-      ownerUserId: info.ownerUserId,
-      businessId: info.businessId,
-      eventType: "whatsapp",
-      reason: "WhatsApp lead charge",
-      reference: `whatsapp_${info.businessId}_${ip}_${Date.now()}`,
-      meta: { source: "whatsapp_lead", ip },
-    });
-
-    if (deduction.insufficient) {
-      return res.status(402).json({
-        error: "Insufficient balance",
-        code: "INSUFFICIENT_BALANCE",
-      });
-    }
-
-    await pushEvent(info.businessId, "whatsappClicks");
-    await pushEvent(info.businessId, "messages");
-
-    await logBusinessEvent({
-      businessId: info.businessId,
-      ownerUserId: info.ownerUserId,
-      type: "whatsapp",
-      source: "whatsapp_lead",
-      meta: { ip },
-    });
-
-    return res.json({
-      ok: true,
-      charged: true,
-      amount: deduction.amount || 0,
-    });
-  } catch (e) {
-    console.error("track-whatsapp error:", e);
     return res.status(500).json({ error: "Failed" });
   }
 });
@@ -3524,12 +3146,15 @@ function getWelcomeMessage(lang = "ar") {
       return res.status(400).json({ error: "Business phone missing" });
     }
 
-    const trackedLink = await createLeadTrackedLink({
-      businessId: business.id,
-      phone: safePhone,
-      query,
-      userPhone,
-    });
+    const intentType = String(req.body?.intentType || "direct").trim();
+
+const trackedLink = await createLeadTrackedLink({
+  businessId: business.id,
+  phone: safePhone,
+  query,
+  userPhone,
+  intentType,
+});
 
     return res.json({
       ok: true,
@@ -3593,16 +3218,22 @@ if (messageType === "text" && incomingText && !isMoreCommand(incomingText)) {
 
     clearPendingRefinement(from);
 
-    const refinedSearchData = await searchBusinesses({
-      query: updatedSession.query,
-      lang: updatedSession.lang,
-      refinementAnswers: updatedSession.answers,
-    });
-
- const enrichedResults = await enrichTopResultWithTrackedLink({
+   const refinedResults = await enrichTopResultWithTrackedLink({
   items: refinedSearchData.results || [],
   query: refinedSearchData.effectiveQuery || updatedSession.query,
   userPhone: from,
+  intentType: refinedSearchData.intentType || "category",
+});
+    const finalRefinedData = {
+  ...refinedSearchData,
+  results: refinedResults,
+};
+    
+const enrichedResults = await enrichTopResultWithTrackedLink({
+  items: searchData.results || [],
+  query: searchData.effectiveQuery || effectiveQuery,
+  userPhone: from,
+  intentType: searchData.intentType || "direct",
 });
     
    const finalSearchData = {
@@ -3651,9 +3282,10 @@ if (
   const nearest = await findNearestBusinesses(lat, lng, 3, categoryQuery);
 
  const enriched = await enrichTopResultWithTrackedLink({
-  items: nearest || [],
-  query: categoryQuery || "nearby",
+  items: nearestResults,
+  query,
   userPhone: from,
+  intentType: "nearby",
 });
 
   clearPendingNearby(from);
@@ -3800,96 +3432,72 @@ function buildWhatsAppLeadMessage({
 // ============================================================================
 // LEAD TRACKED REDIRECT
 // ============================================================================
+
 app.get("/l/:token", async (req, res) => {
   try {
     const tokenId = String(req.params.token || "").trim();
+    if (!tokenId) return res.status(400).send("Invalid token");
 
-    if (!tokenId) {
-      return res.status(400).send("Invalid lead token");
+    const tokenRow = await getLeadTokenById(tokenId);
+    if (!tokenRow) return res.status(404).send("Not found");
+
+    if (tokenRow.expiresAt && new Date(tokenRow.expiresAt) < new Date()) {
+      return res.status(410).send("Expired");
     }
 
-    const { data: tokenRow, error: tokenError } = await supabase
-      .from("lead_tokens")
-      .select("*")
-      .eq("id", tokenId)
-      .maybeSingle();
+    const rawPhone = String(tokenRow.businessPhone || "").replace(/\D/g, "");
+    if (!rawPhone) return res.status(400).send("No phone");
 
-    if (tokenError || !tokenRow) {
-      console.error("LEAD TOKEN FETCH ERROR:", tokenError);
-      return res.status(404).send("Lead link not found");
-    }
+    const businessId = String(tokenRow.businessId || "").trim();
+    const intentType = String(tokenRow.intentType || "direct");
+    const userPhoneHash = hash(tokenRow.userPhone || "");
 
-    if (tokenRow.expires_at && new Date(tokenRow.expires_at) < new Date()) {
-      return res.status(410).send("Lead link expired");
-    }
-
-    const ip =
-      req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
-      req.socket?.remoteAddress ||
-      "unknown";
-
-    const rawPhone = String(tokenRow.business_phone || "").replace(/\D/g, "");
-    if (!rawPhone) {
-      return res.status(400).send("Business phone missing");
-    }
-
-    const text = buildWhatsAppLeadMessage({
-      query: tokenRow.query || "",
-      businessId: tokenRow.business_id || "",
-      userPhone: tokenRow.user_phone || "",
-    });
-
+    const text = `Hello, I found you on TrustedLinks`;
     const whatsappUrl = `https://wa.me/${rawPhone}?text=${encodeURIComponent(text)}`;
-
-    const leadKey = `lead:${tokenRow.id}:${ip}`;
-    const isDuplicateLead = isWithinCooldown(LEAD_GUARD, leadKey, 60 * 1000);
 
     res.redirect(302, whatsappUrl);
 
-    if (isDuplicateLead) return;
+    if (!businessId || !userPhoneHash) return;
 
-    Promise.allSettled([
-      supabase.from("lead_clicks").insert([
-        {
-          token_id: tokenRow.id,
-          business_id: tokenRow.business_id || null,
-          business_phone: rawPhone,
-          user_phone: null,
-          user_phone_hash: hash(tokenRow.user_phone || ""),
-          query: normalizeSearchText(tokenRow.query || "") || null,
-          ip_address: maskIP(ip),
-          clicked_at: new Date().toISOString(),
-          user_agent: req.get("user-agent") || null,
-          referer: req.get("referer") || null,
-        },
-      ]),
-      supabase
-        .from("lead_tokens")
-        .update({
-          click_count: Number(tokenRow.click_count || 0) + 1,
-          last_clicked_at: new Date().toISOString(),
-        })
-        .eq("id", tokenRow.id),
-    ]).then((results) => {
-      const [insertResult, updateResult] = results;
+    const since = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
 
-      if (insertResult.status === "fulfilled" && insertResult.value?.error) {
-        console.error("LEAD CLICK INSERT ERROR:", insertResult.value.error);
-      }
-      if (insertResult.status === "rejected") {
-        console.error("LEAD CLICK TRACKING EXCEPTION:", insertResult.reason);
-      }
+    const { data: existing } = await supabase
+      .from("lead_clicks")
+      .select("id")
+      .eq("business_id", businessId)
+      .eq("user_phone_hash", userPhoneHash)
+      .gte("clicked_at", since)
+      .limit(1)
+      .maybeSingle();
 
-      if (updateResult.status === "fulfilled" && updateResult.value?.error) {
-        console.error("LEAD TOKEN UPDATE ERROR:", updateResult.value.error);
-      }
-      if (updateResult.status === "rejected") {
-        console.error("LEAD TOKEN UPDATE EXCEPTION:", updateResult.reason);
-      }
+    if (existing) return;
+
+    const ownerInfo = await getBusinessOwnerInfo(businessId);
+    if (!ownerInfo) return;
+
+    const billing = await deductWalletBalance({
+      ownerUserId: ownerInfo.ownerUserId,
+      businessId,
+      intentType,
+      reason: "Conversation start",
+      reference: tokenRow.id,
+      meta: { userPhoneHash },
     });
-  } catch (err) {
-    console.error("LEAD REDIRECT ERROR:", err);
-    return res.status(500).send("Internal redirect error");
+
+    await supabase.from("lead_clicks").insert([
+      {
+        token_id: tokenRow.id,
+        business_id: businessId,
+        user_phone_hash: userPhoneHash,
+        clicked_at: new Date().toISOString(),
+        intent_type: intentType,
+        billing_applied: Boolean(billing?.ok && !billing?.skipped),
+        billing_amount: Number(billing?.amount || 0),
+      },
+    ]);
+
+  } catch (e) {
+    console.error("lead redirect error:", e);
   }
 });
 
