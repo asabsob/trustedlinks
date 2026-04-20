@@ -269,13 +269,6 @@ const trackingLimiter = rateLimit({
   message: { error: "Too many tracking requests, please try again later." },
 });
 
-const searchLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 دقيقة
-  max: 40, // 40 طلب بحث في الدقيقة
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "Too many search requests" },
-});
 
 app.use("/api", apiLimiter);
 
@@ -288,10 +281,6 @@ app.use("/api/whatsapp/request-otp", otpLimiter);
 app.use("/api/whatsapp/verify-otp", otpLimiter);
 
 app.use("/api/admin/login", adminLimiter);
-app.use("/api/admin", (req, res, next) => {
-  if (req.path === "/login") return next();
-  return adminApiLimiter(req, res, next);
-});
 
 
 app.use(express.urlencoded({ extended: true, limit: "200kb" }));
@@ -363,6 +352,11 @@ async function beginIdempotentRequest({
       },
     };
   }
+  
+app.use("/api/admin", (req, res, next) => {
+  if (req.path === "/login") return next();
+  return adminApiLimiter(req, res, next);
+});
 
   const requestHash = buildRequestHash(payload || {});
   const existing = await getIdempotencyRecord(scope, idempotencyKey);
@@ -2685,7 +2679,7 @@ app.post("/api/topup", requireUser, async (req, res) => {
 // =========================
 // SEARCH API
 // =========================
-app.get("/api/search", async (req, res) => {
+app.get("/api/search", searchLimiter, async (req, res) => {
   try {
     const {
       query = "",
