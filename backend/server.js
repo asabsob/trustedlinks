@@ -3233,6 +3233,93 @@ app.get("/api/admin/fraud/pending-charges", requireAdmin, async (req, res) => {
     return res.status(500).json({ error: "Failed to load pending charges" });
   }
 });
+
+// =========================
+// APPROVE PENDING CHARGE
+// =========================
+app.post("/api/admin/fraud/pending-charges/:id/approve", requireAdmin, async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    const { data: charge, error } = await supabase
+      .from("pending_charges")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (error || !charge) {
+      return res.status(404).json({ error: "Charge not found" });
+    }
+
+    if (charge.status !== "pending") {
+      return res.status(400).json({ error: "Already processed" });
+    }
+
+    // 1. خصم من wallet
+    await createTransaction({
+      userId: charge.business_id,
+      businessId: charge.business_id,
+      type: "debit",
+      amount: charge.amount,
+      currency: charge.currency || "USD",
+      reason: "Approved pending charge",
+      eventType: "pending_charge_approved",
+    });
+
+    // 2. تحديث الحالة
+    await supabase
+      .from("pending_charges")
+      .update({
+        status: "approved",
+        charged_at: new Date().toISOString(),
+      })
+      .eq("id", id);
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("approve pending charge error:", e);
+    return res.status(500).json({ error: "Failed to approve" });
+  }
+});
+
+// =========================
+// REJECT PENDING CHARGE
+// =========================
+app.post("/api/admin/fraud/pending-charges/:id/cancel", requireAdmin, async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    const { data: charge, error } = await supabase
+      .from("pending_charges")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (error || !charge) {
+      return res.status(404).json({ error: "Charge not found" });
+    }
+
+    if (charge.status !== "pending") {
+      return res.status(400).json({ error: "Already processed" });
+    }
+
+    // تحديث الحالة فقط
+    await supabase
+      .from("pending_charges")
+      .update({
+        status: "rejected",
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq("id", id);
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("reject pending charge error:", e);
+    return res.status(500).json({ error: "Failed to reject" });
+  }
+});
+
+
 // =========================
 // SETTINGS
 // =========================
