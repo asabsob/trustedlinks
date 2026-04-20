@@ -1,135 +1,231 @@
-import React, { useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import {
-  LayoutDashboard,
-  Building2,
-  CreditCard,
-  Bell,
-  Brain,
-  Settings,
-  LogOut,
-  Globe,
-  Menu,
-  X,
-} from "lucide-react";
-import { useAdminAuth } from "../../context/AdminAuthContext.jsx";
+import React, { useEffect, useMemo, useState } from "react";
+import { ShieldAlert, Ban, Clock3, AlertTriangle, Repeat, Building2 } from "lucide-react";
 import { useLang } from "../../context/LangContext.jsx";
+import { useAdminAuth } from "../../context/AdminAuthContext.jsx";
 
-export default function AdminLayout() {
-  const { logout } = useAdminAuth();
-  const navigate = useNavigate();
-  const [open, setOpen] = useState(true);
-  const { lang, setLang } = useLang();
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 
-  const t = (en, ar) => (lang === "ar" ? ar : en);
+export default function AdminFraud() {
+  const { lang } = useLang();
+  const { token } = useAdminAuth();
+  const isAr = lang === "ar";
 
-  const handleLogout = () => {
-    logout();
-    navigate("/admin/login", { replace: true });
-  };
+  const t = useMemo(
+    () => ({
+      title: isAr ? "مركز الاحتيال" : "Fraud Center",
+      subtitle: isAr
+        ? "مراقبة الأنشطة المشبوهة والطلبات المعلقة والحظر"
+        : "Monitor suspicious activity, held requests, and blocked traffic",
+      loading: isAr ? "جاري تحميل بيانات الاحتيال..." : "Loading fraud data...",
+      failed: isAr ? "فشل تحميل بيانات الاحتيال" : "Failed to load fraud data",
+      noData: isAr ? "لا توجد بيانات بعد" : "No data yet",
+      suspicious: isAr ? "أحداث مشبوهة اليوم" : "Suspicious Events Today",
+      blocked: isAr ? "محظور اليوم" : "Blocked Today",
+      held: isAr ? "معلّق اليوم" : "Held Today",
+      pending: isAr ? "طلبات معلقة" : "Pending Charges",
+      duplicate: isAr ? "مكرر بدون خصم" : "Duplicate No Charge",
+      targeted: isAr ? "الأكثر استهدافًا" : "Top Targeted Businesses",
+      events: isAr ? "أحدث أحداث الاحتيال" : "Latest Fraud Events",
+      risk: isAr ? "الخطورة" : "Risk",
+      action: isAr ? "الإجراء" : "Action",
+      reason: isAr ? "السبب" : "Reason",
+      time: isAr ? "الوقت" : "Time",
+      business: isAr ? "النشاط" : "Business",
+    }),
+    [isAr]
+  );
 
-  const toggleLang = () => {
-    const nextLang = lang === "en" ? "ar" : "en";
-    setLang(nextLang);
-    localStorage.setItem("lang", nextLang);
-    document.documentElement.lang = nextLang;
-    document.documentElement.dir = nextLang === "ar" ? "rtl" : "ltr";
-  };
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+  const [data, setData] = useState({
+    overview: {
+      suspiciousToday: 0,
+      blockedToday: 0,
+      heldToday: 0,
+      pendingCharges: 0,
+      duplicateNoChargeToday: 0,
+      topTargetedBusinesses: 0,
+    },
+    events: [],
+  });
 
-  const navItems = [
-    { to: "/admin", icon: LayoutDashboard, label: t("Dashboard", "لوحة التحكم") },
-    { to: "/admin/businesses", icon: Building2, label: t("Businesses", "الأنشطة التجارية") },
-    { to: "/admin/subscriptions", icon: CreditCard, label: t("Subscriptions", "الاشتراكات") },
-    { to: "/admin/notifications", icon: Bell, label: t("Notifications", "الإشعارات") },
-    { to: "/admin/insights", icon: Brain, label: t("AI Insights", "تحليلات الذكاء الاصطناعي") },
-    { to: "/admin/settings", icon: Settings, label: t("Settings", "الإعدادات") },
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadFraud() {
+      setLoading(true);
+      setErr("");
+
+      try {
+        const [overviewRes, eventsRes] = await Promise.all([
+          fetch(`${API_BASE}/api/admin/fraud/overview`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(`${API_BASE}/api/admin/fraud/events?limit=10`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
+
+        const overviewJson = await overviewRes.json().catch(() => ({}));
+        const eventsJson = await eventsRes.json().catch(() => ({}));
+
+        if (!overviewRes.ok) {
+          throw new Error(overviewJson?.error || `HTTP ${overviewRes.status}`);
+        }
+
+        if (!eventsRes.ok) {
+          throw new Error(eventsJson?.error || `HTTP ${eventsRes.status}`);
+        }
+
+        if (!cancelled) {
+          setData({
+            overview: {
+              suspiciousToday: overviewJson.suspiciousToday || 0,
+              blockedToday: overviewJson.blockedToday || 0,
+              heldToday: overviewJson.heldToday || 0,
+              pendingCharges: overviewJson.pendingCharges || 0,
+              duplicateNoChargeToday: overviewJson.duplicateNoChargeToday || 0,
+              topTargetedBusinesses: overviewJson.topTargetedBusinesses || 0,
+            },
+            events: Array.isArray(eventsJson.events) ? eventsJson.events : [],
+          });
+        }
+      } catch (e) {
+        if (!cancelled) setErr(e.message || t.failed);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    if (token) loadFraud();
+    else {
+      setLoading(false);
+      setErr(t.failed);
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, t]);
+
+  if (loading) {
+    return <div className="p-6 text-gray-500">{t.loading}</div>;
+  }
+
+  if (err) {
+    return <div className="p-6 text-red-600 font-medium">⚠️ {err}</div>;
+  }
+
+  const cards = [
+    {
+      label: t.suspicious,
+      value: data.overview.suspiciousToday,
+      icon: AlertTriangle,
+      color: "text-amber-600 bg-amber-50",
+    },
+    {
+      label: t.blocked,
+      value: data.overview.blockedToday,
+      icon: Ban,
+      color: "text-red-600 bg-red-50",
+    },
+    {
+      label: t.held,
+      value: data.overview.heldToday,
+      icon: Clock3,
+      color: "text-orange-600 bg-orange-50",
+    },
+    {
+      label: t.pending,
+      value: data.overview.pendingCharges,
+      icon: ShieldAlert,
+      color: "text-blue-600 bg-blue-50",
+    },
+    {
+      label: t.duplicate,
+      value: data.overview.duplicateNoChargeToday,
+      icon: Repeat,
+      color: "text-green-600 bg-green-50",
+    },
+    {
+      label: t.targeted,
+      value: data.overview.topTargetedBusinesses,
+      icon: Building2,
+      color: "text-purple-600 bg-purple-50",
+    },
   ];
 
   return (
-    <div
-      className={`flex min-h-screen bg-gray-50 text-gray-800 ${
-        lang === "ar" ? "flex-row-reverse" : "flex-row"
-      }`}
-      dir={lang === "ar" ? "rtl" : "ltr"}
-    >
-      {/* Sidebar */}
-      <aside
-        className={`${
-          open ? "w-64" : "w-20"
-        } bg-white ${lang === "ar" ? "border-l" : "border-r"} border-gray-200 shadow-sm flex flex-col transition-all duration-300`}
-      >
-        {/* Header / Logo */}
-        <div className="p-4 flex items-center justify-between border-b border-gray-200">
-          <div className="flex items-center gap-2 overflow-hidden">
-            {open && (
-              <h1 className="font-semibold text-green-600 text-lg whitespace-nowrap">
-                {t("Trusted Links", "الروابط الموثوقة")}
-              </h1>
-            )}
+    <div className="space-y-6" dir={isAr ? "rtl" : "ltr"}>
+      <div className="rounded-2xl bg-gradient-to-r from-green-500 to-emerald-400 text-white p-6 shadow-sm">
+        <h1 className="text-2xl font-bold">{t.title}</h1>
+        <p className="mt-2 text-sm text-white/90">{t.subtitle}</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {cards.map(({ label, value, icon: Icon, color }) => (
+          <div key={label} className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">{label}</p>
+                <h3 className="text-3xl font-bold text-gray-800 mt-2">{value}</h3>
+              </div>
+              <div className={`p-3 rounded-xl ${color}`}>
+                <Icon size={22} />
+              </div>
+            </div>
           </div>
+        ))}
+      </div>
 
-          <button
-            onClick={() => setOpen(!open)}
-            className="md:hidden text-gray-600"
-            title={t("Toggle menu", "تبديل القائمة")}
-          >
-            {open ? <X size={18} /> : <Menu size={18} />}
-          </button>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100">
+          <h2 className="text-lg font-semibold text-gray-800">{t.events}</h2>
         </div>
 
-        {/* Navigation Links */}
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {navItems.map(({ to, icon: Icon, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                `flex items-center gap-3 p-2 rounded-lg text-sm font-medium transition ${
-                  isActive
-                    ? "bg-green-50 text-green-600 font-semibold"
-                    : "text-gray-600 hover:bg-gray-100"
-                } ${open ? "" : "justify-center"}`
-              }
-              title={!open ? label : undefined}
-            >
-              <Icon size={18} />
-              {open && label}
-            </NavLink>
-          ))}
-        </nav>
-
-        {/* Footer Actions */}
-        <div className="border-t border-gray-100 p-3 mt-auto flex flex-col gap-2">
-          {/* 🌐 Language Toggle */}
-          <button
-            onClick={toggleLang}
-            className={`flex items-center gap-2 p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition ${
-              open ? "" : "justify-center"
-            }`}
-            title={t("Switch Language", "تبديل اللغة")}
-          >
-            <Globe size={18} />
-            {open && (lang === "ar" ? "English" : "العربية")}
-          </button>
-
-          {/* 🚪 Logout */}
-          <button
-            onClick={handleLogout}
-            className={`flex items-center gap-2 p-2 rounded-lg text-red-600 hover:bg-red-50 transition ${
-              open ? "" : "justify-center"
-            }`}
-            title={t("Logout", "تسجيل الخروج")}
-          >
-            <LogOut size={18} />
-            {open && t("Logout", "تسجيل الخروج")}
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 p-6 overflow-y-auto">
-        <Outlet />
-      </main>
+        {data.events.length === 0 ? (
+          <div className="p-8 text-center text-gray-400">{t.noData}</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50 text-gray-600">
+                <tr>
+                  <th className="px-4 py-3 text-start">{t.time}</th>
+                  <th className="px-4 py-3 text-start">{t.business}</th>
+                  <th className="px-4 py-3 text-start">{t.risk}</th>
+                  <th className="px-4 py-3 text-start">{t.action}</th>
+                  <th className="px-4 py-3 text-start">{t.reason}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.events.map((event) => (
+                  <tr key={event.id} className="border-t border-gray-100">
+                    <td className="px-4 py-3 text-gray-600">
+                      {event.created_at || "-"}
+                    </td>
+                    <td className="px-4 py-3 text-gray-800">
+                      {event.business_name || event.business_id || "-"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="px-2 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-semibold">
+                        {event.risk_level || "-"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-700">
+                      {event.action_taken || "-"}
+                    </td>
+                    <td className="px-4 py-3 text-gray-500">
+                      {Array.isArray(event.reason_codes)
+                        ? event.reason_codes.join(", ")
+                        : "-"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
