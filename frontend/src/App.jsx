@@ -26,6 +26,7 @@ import AdminBusinesses from "./pages/admin/AdminBusinesses.jsx";
 import AdminSubscriptions from "./pages/admin/AdminSubscriptions.jsx";
 import AdminNotifications from "./pages/admin/AdminNotifications.jsx";
 import AdminSettings from "./pages/admin/AdminSettings.jsx";
+import AdminFraud from "./pages/admin/AdminFraud.jsx";
 
 /* 🔐 Admin Auth */
 import { useAdminAuth } from "./context/AdminAuthContext.jsx";
@@ -195,6 +196,22 @@ export default function App() {
           <Route path="subscriptions" element={<AdminSubscriptions />} />
           <Route path="notifications" element={<AdminNotifications />} />
           <Route path="insights" element={<AdminAISummary />} />
+          <Route
+  path="/admin"
+  element={
+    <PrivateAdmin>
+      <AdminLayout />
+    </PrivateAdmin>
+  }
+>
+  <Route index element={<AdminDashboard />} />
+  <Route path="businesses" element={<AdminBusinesses />} />
+  <Route path="subscriptions" element={<AdminSubscriptions />} />
+  <Route path="notifications" element={<AdminNotifications />} />
+  <Route path="insights" element={<AdminAISummary />} />
+  <Route path="fraud" element={<AdminFraud />} />
+  <Route path="settings" element={<AdminSettings />} />
+</Route>
           <Route path="settings" element={<AdminSettings />} />
         </Route>
 
