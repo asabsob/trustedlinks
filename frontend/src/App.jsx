@@ -184,19 +184,6 @@ export default function App() {
         {/* Admin */}
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route
-          path="/admin"
-          element={
-            <PrivateAdmin>
-              <AdminLayout />
-            </PrivateAdmin>
-          }
-        >
-          <Route index element={<AdminDashboard />} />
-          <Route path="businesses" element={<AdminBusinesses />} />
-          <Route path="subscriptions" element={<AdminSubscriptions />} />
-          <Route path="notifications" element={<AdminNotifications />} />
-          <Route path="insights" element={<AdminAISummary />} />
-          <Route
   path="/admin"
   element={
     <PrivateAdmin>
