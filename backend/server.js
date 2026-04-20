@@ -3763,10 +3763,25 @@ app.get("/l/:token", async (req, res) => {
       risk.reasonCodes.push("DUPLICATE_WITHIN_WINDOW");
     }
 
-const safePhone = String(tokenRow.business_phone || "").replace(/\D/g, "");
-const message = "Hello, I found you on TrustedLinks";
+let safePhone = String(tokenRow.business_phone || "").replace(/\D/g, "");
 
+// Jordan fallback
+if (safePhone.startsWith("0")) {
+  safePhone = "962" + safePhone.slice(1);
+}
+
+if (!safePhone.startsWith("962") && safePhone.length === 9) {
+  safePhone = "962" + safePhone;
+}
+
+const message = "Hello, I found you on TrustedLinks";
 const waUrl = `https://api.whatsapp.com/send?phone=${safePhone}&text=${encodeURIComponent(message)}`;
+
+console.log("WA DEBUG:", {
+  raw: tokenRow.business_phone,
+  safe: safePhone,
+  url: waUrl,
+});
 
     if (risk.action === "block") {
       await logFraudEvent({
