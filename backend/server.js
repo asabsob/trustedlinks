@@ -3012,6 +3012,228 @@ app.post("/api/admin/notifications", requireAdmin, async (req, res) => {
 });
 
 // =========================
+// ADMIN FRAUD OVERVIEW
+// =========================
+app.get("/api/admin/fraud/overview", requireAdmin, async (_req, res) => {
+  try {
+    const now = new Date();
+    const startOfDay = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    ).toISOString();
+
+    const [
+      suspiciousTodayRes,
+      blockedTodayRes,
+      heldTodayRes,
+      duplicateTodayRes,
+      pendingChargesRes,
+      targetedBusinessesRes,
+    ] = await Promise.all([
+      supabase
+        .from("anti_fraud_events")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", startOfDay)
+        .in("risk_level", ["medium", "high", "critical"]),
+
+      supabase
+        .from("anti_fraud_events")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", startOfDay)
+        .eq("action_taken", "block"),
+
+      supabase
+        .from("anti_fraud_events")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", startOfDay)
+        .in("action_taken", ["hold", "billing_hold"]),
+
+      supabase
+        .from("anti_fraud_events")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", startOfDay)
+        .eq("action_taken", "allow_duplicate_no_charge"),
+
+      supabase
+        .from("pending_charges")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "pending"),
+
+      supabase
+        .from("anti_fraud_events")
+        .select("business_id")
+        .gte("created_at", startOfDay)
+        .not("business_id", "is", null),
+    ]);
+
+    const suspiciousToday = suspiciousTodayRes.count || 0;
+    const blockedToday = blockedTodayRes.count || 0;
+    const heldToday = heldTodayRes.count || 0;
+    const duplicateNoChargeToday = duplicateTodayRes.count || 0;
+    const pendingCharges = pendingChargesRes.count || 0;
+
+    const targetedRows = Array.isArray(targetedBusinessesRes.data)
+      ? targetedBusinessesRes.data
+      : [];
+
+    const targetedMap = new Map();
+    for (const row of targetedRows) {
+      const key = String(row.business_id || "").trim();
+      if (!key) continue;
+      targetedMap.set(key, (targetedMap.get(key) || 0) + 1);
+    }
+
+    const topTargetedBusinesses = [...targetedMap.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5).length;
+
+    return res.json({
+      ok: true,
+      suspiciousToday,
+      blockedToday,
+      heldToday,
+      pendingCharges,
+      duplicateNoChargeToday,
+      topTargetedBusinesses,
+    });
+  } catch (e) {
+    console.error("admin fraud overview error:", e);
+    return res.status(500).json({ error: "Failed to load fraud overview" });
+  }
+});
+
+// =========================
+// ADMIN FRAUD EVENTS
+// =========================
+app.get("/api/admin/fraud/events", requireAdmin, async (req, res) => {
+  try {
+    const limit = Math.min(Number(req.query.limit || 20), 100);
+    const riskLevel = String(req.query.riskLevel || "").trim();
+    const action = String(req.query.action || "").trim();
+    const businessId = String(req.query.businessId || "").trim();
+
+    let query = supabase
+      .from("anti_fraud_events")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (riskLevel) {
+      query = query.eq("risk_level", riskLevel);
+    }
+
+    if (action) {
+      query = query.eq("action_taken", action);
+    }
+
+    if (businessId) {
+      query = query.eq("business_id", businessId);
+    }
+
+    const { data: events, error } = await query;
+
+    if (error) {
+      console.error("admin fraud events query error:", error);
+      return res.status(500).json({ error: "Failed to load fraud events" });
+    }
+
+    const businessIds = [
+      ...new Set(
+        (events || [])
+          .map((e) => String(e.business_id || "").trim())
+          .filter(Boolean)
+      ),
+    ];
+
+    let businessNameMap = new Map();
+
+    if (businessIds.length > 0) {
+      const { data: businesses } = await supabase
+        .from("businesses")
+        .select("id, name, name_ar")
+        .in("id", businessIds);
+
+      businessNameMap = new Map(
+        (businesses || []).map((b) => [
+          String(b.id),
+          b.name || b.name_ar || String(b.id),
+        ])
+      );
+    }
+
+    const results = (events || []).map((event) => ({
+      ...event,
+      business_name: businessNameMap.get(String(event.business_id || "")) || null,
+    }));
+
+    return res.json({
+      ok: true,
+      events: results,
+    });
+  } catch (e) {
+    console.error("admin fraud events error:", e);
+    return res.status(500).json({ error: "Failed to load fraud events" });
+  }
+});
+
+// =========================
+// ADMIN PENDING CHARGES
+// =========================
+app.get("/api/admin/fraud/pending-charges", requireAdmin, async (req, res) => {
+  try {
+    const limit = Math.min(Number(req.query.limit || 20), 100);
+
+    const { data, error } = await supabase
+      .from("pending_charges")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error("admin pending charges query error:", error);
+      return res.status(500).json({ error: "Failed to load pending charges" });
+    }
+
+    const businessIds = [
+      ...new Set(
+        (data || [])
+          .map((e) => String(e.business_id || "").trim())
+          .filter(Boolean)
+      ),
+    ];
+
+    let businessNameMap = new Map();
+
+    if (businessIds.length > 0) {
+      const { data: businesses } = await supabase
+        .from("businesses")
+        .select("id, name, name_ar")
+        .in("id", businessIds);
+
+      businessNameMap = new Map(
+        (businesses || []).map((b) => [
+          String(b.id),
+          b.name || b.name_ar || String(b.id),
+        ])
+      );
+    }
+
+    const results = (data || []).map((row) => ({
+      ...row,
+      business_name: businessNameMap.get(String(row.business_id || "")) || null,
+    }));
+
+    return res.json({
+      ok: true,
+      pendingCharges: results,
+    });
+  } catch (e) {
+    console.error("admin pending charges error:", e);
+    return res.status(500).json({ error: "Failed to load pending charges" });
+  }
+});
+// =========================
 // SETTINGS
 // =========================
 let ADMIN_SETTINGS = {
