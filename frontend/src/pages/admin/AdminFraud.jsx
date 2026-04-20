@@ -1,5 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ShieldAlert, Ban, Clock3, AlertTriangle, Repeat, Building2 } from "lucide-react";
+import {
+  ShieldAlert,
+  Ban,
+  Clock3,
+  AlertTriangle,
+  Repeat,
+  Building2,
+  CheckCircle2,
+  XCircle,
+} from "lucide-react";
 import { useLang } from "../../context/LangContext.jsx";
 import { useAdminAuth } from "../../context/AdminAuthContext.jsx";
 
@@ -26,11 +35,19 @@ export default function AdminFraud() {
       duplicate: isAr ? "مكرر بدون خصم" : "Duplicate No Charge",
       targeted: isAr ? "الأكثر استهدافًا" : "Top Targeted Businesses",
       events: isAr ? "أحدث أحداث الاحتيال" : "Latest Fraud Events",
+      pendingTable: isAr ? "الطلبات المعلقة" : "Pending Charges Queue",
       risk: isAr ? "الخطورة" : "Risk",
       action: isAr ? "الإجراء" : "Action",
       reason: isAr ? "السبب" : "Reason",
       time: isAr ? "الوقت" : "Time",
       business: isAr ? "النشاط" : "Business",
+      amount: isAr ? "المبلغ" : "Amount",
+      approve: isAr ? "اعتماد" : "Approve",
+      reject: isAr ? "رفض" : "Reject",
+      approved: isAr ? "تم الاعتماد" : "Approved",
+      rejected: isAr ? "تم الرفض" : "Rejected",
+      approveFailed: isAr ? "فشل الاعتماد" : "Approve failed",
+      rejectFailed: isAr ? "فشل الرفض" : "Reject failed",
     }),
     [isAr]
   );
@@ -44,9 +61,10 @@ export default function AdminFraud() {
       heldToday: 0,
       pendingCharges: 0,
       duplicateNoChargeToday: 0,
-      topTargetedBusinesses: 0,
+      topTargetedBusinesses: [],
     },
     events: [],
+    pendingCharges: [],
   });
 
   useEffect(() => {
@@ -57,17 +75,21 @@ export default function AdminFraud() {
       setErr("");
 
       try {
-        const [overviewRes, eventsRes] = await Promise.all([
+        const [overviewRes, eventsRes, pendingRes] = await Promise.all([
           fetch(`${API_BASE}/api/admin/fraud/overview`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
           fetch(`${API_BASE}/api/admin/fraud/events?limit=10`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
+          fetch(`${API_BASE}/api/admin/fraud/pending-charges?limit=10`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
         ]);
 
         const overviewJson = await overviewRes.json().catch(() => ({}));
         const eventsJson = await eventsRes.json().catch(() => ({}));
+        const pendingJson = await pendingRes.json().catch(() => ({}));
 
         if (!overviewRes.ok) {
           throw new Error(overviewJson?.error || `HTTP ${overviewRes.status}`);
@@ -75,6 +97,10 @@ export default function AdminFraud() {
 
         if (!eventsRes.ok) {
           throw new Error(eventsJson?.error || `HTTP ${eventsRes.status}`);
+        }
+
+        if (!pendingRes.ok) {
+          throw new Error(pendingJson?.error || `HTTP ${pendingRes.status}`);
         }
 
         if (!cancelled) {
@@ -85,9 +111,14 @@ export default function AdminFraud() {
               heldToday: overviewJson.heldToday || 0,
               pendingCharges: overviewJson.pendingCharges || 0,
               duplicateNoChargeToday: overviewJson.duplicateNoChargeToday || 0,
-              topTargetedBusinesses: overviewJson.topTargetedBusinesses || 0,
+              topTargetedBusinesses: Array.isArray(overviewJson.topTargetedBusinesses)
+                ? overviewJson.topTargetedBusinesses
+                : [],
             },
             events: Array.isArray(eventsJson.events) ? eventsJson.events : [],
+            pendingCharges: Array.isArray(pendingJson.pendingCharges)
+              ? pendingJson.pendingCharges
+              : [],
           });
         }
       } catch (e) {
@@ -107,6 +138,40 @@ export default function AdminFraud() {
       cancelled = true;
     };
   }, [token, t]);
+
+  async function handlePendingAction(id, action) {
+    if (!id || !token) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/fraud/pending-charges/${id}/${action}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      const payload = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(payload?.error || `HTTP ${res.status}`);
+      }
+
+      setData((prev) => ({
+        ...prev,
+        pendingCharges: prev.pendingCharges.filter((item) => item.id !== id),
+        overview: {
+          ...prev.overview,
+          pendingCharges: Math.max(0, (prev.overview.pendingCharges || 0) - 1),
+        },
+      }));
+
+      alert(action === "approve" ? t.approved : t.rejected);
+    } catch (e) {
+      console.error(`Pending charge ${action} error:`, e);
+      alert(action === "approve" ? t.approveFailed : t.rejectFailed);
+    }
+  }
 
   if (loading) {
     return <div className="p-6 text-gray-500">{t.loading}</div>;
@@ -149,7 +214,9 @@ export default function AdminFraud() {
     },
     {
       label: t.targeted,
-      value: data.overview.topTargetedBusinesses,
+      value: Array.isArray(data.overview.topTargetedBusinesses)
+        ? data.overview.topTargetedBusinesses.length
+        : 0,
       icon: Building2,
       color: "text-purple-600 bg-purple-50",
     },
@@ -218,6 +285,66 @@ export default function AdminFraud() {
                       {Array.isArray(event.reason_codes)
                         ? event.reason_codes.join(", ")
                         : "-"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100">
+          <h2 className="text-lg font-semibold text-gray-800">{t.pendingTable}</h2>
+        </div>
+
+        {data.pendingCharges.length === 0 ? (
+          <div className="p-8 text-center text-gray-400">{t.noData}</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50 text-gray-600">
+                <tr>
+                  <th className="px-4 py-3 text-start">{t.business}</th>
+                  <th className="px-4 py-3 text-start">{t.amount}</th>
+                  <th className="px-4 py-3 text-start">{t.risk}</th>
+                  <th className="px-4 py-3 text-start">{t.action}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.pendingCharges.map((p) => (
+                  <tr key={p.id} className="border-t border-gray-100">
+                    <td className="px-4 py-3 text-gray-800">
+                      {p.business_name || p.business_id || "-"}
+                    </td>
+
+                    <td className="px-4 py-3 font-semibold text-gray-700">
+                      {p.amount} {p.currency || "USD"}
+                    </td>
+
+                    <td className="px-4 py-3 text-orange-600 font-medium">
+                      {p.risk_score ?? "-"}
+                    </td>
+
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => handlePendingAction(p.id, "approve")}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-xs font-medium hover:bg-green-200 transition"
+                        >
+                          <CheckCircle2 size={14} />
+                          {t.approve}
+                        </button>
+
+                        <button
+                          onClick={() => handlePendingAction(p.id, "cancel")}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-medium hover:bg-red-200 transition"
+                        >
+                          <XCircle size={14} />
+                          {t.reject}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
