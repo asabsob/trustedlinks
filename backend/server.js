@@ -3763,7 +3763,7 @@ app.get("/l/:token", async (req, res) => {
       risk.reasonCodes.push("DUPLICATE_WITHIN_WINDOW");
     }
 
-   const safePhone = String(tokenRow.business_phone || "").replace(/\D/g, "");
+const safePhone = String(tokenRow.business_phone || "").replace(/\D/g, "");
 const message = "Hello, I found you on TrustedLinks";
 
 const waUrl = `https://api.whatsapp.com/send?phone=${safePhone}&text=${encodeURIComponent(message)}`;
