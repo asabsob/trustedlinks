@@ -97,12 +97,25 @@ import {
 
 import {
   maskPhone,
-  hashPhone,
   redactIp,
   normalizeQueryForStorage,
   buildSafeSearchLog,
 } from "./utils/privacy.js";
 
+import {
+  buildFingerprint,
+  hashPhone as hashFraudPhone,
+} from "./services/antiFraud/fingerprint.js";
+
+import { buildChargeKey } from "./services/antiFraud/dedupe.js";
+import { analyzeLeadSignals } from "./services/antiFraud/analyzeSignals.js";
+import { calculateRiskScore } from "./services/antiFraud/scoring.js";
+import {
+  logFraudEvent,
+  findActiveChargeLock,
+  createChargeLock,
+  createPendingCharge,
+} from "./services/antiFraud/store.js";
 
 function hash(value = "") {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
@@ -220,16 +233,14 @@ const apiLimiter = rateLimit({
 
 app.set("trust proxy", 1);
 
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "Too many auth attempts, please try again later." },
+const searchLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 40,
   keyGenerator: (req) =>
     String(req.headers["x-forwarded-for"] || req.ip || "unknown")
       .split(",")[0]
       .trim(),
+  message: { error: "Too many search requests" },
 });
 
 const otpLimiter = rateLimit({
@@ -256,6 +267,14 @@ const trackingLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many tracking requests, please try again later." },
+});
+
+const searchLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 دقيقة
+  max: 40, // 40 طلب بحث في الدقيقة
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many search requests" },
 });
 
 app.use("/api", apiLimiter);
@@ -3461,112 +3480,178 @@ function buildWhatsAppLeadMessage({
 app.get("/l/:token", async (req, res) => {
   try {
     const tokenId = String(req.params.token || "").trim();
-    if (!tokenId) return res.status(400).send("Invalid token");
+    if (!tokenId) return res.status(400).send("Invalid lead token");
 
     const tokenRow = await getLeadTokenById(tokenId);
-    if (!tokenRow) return res.status(404).send("Not found");
+    if (!tokenRow) return res.status(404).send("Lead link not found");
 
-    if (tokenRow.expiresAt && new Date(tokenRow.expiresAt) < new Date()) {
-      return res.status(410).send("Expired");
+    if (tokenRow.expires_at && new Date(tokenRow.expires_at) < new Date()) {
+      return res.status(410).send("Lead link expired");
     }
 
-    const rawPhone = String(tokenRow.businessPhone || "").replace(/\D/g, "");
-    if (!rawPhone) return res.status(400).send("No phone");
+    const ip =
+      req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
+      req.socket?.remoteAddress ||
+      "";
 
-    const businessId = String(tokenRow.businessId || "").trim();
-    const intentType = String(tokenRow.intentType || "direct").trim();
-    const rawUserPhone = String(tokenRow.userPhone || "").replace(/\D/g, "");
-    const userPhoneHash = rawUserPhone ? hash(rawUserPhone) : "";
+    const userAgent = String(req.headers["user-agent"] || "");
+    const acceptLanguage = String(req.headers["accept-language"] || "");
+    const platform = String(req.headers["sec-ch-ua-platform"] || "");
 
-    const text = `Hello, I found you on TrustedLinks`;
-    const whatsappUrl = `https://wa.me/${rawPhone}?text=${encodeURIComponent(text)}`;
-
-    res.redirect(302, whatsappUrl);
-
-    console.log("LEAD TOKEN DATA:", {
-      tokenId: tokenRow.id,
-      businessId,
-      intentType,
-      rawUserPhone,
-      hasUserPhone: !!rawUserPhone,
+    const fingerprint = buildFingerprint({
+      ip,
+      userAgent,
+      acceptLanguage,
+      platform,
     });
 
-    if (!businessId) {
-      console.log("SKIP BILLING: missing businessId");
-      return;
+    const userPhoneHash = hashFraudPhone(tokenRow.user_phone || "");
+
+    const signals = await analyzeLeadSignals({
+      businessId: tokenRow.business_id,
+      tokenId,
+      ip,
+      fingerprint,
+      userPhoneHash,
+      userAgent,
+    });
+
+    const risk = calculateRiskScore(signals);
+
+    const chargeKey = buildChargeKey({
+      businessId: tokenRow.business_id,
+      userPhoneHash,
+      fingerprint,
+      ip,
+      userAgent,
+    });
+
+    const existingLock = await findActiveChargeLock(chargeKey);
+
+    let actionTaken = risk.action;
+    let charged = false;
+
+    if (existingLock) {
+      actionTaken = "allow";
+      risk.reasonCodes.push("DUPLICATE_WITHIN_WINDOW");
     }
 
-    if (!rawUserPhone) {
-      console.log("SKIP BILLING: missing userPhone");
-      return;
-    }
+    const waUrl = `https://wa.me/${String(tokenRow.business_phone || "")
+      .replace(/\D/g, "")}?text=${encodeURIComponent(
+      "Hello, I found you on TrustedLinks"
+    )}`;
 
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-
-    const { data: existing, error: existingError } = await supabase
-      .from("lead_clicks")
-      .select("id")
-      .eq("business_id", businessId)
-      .eq("user_phone_hash", userPhoneHash)
-      .gte("clicked_at", since)
-      .limit(1)
-      .maybeSingle();
-
-    if (existingError) {
-      console.error("EXISTING LEAD CHECK ERROR:", existingError);
-      return;
-    }
-
-    if (existing) {
-      console.log("SKIP BILLING: duplicate lead within 72h", {
-        businessId,
-        userPhoneHash,
+    if (risk.action === "block") {
+      await logFraudEvent({
+        event_type: "lead_click",
+        user_phone_hash: userPhoneHash || null,
+        business_id: tokenRow.business_id,
+        token_id: tokenId,
+        ip_address: ip || null,
+        user_agent: userAgent,
+        fingerprint,
+        intent_type: tokenRow.intent_type || null,
+        risk_score: risk.score,
+        risk_level: risk.riskLevel,
+        action_taken: "block",
+        reason_codes: risk.reasonCodes,
+        meta: { blocked: true },
       });
-      return;
+
+      return res.status(429).send("Request blocked");
     }
 
-    const ownerInfo = await getBusinessOwnerInfo(businessId);
-    if (!ownerInfo) {
-      console.log("SKIP BILLING: ownerInfo not found", { businessId });
-      return;
+    if (!existingLock && risk.action === "hold") {
+      await createPendingCharge({
+        business_id: tokenRow.business_id,
+        token_id: tokenId,
+        amount: Number(tokenRow.charge_amount || 0),
+        currency: "USD",
+        intent_type: tokenRow.intent_type || null,
+        status: "pending",
+        risk_score: risk.score,
+        reason_codes: risk.reasonCodes,
+        meta: { ip, fingerprint },
+      });
     }
 
-    const billing = await deductWalletBalance({
-      ownerUserId: ownerInfo.ownerUserId,
-      businessId,
-      intentType,
-      reason: "Conversation start",
-      reference: tokenRow.id,
-      meta: { userPhoneHash },
-    });
+    if (!existingLock && risk.action === "allow") {
+      const billingResult = await deductWalletBalance({
+        ownerUserId: "",
+        businessId: tokenRow.business_id,
+        intentType: tokenRow.intent_type || "direct",
+        reason: "Tracked lead WhatsApp charge",
+        reference: tokenId,
+        meta: {
+          tokenId,
+          ip,
+          fingerprint,
+        },
+      });
 
-    console.log("BILLING RESULT:", billing);
+      if (!billingResult?.ok && !billingResult?.skipped) {
+        await logFraudEvent({
+          event_type: "lead_click",
+          user_phone_hash: userPhoneHash || null,
+          business_id: tokenRow.business_id,
+          token_id: tokenId,
+          ip_address: ip || null,
+          user_agent: userAgent,
+          fingerprint,
+          intent_type: tokenRow.intent_type || null,
+          risk_score: risk.score,
+          risk_level: risk.riskLevel,
+          action_taken: "billing_failed",
+          reason_codes: [...risk.reasonCodes, "BILLING_FAILED"],
+          meta: {
+            billingError: billingResult?.error || null,
+            insufficient: billingResult?.insufficient || false,
+          },
+        });
 
-    const { error: insertError } = await supabase.from("lead_clicks").insert([
-      {
-        token_id: tokenRow.id,
-        business_id: businessId,
-        user_phone_hash: userPhoneHash,
-        clicked_at: new Date().toISOString(),
-        intent_type: intentType,
-        billing_applied: Boolean(billing?.ok && !billing?.skipped),
-        billing_amount: Number(billing?.amount || 0),
+        return res.redirect(302, waUrl);
+      }
+
+      const expiresAt = new Date(
+        Date.now() + 72 * 60 * 60 * 1000
+      ).toISOString();
+
+      await createChargeLock({
+        business_id: tokenRow.business_id,
+        user_phone_hash: userPhoneHash || null,
+        fingerprint: fingerprint || null,
+        ip_address: ip || null,
+        charge_key: chargeKey,
+        first_token_id: tokenId,
+        expires_at: expiresAt,
+      });
+
+      charged = true;
+    }
+
+    await logFraudEvent({
+      event_type: "lead_click",
+      user_phone_hash: userPhoneHash || null,
+      business_id: tokenRow.business_id,
+      token_id: tokenId,
+      ip_address: ip || null,
+      user_agent: userAgent,
+      fingerprint,
+      intent_type: tokenRow.intent_type || null,
+      risk_score: risk.score,
+      risk_level: risk.riskLevel,
+      action_taken: existingLock ? "allow_duplicate_no_charge" : actionTaken,
+      reason_codes: risk.reasonCodes,
+      meta: {
+        charged,
+        duplicateSkipped: !!existingLock,
       },
-    ]);
-
-    if (insertError) {
-      console.error("LEAD CLICK INSERT ERROR:", insertError);
-      return;
-    }
-
-    console.log("LEAD CLICK INSERTED:", {
-      businessId,
-      intentType,
-      billingApplied: Boolean(billing?.ok && !billing?.skipped),
-      billingAmount: Number(billing?.amount || 0),
     });
-  } catch (e) {
-    console.error("lead redirect error:", e);
+
+    return res.redirect(302, waUrl);
+  } catch (error) {
+    console.error("Lead redirect anti-fraud error:", error);
+    return res.status(500).send("Internal server error");
   }
 });
 // ---------------------------------------------------------------------------
