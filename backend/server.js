@@ -3763,9 +3763,13 @@ app.get("/l/:token", async (req, res) => {
       risk.reasonCodes.push("DUPLICATE_WITHIN_WINDOW");
     }
 
-let safePhone = String(tokenRow.business_phone || "").replace(/\D/g, "");
+const rawBusinessPhone =
+  tokenRow.business_phone ||
+  tokenRow.businessPhone ||
+  "";
 
-// Jordan fallback
+let safePhone = String(rawBusinessPhone).replace(/\D/g, "");
+
 if (safePhone.startsWith("0")) {
   safePhone = "962" + safePhone.slice(1);
 }
@@ -3778,10 +3782,15 @@ const message = "Hello, I found you on TrustedLinks";
 const waUrl = `https://api.whatsapp.com/send?phone=${safePhone}&text=${encodeURIComponent(message)}`;
 
 console.log("WA DEBUG:", {
-  raw: tokenRow.business_phone,
+  raw: rawBusinessPhone,
+  tokenRow,
   safe: safePhone,
   url: waUrl,
 });
+
+if (!safePhone) {
+  return res.status(400).send("Invalid business phone");
+}
 
     if (risk.action === "block") {
       await logFraudEvent({
