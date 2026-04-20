@@ -148,6 +148,7 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
 }
 
 const app = express();
+app.set("trust proxy", 1);
 
 app.use(express.json({ limit: "200kb" }));
 app.use(express.urlencoded({ extended: true, limit: "200kb" }));
@@ -2857,6 +2858,20 @@ if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
   throw new Error("Missing admin credentials");
 }
 
+function getAutoApprovalDecision(pendingCharge) {
+  const score = Number(pendingCharge?.risk_score || 0);
+
+  if (score >= 80) {
+    return { autoApprove: false, autoReject: false, reason: "high_risk_manual_review" };
+  }
+
+  if (score <= 25) {
+    return { autoApprove: true, autoReject: false, reason: "low_risk_auto_approve" };
+  }
+
+  return { autoApprove: false, autoReject: false, reason: "medium_risk_manual_review" };
+}
+
 // =========================
 // ADMIN LOGIN
 // =========================
@@ -2924,9 +2939,59 @@ app.get("/api/admin/businesses", requireAdmin, async (_req, res) => {
   try {
     const businesses = await listAllBusinesses();
 
+    const { data: events } = await supabase
+      .from("anti_fraud_events")
+      .select("business_id, risk_score, action_taken")
+      .not("business_id", "is", null);
+
+    const fraudMap = new Map();
+
+    for (const e of events || []) {
+      const businessId = String(e.business_id || "").trim();
+      if (!businessId) continue;
+
+      const current = fraudMap.get(businessId) || {
+        suspicious_events: 0,
+        blocked_events: 0,
+        average_risk_score: 0,
+        total_risk_score: 0,
+      };
+
+      current.suspicious_events += 1;
+      current.total_risk_score += Number(e.risk_score || 0);
+
+      if (String(e.action_taken || "") === "block") {
+        current.blocked_events += 1;
+      }
+
+      fraudMap.set(businessId, current);
+    }
+
+    const results = (businesses || []).map((b) => {
+      const fraud = fraudMap.get(String(b.id)) || {
+        suspicious_events: 0,
+        blocked_events: 0,
+        total_risk_score: 0,
+      };
+
+      const average_risk_score =
+        fraud.suspicious_events > 0
+          ? Math.round((fraud.total_risk_score / fraud.suspicious_events) * 10) / 10
+          : 0;
+
+      return {
+        ...b,
+        wallet_balance:
+          Number(b?.wallet?.balance ?? b?.wallet_balance ?? b?.walletBalance ?? 0) || 0,
+        suspicious_events: fraud.suspicious_events,
+        blocked_events: fraud.blocked_events,
+        average_risk_score,
+      };
+    });
+
     return res.json({
       ok: true,
-      results: businesses,
+      results,
     });
   } catch (e) {
     console.error("admin businesses error:", e);
@@ -3178,6 +3243,75 @@ app.get("/api/admin/fraud/events", requireAdmin, async (req, res) => {
 });
 
 // =========================
+// AUTO PROCESS PENDING CHARGES
+// =========================
+app.post("/api/admin/fraud/auto-process", requireAdmin, async (_req, res) => {
+  try {
+    const { data: pending, error } = await supabase
+      .from("pending_charges")
+      .select("*")
+      .eq("status", "pending")
+      .order("created_at", { ascending: true })
+      .limit(100);
+
+    if (error) {
+      return res.status(500).json({ error: "Failed to load pending charges" });
+    }
+
+    let approved = 0;
+    let skipped = 0;
+
+    for (const charge of pending || []) {
+      const decision = getAutoApprovalDecision(charge);
+
+      if (!decision.autoApprove) {
+        skipped++;
+        continue;
+      }
+
+      await createTransaction({
+        userId: charge.business_id,
+        businessId: charge.business_id,
+        type: "debit",
+        amount: Number(charge.amount || 0),
+        currency: charge.currency || "USD",
+        reason: "Auto-approved pending charge",
+        eventType: "pending_charge_auto_approved",
+        reference: charge.id,
+        status: "completed",
+        balanceBefore: 0,
+        balanceAfter: 0,
+        notes: decision.reason,
+        meta: {
+          pendingChargeId: charge.id,
+          riskScore: charge.risk_score,
+        },
+      });
+
+      await supabase
+        .from("pending_charges")
+        .update({
+          status: "approved",
+          charged_at: new Date().toISOString(),
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq("id", charge.id);
+
+      approved++;
+    }
+
+    return res.json({
+      ok: true,
+      approved,
+      skipped,
+    });
+  } catch (e) {
+    console.error("auto process pending charges error:", e);
+    return res.status(500).json({ error: "Failed to auto process charges" });
+  }
+});
+
+// =========================
 // ADMIN PENDING CHARGES
 // =========================
 app.get("/api/admin/fraud/pending-charges", requireAdmin, async (req, res) => {
@@ -3239,7 +3373,7 @@ app.get("/api/admin/fraud/pending-charges", requireAdmin, async (req, res) => {
 // =========================
 app.post("/api/admin/fraud/pending-charges/:id/approve", requireAdmin, async (req, res) => {
   try {
-    const id = req.params.id;
+    const id = String(req.params.id || "").trim();
 
     const { data: charge, error } = await supabase
       .from("pending_charges")
@@ -3255,27 +3389,31 @@ app.post("/api/admin/fraud/pending-charges/:id/approve", requireAdmin, async (re
       return res.status(400).json({ error: "Already processed" });
     }
 
-    // 1. خصم من wallet
-    await createTransaction({
-      userId: charge.business_id,
+    const walletResult = await deductBusinessWallet({
       businessId: charge.business_id,
-      type: "debit",
-      amount: charge.amount,
-      currency: charge.currency || "USD",
-      reason: "Approved pending charge",
+      amount: Number(charge.amount || 0),
       eventType: "pending_charge_approved",
+      note: "Approved pending charge",
+      meta: {
+        pendingChargeId: charge.id,
+        approvedBy: req.admin?.email || "admin",
+      },
     });
 
-    // 2. تحديث الحالة
     await supabase
       .from("pending_charges")
       .update({
         status: "approved",
         charged_at: new Date().toISOString(),
+        reviewed_at: new Date().toISOString(),
       })
       .eq("id", id);
 
-    return res.json({ ok: true });
+    return res.json({
+      ok: true,
+      balance: walletResult.balanceAfter,
+      currency: walletResult.currency || "USD",
+    });
   } catch (e) {
     console.error("approve pending charge error:", e);
     return res.status(500).json({ error: "Failed to approve" });
@@ -3283,11 +3421,11 @@ app.post("/api/admin/fraud/pending-charges/:id/approve", requireAdmin, async (re
 });
 
 // =========================
-// REJECT PENDING CHARGE
+// CANCEL PENDING CHARGE
 // =========================
 app.post("/api/admin/fraud/pending-charges/:id/cancel", requireAdmin, async (req, res) => {
   try {
-    const id = req.params.id;
+    const id = String(req.params.id || "").trim();
 
     const { data: charge, error } = await supabase
       .from("pending_charges")
@@ -3303,7 +3441,6 @@ app.post("/api/admin/fraud/pending-charges/:id/cancel", requireAdmin, async (req
       return res.status(400).json({ error: "Already processed" });
     }
 
-    // تحديث الحالة فقط
     await supabase
       .from("pending_charges")
       .update({
@@ -3314,11 +3451,123 @@ app.post("/api/admin/fraud/pending-charges/:id/cancel", requireAdmin, async (req
 
     return res.json({ ok: true });
   } catch (e) {
-    console.error("reject pending charge error:", e);
-    return res.status(500).json({ error: "Failed to reject" });
+    console.error("cancel pending charge error:", e);
+    return res.status(500).json({ error: "Failed to cancel" });
   }
 });
 
+// =========================
+// REFUND CHARGE
+// =========================
+app.post("/api/admin/fraud/refund/:businessId", requireAdmin, async (req, res) => {
+  try {
+    const businessId = String(req.params.businessId || "").trim();
+    const amount = Number(req.body?.amount || 0);
+    const reference = String(req.body?.reference || "").trim();
+    const reason = String(req.body?.reason || "Fraud refund").trim();
+
+    if (!businessId) {
+      return res.status(400).json({ error: "businessId required" });
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ error: "Invalid amount" });
+    }
+
+    const result = await topupBusinessWallet({
+      businessId,
+      amount,
+      note: reason,
+      meta: {
+        reference,
+        refundedBy: req.admin?.email || "admin",
+      },
+    });
+
+    await createTransaction({
+      userId: businessId,
+      businessId,
+      type: "credit",
+      amount,
+      currency: result.currency || "USD",
+      reason,
+      eventType: "fraud_refund",
+      reference,
+      status: "completed",
+      balanceBefore: Number(result.balanceBefore || 0),
+      balanceAfter: Number(result.balanceAfter || 0),
+      notes: "Manual fraud refund by admin",
+      meta: {
+        refundedBy: req.admin?.email || "admin",
+      },
+    });
+
+    return res.json({
+      ok: true,
+      balance: result.balanceAfter,
+      currency: result.currency || "USD",
+    });
+  } catch (e) {
+    console.error("refund charge error:", e);
+    return res.status(500).json({ error: "Failed to refund" });
+  }
+});
+
+// =========================
+// BUSINESS FRAUD SCORES
+// =========================
+app.get("/api/admin/fraud/business-scores", requireAdmin, async (_req, res) => {
+  try {
+    const { data: events, error } = await supabase
+      .from("anti_fraud_events")
+      .select("business_id, risk_score, action_taken, risk_level")
+      .not("business_id", "is", null);
+
+    if (error) {
+      return res.status(500).json({ error: "Failed to load fraud scores" });
+    }
+
+    const scoreMap = new Map();
+
+    for (const e of events || []) {
+      const businessId = String(e.business_id || "").trim();
+      if (!businessId) continue;
+
+      const current = scoreMap.get(businessId) || {
+        businessId,
+        suspiciousEvents: 0,
+        blockedEvents: 0,
+        totalRiskScore: 0,
+        averageRiskScore: 0,
+      };
+
+      current.suspiciousEvents += 1;
+      current.totalRiskScore += Number(e.risk_score || 0);
+
+      if (String(e.action_taken || "") === "block") {
+        current.blockedEvents += 1;
+      }
+
+      scoreMap.set(businessId, current);
+    }
+
+    const scores = [...scoreMap.values()].map((row) => ({
+      ...row,
+      averageRiskScore:
+        row.suspiciousEvents > 0
+          ? Math.round((row.totalRiskScore / row.suspiciousEvents) * 10) / 10
+          : 0,
+    }));
+
+    return res.json({
+      ok: true,
+      scores,
+    });
+  } catch (e) {
+    console.error("business fraud scores error:", e);
+    return res.status(500).json({ error: "Failed to load business fraud scores" });
+  }
+});
 
 // =========================
 // SETTINGS
