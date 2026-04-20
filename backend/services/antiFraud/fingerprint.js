@@ -1,30 +1,27 @@
-export function getRiskLevel(score = 0) {
-  if (score >= 80) return "critical";
-  if (score >= 50) return "high";
-  if (score >= 25) return "medium";
-  return "low";
+import crypto from "crypto";
+
+export function buildFingerprint({
+  ip = "",
+  userAgent = "",
+  acceptLanguage = "",
+  platform = "",
+}) {
+  const raw = [
+    String(ip || "").trim(),
+    String(userAgent || "").trim(),
+    String(acceptLanguage || "").trim(),
+    String(platform || "").trim(),
+  ].join("|");
+
+  return crypto.createHash("sha256").update(raw).digest("hex");
 }
 
-export function getFraudAction(score = 0) {
-  if (score >= 80) return "block";
-  if (score >= 50) return "hold";
-  return "allow";
+export function hashPhone(phone = "") {
+  const clean = String(phone || "").replace(/\D/g, "");
+  if (!clean) return "";
+  return crypto.createHash("sha256").update(clean).digest("hex");
 }
 
-export function calculateRiskScore(signals = []) {
-  let score = 0;
-  const reasonCodes = [];
-
-  for (const signal of signals) {
-    if (!signal || !signal.code || !signal.weight) continue;
-    score += Number(signal.weight);
-    reasonCodes.push(signal.code);
-  }
-
-  return {
-    score,
-    reasonCodes,
-    riskLevel: getRiskLevel(score),
-    action: getFraudAction(score),
-  };
+export function hashText(value = "") {
+  return crypto.createHash("sha256").update(String(value || "")).digest("hex");
 }
