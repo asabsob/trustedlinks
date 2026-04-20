@@ -231,16 +231,16 @@ const apiLimiter = rateLimit({
   message: { error: "Too many requests, please try again later." },
 });
 
-app.set("trust proxy", 1);
-
-const searchLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 40,
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many auth attempts, please try again later." },
   keyGenerator: (req) =>
     String(req.headers["x-forwarded-for"] || req.ip || "unknown")
       .split(",")[0]
       .trim(),
-  message: { error: "Too many search requests" },
 });
 
 const otpLimiter = rateLimit({
@@ -269,6 +269,33 @@ const trackingLimiter = rateLimit({
   message: { error: "Too many tracking requests, please try again later." },
 });
 
+const adminApiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many admin requests, please try again later." },
+});
+
+const leadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: "Too many lead requests, please try again later.",
+});
+
+const searchLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) =>
+    String(req.headers["x-forwarded-for"] || req.ip || "unknown")
+      .split(",")[0]
+      .trim(),
+  message: { error: "Too many search requests" },
+});
 
 app.use("/api", apiLimiter);
 
@@ -281,6 +308,9 @@ app.use("/api/whatsapp/request-otp", otpLimiter);
 app.use("/api/whatsapp/verify-otp", otpLimiter);
 
 app.use("/api/admin/login", adminLimiter);
+app.use("/api/admin", adminApiLimiter);
+
+app.use("/l", leadLimiter);
 
 
 app.use(express.urlencoded({ extended: true, limit: "200kb" }));
