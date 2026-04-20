@@ -315,25 +315,6 @@ app.use("/l", leadLimiter);
 
 app.use(express.urlencoded({ extended: true, limit: "200kb" }));
 
-const leadLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 60,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: "Too many lead requests, please try again later.",
-});
-
-app.use("/l", leadLimiter);
-
-const adminApiLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 120,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "Too many admin requests, please try again later." },
-});
-
-app.use("/api/admin", adminApiLimiter);
 
 const getIP = (req) =>
   req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
