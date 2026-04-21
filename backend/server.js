@@ -782,8 +782,11 @@ async function createLeadTrackedLink({
   });
 
   const tokenId = token?.id || token?._id?.toString();
-  const baseUrl = String(process.env.BASE_URL || "").trim().replace(/\/+$/, "");
-
+  const baseUrl =
+  (process.env.FRONTEND_BASE_URL || "https://trustedlinks.net")
+    .trim()
+    .replace(/\/+$/, "");
+  
   if (!tokenId || !baseUrl) {
     console.error("Failed to create tracked link", {
       hasToken: !!token,
@@ -4050,7 +4053,11 @@ app.get("/l/:token", async (req, res) => {
 
     if (tokenRow.expires_at && new Date(tokenRow.expires_at) < new Date()) {
       return res.status(410).send("Lead link expired");
-    }
+
+      if (!req.hostname.includes("trustedlinks.net")) {
+  return res.redirect(`https://trustedlinks.net/l/${tokenId}`);
+}
+    
 
     const ip =
       req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
