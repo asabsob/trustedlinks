@@ -4053,11 +4053,11 @@ app.get("/l/:token", async (req, res) => {
 
     if (tokenRow.expires_at && new Date(tokenRow.expires_at) < new Date()) {
       return res.status(410).send("Lead link expired");
+    }
 
-      if (!req.hostname.includes("trustedlinks.net")) {
-  return res.redirect(`https://trustedlinks.net/l/${tokenId}`);
-}
-    
+    if (!req.hostname.includes("trustedlinks.net")) {
+      return res.redirect(`https://trustedlinks.net/l/${tokenId}`);
+    }
 
     const ip =
       req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
@@ -4106,34 +4106,34 @@ app.get("/l/:token", async (req, res) => {
       risk.reasonCodes.push("DUPLICATE_WITHIN_WINDOW");
     }
 
-const rawBusinessPhone =
-  tokenRow.business_phone ||
-  tokenRow.businessPhone ||
-  "";
+    const rawBusinessPhone =
+      tokenRow.business_phone ||
+      tokenRow.businessPhone ||
+      "";
 
-let safePhone = String(rawBusinessPhone).replace(/\D/g, "");
+    let safePhone = String(rawBusinessPhone).replace(/\D/g, "");
 
-if (safePhone.startsWith("0")) {
-  safePhone = "962" + safePhone.slice(1);
-}
+    if (safePhone.startsWith("0")) {
+      safePhone = "962" + safePhone.slice(1);
+    }
 
-if (!safePhone.startsWith("962") && safePhone.length === 9) {
-  safePhone = "962" + safePhone;
-}
+    if (!safePhone.startsWith("962") && safePhone.length === 9) {
+      safePhone = "962" + safePhone;
+    }
 
-const message = "Hello, I found you on TrustedLinks";
-const waUrl = `https://api.whatsapp.com/send?phone=${safePhone}&text=${encodeURIComponent(message)}`;
+    const message = "Hello, I found you on TrustedLinks";
+    const waUrl = `https://api.whatsapp.com/send?phone=${safePhone}&text=${encodeURIComponent(message)}`;
 
-console.log("WA DEBUG:", {
-  raw: rawBusinessPhone,
-  tokenRow,
-  safe: safePhone,
-  url: waUrl,
-});
+    console.log("WA DEBUG:", {
+      raw: rawBusinessPhone,
+      tokenRow,
+      safe: safePhone,
+      url: waUrl,
+    });
 
-if (!safePhone) {
-  return res.status(400).send("Invalid business phone");
-}
+    if (!safePhone) {
+      return res.status(400).send("Invalid business phone");
+    }
 
     if (risk.action === "block") {
       await logFraudEvent({
