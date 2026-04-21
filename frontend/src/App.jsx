@@ -181,9 +181,10 @@ export default function App() {
     </RequireAuth>
   }
 />
-        {/* Admin */}
-        <Route path="/admin/login" element={<AdminLogin />} />
-        <Route
+       {/* Admin */}
+<Route path="/admin/login" element={<AdminLogin />} />
+
+<Route
   path="/admin"
   element={
     <PrivateAdmin>
@@ -199,8 +200,6 @@ export default function App() {
   <Route path="fraud" element={<AdminFraud />} />
   <Route path="settings" element={<AdminSettings />} />
 </Route>
-          <Route path="settings" element={<AdminSettings />} />
-        </Route>
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
