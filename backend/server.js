@@ -4055,9 +4055,6 @@ app.get("/l/:token", async (req, res) => {
       return res.status(410).send("Lead link expired");
     }
 
-    // =========================
-    // DEVICE + FRAUD DATA
-    // =========================
     const ip =
       req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
       req.socket?.remoteAddress ||
@@ -4105,9 +4102,6 @@ app.get("/l/:token", async (req, res) => {
       risk.reasonCodes.push("DUPLICATE_WITHIN_WINDOW");
     }
 
-    // =========================
-    // PHONE PREPARATION
-    // =========================
     const rawBusinessPhone =
       tokenRow.business_phone ||
       tokenRow.businessPhone ||
@@ -4127,11 +4121,7 @@ app.get("/l/:token", async (req, res) => {
       return res.status(400).send("Invalid business phone");
     }
 
-    // =========================
-    // WHATSAPP URL
-    // =========================
     const message = "Hello, I found you on TrustedLinks";
-
     const waUrl = `https://wa.me/${safePhone}?text=${encodeURIComponent(message)}`;
     const fallback = `whatsapp://send?phone=${safePhone}&text=${encodeURIComponent(message)}`;
 
@@ -4141,9 +4131,6 @@ app.get("/l/:token", async (req, res) => {
       url: waUrl,
     });
 
-    // =========================
-    // FRAUD BLOCK
-    // =========================
     if (risk.action === "block") {
       await logFraudEvent({
         event_type: "lead_click",
@@ -4164,9 +4151,6 @@ app.get("/l/:token", async (req, res) => {
       return res.status(429).send("Request blocked");
     }
 
-    // =========================
-    // HOLD (Pending Charge)
-    // =========================
     if (!existingLock && risk.action === "hold") {
       await createPendingCharge({
         business_id: tokenRow.business_id,
@@ -4181,9 +4165,6 @@ app.get("/l/:token", async (req, res) => {
       });
     }
 
-    // =========================
-    // BILLING
-    // =========================
     if (!existingLock && risk.action === "allow") {
       const billingResult = await deductWalletBalance({
         ownerUserId: "",
@@ -4218,13 +4199,24 @@ app.get("/l/:token", async (req, res) => {
           },
         });
 
-        // 👇 فتح واتساب حتى لو فشل الخصم
-        return res.redirect(302, waUrl);
+        return res.send(`
+          <html>
+            <head>
+              <meta http-equiv="refresh" content="0; url=${waUrl}" />
+              <script>
+                setTimeout(function() {
+                  window.location.href = "${fallback}";
+                }, 500);
+              </script>
+            </head>
+            <body>
+              Redirecting to WhatsApp...
+            </body>
+          </html>
+        `);
       }
 
-      const expiresAt = new Date(
-        Date.now() + 72 * 60 * 60 * 1000
-      ).toISOString();
+      const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
 
       await createChargeLock({
         business_id: tokenRow.business_id,
@@ -4239,9 +4231,6 @@ app.get("/l/:token", async (req, res) => {
       charged = true;
     }
 
-    // =========================
-    // LOG FINAL EVENT
-    // =========================
     await logFraudEvent({
       event_type: "lead_click",
       user_phone_hash: userPhoneHash || null,
@@ -4261,9 +4250,6 @@ app.get("/l/:token", async (req, res) => {
       },
     });
 
-    // =========================
-    // FINAL REDIRECT (SAFE)
-    // =========================
     return res.send(`
       <html>
         <head>
@@ -4279,12 +4265,12 @@ app.get("/l/:token", async (req, res) => {
         </body>
       </html>
     `);
-
   } catch (error) {
     console.error("Lead redirect anti-fraud error:", error);
     return res.status(500).send("Internal server error");
   }
 });
+
 // ---------------------------------------------------------------------------
 // Debug
 // ---------------------------------------------------------------------------
