@@ -140,6 +140,61 @@ function getClientMeta(req) {
   };
 }
 
+// مفتاح بسيط لمنع تكرار نفس التنبيه خلال فترة زمنية
+const NOTIF_TTL_MIN = 10;
+
+async function shouldSendNotification({ key }) {
+  const since = new Date(Date.now() - NOTIF_TTL_MIN * 60 * 1000).toISOString();
+
+  const { count, error } = await supabase
+    .from("notifications")
+    .select("*", { count: "exact", head: true })
+    .eq("meta->>dedupKey", key)
+    .gte("created_at", since);
+
+  if (error) {
+    console.error("notif dedup check error:", error);
+    return true;
+  }
+  return (count || 0) === 0;
+}
+
+async function emitNotification({
+  audienceType = "admin",
+  audienceId = null,
+  type = "system",
+  priority = "normal",
+  title,
+  message,
+  actionLabel = null,
+  actionUrl = null,
+  meta = {},
+  dedupKey = null,
+}) {
+  if (!message) return;
+
+  const finalKey = dedupKey || `${type}:${meta.businessId || "global"}`;
+
+  const okToSend = await shouldSendNotification({ key: finalKey });
+  if (!okToSend) return;
+
+  await createNotification({
+    audienceType,
+    audienceId,
+    type,
+    priority,
+    title,
+    message,
+    actionLabel,
+    actionUrl,
+    meta: {
+      ...meta,
+      dedupKey: finalKey,
+    },
+  });
+}
+
+
 dotenv.config();
 console.log("🚀 SERVER VERSION: TEST 1 - SAMEER");
 
@@ -309,7 +364,11 @@ app.use("/api/whatsapp/request-otp", otpLimiter);
 app.use("/api/whatsapp/verify-otp", otpLimiter);
 
 app.use("/api/admin/login", adminLimiter);
-app.use("/api/admin", adminApiLimiter);
+
+app.use("/api/admin", (req, res, next) => {
+  if (req.path === "/login") return next();
+  return adminApiLimiter(req, res, next);
+});
 
 app.use("/l", leadLimiter);
 
@@ -365,10 +424,6 @@ async function beginIdempotentRequest({
     };
   }
   
-app.use("/api/admin", (req, res, next) => {
-  if (req.path === "/login") return next();
-  return adminApiLimiter(req, res, next);
-});
 
   const requestHash = buildRequestHash(payload || {});
   const existing = await getIdempotencyRecord(scope, idempotencyKey);
@@ -872,6 +927,7 @@ async function deductWalletBalance({
       },
     });
 
+  
     return {
       ok: true,
       amount,
@@ -2872,6 +2928,133 @@ app.post("/api/track-view", async (req, res) => {
   }
 });
 
+
+async function createNotification({
+  audienceType = "admin",
+  audienceId = null,
+  type = "system",
+  priority = "normal",
+  title = "",
+  message = "",
+  actionLabel = null,
+  actionUrl = null,
+  channel = "dashboard",
+  meta = {},
+}) {
+  const payload = {
+    audience_type: audienceType,
+    audience_id: audienceId,
+    type,
+    priority,
+    title: String(title || "").trim() || "Notification",
+    message: String(message || "").trim(),
+    action_label: actionLabel || null,
+    action_url: actionUrl || null,
+    channel,
+    meta: meta || {},
+  };
+
+  if (!payload.message) {
+    throw new Error("Notification message is required");
+  }
+
+  const { data, error } = await supabase
+    .from("notifications")
+    .insert(payload)
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+async function listNotifications({
+  audienceType = "admin",
+  audienceId = null,
+  status = "",
+  limit = 50,
+}) {
+  let query = supabase
+    .from("notifications")
+    .select("*")
+    .eq("audience_type", audienceType)
+    .order("created_at", { ascending: false })
+    .limit(Math.min(Number(limit || 50), 200));
+
+  if (audienceId) {
+    query = query.eq("audience_id", audienceId);
+  } else {
+    query = query.is("audience_id", null);
+  }
+
+  if (status) {
+    query = query.eq("status", status);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
+}
+
+async function markNotificationRead(id) {
+  const { data, error } = await supabase
+    .from("notifications")
+    .update({
+      status: "read",
+      read_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+async function markAllNotificationsRead({
+  audienceType = "admin",
+  audienceId = null,
+}) {
+  let query = supabase
+    .from("notifications")
+    .update({
+      status: "read",
+      read_at: new Date().toISOString(),
+    })
+    .eq("audience_type", audienceType)
+    .eq("status", "unread");
+
+  if (audienceId) {
+    query = query.eq("audience_id", audienceId);
+  } else {
+    query = query.is("audience_id", null);
+  }
+
+  const { error } = await query;
+  if (error) throw error;
+  return true;
+}
+
+async function getUnreadNotificationCount({
+  audienceType = "admin",
+  audienceId = null,
+}) {
+  let query = supabase
+    .from("notifications")
+    .select("*", { count: "exact", head: true })
+    .eq("audience_type", audienceType)
+    .eq("status", "unread");
+
+  if (audienceId) {
+    query = query.eq("audience_id", audienceId);
+  } else {
+    query = query.is("audience_id", null);
+  }
+
+  const { count, error } = await query;
+  if (error) throw error;
+  return count || 0;
+}
 // ============================================================================
 // Admin Auth + Admin endpoints (Supabase Clean Version)
 // ============================================================================
@@ -3127,29 +3310,110 @@ app.post("/api/admin/businesses/:id/suspend", requireAdmin, async (req, res) => 
 // =========================
 // NOTIFICATIONS (Memory - OK for MVP)
 // =========================
-let NOTIFS = [];
+// =========================
+// ADMIN NOTIFICATIONS
+// =========================
+app.get("/api/admin/notifications", requireAdmin, async (req, res) => {
+  try {
+    const status = String(req.query.status || "").trim();
+    const limit = Number(req.query.limit || 50);
 
-app.get("/api/admin/notifications", requireAdmin, async (_req, res) => {
-  return res.json({ ok: true, notifications: NOTIFS });
+    const notifications = await listNotifications({
+      audienceType: "admin",
+      audienceId: null,
+      status,
+      limit,
+    });
+
+    const unreadCount = await getUnreadNotificationCount({
+      audienceType: "admin",
+      audienceId: null,
+    });
+
+    return res.json({
+      ok: true,
+      notifications,
+      unreadCount,
+    });
+  } catch (e) {
+    console.error("admin notifications list error:", e);
+    return res.status(500).json({ error: "Failed to load notifications" });
+  }
 });
 
 app.post("/api/admin/notifications", requireAdmin, async (req, res) => {
-  const { message } = req.body || {};
+  try {
+    const {
+      title = "Admin",
+      message,
+      type = "system",
+      priority = "normal",
+      actionLabel = null,
+      actionUrl = null,
+      channel = "dashboard",
+    } = req.body || {};
 
-  if (!String(message || "").trim()) {
-    return res.status(400).json({ error: "Message required" });
+    const notification = await createNotification({
+      audienceType: "admin",
+      audienceId: null,
+      title,
+      message,
+      type,
+      priority,
+      actionLabel,
+      actionUrl,
+      channel,
+      meta: {
+        createdBy: req.admin?.email || "admin",
+      },
+    });
+
+    return res.json({ ok: true, notification });
+  } catch (e) {
+    console.error("admin notification create error:", e);
+    return res.status(500).json({ error: e.message || "Failed to send notification" });
   }
+});
 
-  const n = {
-    id: nanoid(10),
-    title: "Admin",
-    message: String(message),
-    date: new Date().toISOString(),
-  };
+app.post("/api/admin/notifications/:id/read", requireAdmin, async (req, res) => {
+  try {
+    const id = String(req.params.id || "").trim();
+    if (!id) return res.status(400).json({ error: "Notification id required" });
 
-  NOTIFS = [n, ...NOTIFS].slice(0, 200);
+    const notification = await markNotificationRead(id);
+    return res.json({ ok: true, notification });
+  } catch (e) {
+    console.error("admin notification read error:", e);
+    return res.status(500).json({ error: "Failed to mark notification as read" });
+  }
+});
 
-  return res.json({ ok: true, notification: n });
+app.post("/api/admin/notifications/read-all", requireAdmin, async (_req, res) => {
+  try {
+    await markAllNotificationsRead({
+      audienceType: "admin",
+      audienceId: null,
+    });
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("admin notifications read-all error:", e);
+    return res.status(500).json({ error: "Failed to mark all as read" });
+  }
+});
+
+app.get("/api/admin/notifications/unread-count", requireAdmin, async (_req, res) => {
+  try {
+    const unreadCount = await getUnreadNotificationCount({
+      audienceType: "admin",
+      audienceId: null,
+    });
+
+    return res.json({ ok: true, unreadCount });
+  } catch (e) {
+    console.error("admin notifications unread count error:", e);
+    return res.status(500).json({ error: "Failed to load unread count" });
+  }
 });
 
 // =========================
@@ -3394,6 +3658,52 @@ app.post("/api/admin/fraud/pending-charges/:id/approve", requireAdmin, async (re
         approvedBy: req.admin?.email || "admin",
       },
     });
+    
+async function notifyNegativeBalance({ businessId, balanceAfter }) {
+  await emitNotification({
+    type: "billing",
+    priority: "critical",
+    title: "Negative balance detected",
+    message: `Business ${businessId} is in negative balance (${balanceAfter}).`,
+    actionLabel: "Review account",
+    actionUrl: "/admin/revenue",
+    meta: { businessId, balanceAfter },
+    dedupKey: `neg:${businessId}`,
+  });
+}
+    if (Number(walletResult?.balanceAfter) < 0) {
+  await createNotification({
+    audienceType: "admin",
+    type: "billing",
+    priority: "critical",
+    title: "Negative balance detected",
+    message: `Business ${charge.business_id} is now in negative balance after approving a pending charge.`,
+    actionLabel: "Review revenue",
+    actionUrl: "/admin/revenue",
+    meta: {
+      businessId: charge.business_id,
+      pendingChargeId: charge.id,
+      balanceAfter: Number(walletResult?.balanceAfter || 0),
+      approvedBy: req.admin?.email || "admin",
+    },
+  });
+} else if (Number(walletResult?.balanceAfter) > 0 && Number(walletResult?.balanceAfter) < 5) {
+  await createNotification({
+    audienceType: "admin",
+    type: "billing",
+    priority: "high",
+    title: "Low balance alert",
+    message: `Business ${charge.business_id} wallet is low after approving a pending charge.`,
+    actionLabel: "Review revenue",
+    actionUrl: "/admin/revenue",
+    meta: {
+      businessId: charge.business_id,
+      pendingChargeId: charge.id,
+      balanceAfter: Number(walletResult?.balanceAfter || 0),
+      approvedBy: req.admin?.email || "admin",
+    },
+  });
+}
 
     await supabase
       .from("pending_charges")
@@ -3414,6 +3724,22 @@ app.post("/api/admin/fraud/pending-charges/:id/approve", requireAdmin, async (re
     return res.status(500).json({ error: "Failed to approve" });
   }
 });
+
+if (Number(result.balanceAfter) > 0 && Number(result.balanceAfter) < 5) {
+  await createNotification({
+    audienceType: "admin",
+    type: "billing",
+    priority: "high",
+    title: "Low balance alert",
+    message: `Business ${businessId} wallet dropped below 5 USD.`,
+    actionLabel: "Review account",
+    actionUrl: `/admin/revenue`,
+    meta: {
+      businessId,
+      balanceAfter: Number(result.balanceAfter),
+    },
+  });
+}
 
 // =========================
 // CANCEL PENDING CHARGE
@@ -3496,6 +3822,49 @@ app.post("/api/admin/fraud/refund/:businessId", requireAdmin, async (req, res) =
         refundedBy: req.admin?.email || "admin",
       },
     });
+
+    async function notifyRefund({
+  businessId,
+  amount,
+  currency,
+  balanceAfter,
+  reference,
+  refundedBy,
+}) {
+  await emitNotification({
+    type: "billing",
+    priority: "normal",
+    title: "Refund completed",
+    message: `Refund ${Number(amount).toFixed(2)} ${currency} for ${businessId}.`,
+    actionLabel: "Open revenue page",
+    actionUrl: "/admin/revenue",
+    meta: {
+      businessId,
+      amount,
+      currency,
+      balanceAfter,
+      reference: reference || null,
+      refundedBy,
+    },
+    dedupKey: `refund:${businessId}:${reference || "manual"}`,
+  });
+}
+
+    await createNotification({
+  audienceType: "admin",
+  type: "billing",
+  priority: "normal",
+  title: "Refund completed",
+  message: `A fraud refund of ${amount} USD was completed for business ${businessId}.`,
+  actionLabel: "Open revenue page",
+  actionUrl: `/admin/revenue`,
+  meta: {
+    businessId,
+    amount,
+    reference,
+    refundedBy: req.admin?.email || "admin",
+  },
+});
 
     return res.json({
       ok: true,
@@ -4543,39 +4912,138 @@ app.get("/l/:token", async (req, res) => {
       </html>
     `;
 
-    if (risk.action === "block") {
-      await logFraudEvent({
-        event_type: "lead_click",
-        user_phone_hash: userPhoneHash || null,
-        business_id: businessId,
-        token_id: tokenId,
-        ip_address: ip || null,
-        user_agent: userAgent,
-        fingerprint,
-        intent_type: intentType,
-        risk_score: risk.score,
-        risk_level: risk.riskLevel,
-        action_taken: "block",
-        reason_codes: risk.reasonCodes,
-        meta: { blocked: true },
-      });
+  if (risk.action === "block") {
+  const fraudMeta = {
+    businessId,
+    tokenId,
+    intentType,
+    riskScore: Number(risk.score || 0),
+    riskLevel: risk.riskLevel || "unknown",
+    reasonCodes: Array.isArray(risk.reasonCodes) ? risk.reasonCodes : [],
+    ip: ip || null,
+    fingerprint: fingerprint || null,
+    userAgent: userAgent || "",
+  };
+
+    async function notifyFraudBlocked({ businessId, tokenId, intentType, risk }) {
+  const score = Number(risk.score || 0);
+  const level = String(risk.riskLevel || "").toLowerCase();
+
+  if (score < 80 && !["high", "critical"].includes(level)) return;
+
+  await emitNotification({
+    type: "fraud",
+    priority: level === "critical" ? "critical" : "high",
+    title: "Fraud attempt blocked",
+    message: `Blocked ${intentType} lead (risk ${score}).`,
+    actionLabel: "Open fraud center",
+    actionUrl: "/admin/fraud",
+    meta: {
+      businessId,
+      tokenId,
+      intentType,
+      riskScore: score,
+      riskLevel: level,
+      reasonCodes: risk.reasonCodes || [],
+    },
+    dedupKey: `block:${businessId}:${tokenId}`,
+  });
+}
+
+  await logFraudEvent({
+    event_type: "lead_click",
+    user_phone_hash: userPhoneHash || null,
+    business_id: businessId,
+    token_id: tokenId,
+    ip_address: ip || null,
+    user_agent: userAgent,
+    fingerprint,
+    intent_type: intentType,
+    risk_score: risk.score,
+    risk_level: risk.riskLevel,
+    action_taken: "block",
+    reason_codes: fraudMeta.reasonCodes,
+    meta: {
+      blocked: true,
+      ...fraudMeta,
+    },
+  });
+
+  const shouldNotifyAdmin =
+    Number(risk.score || 0) >= 80 ||
+    ["high", "critical"].includes(String(risk.riskLevel || "").toLowerCase());
+
+  if (shouldNotifyAdmin) {
+    await createNotification({
+      audienceType: "admin",
+      type: "fraud",
+      priority:
+        String(risk.riskLevel || "").toLowerCase() === "critical"
+          ? "critical"
+          : "high",
+      title: "Fraud attempt blocked",
+      message: `Blocked ${intentType} lead for business ${businessId} due to ${fraudMeta.riskLevel} risk (${fraudMeta.riskScore}).`,
+      actionLabel: "Open fraud center",
+      actionUrl: "/admin/fraud",
+      meta: fraudMeta,
+    });
+  }
+
+  return res.status(429).send("Request blocked");
+}
 
       return res.status(429).send("Request blocked");
     }
 
-    if (!existingLock && risk.action === "hold") {
-      await createPendingCharge({
-        business_id: businessId,
-        token_id: tokenId,
-        amount: Number(tokenRow.charge_amount || 0),
-        currency: "USD",
-        intent_type: intentType,
-        status: "pending",
-        risk_score: risk.score,
-        reason_codes: risk.reasonCodes,
-        meta: { ip, fingerprint },
-      });
-    }
+   if (!existingLock && risk.action === "hold") {
+  await createPendingCharge({
+    business_id: businessId,
+    token_id: tokenId,
+    amount: Number(tokenRow.charge_amount || 0),
+    currency: "USD",
+    intent_type: intentType,
+    status: "pending",
+    risk_score: risk.score,
+    reason_codes: risk.reasonCodes,
+    meta: { ip, fingerprint },
+  });
+
+     async function notifyPendingCharge({ businessId, tokenId, risk }) {
+  await emitNotification({
+    type: "fraud",
+    priority: "high",
+    title: "Pending charge created",
+    message: `Charge held for review (risk ${risk.score}).`,
+    actionLabel: "Open fraud queue",
+    actionUrl: "/admin/fraud",
+    meta: {
+      businessId,
+      tokenId,
+      riskScore: Number(risk.score || 0),
+      riskLevel: risk.riskLevel,
+      reasonCodes: risk.reasonCodes || [],
+    },
+    dedupKey: `hold:${businessId}:${tokenId}`,
+  });
+}
+  await createNotification({
+    audienceType: "admin",
+    type: "fraud",
+    priority: "high",
+    title: "Pending charge created",
+    message: `A lead charge was held for review for business ${businessId}.`,
+    actionLabel: "Review fraud queue",
+    actionUrl: "/admin/fraud",
+    meta: {
+      businessId,
+      tokenId,
+      intentType,
+      riskScore: Number(risk.score || 0),
+      reasonCodes: risk.reasonCodes || [],
+      ip: ip || null,
+    },
+  });
+}
 
     if (!existingLock && risk.action === "allow") {
       const billingResult = await deductWalletBalance({
