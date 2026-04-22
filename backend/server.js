@@ -6,6 +6,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import geolib from "geolib";
@@ -543,6 +544,50 @@ async function mapBusinessNames(rows = []) {
       b.name || b.name_ar || String(b.id),
     ])
   );
+}
+
+     async function notifyFraudBlocked({ businessId, tokenId, intentType, risk }) {
+  const score = Number(risk.score || 0);
+  const level = String(risk.riskLevel || "").toLowerCase();
+
+  if (score < 80 && !["high", "critical"].includes(level)) return;
+
+  await emitNotification({
+    type: "fraud",
+    priority: level === "critical" ? "critical" : "high",
+    title: "Fraud attempt blocked",
+    message: `Blocked ${intentType} lead (risk ${score}).`,
+    actionLabel: "Open fraud center",
+    actionUrl: "/admin/fraud",
+    meta: {
+      businessId,
+      tokenId,
+      intentType,
+      riskScore: score,
+      riskLevel: level,
+      reasonCodes: risk.reasonCodes || [],
+    },
+    dedupKey: `block:${businessId}:${tokenId}`,
+  });
+}
+
+async function notifyPendingCharge({ businessId, tokenId, risk }) {
+  await emitNotification({
+    type: "fraud",
+    priority: "high",
+    title: "Pending charge created",
+    message: `Charge held for review (risk ${risk.score}).`,
+    actionLabel: "Open fraud queue",
+    actionUrl: "/admin/fraud",
+    meta: {
+      businessId,
+      tokenId,
+      riskScore: Number(risk.score || 0),
+      riskLevel: risk.riskLevel,
+      reasonCodes: risk.reasonCodes || [],
+    },
+    dedupKey: `hold:${businessId}:${tokenId}`,
+  });
 }
 // =========================
 // MEMORY (instead of Mongo sessions)
@@ -4912,7 +4957,7 @@ app.get("/l/:token", async (req, res) => {
       </html>
     `;
 
-  if (risk.action === "block") {
+if (risk.action === "block") {
   const fraudMeta = {
     businessId,
     tokenId,
@@ -4924,31 +4969,6 @@ app.get("/l/:token", async (req, res) => {
     fingerprint: fingerprint || null,
     userAgent: userAgent || "",
   };
-
-    async function notifyFraudBlocked({ businessId, tokenId, intentType, risk }) {
-  const score = Number(risk.score || 0);
-  const level = String(risk.riskLevel || "").toLowerCase();
-
-  if (score < 80 && !["high", "critical"].includes(level)) return;
-
-  await emitNotification({
-    type: "fraud",
-    priority: level === "critical" ? "critical" : "high",
-    title: "Fraud attempt blocked",
-    message: `Blocked ${intentType} lead (risk ${score}).`,
-    actionLabel: "Open fraud center",
-    actionUrl: "/admin/fraud",
-    meta: {
-      businessId,
-      tokenId,
-      intentType,
-      riskScore: score,
-      riskLevel: level,
-      reasonCodes: risk.reasonCodes || [],
-    },
-    dedupKey: `block:${businessId}:${tokenId}`,
-  });
-}
 
   await logFraudEvent({
     event_type: "lead_click",
@@ -4969,33 +4989,17 @@ app.get("/l/:token", async (req, res) => {
     },
   });
 
-  const shouldNotifyAdmin =
-    Number(risk.score || 0) >= 80 ||
-    ["high", "critical"].includes(String(risk.riskLevel || "").toLowerCase());
-
-  if (shouldNotifyAdmin) {
-    await createNotification({
-      audienceType: "admin",
-      type: "fraud",
-      priority:
-        String(risk.riskLevel || "").toLowerCase() === "critical"
-          ? "critical"
-          : "high",
-      title: "Fraud attempt blocked",
-      message: `Blocked ${intentType} lead for business ${businessId} due to ${fraudMeta.riskLevel} risk (${fraudMeta.riskScore}).`,
-      actionLabel: "Open fraud center",
-      actionUrl: "/admin/fraud",
-      meta: fraudMeta,
-    });
-  }
+  await notifyFraudBlocked({
+    businessId,
+    tokenId,
+    intentType,
+    risk,
+  });
 
   return res.status(429).send("Request blocked");
 }
 
-      return res.status(429).send("Request blocked");
-    }
-
-   if (!existingLock && risk.action === "hold") {
+if (!existingLock && risk.action === "hold") {
   await createPendingCharge({
     business_id: businessId,
     token_id: tokenId,
@@ -5008,95 +5012,28 @@ app.get("/l/:token", async (req, res) => {
     meta: { ip, fingerprint },
   });
 
-     async function notifyPendingCharge({ businessId, tokenId, risk }) {
-  await emitNotification({
-    type: "fraud",
-    priority: "high",
-    title: "Pending charge created",
-    message: `Charge held for review (risk ${risk.score}).`,
-    actionLabel: "Open fraud queue",
-    actionUrl: "/admin/fraud",
-    meta: {
-      businessId,
-      tokenId,
-      riskScore: Number(risk.score || 0),
-      riskLevel: risk.riskLevel,
-      reasonCodes: risk.reasonCodes || [],
-    },
-    dedupKey: `hold:${businessId}:${tokenId}`,
-  });
-}
-  await createNotification({
-    audienceType: "admin",
-    type: "fraud",
-    priority: "high",
-    title: "Pending charge created",
-    message: `A lead charge was held for review for business ${businessId}.`,
-    actionLabel: "Review fraud queue",
-    actionUrl: "/admin/fraud",
-    meta: {
-      businessId,
-      tokenId,
-      intentType,
-      riskScore: Number(risk.score || 0),
-      reasonCodes: risk.reasonCodes || [],
-      ip: ip || null,
-    },
+  await notifyPendingCharge({
+    businessId,
+    tokenId,
+    risk,
   });
 }
 
-    if (!existingLock && risk.action === "allow") {
-      const billingResult = await deductWalletBalance({
-        ownerUserId: "",
-        businessId,
-        intentType,
-        reason: "Tracked lead WhatsApp charge",
-        reference: tokenId,
-        meta: {
-          tokenId,
-          ip,
-          fingerprint,
-        },
-      });
+if (!existingLock && risk.action === "allow") {
+  const billingResult = await deductWalletBalance({
+    ownerUserId: "",
+    businessId,
+    intentType,
+    reason: "Tracked lead WhatsApp charge",
+    reference: tokenId,
+    meta: {
+      tokenId,
+      ip,
+      fingerprint,
+    },
+  });
 
-      if (!billingResult?.ok && !billingResult?.skipped) {
-        await logFraudEvent({
-          event_type: "lead_click",
-          user_phone_hash: userPhoneHash || null,
-          business_id: businessId,
-          token_id: tokenId,
-          ip_address: ip || null,
-          user_agent: userAgent,
-          fingerprint,
-          intent_type: intentType,
-          risk_score: risk.score,
-          risk_level: risk.riskLevel,
-          action_taken: "billing_failed",
-          reason_codes: [...risk.reasonCodes, "BILLING_FAILED"],
-          meta: {
-            billingError: billingResult?.error || null,
-            insufficient: billingResult?.insufficient || false,
-          },
-        });
-
-        return res.send(redirectHtml);
-      }
-
-      const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
-
-      await createChargeLock({
-        business_id: businessId,
-        user_phone_hash: userPhoneHash || null,
-        fingerprint: fingerprint || null,
-        ip_address: ip || null,
-        charge_key: chargeKey,
-        first_token_id: tokenId,
-        expires_at: expiresAt,
-      });
-
-      charged = true;
-    }
-
+  if (!billingResult?.ok && !billingResult?.skipped) {
     await logFraudEvent({
       event_type: "lead_click",
       user_phone_hash: userPhoneHash || null,
@@ -5108,15 +5045,52 @@ app.get("/l/:token", async (req, res) => {
       intent_type: intentType,
       risk_score: risk.score,
       risk_level: risk.riskLevel,
-      action_taken: existingLock ? "allow_duplicate_no_charge" : actionTaken,
-      reason_codes: risk.reasonCodes,
+      action_taken: "billing_failed",
+      reason_codes: [...risk.reasonCodes, "BILLING_FAILED"],
       meta: {
-        charged,
-        duplicateSkipped: !!existingLock,
+        billingError: billingResult?.error || null,
+        insufficient: billingResult?.insufficient || false,
       },
     });
 
     return res.send(redirectHtml);
+  }
+
+  const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
+
+  await createChargeLock({
+    business_id: businessId,
+    user_phone_hash: userPhoneHash || null,
+    fingerprint: fingerprint || null,
+    ip_address: ip || null,
+    charge_key: chargeKey,
+    first_token_id: tokenId,
+    expires_at: expiresAt,
+  });
+
+  charged = true;
+}
+
+await logFraudEvent({
+  event_type: "lead_click",
+  user_phone_hash: userPhoneHash || null,
+  business_id: businessId,
+  token_id: tokenId,
+  ip_address: ip || null,
+  user_agent: userAgent,
+  fingerprint,
+  intent_type: intentType,
+  risk_score: risk.score,
+  risk_level: risk.riskLevel,
+  action_taken: existingLock ? "allow_duplicate_no_charge" : actionTaken,
+  reason_codes: risk.reasonCodes,
+  meta: {
+    charged,
+    duplicateSkipped: !!existingLock,
+  },
+});
+
+return res.send(redirectHtml);
   } catch (error) {
     console.error("Lead redirect anti-fraud error:", error);
     return res.status(500).send("Internal server error");
