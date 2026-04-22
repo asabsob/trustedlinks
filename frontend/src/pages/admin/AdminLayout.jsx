@@ -43,11 +43,7 @@ export default function AdminLayout() {
         icon: Building2,
         label: t("Businesses", "الأنشطة التجارية"),
       },
- {
-  to: "/admin/subscriptions",
-  icon: CreditCard,
-  label: t("Accounts", "الحسابات"),
-},
+
 {
   to: "/admin/revenue",
   icon: CreditCard,
