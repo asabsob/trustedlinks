@@ -4051,6 +4051,16 @@ app.get("/l/:token", async (req, res) => {
     const tokenRow = await getLeadTokenById(tokenId);
     if (!tokenRow) return res.status(404).send("Lead link not found");
 
+    const businessId =
+      tokenRow.business_id ||
+      tokenRow.businessId ||
+      "";
+
+    if (!businessId) {
+      console.error("TOKEN DEBUG: missing businessId", tokenRow);
+      return res.status(400).send("Invalid lead token business");
+    }
+
     if (tokenRow.expires_at && new Date(tokenRow.expires_at) < new Date()) {
       return res.status(410).send("Lead link expired");
     }
@@ -4074,7 +4084,7 @@ app.get("/l/:token", async (req, res) => {
     const userPhoneHash = hashFraudPhone(tokenRow.user_phone || "");
 
     const signals = await analyzeLeadSignals({
-      businessId: tokenRow.business_id,
+      businessId,
       tokenId,
       ip,
       fingerprint,
@@ -4092,7 +4102,7 @@ app.get("/l/:token", async (req, res) => {
     });
 
     const chargeKey = buildChargeKey({
-      businessId: tokenRow.business_id,
+      businessId,
       userPhoneHash,
       fingerprint,
       ip,
@@ -4147,7 +4157,7 @@ app.get("/l/:token", async (req, res) => {
       await logFraudEvent({
         event_type: "lead_click",
         user_phone_hash: userPhoneHash || null,
-        business_id: tokenRow.business_id,
+        business_id: businessId,
         token_id: tokenId,
         ip_address: ip || null,
         user_agent: userAgent,
@@ -4165,7 +4175,7 @@ app.get("/l/:token", async (req, res) => {
 
     if (!existingLock && risk.action === "hold") {
       await createPendingCharge({
-        business_id: tokenRow.business_id,
+        business_id: businessId,
         token_id: tokenId,
         amount: Number(tokenRow.charge_amount || 0),
         currency: "USD",
@@ -4179,7 +4189,7 @@ app.get("/l/:token", async (req, res) => {
 
     console.log("BILLING DEBUG:", {
       tokenId,
-      businessId: tokenRow.business_id,
+      businessId,
       intentType: tokenRow.intent_type || "direct",
       existingLock: !!existingLock,
       riskAction: risk.action,
@@ -4190,7 +4200,7 @@ app.get("/l/:token", async (req, res) => {
 
       const billingResult = await deductWalletBalance({
         ownerUserId: "",
-        businessId: tokenRow.business_id,
+        businessId,
         intentType: tokenRow.intent_type || "direct",
         reason: "Tracked lead WhatsApp charge",
         reference: tokenId,
@@ -4207,7 +4217,7 @@ app.get("/l/:token", async (req, res) => {
         await logFraudEvent({
           event_type: "lead_click",
           user_phone_hash: userPhoneHash || null,
-          business_id: tokenRow.business_id,
+          business_id: businessId,
           token_id: tokenId,
           ip_address: ip || null,
           user_agent: userAgent,
@@ -4245,7 +4255,7 @@ app.get("/l/:token", async (req, res) => {
       ).toISOString();
 
       await createChargeLock({
-        business_id: tokenRow.business_id,
+        business_id: businessId,
         user_phone_hash: userPhoneHash || null,
         fingerprint: fingerprint || null,
         ip_address: ip || null,
@@ -4260,7 +4270,7 @@ app.get("/l/:token", async (req, res) => {
     await logFraudEvent({
       event_type: "lead_click",
       user_phone_hash: userPhoneHash || null,
-      business_id: tokenRow.business_id,
+      business_id: businessId,
       token_id: tokenId,
       ip_address: ip || null,
       user_agent: userAgent,
@@ -4296,6 +4306,7 @@ app.get("/l/:token", async (req, res) => {
     return res.status(500).send("Internal server error");
   }
 });
+
 // ---------------------------------------------------------------------------
 // Debug
 // ---------------------------------------------------------------------------
