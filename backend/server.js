@@ -972,7 +972,20 @@ async function deductWalletBalance({
       },
     });
 
-  
+    if (Number(result.balanceAfter) > 0 && Number(result.balanceAfter) < 5) {
+      await notifyLowBalance({
+        businessId,
+        balanceAfter: Number(result.balanceAfter),
+      });
+    }
+
+    if (Number(result.balanceAfter) < 0) {
+      await notifyNegativeBalance({
+        businessId,
+        balanceAfter: Number(result.balanceAfter),
+      });
+    }
+
     return {
       ok: true,
       amount,
@@ -995,7 +1008,6 @@ async function deductWalletBalance({
     return { ok: false, error: "Deduction failed" };
   }
 }
-
 // =========================
 // Business Activity Log
 // =========================
