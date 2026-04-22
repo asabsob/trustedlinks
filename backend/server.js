@@ -467,6 +467,28 @@ async function enrichTopResultWithTrackedLink({
     })),
   ];
 }
+
+async function mapBusinessNames(rows = []) {
+  const businessIds = [
+    ...new Set(
+      rows.map(r => String(r.business_id || "").trim()).filter(Boolean)
+    ),
+  ];
+
+  if (businessIds.length === 0) return new Map();
+
+  const { data } = await supabase
+    .from("businesses")
+    .select("id, name, name_ar")
+    .in("id", businessIds);
+
+  return new Map(
+    (data || []).map(b => [
+      String(b.id),
+      b.name || b.name_ar || String(b.id),
+    ])
+  );
+}
 // =========================
 // MEMORY (instead of Mongo sessions)
 // =========================
@@ -3084,90 +3106,66 @@ app.post("/api/admin/notifications", requireAdmin, async (req, res) => {
 // =========================
 app.get("/api/admin/fraud/overview", requireAdmin, async (_req, res) => {
   try {
-    const now = new Date();
-    const startOfDay = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate()
-    ).toISOString();
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
 
-    const [
-      suspiciousTodayRes,
-      blockedTodayRes,
-      heldTodayRes,
-      duplicateTodayRes,
-      pendingChargesRes,
-      targetedBusinessesRes,
-    ] = await Promise.all([
+    const today = startOfDay.toISOString();
+
+    const [events, pending] = await Promise.all([
       supabase
         .from("anti_fraud_events")
-        .select("*", { count: "exact", head: true })
-        .gte("created_at", startOfDay)
-        .in("risk_level", ["medium", "high", "critical"]),
-
-      supabase
-        .from("anti_fraud_events")
-        .select("*", { count: "exact", head: true })
-        .gte("created_at", startOfDay)
-        .eq("action_taken", "block"),
-
-      supabase
-        .from("anti_fraud_events")
-        .select("*", { count: "exact", head: true })
-        .gte("created_at", startOfDay)
-        .in("action_taken", ["hold", "billing_hold"]),
-
-      supabase
-        .from("anti_fraud_events")
-        .select("*", { count: "exact", head: true })
-        .gte("created_at", startOfDay)
-        .eq("action_taken", "allow_duplicate_no_charge"),
+        .select("risk_level, action_taken, business_id, created_at")
+        .gte("created_at", today),
 
       supabase
         .from("pending_charges")
-        .select("*", { count: "exact", head: true })
+        .select("id", { count: "exact" })
         .eq("status", "pending"),
-
-      supabase
-        .from("anti_fraud_events")
-        .select("business_id")
-        .gte("created_at", startOfDay)
-        .not("business_id", "is", null),
     ]);
 
-    const suspiciousToday = suspiciousTodayRes.count || 0;
-    const blockedToday = blockedTodayRes.count || 0;
-    const heldToday = heldTodayRes.count || 0;
-    const duplicateNoChargeToday = duplicateTodayRes.count || 0;
-    const pendingCharges = pendingChargesRes.count || 0;
+    const rows = events.data || [];
 
-    const targetedRows = Array.isArray(targetedBusinessesRes.data)
-      ? targetedBusinessesRes.data
-      : [];
+    const suspiciousToday = rows.filter(e =>
+      ["medium", "high", "critical"].includes(e.risk_level)
+    ).length;
 
-    const targetedMap = new Map();
-    for (const row of targetedRows) {
-      const key = String(row.business_id || "").trim();
-      if (!key) continue;
-      targetedMap.set(key, (targetedMap.get(key) || 0) + 1);
-    }
+    const blockedToday = rows.filter(e => e.action_taken === "block").length;
 
-    const topTargetedBusinesses = [...targetedMap.entries()]
+    const heldToday = rows.filter(e =>
+      ["hold", "billing_hold"].includes(e.action_taken)
+    ).length;
+
+    const duplicateNoChargeToday = rows.filter(
+      e => e.action_taken === "allow_duplicate_no_charge"
+    ).length;
+
+    const businessMap = new Map();
+
+    rows.forEach(r => {
+      const id = String(r.business_id || "");
+      if (!id) return;
+      businessMap.set(id, (businessMap.get(id) || 0) + 1);
+    });
+
+    const topTargetedBusinesses = [...businessMap.entries()]
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 5).length;
+      .slice(0, 5)
+      .length;
 
     return res.json({
       ok: true,
-      suspiciousToday,
-      blockedToday,
-      heldToday,
-      pendingCharges,
-      duplicateNoChargeToday,
-      topTargetedBusinesses,
+      data: {
+        suspiciousToday,
+        blockedToday,
+        heldToday,
+        duplicateNoChargeToday,
+        pendingCharges: pending.count || 0,
+        topTargetedBusinesses,
+      },
     });
   } catch (e) {
-    console.error("admin fraud overview error:", e);
-    return res.status(500).json({ error: "Failed to load fraud overview" });
+    console.error("fraud overview error:", e);
+    return res.status(500).json({ ok: false });
   }
 });
 
@@ -3177,9 +3175,6 @@ app.get("/api/admin/fraud/overview", requireAdmin, async (_req, res) => {
 app.get("/api/admin/fraud/events", requireAdmin, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 20), 100);
-    const riskLevel = String(req.query.riskLevel || "").trim();
-    const action = String(req.query.action || "").trim();
-    const businessId = String(req.query.businessId || "").trim();
 
     let query = supabase
       .from("anti_fraud_events")
@@ -3187,61 +3182,33 @@ app.get("/api/admin/fraud/events", requireAdmin, async (req, res) => {
       .order("created_at", { ascending: false })
       .limit(limit);
 
-    if (riskLevel) {
-      query = query.eq("risk_level", riskLevel);
+    if (req.query.riskLevel) {
+      query = query.eq("risk_level", req.query.riskLevel);
     }
 
-    if (action) {
-      query = query.eq("action_taken", action);
+    if (req.query.action) {
+      query = query.eq("action_taken", req.query.action);
     }
 
-    if (businessId) {
-      query = query.eq("business_id", businessId);
+    if (req.query.businessId) {
+      query = query.eq("business_id", req.query.businessId);
     }
 
-    const { data: events, error } = await query;
+    const { data, error } = await query;
 
-    if (error) {
-      console.error("admin fraud events query error:", error);
-      return res.status(500).json({ error: "Failed to load fraud events" });
-    }
+    if (error) throw error;
 
-    const businessIds = [
-      ...new Set(
-        (events || [])
-          .map((e) => String(e.business_id || "").trim())
-          .filter(Boolean)
-      ),
-    ];
+    const nameMap = await mapBusinessNames(data);
 
-    let businessNameMap = new Map();
-
-    if (businessIds.length > 0) {
-      const { data: businesses } = await supabase
-        .from("businesses")
-        .select("id, name, name_ar")
-        .in("id", businessIds);
-
-      businessNameMap = new Map(
-        (businesses || []).map((b) => [
-          String(b.id),
-          b.name || b.name_ar || String(b.id),
-        ])
-      );
-    }
-
-    const results = (events || []).map((event) => ({
-      ...event,
-      business_name: businessNameMap.get(String(event.business_id || "")) || null,
+    const results = (data || []).map(e => ({
+      ...e,
+      business_name: nameMap.get(String(e.business_id)) || null,
     }));
 
-    return res.json({
-      ok: true,
-      events: results,
-    });
+    return res.json({ ok: true, data: results });
   } catch (e) {
-    console.error("admin fraud events error:", e);
-    return res.status(500).json({ error: "Failed to load fraud events" });
+    console.error("fraud events error:", e);
+    return res.status(500).json({ ok: false });
   }
 });
 
@@ -3317,6 +3284,7 @@ app.post("/api/admin/fraud/auto-process", requireAdmin, async (_req, res) => {
 // =========================
 // ADMIN PENDING CHARGES
 // =========================
+
 app.get("/api/admin/fraud/pending-charges", requireAdmin, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 20), 100);
@@ -3327,47 +3295,20 @@ app.get("/api/admin/fraud/pending-charges", requireAdmin, async (req, res) => {
       .order("created_at", { ascending: false })
       .limit(limit);
 
-    if (error) {
-      console.error("admin pending charges query error:", error);
-      return res.status(500).json({ error: "Failed to load pending charges" });
-    }
+    if (error) throw error;
 
-    const businessIds = [
-      ...new Set(
-        (data || [])
-          .map((e) => String(e.business_id || "").trim())
-          .filter(Boolean)
-      ),
-    ];
-
-    let businessNameMap = new Map();
-
-    if (businessIds.length > 0) {
-      const { data: businesses } = await supabase
-        .from("businesses")
-        .select("id, name, name_ar")
-        .in("id", businessIds);
-
-      businessNameMap = new Map(
-        (businesses || []).map((b) => [
-          String(b.id),
-          b.name || b.name_ar || String(b.id),
-        ])
-      );
-    }
-
-    const results = (data || []).map((row) => ({
-      ...row,
-      business_name: businessNameMap.get(String(row.business_id || "")) || null,
-    }));
+    const nameMap = await mapBusinessNames(data);
 
     return res.json({
       ok: true,
-      pendingCharges: results,
+      data: (data || []).map(row => ({
+        ...row,
+        business_name: nameMap.get(String(row.business_id)) || null,
+      })),
     });
   } catch (e) {
-    console.error("admin pending charges error:", e);
-    return res.status(500).json({ error: "Failed to load pending charges" });
+    console.error("pending charges error:", e);
+    return res.status(500).json({ ok: false });
   }
 });
 
@@ -4046,18 +3987,23 @@ function buildWhatsAppLeadMessage({
 app.get("/l/:token", async (req, res) => {
   try {
     const tokenId = String(req.params.token || "").trim();
-    if (!tokenId) return res.status(400).send("Invalid lead token");
+    if (!tokenId) {
+      return res.status(400).send("Invalid lead token");
+    }
 
     const tokenRow = await getLeadTokenById(tokenId);
-    if (!tokenRow) return res.status(404).send("Lead link not found");
+    if (!tokenRow) {
+      return res.status(404).send("Lead link not found");
+    }
 
-    const businessId =
+    const businessId = String(
       tokenRow.business_id ||
-      tokenRow.businessId ||
-      "";
+        tokenRow.businessId ||
+        ""
+    ).trim();
 
     if (!businessId) {
-      console.error("TOKEN DEBUG: missing businessId", tokenRow);
+      console.error("Lead token missing businessId", { tokenId, tokenRow });
       return res.status(400).send("Invalid lead token business");
     }
 
@@ -4081,7 +4027,13 @@ app.get("/l/:token", async (req, res) => {
       platform,
     });
 
-    const userPhoneHash = hashFraudPhone(tokenRow.user_phone || "");
+    const userPhoneHash = hashFraudPhone(
+      tokenRow.user_phone ||
+        tokenRow.userPhone ||
+        ""
+    );
+
+    const intentType = String(tokenRow.intent_type || "direct").trim() || "direct";
 
     const signals = await analyzeLeadSignals({
       businessId,
@@ -4094,13 +4046,6 @@ app.get("/l/:token", async (req, res) => {
 
     const risk = calculateRiskScore(signals);
 
-    console.log("RISK DEBUG:", {
-      action: risk.action,
-      score: risk.score,
-      level: risk.riskLevel,
-      reasons: risk.reasonCodes,
-    });
-
     const chargeKey = buildChargeKey({
       businessId,
       userPhoneHash,
@@ -4110,11 +4055,6 @@ app.get("/l/:token", async (req, res) => {
     });
 
     const existingLock = await findActiveChargeLock(chargeKey);
-
-    console.log("LOCK DEBUG:", {
-      chargeKey,
-      existingLock,
-    });
 
     let actionTaken = risk.action;
     let charged = false;
@@ -4132,11 +4072,11 @@ app.get("/l/:token", async (req, res) => {
     let safePhone = String(rawBusinessPhone).replace(/\D/g, "");
 
     if (safePhone.startsWith("0")) {
-      safePhone = "962" + safePhone.slice(1);
+      safePhone = `962${safePhone.slice(1)}`;
     }
 
     if (!safePhone.startsWith("962") && safePhone.length === 9) {
-      safePhone = "962" + safePhone;
+      safePhone = `962${safePhone}`;
     }
 
     if (!safePhone) {
@@ -4145,13 +4085,23 @@ app.get("/l/:token", async (req, res) => {
 
     const message = "Hello, I found you on TrustedLinks";
     const waUrl = `https://wa.me/${safePhone}?text=${encodeURIComponent(message)}`;
-    const fallback = `whatsapp://send?phone=${safePhone}&text=${encodeURIComponent(message)}`;
+    const fallbackUrl = `whatsapp://send?phone=${safePhone}&text=${encodeURIComponent(message)}`;
 
-    console.log("WA DEBUG:", {
-      raw: rawBusinessPhone,
-      safe: safePhone,
-      url: waUrl,
-    });
+    const redirectHtml = `
+      <html>
+        <head>
+          <meta http-equiv="refresh" content="0; url=${waUrl}" />
+          <script>
+            setTimeout(function() {
+              window.location.href = "${fallbackUrl}";
+            }, 500);
+          </script>
+        </head>
+        <body>
+          Redirecting to WhatsApp...
+        </body>
+      </html>
+    `;
 
     if (risk.action === "block") {
       await logFraudEvent({
@@ -4162,7 +4112,7 @@ app.get("/l/:token", async (req, res) => {
         ip_address: ip || null,
         user_agent: userAgent,
         fingerprint,
-        intent_type: tokenRow.intent_type || null,
+        intent_type: intentType,
         risk_score: risk.score,
         risk_level: risk.riskLevel,
         action_taken: "block",
@@ -4179,7 +4129,7 @@ app.get("/l/:token", async (req, res) => {
         token_id: tokenId,
         amount: Number(tokenRow.charge_amount || 0),
         currency: "USD",
-        intent_type: tokenRow.intent_type || null,
+        intent_type: intentType,
         status: "pending",
         risk_score: risk.score,
         reason_codes: risk.reasonCodes,
@@ -4187,21 +4137,11 @@ app.get("/l/:token", async (req, res) => {
       });
     }
 
-    console.log("BILLING DEBUG:", {
-      tokenId,
-      businessId,
-      intentType: tokenRow.intent_type || "direct",
-      existingLock: !!existingLock,
-      riskAction: risk.action,
-    });
-
     if (!existingLock && risk.action === "allow") {
-      console.log("ENTERING BILLING BLOCK");
-
       const billingResult = await deductWalletBalance({
         ownerUserId: "",
         businessId,
-        intentType: tokenRow.intent_type || "direct",
+        intentType,
         reason: "Tracked lead WhatsApp charge",
         reference: tokenId,
         meta: {
@@ -4210,8 +4150,6 @@ app.get("/l/:token", async (req, res) => {
           fingerprint,
         },
       });
-
-      console.log("BILLING RESULT:", billingResult);
 
       if (!billingResult?.ok && !billingResult?.skipped) {
         await logFraudEvent({
@@ -4222,7 +4160,7 @@ app.get("/l/:token", async (req, res) => {
           ip_address: ip || null,
           user_agent: userAgent,
           fingerprint,
-          intent_type: tokenRow.intent_type || null,
+          intent_type: intentType,
           risk_score: risk.score,
           risk_level: risk.riskLevel,
           action_taken: "billing_failed",
@@ -4233,26 +4171,10 @@ app.get("/l/:token", async (req, res) => {
           },
         });
 
-        return res.send(`
-          <html>
-            <head>
-              <meta http-equiv="refresh" content="0; url=${waUrl}" />
-              <script>
-                setTimeout(function() {
-                  window.location.href = "${fallback}";
-                }, 500);
-              </script>
-            </head>
-            <body>
-              Redirecting to WhatsApp...
-            </body>
-          </html>
-        `);
+        return res.send(redirectHtml);
       }
 
-      const expiresAt = new Date(
-        Date.now() + 72 * 60 * 60 * 1000
-      ).toISOString();
+      const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
 
       await createChargeLock({
         business_id: businessId,
@@ -4275,7 +4197,7 @@ app.get("/l/:token", async (req, res) => {
       ip_address: ip || null,
       user_agent: userAgent,
       fingerprint,
-      intent_type: tokenRow.intent_type || null,
+      intent_type: intentType,
       risk_score: risk.score,
       risk_level: risk.riskLevel,
       action_taken: existingLock ? "allow_duplicate_no_charge" : actionTaken,
@@ -4286,26 +4208,13 @@ app.get("/l/:token", async (req, res) => {
       },
     });
 
-    return res.send(`
-      <html>
-        <head>
-          <meta http-equiv="refresh" content="0; url=${waUrl}" />
-          <script>
-            setTimeout(function() {
-              window.location.href = "${fallback}";
-            }, 500);
-          </script>
-        </head>
-        <body>
-          Redirecting to WhatsApp...
-        </body>
-      </html>
-    `);
+    return res.send(redirectHtml);
   } catch (error) {
     console.error("Lead redirect anti-fraud error:", error);
     return res.status(500).send("Internal server error");
   }
 });
+
 
 // ---------------------------------------------------------------------------
 // Debug
