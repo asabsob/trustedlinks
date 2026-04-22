@@ -3782,22 +3782,6 @@ async function notifyNegativeBalance({ businessId, balanceAfter }) {
   }
 });
 
-if (Number(result.balanceAfter) > 0 && Number(result.balanceAfter) < 5) {
-  await createNotification({
-    audienceType: "admin",
-    type: "billing",
-    priority: "high",
-    title: "Low balance alert",
-    message: `Business ${businessId} wallet dropped below 5 USD.`,
-    actionLabel: "Review account",
-    actionUrl: `/admin/revenue`,
-    meta: {
-      businessId,
-      balanceAfter: Number(result.balanceAfter),
-    },
-  });
-}
-
 // =========================
 // CANCEL PENDING CHARGE
 // =========================
