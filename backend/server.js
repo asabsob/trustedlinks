@@ -3025,6 +3025,69 @@ app.get("/api/admin/users", requireAdmin, async (_req, res) => {
   }
 });
 
+app.get("/api/admin/businesses", requireAdmin, async (_req, res) => {
+  try {
+    const businesses = await listAllBusinesses();
+
+    const { data: events } = await supabase
+      .from("anti_fraud_events")
+      .select("business_id, risk_score, action_taken")
+      .not("business_id", "is", null);
+
+    const fraudMap = new Map();
+
+    for (const e of events || []) {
+      const businessId = String(e.business_id || "").trim();
+      if (!businessId) continue;
+
+      const current = fraudMap.get(businessId) || {
+        suspicious_events: 0,
+        blocked_events: 0,
+        average_risk_score: 0,
+        total_risk_score: 0,
+      };
+
+      current.suspicious_events += 1;
+      current.total_risk_score += Number(e.risk_score || 0);
+
+      if (String(e.action_taken || "") === "block") {
+        current.blocked_events += 1;
+      }
+
+      fraudMap.set(businessId, current);
+    }
+
+    const results = (businesses || []).map((b) => {
+      const fraud = fraudMap.get(String(b.id)) || {
+        suspicious_events: 0,
+        blocked_events: 0,
+        total_risk_score: 0,
+      };
+
+      const average_risk_score =
+        fraud.suspicious_events > 0
+          ? Math.round((fraud.total_risk_score / fraud.suspicious_events) * 10) / 10
+          : 0;
+
+      return {
+        ...b,
+        wallet_balance:
+          Number(b?.wallet?.balance ?? b?.wallet_balance ?? b?.walletBalance ?? 0) || 0,
+        suspicious_events: fraud.suspicious_events,
+        blocked_events: fraud.blocked_events,
+        average_risk_score,
+      };
+    });
+
+    return res.json({
+      ok: true,
+      results,
+    });
+  } catch (e) {
+    console.error("admin businesses error:", e);
+    return res.status(500).json({ error: "Failed to load businesses" });
+  }
+});
 // =========================
 // ACTIVATE BUSINESS
 // =========================
