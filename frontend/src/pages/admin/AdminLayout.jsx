@@ -44,20 +44,21 @@ export default function AdminLayout() {
         label: t("Businesses", "الأنشطة التجارية"),
       },
      {
+ {
   to: "/admin/subscriptions",
   icon: CreditCard,
-  label: t("Subscriptions", "الاشتراكات"),
+  label: t("Accounts", "الحسابات"),
 },
 {
   to: "/admin/revenue",
   icon: CreditCard,
   label: t("Revenue", "الإيرادات"),
 },
-      {
-        to: "/admin/notifications",
-        icon: Bell,
-        label: t("Notifications", "الإشعارات"),
-      },
+{
+  to: "/admin/notifications",
+  icon: Bell,
+  label: t("Notifications", "الإشعارات"),
+},
       {
         to: "/admin/insights",
         icon: Brain,
