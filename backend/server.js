@@ -4092,6 +4092,13 @@ app.get("/l/:token", async (req, res) => {
       userAgent,
     });
 
+    console.log("RISK DEBUG:", {
+  action: risk.action,
+  score: risk.score,
+  level: risk.riskLevel,
+  reasons: risk.reasonCodes,
+});
+
     const existingLock = await findActiveChargeLock(chargeKey);
 
     let actionTaken = risk.action;
@@ -4102,6 +4109,12 @@ app.get("/l/:token", async (req, res) => {
       risk.reasonCodes.push("DUPLICATE_WITHIN_WINDOW");
     }
 
+    console.log("LOCK DEBUG:", {
+  chargeKey,
+  existingLock,
+});
+
+    
     const rawBusinessPhone =
       tokenRow.business_phone ||
       tokenRow.businessPhone ||
@@ -4165,8 +4178,17 @@ app.get("/l/:token", async (req, res) => {
       });
     }
 
+    console.log("BILLING DEBUG:", {
+  tokenId,
+  businessId: tokenRow.business_id,
+  intentType: tokenRow.intent_type || "direct",
+  existingLock: !!existingLock,
+  riskAction: risk.action,
+});
+    
     if (!existingLock && risk.action === "allow") {
       const billingResult = await deductWalletBalance({
+        console.log("BILLING RESULT:", billingResult);
         ownerUserId: "",
         businessId: tokenRow.business_id,
         intentType: tokenRow.intent_type || "direct",
