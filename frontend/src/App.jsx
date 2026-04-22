@@ -182,7 +182,10 @@ export default function App() {
     </RequireAuth>
   }
 />
-       {/* Admin */}
+      {/* Admin Login */}
+<Route path="/admin/login" element={<AdminLogin />} />
+
+{/* Admin */}
 <Route
   path="/admin"
   element={
@@ -195,11 +198,8 @@ export default function App() {
   <Route path="businesses" element={<AdminBusinesses />} />
   <Route path="revenue" element={<AdminSubscriptions />} />
   <Route path="notifications" element={<AdminNotifications />} />
-
-  {/* 🔥 فصل الصفحتين */}
   <Route path="insights" element={<AdminInsights />} />
   <Route path="ai-summary" element={<AdminAISummary />} />
-
   <Route path="fraud" element={<AdminFraud />} />
   <Route path="settings" element={<AdminSettings />} />
 </Route>
