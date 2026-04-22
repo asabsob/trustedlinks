@@ -1,4 +1,3 @@
-```jsx
 import React, { useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -243,4 +242,3 @@ export default function AdminLayout() {
     </div>
   );
 }
-```
