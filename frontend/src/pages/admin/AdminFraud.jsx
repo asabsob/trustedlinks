@@ -6,176 +6,234 @@ import {
   AlertTriangle,
   Repeat,
   Building2,
-  CheckCircle2,
-  XCircle,
 } from "lucide-react";
 import { useLang } from "../../context/LangContext.jsx";
 import { useAdminAuth } from "../../context/AdminAuthContext.jsx";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
+const API_BASE = import.meta.env.VITE_API_BASE;
+
+const COLORS = ["#16a34a", "#f59e0b", "#ef4444", "#3b82f6"];
 
 export default function AdminFraud() {
   const { lang } = useLang();
   const { token } = useAdminAuth();
   const isAr = lang === "ar";
 
-  const t = (en, ar) => (isAr ? ar : en);
+  const t = useMemo(
+    () => ({
+      title: isAr ? "مركز الاحتيال المتقدم" : "Advanced Fraud Center",
+      loading: isAr ? "تحميل..." : "Loading...",
+      failed: isAr ? "فشل التحميل" : "Failed",
+      approve: isAr ? "اعتماد" : "Approve",
+      cancel: isAr ? "إلغاء" : "Cancel",
+    }),
+    [isAr]
+  );
 
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState("");
-
-  const [data, setData] = useState({
-    overview: {},
-    events: [],
-    pendingCharges: [],
-  });
+  const [overview, setOverview] = useState({});
+  const [events, setEvents] = useState([]);
+  const [pending, setPending] = useState([]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      setLoading(true);
-      setErr("");
-
-      try {
-        const [overviewRes, eventsRes, pendingRes] = await Promise.all([
-          fetch(`${API_BASE}/api/admin/fraud/overview`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(`${API_BASE}/api/admin/fraud/events?limit=10`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(`${API_BASE}/api/admin/fraud/pending-charges?limit=10`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-        ]);
-
-        const overview = await overviewRes.json();
-        const events = await eventsRes.json();
-        const pending = await pendingRes.json();
-
-        if (!cancelled) {
-          setData({
-            overview: overview || {},
-            events: events.events || [],
-            pendingCharges: pending.pendingCharges || [],
-          });
-        }
-      } catch (e) {
-        if (!cancelled) setErr("Failed to load fraud data");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    if (token) load();
-    return () => (cancelled = true);
+    loadAll();
   }, [token]);
 
-  async function handleAction(id, action) {
+  async function loadAll() {
     try {
-      await fetch(
-        `${API_BASE}/api/admin/fraud/pending-charges/${id}/${action}`,
-        {
-          method: "POST",
+      const [o, e, p] = await Promise.all([
+        fetch(`${API_BASE}/api/admin/fraud/overview`, {
           headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+        }),
+        fetch(`${API_BASE}/api/admin/fraud/events?limit=20`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${API_BASE}/api/admin/fraud/pending-charges`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
 
-      setData((prev) => ({
-        ...prev,
-        pendingCharges: prev.pendingCharges.filter((p) => p.id !== id),
-      }));
+      const overviewJson = await o.json();
+      const eventsJson = await e.json();
+      const pendingJson = await p.json();
+
+      setOverview(overviewJson.data || {});
+      setEvents(eventsJson.data || []);
+      setPending(pendingJson.data || []);
     } catch (e) {
       console.error(e);
+    } finally {
+      setLoading(false);
     }
   }
 
-  if (loading) return <div className="p-6">Loading...</div>;
-  if (err) return <div className="p-6 text-red-500">{err}</div>;
+  async function handleApprove(id) {
+    await fetch(`${API_BASE}/api/admin/fraud/pending-charges/${id}/approve`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    loadAll();
+  }
+
+  async function handleCancel(id) {
+    await fetch(`${API_BASE}/api/admin/fraud/pending-charges/${id}/cancel`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    loadAll();
+  }
+
+  if (loading) return <div className="p-6">{t.loading}</div>;
+
+  const riskChart = [
+    { name: "Suspicious", value: overview.suspiciousToday || 0 },
+    { name: "Blocked", value: overview.blockedToday || 0 },
+    { name: "Held", value: overview.heldToday || 0 },
+  ];
+
+  const actionChart = [
+    { name: "Duplicate", value: overview.duplicateNoChargeToday || 0 },
+    { name: "Pending", value: overview.pendingCharges || 0 },
+  ];
 
   return (
-    <div className="space-y-6">
-
+    <div className="space-y-6 p-6" dir={isAr ? "rtl" : "ltr"}>
       {/* HEADER */}
-      <div className="bg-green-500 text-white p-6 rounded-xl">
-        <h1 className="text-xl font-bold">
-          {t("Fraud Center", "مركز الاحتيال")}
-        </h1>
+      <div className="bg-gradient-to-r from-green-500 to-emerald-400 p-6 rounded-2xl text-white">
+        <h1 className="text-2xl font-bold">{t.title}</h1>
       </div>
 
-      {/* STATS */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Stat icon={AlertTriangle} label="Suspicious" value={data.overview.suspiciousToday} />
-        <Stat icon={Ban} label="Blocked" value={data.overview.blockedToday} />
-        <Stat icon={Clock3} label="Held" value={data.overview.heldToday} />
-        <Stat icon={ShieldAlert} label="Pending" value={data.overview.pendingCharges} />
+      {/* KPI CARDS */}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+        <Card icon={AlertTriangle} val={overview.suspiciousToday} />
+        <Card icon={Ban} val={overview.blockedToday} />
+        <Card icon={Clock3} val={overview.heldToday} />
+        <Card icon={ShieldAlert} val={overview.pendingCharges} />
+        <Card icon={Repeat} val={overview.duplicateNoChargeToday} />
+        <Card icon={Building2} val={overview.topTargetedBusinesses} />
       </div>
 
-      {/* EVENTS */}
-      <div className="bg-white rounded-xl border">
-        <div className="p-4 font-semibold">Latest Events</div>
+      {/* CHARTS */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ChartCard title="Risk Distribution">
+          <ResponsiveContainer width="100%" height={250}>
+            <PieChart>
+              <Pie data={riskChart} dataKey="value" outerRadius={90}>
+                {riskChart.map((_, i) => (
+                  <Cell key={i} fill={COLORS[i]} />
+                ))}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard title="Actions Breakdown">
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={actionChart}>
+              <XAxis dataKey="name" />
+              <Tooltip />
+              <Bar dataKey="value" fill="#16a34a" />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </div>
+
+      {/* PENDING CHARGES */}
+      <Section title="Pending Charges">
+        {pending.map((p) => (
+          <div
+            key={p.id}
+            className="flex justify-between items-center border p-3 rounded-lg"
+          >
+            <div>
+              <p className="font-semibold">
+                {p.business_name || p.business_id}
+              </p>
+              <p className="text-sm text-gray-500">
+                ${p.amount} | {p.intent_type}
+              </p>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleApprove(p.id)}
+                className="bg-green-600 text-white px-3 py-1 rounded"
+              >
+                {t.approve}
+              </button>
+              <button
+                onClick={() => handleCancel(p.id)}
+                className="bg-red-500 text-white px-3 py-1 rounded"
+              >
+                {t.cancel}
+              </button>
+            </div>
+          </div>
+        ))}
+      </Section>
+
+      {/* EVENTS TABLE */}
+      <Section title="Fraud Events">
         <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-gray-50">
+              <th>Time</th>
+              <th>Business</th>
+              <th>Risk</th>
+              <th>Action</th>
+            </tr>
+          </thead>
           <tbody>
-            {data.events.map((e) => (
+            {events.map((e) => (
               <tr key={e.id} className="border-t">
-                <td className="p-3">{e.business_id}</td>
-                <td className="p-3">{e.risk_level}</td>
-                <td className="p-3">{e.action_taken}</td>
+                <td>{e.created_at}</td>
+                <td>{e.business_name || e.business_id}</td>
+                <td>{e.risk_level}</td>
+                <td>{e.action_taken}</td>
               </tr>
             ))}
           </tbody>
         </table>
-      </div>
-
-      {/* PENDING CHARGES */}
-      <div className="bg-white rounded-xl border">
-        <div className="p-4 font-semibold">Pending Charges</div>
-
-        {data.pendingCharges.length === 0 ? (
-          <div className="p-4 text-gray-400">No pending</div>
-        ) : (
-          <table className="w-full text-sm">
-            <tbody>
-              {data.pendingCharges.map((p) => (
-                <tr key={p.id} className="border-t">
-                  <td className="p-3">{p.business_id}</td>
-                  <td className="p-3">{p.amount}</td>
-                  <td className="p-3">{p.risk_score}</td>
-
-                  <td className="p-3 flex gap-2">
-                    <button
-                      onClick={() => handleAction(p.id, "approve")}
-                      className="bg-green-100 px-2 py-1 rounded"
-                    >
-                      <CheckCircle2 size={14} />
-                    </button>
-
-                    <button
-                      onClick={() => handleAction(p.id, "cancel")}
-                      className="bg-red-100 px-2 py-1 rounded"
-                    >
-                      <XCircle size={14} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      </Section>
     </div>
   );
 }
 
-function Stat({ icon: Icon, label, value }) {
+/* COMPONENTS */
+
+function Card({ icon: Icon, val }) {
   return (
-    <div className="bg-white p-4 rounded-xl border">
-      <div className="flex justify-between">
-        <span>{label}</span>
-        <Icon size={18} />
-      </div>
-      <div className="text-xl font-bold">{value || 0}</div>
+    <div className="bg-white p-4 rounded-xl shadow flex justify-between items-center">
+      <div className="text-2xl font-bold">{val || 0}</div>
+      <Icon />
+    </div>
+  );
+}
+
+function ChartCard({ title, children }) {
+  return (
+    <div className="bg-white p-5 rounded-xl shadow">
+      <h3 className="font-semibold mb-3">{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+function Section({ title, children }) {
+  return (
+    <div className="bg-white p-5 rounded-xl shadow space-y-3">
+      <h3 className="font-semibold">{title}</h3>
+      {children}
     </div>
   );
 }
