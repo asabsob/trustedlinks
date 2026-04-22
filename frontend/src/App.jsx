@@ -27,6 +27,7 @@ import AdminSubscriptions from "./pages/admin/AdminSubscriptions.jsx";
 import AdminNotifications from "./pages/admin/AdminNotifications.jsx";
 import AdminSettings from "./pages/admin/AdminSettings.jsx";
 import AdminFraud from "./pages/admin/AdminFraud.jsx";
+import AdminInsights from "./pages/admin/AdminInsights.jsx";
 
 /* 🔐 Admin Auth */
 import { useAdminAuth } from "./context/AdminAuthContext.jsx";
@@ -182,8 +183,6 @@ export default function App() {
   }
 />
        {/* Admin */}
-<Route path="/admin/login" element={<AdminLogin />} />
-
 <Route
   path="/admin"
   element={
@@ -194,13 +193,16 @@ export default function App() {
 >
   <Route index element={<AdminDashboard />} />
   <Route path="businesses" element={<AdminBusinesses />} />
-  <Route path="subscriptions" element={<AdminSubscriptions />} />
+  <Route path="revenue" element={<AdminSubscriptions />} />
   <Route path="notifications" element={<AdminNotifications />} />
-  <Route path="insights" element={<AdminAISummary />} />
+
+  {/* 🔥 فصل الصفحتين */}
+  <Route path="insights" element={<AdminInsights />} />
+  <Route path="ai-summary" element={<AdminAISummary />} />
+
   <Route path="fraud" element={<AdminFraud />} />
   <Route path="settings" element={<AdminSettings />} />
 </Route>
-
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
