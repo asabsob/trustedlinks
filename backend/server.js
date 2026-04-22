@@ -4084,6 +4084,13 @@ app.get("/l/:token", async (req, res) => {
 
     const risk = calculateRiskScore(signals);
 
+    console.log("RISK DEBUG:", {
+      action: risk.action,
+      score: risk.score,
+      level: risk.riskLevel,
+      reasons: risk.reasonCodes,
+    });
+
     const chargeKey = buildChargeKey({
       businessId: tokenRow.business_id,
       userPhoneHash,
@@ -4092,14 +4099,12 @@ app.get("/l/:token", async (req, res) => {
       userAgent,
     });
 
-    console.log("RISK DEBUG:", {
-  action: risk.action,
-  score: risk.score,
-  level: risk.riskLevel,
-  reasons: risk.reasonCodes,
-});
-
     const existingLock = await findActiveChargeLock(chargeKey);
+
+    console.log("LOCK DEBUG:", {
+      chargeKey,
+      existingLock,
+    });
 
     let actionTaken = risk.action;
     let charged = false;
@@ -4109,12 +4114,6 @@ app.get("/l/:token", async (req, res) => {
       risk.reasonCodes.push("DUPLICATE_WITHIN_WINDOW");
     }
 
-    console.log("LOCK DEBUG:", {
-  chargeKey,
-  existingLock,
-});
-
-    
     const rawBusinessPhone =
       tokenRow.business_phone ||
       tokenRow.businessPhone ||
@@ -4179,16 +4178,17 @@ app.get("/l/:token", async (req, res) => {
     }
 
     console.log("BILLING DEBUG:", {
-  tokenId,
-  businessId: tokenRow.business_id,
-  intentType: tokenRow.intent_type || "direct",
-  existingLock: !!existingLock,
-  riskAction: risk.action,
-});
-    
+      tokenId,
+      businessId: tokenRow.business_id,
+      intentType: tokenRow.intent_type || "direct",
+      existingLock: !!existingLock,
+      riskAction: risk.action,
+    });
+
     if (!existingLock && risk.action === "allow") {
+      console.log("ENTERING BILLING BLOCK");
+
       const billingResult = await deductWalletBalance({
-        console.log("BILLING RESULT:", billingResult);
         ownerUserId: "",
         businessId: tokenRow.business_id,
         intentType: tokenRow.intent_type || "direct",
@@ -4200,6 +4200,8 @@ app.get("/l/:token", async (req, res) => {
           fingerprint,
         },
       });
+
+      console.log("BILLING RESULT:", billingResult);
 
       if (!billingResult?.ok && !billingResult?.skipped) {
         await logFraudEvent({
@@ -4238,7 +4240,9 @@ app.get("/l/:token", async (req, res) => {
         `);
       }
 
-      const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
+      const expiresAt = new Date(
+        Date.now() + 72 * 60 * 60 * 1000
+      ).toISOString();
 
       await createChargeLock({
         business_id: tokenRow.business_id,
