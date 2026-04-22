@@ -2944,83 +2944,71 @@ app.get("/api/admin/me", requireAdmin, async (req, res) => {
 // =========================
 app.get("/api/admin/stats", requireAdmin, async (_req, res) => {
   try {
-    const [users, businesses] = await Promise.all([
+    const [
+      users,
+      businesses,
+      { data: transactions },
+    ] = await Promise.all([
       listAllUsers(),
       listAllBusinesses(),
+      supabase
+        .from("transactions")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(500),
     ]);
+
+    const tx = transactions || [];
+
+    const totalClicks = tx.length;
+
+    // activity chart
+    const activityMap = new Map();
+
+    tx.forEach((t) => {
+      const date = String(t.created_at || "").slice(0, 10);
+      if (!date) return;
+
+      const current = activityMap.get(date) || {
+        date,
+        clicks: 0,
+        users: 0,
+        businesses: 0,
+      };
+
+      current.clicks += 1;
+
+      activityMap.set(date, current);
+    });
+
+    const activity = [...activityMap.values()]
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(-7);
+
+    // categories (mock from businesses)
+    const categoryMap = new Map();
+
+    (businesses || []).forEach((b) => {
+      const cat = b.category || "Other";
+      categoryMap.set(cat, (categoryMap.get(cat) || 0) + 1);
+    });
+
+    const categories = [...categoryMap.entries()].map(([name, value]) => ({
+      name,
+      value,
+    }));
 
     return res.json({
       ok: true,
       totalUsers: users.length,
       totalBusinesses: businesses.length,
+      totalClicks,
+      activity,
+      categories,
     });
   } catch (e) {
     console.error("admin stats error:", e);
     return res.status(500).json({ error: "Failed to load admin stats" });
-  }
-});
-
-app.get("/api/admin/businesses", requireAdmin, async (_req, res) => {
-  try {
-    const businesses = await listAllBusinesses();
-
-    const { data: events } = await supabase
-      .from("anti_fraud_events")
-      .select("business_id, risk_score, action_taken")
-      .not("business_id", "is", null);
-
-    const fraudMap = new Map();
-
-    for (const e of events || []) {
-      const businessId = String(e.business_id || "").trim();
-      if (!businessId) continue;
-
-      const current = fraudMap.get(businessId) || {
-        suspicious_events: 0,
-        blocked_events: 0,
-        average_risk_score: 0,
-        total_risk_score: 0,
-      };
-
-      current.suspicious_events += 1;
-      current.total_risk_score += Number(e.risk_score || 0);
-
-      if (String(e.action_taken || "") === "block") {
-        current.blocked_events += 1;
-      }
-
-      fraudMap.set(businessId, current);
-    }
-
-    const results = (businesses || []).map((b) => {
-      const fraud = fraudMap.get(String(b.id)) || {
-        suspicious_events: 0,
-        blocked_events: 0,
-        total_risk_score: 0,
-      };
-
-      const average_risk_score =
-        fraud.suspicious_events > 0
-          ? Math.round((fraud.total_risk_score / fraud.suspicious_events) * 10) / 10
-          : 0;
-
-      return {
-        ...b,
-        wallet_balance:
-          Number(b?.wallet?.balance ?? b?.wallet_balance ?? b?.walletBalance ?? 0) || 0,
-        suspicious_events: fraud.suspicious_events,
-        blocked_events: fraud.blocked_events,
-        average_risk_score,
-      };
-    });
-
-    return res.json({
-      ok: true,
-      results,
-    });
-  } catch (e) {
-    console.error("admin businesses error:", e);
-    return res.status(500).json({ error: "Failed to load businesses" });
   }
 });
 
