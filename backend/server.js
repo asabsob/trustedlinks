@@ -4380,6 +4380,39 @@ app.post("/api/admin/settings", requireAdmin, async (req, res) => {
   return res.json({ ok: true, settings: ADMIN_SETTINGS });
 });
 
+app.get("/api/admin/notifications", requireAdmin, async (req, res) => {
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  res.json(data);
+});
+
+app.get("/api/admin/notifications/unread-count", requireAdmin, async (req, res) => {
+  const { count } = await supabase
+    .from("notifications")
+    .select("*", { count: "exact", head: true })
+    .eq("is_read", false);
+
+  res.json({ count: count || 0 });
+});
+
+app.post("/api/admin/notifications/:id/read", requireAdmin, async (req, res) => {
+  const { id } = req.params;
+
+  await supabase
+    .from("notifications")
+    .update({ is_read: true })
+    .eq("id", id);
+
+  res.json({ ok: true });
+});
+
+
 // ============================================================================
 // WhatsApp Webhook (FINAL CLEAN VERSION)
 // ============================================================================
