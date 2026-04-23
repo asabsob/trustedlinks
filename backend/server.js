@@ -3977,6 +3977,9 @@ app.get("/api/admin/fraud/business-scores", requireAdmin, async (_req, res) => {
 // =========================
 // ADMIN REVENUE
 // =========================
+// =========================
+// ADMIN REVENUE
+// =========================
 app.get("/api/admin/revenue", requireAdmin, async (_req, res) => {
   try {
     const [
@@ -3986,157 +3989,246 @@ app.get("/api/admin/revenue", requireAdmin, async (_req, res) => {
       topupOrdersRes,
       fraudEventsRes,
     ] = await Promise.all([
-      supabase.from("businesses").select("*"),
+      supabase
+        .from("businesses")
+        .select("id, name, name_ar, wallet_balance"),
+
       supabase
         .from("transactions")
-        .select("*")
+        .select("amount, type, status, event_type, business_id, created_at")
         .order("created_at", { ascending: false })
-        .limit(500),
+        .limit(5000),
+
       supabase
         .from("pending_charges")
-        .select("*")
+        .select("amount, status, business_id, created_at")
         .order("created_at", { ascending: false })
-        .limit(500),
+        .limit(5000),
+
       supabase
         .from("topup_orders")
-        .select("*")
+        .select("amount, status, business_id, created_at")
         .order("created_at", { ascending: false })
-        .limit(500),
+        .limit(5000),
+
       supabase
         .from("anti_fraud_events")
         .select("business_id, action_taken, risk_level, created_at")
         .order("created_at", { ascending: false })
-        .limit(500),
+        .limit(5000),
     ]);
 
-    const businesses = businessesRes.data || [];
-    const transactions = transactionsRes.data || [];
-    const pendingCharges = pendingChargesRes.data || [];
-    const topupOrders = topupOrdersRes.data || [];
-    const fraudEvents = fraudEventsRes.data || [];
+    const businesses = businessesRes?.data || [];
+    const transactions = transactionsRes?.data || [];
+    const pendingCharges = pendingChargesRes?.data || [];
+    const topupOrders = topupOrdersRes?.data || [];
+    const fraudEvents = fraudEventsRes?.data || [];
+
+    const safeNumber = (value) => Number(value || 0);
 
     const totalWalletExposure = businesses.reduce(
-      (sum, b) => sum + Number(b.wallet_balance || 0),
+      (sum, b) => sum + safeNumber(b.wallet_balance),
       0
     );
 
     const lowBalanceBusinesses = businesses.filter((b) => {
-      const bal = Number(b.wallet_balance || 0);
+      const bal = safeNumber(b.wallet_balance);
       return bal > 0 && bal < 5;
     }).length;
 
     const negativeBalanceBusinesses = businesses.filter(
-      (b) => Number(b.wallet_balance || 0) < 0
+      (b) => safeNumber(b.wallet_balance) < 0
     ).length;
 
-    const completedDebits = transactions.filter(
-      (t) =>
-        String(t.type || "").toLowerCase() === "debit" &&
-        String(t.status || "completed").toLowerCase() === "completed"
-    );
+    // ✅ Revenue should only count billed conversation-start debits
+    const completedDebits = transactions.filter((t) => {
+      const type = String(t.type || "").toLowerCase();
+      const status = String(t.status || "completed").toLowerCase();
+      const eventType = String(t.event_type || "").toLowerCase();
 
-    const completedCredits = transactions.filter(
-      (t) =>
-        String(t.type || "").toLowerCase() === "credit" &&
-        String(t.status || "completed").toLowerCase() === "completed"
-    );
+      return (
+        type === "debit" &&
+        status === "completed" &&
+        eventType.startsWith("conversation_start")
+      );
+    });
+
+    const completedCredits = transactions.filter((t) => {
+      const type = String(t.type || "").toLowerCase();
+      const status = String(t.status || "completed").toLowerCase();
+      return type === "credit" && status === "completed";
+    });
 
     const totalRevenue = completedDebits.reduce(
-      (sum, t) => sum + Number(t.amount || 0),
+      (sum, t) => sum + safeNumber(t.amount),
       0
     );
 
     const totalRefunds = completedCredits
       .filter((t) => String(t.event_type || "").toLowerCase() === "fraud_refund")
-      .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+      .reduce((sum, t) => sum + safeNumber(t.amount), 0);
 
     const approvedPendingAmount = pendingCharges
       .filter((p) => String(p.status || "").toLowerCase() === "approved")
-      .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      .reduce((sum, p) => sum + safeNumber(p.amount), 0);
 
     const openPendingAmount = pendingCharges
       .filter((p) => String(p.status || "").toLowerCase() === "pending")
-      .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      .reduce((sum, p) => sum + safeNumber(p.amount), 0);
 
     const totalTopups = topupOrders
       .filter((o) => String(o.status || "").toLowerCase() === "paid")
-      .reduce((sum, o) => sum + Number(o.amount || 0), 0);
+      .reduce((sum, o) => sum + safeNumber(o.amount), 0);
+
+    const totalCharges = completedDebits.length;
+    const avgRevenuePerLead = totalCharges > 0 ? totalRevenue / totalCharges : 0;
+
+    const blockedFraudCount = fraudEvents.filter(
+      (e) => String(e.action_taken || "").toLowerCase() === "block"
+    ).length;
+
+    const holdFraudCount = fraudEvents.filter((e) => {
+      const action = String(e.action_taken || "").toLowerCase();
+      return action === "hold" || action === "billing_hold";
+    }).length;
+
+    const suspiciousFraudCount = fraudEvents.filter((e) =>
+      ["medium", "high", "critical"].includes(
+        String(e.risk_level || "").toLowerCase()
+      )
+    ).length;
 
     const businessMap = new Map();
+
     businesses.forEach((b) => {
       businessMap.set(String(b.id), {
         id: b.id,
         name: b.name || b.name_ar || String(b.id),
-        walletBalance: Number(b.wallet_balance || 0),
+        walletBalance: safeNumber(b.wallet_balance),
         suspiciousEvents: 0,
+        blockedEvents: 0,
+        holdEvents: 0,
         totalRevenue: 0,
         totalCharges: 0,
         totalRefunds: 0,
+        roi: 0,
       });
     });
 
     completedDebits.forEach((t) => {
       const id = String(t.business_id || "");
       if (!businessMap.has(id)) return;
+
       const row = businessMap.get(id);
-      row.totalRevenue += Number(t.amount || 0);
+      row.totalRevenue += safeNumber(t.amount);
       row.totalCharges += 1;
     });
 
     completedCredits.forEach((t) => {
       if (String(t.event_type || "").toLowerCase() !== "fraud_refund") return;
+
       const id = String(t.business_id || "");
       if (!businessMap.has(id)) return;
+
       const row = businessMap.get(id);
-      row.totalRefunds += Number(t.amount || 0);
+      row.totalRefunds += safeNumber(t.amount);
     });
 
     fraudEvents.forEach((e) => {
       const id = String(e.business_id || "");
       if (!businessMap.has(id)) return;
+
       const row = businessMap.get(id);
       row.suspiciousEvents += 1;
+
+      const action = String(e.action_taken || "").toLowerCase();
+      if (action === "block") row.blockedEvents += 1;
+      if (action === "hold" || action === "billing_hold") row.holdEvents += 1;
+    });
+
+    businessMap.forEach((row) => {
+      row.roi = row.totalRevenue - row.totalRefunds;
     });
 
     const topRevenueBusinesses = [...businessMap.values()]
-      .sort((a, b) => b.totalRevenue - a.totalRevenue)
+      .sort((a, b) => b.roi - a.roi)
       .slice(0, 10);
 
     const revenueByDayMap = new Map();
     completedDebits.forEach((t) => {
       const date = String(t.created_at || "").slice(0, 10);
       if (!date) return;
-      revenueByDayMap.set(date, (revenueByDayMap.get(date) || 0) + Number(t.amount || 0));
+
+      revenueByDayMap.set(
+        date,
+        (revenueByDayMap.get(date) || 0) + safeNumber(t.amount)
+      );
     });
 
     const revenueTrend = [...revenueByDayMap.entries()]
       .sort((a, b) => a[0].localeCompare(b[0]))
-      .slice(-14)
-      .map(([date, amount]) => ({ date, amount }));
+      .slice(-30)
+      .map(([date, amount]) => ({
+        date,
+        amount: Number(amount.toFixed(2)),
+      }));
+
+    const refundsByDayMap = new Map();
+    completedCredits
+      .filter((t) => String(t.event_type || "").toLowerCase() === "fraud_refund")
+      .forEach((t) => {
+        const date = String(t.created_at || "").slice(0, 10);
+        if (!date) return;
+
+        refundsByDayMap.set(
+          date,
+          (refundsByDayMap.get(date) || 0) + safeNumber(t.amount)
+        );
+      });
+
+    const refundTrend = [...refundsByDayMap.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .slice(-30)
+      .map(([date, amount]) => ({
+        date,
+        amount: Number(amount.toFixed(2)),
+      }));
+
+    const netRevenue = totalRevenue - totalRefunds;
 
     return res.json({
       ok: true,
+      generatedAt: new Date().toISOString(),
       data: {
-        totalWalletExposure,
-        totalRevenue,
-        totalRefunds,
-        totalTopups,
-        approvedPendingAmount,
-        openPendingAmount,
+        totalWalletExposure: Number(totalWalletExposure.toFixed(2)),
+        totalRevenue: Number(totalRevenue.toFixed(2)),
+        totalRefunds: Number(totalRefunds.toFixed(2)),
+        netRevenue: Number(netRevenue.toFixed(2)),
+        totalTopups: Number(totalTopups.toFixed(2)),
+        approvedPendingAmount: Number(approvedPendingAmount.toFixed(2)),
+        openPendingAmount: Number(openPendingAmount.toFixed(2)),
         lowBalanceBusinesses,
         negativeBalanceBusinesses,
         businessCount: businesses.length,
         transactionCount: transactions.length,
+        totalCharges,
+        avgRevenuePerLead: Number(avgRevenuePerLead.toFixed(2)),
+        blockedFraudCount,
+        holdFraudCount,
+        suspiciousFraudCount,
         topRevenueBusinesses,
         revenueTrend,
+        refundTrend,
       },
     });
   } catch (e) {
     console.error("admin revenue error:", e);
-    return res.status(500).json({ ok: false, error: "Failed to load revenue data" });
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to load revenue data",
+    });
   }
 });
-
 // =========================
 // ADMIN INSIGHTS
 // =========================
