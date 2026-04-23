@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -10,8 +10,6 @@ import {
   Settings,
   LogOut,
   Globe,
-  Menu,
-  X,
   Sparkles,
   PanelLeftClose,
   PanelLeftOpen,
@@ -20,15 +18,59 @@ import { useAdminAuth } from "../../context/AdminAuthContext.jsx";
 import { useLang } from "../../context/LangContext.jsx";
 
 export default function AdminLayout() {
-  const { logout } = useAdminAuth();
+  const { logout, token } = useAdminAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { lang, setLang } = useLang();
 
+  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
+
   const [open, setOpen] = useState(true);
+  const [notifications, setNotifications] = useState([]);
+  const [unread, setUnread] = useState(0);
+  const [openNotif, setOpenNotif] = useState(false);
 
   const isAr = lang === "ar";
   const t = (en, ar) => (isAr ? ar : en);
+
+  useEffect(() => {
+    if (!token) return;
+
+    const loadNotifications = async () => {
+      try {
+        const res1 = await fetch(`${API_BASE}/api/admin/notifications`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data1 = await res1.json().catch(() => []);
+        const list = Array.isArray(data1)
+          ? data1
+          : Array.isArray(data1?.notifications)
+          ? data1.notifications
+          : [];
+
+        setNotifications(list);
+
+        const res2 = await fetch(`${API_BASE}/api/admin/notifications/unread-count`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data2 = await res2.json().catch(() => ({}));
+        setUnread(Number(data2?.count || data2?.unreadCount || 0));
+      } catch (error) {
+        console.error("Notifications error:", error);
+      }
+    };
+
+    loadNotifications();
+    const interval = setInterval(loadNotifications, 10000);
+
+    return () => clearInterval(interval);
+  }, [API_BASE, token]);
 
   const navItems = useMemo(
     () => [
@@ -43,17 +85,16 @@ export default function AdminLayout() {
         icon: Building2,
         label: t("Businesses", "الأنشطة التجارية"),
       },
-
-{
-  to: "/admin/revenue",
-  icon: CreditCard,
-  label: t("Revenue", "الإيرادات"),
-},
-{
-  to: "/admin/notifications",
-  icon: Bell,
-  label: t("Notifications", "الإشعارات"),
-},
+      {
+        to: "/admin/revenue",
+        icon: CreditCard,
+        label: t("Revenue", "الإيرادات"),
+      },
+      {
+        to: "/admin/notifications",
+        icon: Bell,
+        label: t("Notifications", "الإشعارات"),
+      },
       {
         to: "/admin/insights",
         icon: Brain,
@@ -101,6 +142,29 @@ export default function AdminLayout() {
     return current?.label || t("Admin", "الإدارة");
   }, [location.pathname, navItems, isAr]);
 
+  const markAsRead = async (notificationId) => {
+    try {
+      await fetch(`${API_BASE}/api/admin/notifications/${notificationId}/read`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      setNotifications((prev) =>
+        prev.map((item) =>
+          item.id === notificationId
+            ? { ...item, is_read: true, status: "read" }
+            : item
+        )
+      );
+
+      setUnread((prev) => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error("Mark as read error:", error);
+    }
+  };
+
   return (
     <div
       dir={isAr ? "rtl" : "ltr"}
@@ -118,7 +182,11 @@ export default function AdminLayout() {
         <div className="flex h-full flex-col">
           <div className="border-b border-gray-200 p-4">
             <div className="flex items-center justify-between gap-3">
-              <div className={`flex items-center gap-3 overflow-hidden ${open ? "" : "justify-center w-full"}`}>
+              <div
+                className={`flex items-center gap-3 overflow-hidden ${
+                  open ? "" : "justify-center w-full"
+                }`}
+              >
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
                   <ShieldAlert size={22} />
                 </div>
@@ -222,15 +290,108 @@ export default function AdminLayout() {
               <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">
                 {t("Admin Panel", "لوحة الإدارة")}
               </p>
-              <h2 className="truncate text-xl font-bold text-gray-900">{currentPageLabel}</h2>
+              <h2 className="truncate text-xl font-bold text-gray-900">
+                {currentPageLabel}
+              </h2>
             </div>
 
-            <div className="hidden items-center gap-3 md:flex">
-              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
-                {t("Secure session", "جلسة آمنة")}
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <button
+                  onClick={() => setOpenNotif((prev) => !prev)}
+                  className="relative rounded-2xl border border-gray-200 bg-white p-3 text-gray-700 shadow-sm transition hover:bg-gray-50"
+                  title={t("Notifications", "الإشعارات")}
+                >
+                  <Bell size={18} />
+                  {unread > 0 && (
+                    <span className="absolute -right-1 -top-1 min-w-[18px] rounded-full bg-red-500 px-1.5 py-0.5 text-center text-[10px] font-bold text-white">
+                      {unread}
+                    </span>
+                  )}
+                </button>
+
+                {openNotif && (
+                  <div
+                    className={`absolute top-14 z-50 w-96 rounded-2xl border border-gray-200 bg-white p-3 shadow-xl ${
+                      isAr ? "left-0" : "right-0"
+                    }`}
+                  >
+                    <div className="mb-3 flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-gray-900">
+                        {t("Notifications", "الإشعارات")}
+                      </h3>
+                      <span className="text-xs text-gray-500">
+                        {unread} {t("unread", "غير مقروء")}
+                      </span>
+                    </div>
+
+                    <div className="max-h-96 space-y-2 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <p className="rounded-xl bg-gray-50 p-3 text-sm text-gray-500">
+                          {t("No notifications", "لا توجد إشعارات")}
+                        </p>
+                      ) : (
+                        notifications.map((n) => {
+                          const isRead = n.is_read === true || n.status === "read";
+
+                          return (
+                            <div
+                              key={n.id}
+                              className={`rounded-xl border p-3 ${
+                                isRead
+                                  ? "border-gray-200 bg-white"
+                                  : "border-emerald-100 bg-emerald-50"
+                              }`}
+                            >
+                              <div className="mb-1 flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <div className="text-sm font-semibold text-gray-900">
+                                    {n.title || t("Notification", "تنبيه")}
+                                  </div>
+                                  <div className="mt-1 text-xs leading-5 text-gray-600">
+                                    {n.message}
+                                  </div>
+                                </div>
+
+                                {!isRead && (
+                                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-600">
+                                    {t("New", "جديد")}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="mt-3 flex items-center justify-between gap-3">
+                                <span className="text-[11px] text-gray-400">
+                                  {n.created_at
+                                    ? new Date(n.created_at).toLocaleString(isAr ? "ar" : "en")
+                                    : ""}
+                                </span>
+
+                                {!isRead && (
+                                  <button
+                                    onClick={() => markAsRead(n.id)}
+                                    className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                                  >
+                                    {t("Mark as read", "تحديد كمقروء")}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm text-gray-600">
-                {t("Admin tools active", "أدوات الإدارة مفعّلة")}
+
+              <div className="hidden items-center gap-3 md:flex">
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
+                  {t("Secure session", "جلسة آمنة")}
+                </div>
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm text-gray-600">
+                  {t("Admin tools active", "أدوات الإدارة مفعّلة")}
+                </div>
               </div>
             </div>
           </div>
