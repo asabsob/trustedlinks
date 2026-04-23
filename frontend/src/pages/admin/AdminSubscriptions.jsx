@@ -1,16 +1,27 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  DollarSign,
   Wallet,
-  TrendingUp,
   AlertTriangle,
-  CircleDollarSign,
-  Search,
+  TrendingUp,
   RefreshCcw,
+  Building2,
+  ShieldAlert,
+  Search,
 } from "lucide-react";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  BarChart,
+  Bar,
+} from "recharts";
 import { useLang } from "../../context/LangContext.jsx";
 import { useAdminAuth } from "../../context/AdminAuthContext.jsx";
-
-const API_BASE = import.meta.env.VITE_API_BASE;
 
 export default function AdminSubscriptions() {
   const { lang } = useLang();
@@ -18,28 +29,41 @@ export default function AdminSubscriptions() {
 
   const isAr = lang === "ar";
   const t = (en, ar) => (isAr ? ar : en);
+  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5175";
 
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
-  const [businesses, setBusinesses] = useState([]);
   const [query, setQuery] = useState("");
+  const [data, setData] = useState({
+    totalWalletExposure: 0,
+    totalRevenue: 0,
+    totalRefunds: 0,
+    totalTopups: 0,
+    approvedPendingAmount: 0,
+    openPendingAmount: 0,
+    lowBalanceBusinesses: 0,
+    negativeBalanceBusinesses: 0,
+    businessCount: 0,
+    transactionCount: 0,
+    topRevenueBusinesses: [],
+    revenueTrend: [],
+  });
 
-  useEffect(() => {
-    load();
-  }, [token]);
-
-  async function load() {
+  const loadRevenue = async (silent = false) => {
     if (!token) {
-      setError(t("Admin token missing.", "لا يوجد توكن أدمن."));
+      setError(t("Admin token missing.", "توكن الأدمن غير موجود."));
       setLoading(false);
       return;
     }
 
     try {
-      setLoading(true);
+      if (silent) setRefreshing(true);
+      else setLoading(true);
+
       setError("");
 
-      const res = await fetch(`${API_BASE}/api/admin/businesses`, {
+      const res = await fetch(`${API_BASE}/api/admin/revenue`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -48,120 +72,141 @@ export default function AdminSubscriptions() {
       const json = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        throw new Error(json?.error || "Failed to load accounts");
+        throw new Error(json?.error || "Failed to load revenue");
       }
 
-      const list = Array.isArray(json?.results)
-        ? json.results
-        : Array.isArray(json?.data)
-        ? json.data
-        : [];
-
-      setBusinesses(list);
+      setData(json?.data || {});
     } catch (e) {
       console.error(e);
-      setError(t("Failed to load accounts.", "فشل تحميل الحسابات."));
+      setError(
+        t(
+          "Failed to load revenue dashboard.",
+          "فشل في تحميل لوحة الإيرادات."
+        )
+      );
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }
+  };
 
-  const normalizedBusinesses = useMemo(() => {
-    return businesses.map((b) => {
-      const walletBalance =
-        Number(
-          b.wallet_balance ??
-            b.walletBalance ??
-            b.wallet?.balance ??
-            0
-        ) || 0;
+  useEffect(() => {
+    loadRevenue(false);
+  }, [token]);
 
-      const walletCurrency =
-        b.wallet_currency ||
-        b.walletCurrency ||
-        b.wallet?.currency ||
-        "USD";
+  const revenueTrend = useMemo(() => {
+    return Array.isArray(data.revenueTrend)
+      ? data.revenueTrend.map((item) => ({
+          ...item,
+          label: item.date,
+          amount: Number(item.amount || 0),
+        }))
+      : [];
+  }, [data.revenueTrend]);
 
-      const totalClicks =
-        Number(
-          b.totalClicks ??
-            b.clicks ??
-            0
-        ) || 0;
+  const topBusinesses = useMemo(() => {
+    const list = Array.isArray(data.topRevenueBusinesses)
+      ? data.topRevenueBusinesses
+      : [];
 
-      const suspiciousEvents =
-        Number(
-          b.suspicious_events ??
-            b.suspiciousEvents ??
-            0
-        ) || 0;
-
-      return {
-        ...b,
-        walletBalance,
-        walletCurrency,
-        totalClicks,
-        suspiciousEvents,
-      };
-    });
-  }, [businesses]);
-
-  const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return normalizedBusinesses;
+    if (!q) return list;
 
-    return normalizedBusinesses.filter((b) => {
-      const fields = [
-        b.name,
-        b.name_ar,
-        b.customId,
-        b.countryName,
-        b.locationText,
-        b.whatsapp,
-      ]
-        .filter(Boolean)
-        .map((v) => String(v).toLowerCase());
-
-      return fields.some((v) => v.includes(q));
-    });
-  }, [normalizedBusinesses, query]);
-
-  const totals = useMemo(() => {
-    const totalBalance = normalizedBusinesses.reduce(
-      (sum, b) => sum + b.walletBalance,
-      0
+    return list.filter((item) =>
+      String(item.name || item.id || "")
+        .toLowerCase()
+        .includes(q)
     );
+  }, [data.topRevenueBusinesses, query]);
 
-    const lowBalanceCount = normalizedBusinesses.filter(
-      (b) => b.walletBalance > 0 && b.walletBalance < 5
-    ).length;
+  const businessBars = useMemo(() => {
+    return topBusinesses.slice(0, 8).map((item) => ({
+      name: item.name?.length > 18 ? `${item.name.slice(0, 18)}…` : item.name,
+      revenue: Number(item.totalRevenue || 0),
+      refunds: Number(item.totalRefunds || 0),
+      charges: Number(item.totalCharges || 0),
+      walletBalance: Number(item.walletBalance || 0),
+      suspiciousEvents: Number(item.suspiciousEvents || 0),
+      fullName: item.name || item.id,
+      id: item.id,
+    }));
+  }, [topBusinesses]);
 
-    const negativeBalanceCount = normalizedBusinesses.filter(
-      (b) => b.walletBalance < 0
-    ).length;
+  const formatMoney = (value) =>
+    `${Number(value || 0).toFixed(2)} ${t("USD", "دولار")}`;
 
-    const highRiskCount = normalizedBusinesses.filter(
-      (b) => b.suspiciousEvents > 10
-    ).length;
+  const summaryCards = [
+    {
+      title: t("Total Revenue", "إجمالي الإيرادات"),
+      value: formatMoney(data.totalRevenue),
+      icon: DollarSign,
+      tone: "emerald",
+    },
+    {
+      title: t("Wallet Exposure", "إجمالي الأرصدة"),
+      value: formatMoney(data.totalWalletExposure),
+      icon: Wallet,
+      tone: "blue",
+    },
+    {
+      title: t("Refunds", "الاستردادات"),
+      value: formatMoney(data.totalRefunds),
+      icon: RefreshCcw,
+      tone: "amber",
+    },
+    {
+      title: t("Top-ups", "التعبئات"),
+      value: formatMoney(data.totalTopups),
+      icon: TrendingUp,
+      tone: "violet",
+    },
+    {
+      title: t("Open Pending", "مبالغ معلقة مفتوحة"),
+      value: formatMoney(data.openPendingAmount),
+      icon: AlertTriangle,
+      tone: "red",
+    },
+    {
+      title: t("Approved Pending", "المبالغ المعلقة المعتمدة"),
+      value: formatMoney(data.approvedPendingAmount),
+      icon: ShieldAlert,
+      tone: "emerald",
+    },
+    {
+      title: t("Low Balance Businesses", "أنشطة برصيد منخفض"),
+      value: Number(data.lowBalanceBusinesses || 0),
+      icon: Building2,
+      tone: "amber",
+    },
+    {
+      title: t("Negative Balance Businesses", "أنشطة برصيد سالب"),
+      value: Number(data.negativeBalanceBusinesses || 0),
+      icon: AlertTriangle,
+      tone: "red",
+    },
+  ];
 
-    return {
-      totalBalance,
-      lowBalanceCount,
-      negativeBalanceCount,
-      highRiskCount,
-    };
-  }, [normalizedBusinesses]);
+  const toneClasses = {
+    emerald: "bg-emerald-50 text-emerald-700 border-emerald-100",
+    blue: "bg-blue-50 text-blue-700 border-blue-100",
+    amber: "bg-amber-50 text-amber-700 border-amber-100",
+    violet: "bg-violet-50 text-violet-700 border-violet-100",
+    red: "bg-red-50 text-red-700 border-red-100",
+  };
 
-  function getBalanceTone(balance) {
-    if (balance < 0) return "text-red-600 bg-red-50";
-    if (balance < 5) return "text-amber-600 bg-amber-50";
-    return "text-emerald-600 bg-emerald-50";
-  }
-
-  function getRiskTone(risk) {
-    if (risk > 10) return "text-red-600 bg-red-50";
-    if (risk > 0) return "text-amber-600 bg-amber-50";
-    return "text-emerald-600 bg-emerald-50";
+  if (loading) {
+    return (
+      <div
+        dir={isAr ? "rtl" : "ltr"}
+        className={`space-y-4 ${isAr ? "text-right" : "text-left"}`}
+      >
+        <div className="rounded-3xl bg-white p-8 shadow-sm border border-gray-200">
+          <p className="text-sm text-gray-500">
+            {t("Loading revenue dashboard...", "جارٍ تحميل لوحة الإيرادات...")}
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -169,196 +214,221 @@ export default function AdminSubscriptions() {
       dir={isAr ? "rtl" : "ltr"}
       className={`space-y-6 ${isAr ? "text-right" : "text-left"}`}
     >
-      <div className="rounded-3xl bg-gradient-to-r from-green-500 to-emerald-400 p-6 text-white shadow-sm">
-        <h1 className="text-2xl font-bold">
-          {t("Accounts & Revenue", "الحسابات والإيرادات")}
-        </h1>
-        <p className="mt-2 text-sm text-white/90">
-          {t(
-            "Monitor balances, account health, billing readiness, and business revenue signals.",
-            "مراقبة الأرصدة وصحة الحسابات وجاهزية الفوترة وإشارات الإيرادات للأنشطة."
-          )}
-        </p>
+      <div className="rounded-3xl bg-gradient-to-r from-emerald-500 to-green-400 p-6 text-white shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">
+              {t("Revenue Dashboard", "لوحة الإيرادات")}
+            </h1>
+            <p className="mt-2 text-sm text-white/90">
+              {t(
+                "Track wallet exposure, revenue movement, pending charges, refunds, and top-performing businesses.",
+                "تابع الأرصدة والإيرادات والمبالغ المعلقة والاستردادات وأفضل الأنشطة أداءً."
+              )}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="rounded-2xl bg-white/15 px-4 py-2 text-sm">
+              {t("Businesses", "الأنشطة")}: {Number(data.businessCount || 0)}
+            </div>
+            <div className="rounded-2xl bg-white/15 px-4 py-2 text-sm">
+              {t("Transactions", "المعاملات")}:{" "}
+              {Number(data.transactionCount || 0)}
+            </div>
+            <button
+              onClick={() => loadRevenue(true)}
+              className="rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50"
+            >
+              {refreshing
+                ? t("Refreshing...", "جارٍ التحديث...")
+                : t("Refresh", "تحديث")}
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <MetricCard
-          icon={CircleDollarSign}
-          title={t("Total Wallet Exposure", "إجمالي الأرصدة")}
-          value={`${totals.totalBalance.toFixed(2)} USD`}
-        />
-        <MetricCard
-          icon={Wallet}
-          title={t("Low Balance", "أرصدة منخفضة")}
-          value={totals.lowBalanceCount}
-        />
-        <MetricCard
-          icon={AlertTriangle}
-          title={t("Negative Balance", "أرصدة سالبة")}
-          value={totals.negativeBalanceCount}
-        />
-        <MetricCard
-          icon={TrendingUp}
-          title={t("High Risk Accounts", "حسابات عالية المخاطر")}
-          value={totals.highRiskCount}
-        />
+      {error ? (
+        <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-600">
+          {error}
+        </div>
+      ) : null}
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {summaryCards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <div
+              key={card.title}
+              className={`rounded-2xl border p-4 shadow-sm ${toneClasses[card.tone]}`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm opacity-80">{card.title}</p>
+                  <p className="mt-2 text-2xl font-bold">{card.value}</p>
+                </div>
+                <div className="rounded-2xl bg-white/70 p-3">
+                  <Icon size={20} />
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 md:w-[420px]">
-            <Search className="h-4 w-4 text-gray-500" />
+      <div className="grid gap-6 xl:grid-cols-[1.1fr_1fr]">
+        <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">
+                {t("Revenue Trend", "اتجاه الإيرادات")}
+              </h2>
+              <p className="text-sm text-gray-500">
+                {t(
+                  "Recent billed activity over time.",
+                  "تطور الإيرادات من العمليات المفوترة الأخيرة."
+                )}
+              </p>
+            </div>
+          </div>
+
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={revenueTrend}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="label" />
+                <YAxis />
+                <Tooltip />
+                <Area
+                  type="monotone"
+                  dataKey="amount"
+                  strokeWidth={2}
+                  fillOpacity={0.2}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="mb-4">
+            <h2 className="text-lg font-bold text-gray-900">
+              {t("Top Revenue Businesses", "أعلى الأنشطة إيرادًا")}
+            </h2>
+            <p className="text-sm text-gray-500">
+              {t(
+                "Revenue by business with quick comparison.",
+                "مقارنة الإيرادات حسب النشاط."
+              )}
+            </p>
+          </div>
+
+          <div className="mb-4 flex items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
+            <Search size={16} className="text-gray-400" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t(
-                "Search by business, country, custom ID, or WhatsApp...",
-                "ابحث باسم النشاط أو الدولة أو المعرّف أو الواتساب..."
+                "Search business...",
+                "ابحث عن نشاط..."
               )}
               className="w-full bg-transparent text-sm outline-none"
             />
           </div>
 
-          <button
-            onClick={load}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
-          >
-            <RefreshCcw className="h-4 w-4" />
-            {t("Refresh", "تحديث")}
-          </button>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={businessBars}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="revenue" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-3xl border border-gray-100 bg-white shadow-sm">
-        {loading ? (
-          <div className="p-6 text-sm text-gray-500">
-            {t("Loading accounts and revenue data...", "جارٍ تحميل بيانات الحسابات والإيرادات...")}
+      <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">
+              {t("Business Revenue Table", "جدول إيرادات الأنشطة")}
+            </h2>
+            <p className="text-sm text-gray-500">
+              {t(
+                "Detailed operational and revenue health per business.",
+                "عرض تفصيلي لصحة الإيرادات والتشغيل لكل نشاط."
+              )}
+            </p>
           </div>
-        ) : error ? (
-          <div className="p-6 text-sm text-red-600">{error}</div>
-        ) : filtered.length === 0 ? (
-          <div className="p-6 text-sm text-gray-500">
-            {t("No accounts found.", "لا توجد حسابات.")}
-          </div>
-        ) : (
-          <table className="min-w-[1100px] w-full text-sm">
-            <thead className="bg-gray-50 text-gray-600">
-              <tr>
-                <th className="px-4 py-3 text-start font-medium">
-                  {t("Business", "النشاط")}
-                </th>
-                <th className="px-4 py-3 text-start font-medium">
-                  {t("Status", "الحالة")}
-                </th>
-                <th className="px-4 py-3 text-start font-medium">
-                  {t("Wallet", "الرصيد")}
-                </th>
-                <th className="px-4 py-3 text-start font-medium">
-                  {t("Currency", "العملة")}
-                </th>
-                <th className="px-4 py-3 text-start font-medium">
-                  {t("Clicks", "النقرات")}
-                </th>
-                <th className="px-4 py-3 text-start font-medium">
-                  {t("Risk", "المخاطر")}
-                </th>
-                <th className="px-4 py-3 text-start font-medium">
-                  {t("Country", "الدولة")}
-                </th>
-                <th className="px-4 py-3 text-start font-medium">
-                  {t("WhatsApp", "الواتساب")}
-                </th>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 text-gray-500">
+                <th className="px-4 py-3 text-start">{t("Business", "النشاط")}</th>
+                <th className="px-4 py-3 text-start">{t("Revenue", "الإيراد")}</th>
+                <th className="px-4 py-3 text-start">{t("Refunds", "الاستردادات")}</th>
+                <th className="px-4 py-3 text-start">{t("Charges", "عدد الخصومات")}</th>
+                <th className="px-4 py-3 text-start">{t("Wallet", "الرصيد")}</th>
+                <th className="px-4 py-3 text-start">{t("Risk Events", "أحداث المخاطر")}</th>
               </tr>
             </thead>
-
             <tbody>
-              {filtered.map((b) => {
-                const status = String(b.status || "Inactive");
-                const balanceTone = getBalanceTone(b.walletBalance);
-                const riskTone = getRiskTone(b.suspiciousEvents);
-
-                return (
+              {topBusinesses.length === 0 ? (
+                <tr>
+                  <td className="px-4 py-6 text-gray-500" colSpan={6}>
+                    {t("No business revenue data found.", "لا توجد بيانات إيرادات للأنشطة.")}
+                  </td>
+                </tr>
+              ) : (
+                topBusinesses.map((item) => (
                   <tr
-                    key={b.id}
-                    className="border-t border-gray-100 transition hover:bg-gray-50"
+                    key={item.id}
+                    className="border-b border-gray-100 transition hover:bg-gray-50"
                   >
-                    <td className="px-4 py-4">
-                      <div className="space-y-1">
-                        <div className="font-semibold text-gray-900">
-                          {b.name || b.name_ar || t("Unnamed", "بدون اسم")}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {b.customId || "—"}
-                        </div>
-                      </div>
+                    <td className="px-4 py-3 font-medium text-gray-900">
+                      {item.name || item.id}
                     </td>
-
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-3 text-emerald-700 font-semibold">
+                      {formatMoney(item.totalRevenue)}
+                    </td>
+                    <td className="px-4 py-3 text-amber-700">
+                      {formatMoney(item.totalRefunds)}
+                    </td>
+                    <td className="px-4 py-3">{Number(item.totalCharges || 0)}</td>
+                    <td className="px-4 py-3">
                       <span
                         className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                          status.toLowerCase() === "active"
-                            ? "bg-emerald-50 text-emerald-700"
-                            : status.toLowerCase() === "trial"
-                            ? "bg-amber-50 text-amber-700"
+                          Number(item.walletBalance || 0) < 0
+                            ? "bg-red-100 text-red-700"
+                            : Number(item.walletBalance || 0) < 5
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-emerald-100 text-emerald-700"
+                        }`}
+                      >
+                        {formatMoney(item.walletBalance)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          Number(item.suspiciousEvents || 0) > 0
+                            ? "bg-red-100 text-red-700"
                             : "bg-gray-100 text-gray-600"
                         }`}
                       >
-                        {status}
+                        {Number(item.suspiciousEvents || 0)}
                       </span>
-                    </td>
-
-                    <td className="px-4 py-4">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${balanceTone}`}>
-                        {b.walletBalance.toFixed(2)}
-                      </span>
-                    </td>
-
-                    <td className="px-4 py-4 text-gray-700">
-                      {b.walletCurrency}
-                    </td>
-
-                    <td className="px-4 py-4 text-gray-700">
-                      {b.totalClicks}
-                    </td>
-
-                    <td className="px-4 py-4">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${riskTone}`}>
-                        {b.suspiciousEvents > 10
-                          ? t("High", "مرتفع")
-                          : b.suspiciousEvents > 0
-                          ? t("Watch", "مراقبة")
-                          : t("Safe", "آمن")}
-                      </span>
-                    </td>
-
-                    <td className="px-4 py-4 text-gray-700">
-                      {b.countryName || "—"}
-                    </td>
-
-                    <td className="px-4 py-4 text-gray-700">
-                      {b.whatsapp || "—"}
                     </td>
                   </tr>
-                );
-              })}
+                ))
+              )}
             </tbody>
           </table>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function MetricCard({ icon: Icon, title, value }) {
-  return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-sm text-gray-500">{title}</p>
-          <p className="mt-2 text-xl font-bold text-gray-900">{value}</p>
-        </div>
-        <div className="rounded-xl bg-emerald-50 p-3 text-emerald-700">
-          <Icon className="h-5 w-5" />
         </div>
       </div>
     </div>
