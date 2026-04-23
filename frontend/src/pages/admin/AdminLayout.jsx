@@ -36,6 +36,8 @@ export default function AdminLayout() {
   useEffect(() => {
     if (!token) return;
 
+    let intervalId;
+
     const loadNotifications = async () => {
       try {
         const res1 = await fetch(`${API_BASE}/api/admin/notifications`, {
@@ -44,7 +46,7 @@ export default function AdminLayout() {
           },
         });
 
-        const data1 = await res1.json().catch(() => []);
+        const data1 = await res1.json().catch(() => ({}));
         const list = Array.isArray(data1)
           ? data1
           : Array.isArray(data1?.notifications)
@@ -66,11 +68,39 @@ export default function AdminLayout() {
       }
     };
 
-    loadNotifications();
-    const interval = setInterval(loadNotifications, 10000);
+    const handleVisibility = () => {
+      clearInterval(intervalId);
 
-    return () => clearInterval(interval);
+      if (document.visibilityState === "visible") {
+        loadNotifications();
+        intervalId = setInterval(loadNotifications, 10000);
+      }
+    };
+
+    handleVisibility();
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [API_BASE, token]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest(".notif-container")) {
+        setOpenNotif(false);
+      }
+    };
+
+    if (openNotif) {
+      document.addEventListener("click", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, [openNotif]);
 
   const navItems = useMemo(
     () => [
@@ -296,7 +326,7 @@ export default function AdminLayout() {
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="relative">
+              <div className="relative notif-container">
                 <button
                   onClick={() => setOpenNotif((prev) => !prev)}
                   className="relative rounded-2xl border border-gray-200 bg-white p-3 text-gray-700 shadow-sm transition hover:bg-gray-50"
@@ -333,15 +363,29 @@ export default function AdminLayout() {
                       ) : (
                         notifications.map((n) => {
                           const isRead = n.is_read === true || n.status === "read";
+                          const priority = String(n.priority || "").toLowerCase();
+
+                          const priorityColor =
+                            priority === "critical"
+                              ? "text-red-600"
+                              : priority === "high"
+                              ? "text-amber-600"
+                              : "text-gray-500";
 
                           return (
                             <div
                               key={n.id}
-                              className={`rounded-xl border p-3 ${
+                              onClick={() => {
+                                if (n.action_url || n.actionUrl) {
+                                  navigate(n.action_url || n.actionUrl);
+                                  setOpenNotif(false);
+                                }
+                              }}
+                              className={`rounded-xl border p-3 transition ${
                                 isRead
                                   ? "border-gray-200 bg-white"
                                   : "border-emerald-100 bg-emerald-50"
-                              }`}
+                              } ${n.action_url || n.actionUrl ? "cursor-pointer hover:shadow-sm" : ""}`}
                             >
                               <div className="mb-1 flex items-start justify-between gap-3">
                                 <div className="min-w-0">
@@ -353,11 +397,19 @@ export default function AdminLayout() {
                                   </div>
                                 </div>
 
-                                {!isRead && (
-                                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-600">
-                                    {t("New", "جديد")}
-                                  </span>
-                                )}
+                                <div className="flex flex-col items-end gap-1">
+                                  {!isRead && (
+                                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-600">
+                                      {t("New", "جديد")}
+                                    </span>
+                                  )}
+
+                                  {priority ? (
+                                    <span className={`text-[10px] font-semibold uppercase ${priorityColor}`}>
+                                      {priority}
+                                    </span>
+                                  ) : null}
+                                </div>
                               </div>
 
                               <div className="mt-3 flex items-center justify-between gap-3">
@@ -369,7 +421,10 @@ export default function AdminLayout() {
 
                                 {!isRead && (
                                   <button
-                                    onClick={() => markAsRead(n.id)}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      markAsRead(n.id);
+                                    }}
                                     className="text-xs font-medium text-blue-600 hover:text-blue-700"
                                   >
                                     {t("Mark as read", "تحديد كمقروء")}
