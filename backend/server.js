@@ -4800,21 +4800,24 @@ const reply = formatSearchResponse(
 
 console.timeEnd("formatSearchResponse");
 
-console.time("javnaSendText");
+console.time("javnaSendText_async");
 
-await javnaSendText({
+javnaSendText({
   to: from,
   body: reply,
-});
-
-console.timeEnd("javnaSendText");
+})
+  .then(() => {
+    console.timeEnd("javnaSendText_async");
+  })
+  .catch((err) => {
+    console.error("JAVNA SEND ERROR:", err);
+  });
 
 console.timeEnd("SEARCH_TOTAL");
-
-console.log("TOTAL USER REPLY TIME:", Date.now() - t0, "ms");
+console.log("TOTAL PROCESS TIME WITHOUT WAITING JAVNA:", Date.now() - t0, "ms");
 
 return;
-
+    
       } catch (e) {
     console.error("WHATSAPP WEBHOOK ERROR:", e);
   }
