@@ -4800,21 +4800,12 @@ const reply = formatSearchResponse(
 
 console.timeEnd("formatSearchResponse");
 
-console.time("javnaSendText_async");
-
 javnaSendText({
   to: from,
   body: reply,
-})
-  .then(() => {
-    console.timeEnd("javnaSendText_async");
-  })
-  .catch((err) => {
-    console.error("JAVNA SEND ERROR:", err);
-  });
-
-console.timeEnd("SEARCH_TOTAL");
-console.log("TOTAL PROCESS TIME WITHOUT WAITING JAVNA:", Date.now() - t0, "ms");
+}).catch((err) => {
+  console.error("JAVNA SEND ERROR:", err);
+});
 
 return;
     
