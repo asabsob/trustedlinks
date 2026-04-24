@@ -4815,6 +4815,11 @@ console.log("TOTAL USER REPLY TIME:", Date.now() - t0, "ms");
 
 return;
 
+      } catch (e) {
+    console.error("WHATSAPP WEBHOOK ERROR:", e);
+  }
+});
+
 // ============================================================================
 // LEAD TRACKED REDIRECT
 // ============================================================================
