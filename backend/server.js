@@ -4829,30 +4829,7 @@ return;
       }).catch(console.error);
     }
 
-    // Results
-    const enrichedResults = await enrichTopOnly({
-      results: searchData.results || [],
-      query: searchData.effectiveQuery || effectiveQuery,
-      userPhone: from,
-      intentType,
-    });
-
-    const reply = formatSearchResponse(
-      {
-        ...searchData,
-        results: enrichedResults,
-      },
-      lang
-    );
-
-    return javnaSendText({
-      to: from,
-      body: reply,
-    }).catch(console.error);
-  } catch (e) {
-    console.error("WHATSAPP WEBHOOK ERROR:", e);
-  }
-});
+  
 
 // ============================================================================
 // LEAD TRACKED REDIRECT
