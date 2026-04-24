@@ -4741,11 +4741,72 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
     const effectiveQuery = intentData.categoryQuery || normalizedQuery;
     const intentType = resolveIntentType(intentData);
 
-    // Search Fast
-    const searchData = await searchBusinessesFast({
-      query: effectiveQuery,
-      lang,
-    });
+   // Search Fast - TEMP PERFORMANCE TEST
+const t0 = Date.now();
+
+console.time("SEARCH_TOTAL");
+
+console.time("searchBusinessesFast");
+const searchData = await searchBusinessesFast({
+  query: effectiveQuery,
+  lang,
+});
+console.timeEnd("searchBusinessesFast");
+
+// Refinement
+if (searchData.mode === "refinement_required") {
+  console.timeEnd("SEARCH_TOTAL");
+  console.log("TOTAL USER REPLY TIME:", Date.now() - t0, "ms");
+
+  const session = {
+    query: effectiveQuery,
+    lang,
+    answers: {
+      preference: "",
+      area: "",
+      priority: "",
+    },
+    step: 0,
+  };
+
+  setPendingRefinement(from, session);
+
+  return javnaSendText({
+    to: from,
+    body: formatSingleRefinementQuestion(session),
+  }).catch(console.error);
+}
+
+console.time("enrichTopOnly");
+const enrichedResults = await enrichTopOnly({
+  results: searchData.results || [],
+  query: searchData.effectiveQuery || effectiveQuery,
+  userPhone: from,
+  intentType,
+});
+console.timeEnd("enrichTopOnly");
+
+console.time("formatSearchResponse");
+const reply = formatSearchResponse(
+  {
+    ...searchData,
+    results: enrichedResults,
+  },
+  lang
+);
+console.timeEnd("formatSearchResponse");
+
+console.time("javnaSendText");
+await javnaSendText({
+  to: from,
+  body: reply,
+});
+console.timeEnd("javnaSendText");
+
+console.timeEnd("SEARCH_TOTAL");
+console.log("TOTAL USER REPLY TIME:", Date.now() - t0, "ms");
+
+return;
 
     // Refinement
     if (searchData.mode === "refinement_required") {
