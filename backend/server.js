@@ -4506,173 +4506,140 @@ app.post("/api/admin/notifications/:id/read", requireAdmin, async (req, res) => 
 
 
 // ============================================================================
-// WhatsApp Webhook (FINAL CLEAN VERSION)
+// WhatsApp Helpers - Compact Production Version
 // ============================================================================
+
+function detectLanguage(text = "") {
+  return /[\u0600-\u06FF]/.test(String(text || "")) ? "ar" : "en";
+}
+
+function isGreeting(text = "") {
+  return /^(hi|hello|hey|مرحبا|اهلا|أهلا|هلا|سلام)$/i.test(
+    String(text || "").trim()
+  );
+}
+
+function isHelpCommand(text = "") {
+  return /^(help|start|مساعدة|ابدأ)$/i.test(String(text || "").trim());
+}
+
+function isThanks(text = "") {
+  return /^(thanks|thank you|شكرا|شكرًا)$/i.test(String(text || "").trim());
+}
+
+function getWelcomeMessage(lang = "ar") {
+  return lang === "ar"
+    ? "مرحبًا بك في TrustedLinks 👋\n\nاكتب اسم شركة أو نوع نشاط للبحث.\n\nمثال:\n• مطعم\n• قهوة\n• صيدلية\n• أقرب مطعم"
+    : "Welcome to TrustedLinks 👋\n\nType a business name or category to search.\n\nExample:\n• restaurant\n• coffee\n• pharmacy\n• nearest restaurant";
+}
 
 function parseNearbyIntent(text = "") {
   const raw = String(text || "").trim();
   const q = raw.toLowerCase();
 
-  const nearbyWords = [
-    "قريبة مني",
-    "قريب مني",
-    "أقرب",
-    "اقرب",
-    "قريبة",
-    "قريب",
-    "near me",
-    "nearest",
-    "closest",
-    "near",
-  ];
-
-  const removeWords = [
-    "مني",
-    "عندي",
-    "حولي",
-    "بالقرب",
-    "around",
-    "me",
-  ];
-
-  const isNearby = nearbyWords.some((word) =>
-    q.includes(word.toLowerCase())
-  );
+  const isNearby =
+    q.includes("أقرب") ||
+    q.includes("اقرب") ||
+    q.includes("قريب") ||
+    q.includes("قريبة") ||
+    q.includes("near me") ||
+    q.includes("nearest") ||
+    q.includes("closest") ||
+    q.includes("near");
 
   if (!isNearby) {
     return { isNearby: false, categoryQuery: "" };
   }
 
-  let categoryQuery = raw;
-
-  [...nearbyWords, ...removeWords]
-    .sort((a, b) => b.length - a.length)
-    .forEach((word) => {
-      const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const rx = new RegExp(escaped, "ig");
-      categoryQuery = categoryQuery.replace(rx, " ");
-    });
-
-  categoryQuery = categoryQuery.replace(/\s+/g, " ").trim();
+  const categoryQuery = raw
+    .replace(/أقرب|اقرب|قريبة مني|قريب مني|قريبة|قريب|مني|عندي|حولي|بالقرب/gi, " ")
+    .replace(/near me|nearest|closest|near|around|me/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
   return {
     isNearby: true,
     categoryQuery,
   };
 }
+// ============================================================================
+// Search Cache
+// ============================================================================
 
-function detectLanguage(text = "") {
-  const hasArabic = /[\u0600-\u06FF]/.test(text);
-  return hasArabic ? "ar" : "en";
+const SEARCH_CACHE_TTL_MS = 60 * 1000;
+const searchCache = new Map();
+
+function getCacheKey(type = "search", query = "", lang = "ar") {
+  return `${type}:${lang}:${String(query || "").toLowerCase().trim()}`;
 }
 
-function isHelpCommand(text = "") {
-  const t = String(text || "").trim().toLowerCase();
-  return ["help", "start", "مساعدة", "ابدأ"].includes(t);
+function getCached(key) {
+  const cached = searchCache.get(key);
+  if (!cached) return null;
+
+  if (Date.now() > cached.expiresAt) {
+    searchCache.delete(key);
+    return null;
+  }
+
+  return cached.data;
 }
 
-function isThanks(text = "") {
-  const t = String(text || "").toLowerCase().trim();
-  return ["شكرا", "شكرًا", "thanks", "thank you"].includes(t);
+function setCached(key, data, ttlMs = SEARCH_CACHE_TTL_MS) {
+  searchCache.set(key, {
+    data,
+    expiresAt: Date.now() + ttlMs,
+  });
 }
 
-function isGreeting(text = "") {
-  const t = String(text || "").trim().toLowerCase();
+async function searchBusinessesFast({ query, lang }) {
+  const key = getCacheKey("search", query, lang);
+  const cached = getCached(key);
+  if (cached) return cached;
+
+  const data = await searchBusinesses({ query, lang });
+
+  const safeData = {
+    ...data,
+    results: Array.isArray(data?.results) ? data.results.slice(0, 4) : [],
+  };
+
+  setCached(key, safeData);
+
+  return safeData;
+}
+
+function resolveIntentType(intentData = {}) {
+  if (intentData.isNearby) return "nearby";
+  if (intentData.intent === "brand") return "direct";
+  if (intentData.intent === "category") return "category";
+  return "direct";
+}
+
+async function enrichTopOnly({ results = [], query = "", userPhone = "", intentType = "direct" }) {
+  if (!Array.isArray(results) || results.length === 0) return [];
+
+  const enrichedTop = await enrichTopResultWithTrackedLink({
+    items: results.slice(0, 1),
+    query,
+    userPhone,
+    intentType,
+  });
+
   return [
-    "سلام",
-    "مرحبا",
-    "هلا",
-    "اهلا",
-    "أهلا",
-    "hello",
-    "hi",
-    "hey",
-    "start",
-    "ابدأ",
-  ].includes(t);
+    enrichedTop?.[0] || results[0],
+    ...results.slice(1, 4),
+  ];
 }
 
-function getWelcomeMessage(lang = "ar") {
-  if (lang === "ar") {
-    return (
-      "مرحبًا بك في TrustedLinks 👋\n\n" +
-      "يمكنني مساعدتك في البحث عن الشركات بسهولة.\n\n" +
-      "أمثلة:\n" +
-      "• مطعم\n" +
-      "• قهوة\n" +
-      "• صيدلية\n" +
-      "• كوكو\n\n" +
-      "ويمكنك أيضًا إرسال:\n" +
-      "• أقرب شركة\n" +
-      "• أقرب مطعم\n\n" +
-      "اكتب اسم الشركة أو نوع النشاط للبدء."
-    );
-  }
-
-  return (
-    "Welcome to TrustedLinks 👋\n\n" +
-    "I can help you find businesses easily.\n\n" +
-    "Examples:\n" +
-    "• restaurant\n" +
-    "• coffee\n" +
-    "• pharmacy\n" +
-    "• coco\n\n" +
-    "You can also send:\n" +
-    "• nearest business\n" +
-    "• nearest restaurant\n\n" +
-    "Type a business name or category to begin."
-  );
-}
-
-
- app.post("/api/leads/create", async (req, res) => {
-  try {
-    const businessId = String(req.body?.businessId || "").trim();
-    const query = String(req.body?.query || "").trim();
-    const userPhone = String(req.body?.userPhone || "").replace(/\D/g, "");
-
-    if (!businessId) {
-      return res.status(400).json({ error: "businessId required" });
-    }
-
-    const business = await getBusinessById(businessId);
-    if (!business) {
-      return res.status(404).json({ error: "Business not found" });
-    }
-
-    const safePhone = String(business.whatsapp || "").replace(/\D/g, "");
-    if (!safePhone) {
-      return res.status(400).json({ error: "Business phone missing" });
-    }
-
-    const intentType = String(req.body?.intentType || "direct").trim();
-
-const trackedLink = await createLeadTrackedLink({
-  businessId: business.id,
-  phone: safePhone,
-  query,
-  userPhone,
-  intentType,
-});
-
-    return res.json({
-      ok: true,
-      trackedLink,
-    });
-  } catch (e) {
-    console.error("/api/leads/create error:", e);
-    return res.status(500).json({ error: "Failed to create lead" });
-  }
-});
-  
-app.get("/webhooks/javna/whatsapp", (_req, res) => {
-  res.status(200).send("WhatsApp webhook is live");
-});
+// ============================================================================
+// WhatsApp Webhook - Production Fast Version
+// ============================================================================
 
 app.post("/webhooks/javna/whatsapp", async (req, res) => {
-  try {
-    res.status(200).json({ ok: true });
+  res.status(200).json({ ok: true });
 
+  try {
     const body = req.body || {};
 
     if (body.eventScope !== "whatsapp" || body.event !== "wa.message.received") {
@@ -4680,280 +4647,151 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
     }
 
     const from = cleanDigits(body.from || body?.data?.from || "");
-    const messageType = body?.data?.type || "";
-    const incomingLocation = body?.data?.location || null;
-    const incomingText = (body?.data?.text?.text || body?.data?.text || "")
-      .toString()
-      .trim();
-
     if (!from) return;
 
-   const lang = detectLanguage(incomingText || "");
+    const messageType = body?.data?.type || "";
+    const incomingLocation = body?.data?.location || null;
+    const incomingText = String(body?.data?.text?.text || body?.data?.text || "").trim();
 
+    const lang = detectLanguage(incomingText);
+    const normalizedQuery = normalizeSearchText(incomingText);
 
-    const query = normalizeSearchText(incomingText || "");
-
-
-
-// =========================
-// REFINEMENT ANSWER FLOW (PUT IT HERE)
-// =========================
-if (messageType === "text" && incomingText && !isMoreCommand(incomingText)) {
-  const pendingRefinement = getPendingRefinement(from);
-
-  if (pendingRefinement) {
-    const updatedSession = saveRefinementAnswer(pendingRefinement, incomingText);
-
-    if (!isRefinementComplete(updatedSession)) {
-      setPendingRefinement(from, updatedSession);
-
-      const nextQuestion = formatSingleRefinementQuestion(updatedSession);
-
-      return await javnaSendText({
+    // Greeting / Help
+    if (messageType === "text" && (isGreeting(incomingText) || isHelpCommand(incomingText))) {
+      return javnaSendText({
         to: from,
-        body: nextQuestion,
-      });
+        body: getWelcomeMessage(lang),
+      }).catch(console.error);
     }
 
-    clearPendingRefinement(from);
+    // Thanks
+    if (messageType === "text" && isThanks(incomingText)) {
+      return javnaSendText({
+        to: from,
+        body: lang === "ar" ? "على الرحب والسعة 😊" : "You're welcome 😊",
+      }).catch(console.error);
+    }
 
-   const refinedResults = await enrichTopResultWithTrackedLink({ 
-  items: refinedSearchData.results || [],
-  query: refinedSearchData.effectiveQuery || updatedSession.query,
-  userPhone: from,
-  intentType: refinedSearchData.intentType || "category",
-});
-    const finalRefinedData = {
-  ...refinedSearchData,
-  results: refinedResults,
-};
-    
-const resolvedIntentType = parsedIntent.isNearby
-  ? "nearby"
-  : parsedIntent.intent === "brand"
-  ? "direct"
-  : parsedIntent.intent === "category"
-  ? "category"
-  : "direct";
+    // Location Search
+    if (
+      messageType === "location" &&
+      incomingLocation?.latitude &&
+      incomingLocation?.longitude
+    ) {
+      const lat = Number(incomingLocation.latitude);
+      const lng = Number(incomingLocation.longitude);
 
-const enrichedResults = await enrichTopResultWithTrackedLink({
-  items: searchData.results || [],
-  query: searchData.effectiveQuery || effectiveQuery,
-  userPhone: from,
-  intentType: resolvedIntentType,
-});
-    
- const finalSearchData = {
-  ...searchData,
-  results: enrichedResults,
-};
-    const reply = formatSearchResponse(finalSearchData, updatedSession.lang);
+      const pendingNearby = getPendingNearby(from);
+      const categoryQuery = pendingNearby?.category || "";
 
-    return await javnaSendText({
+      const nearestResults = await findNearestBusinesses(lat, lng, 3, categoryQuery);
+
+      const enrichedResults = await enrichTopOnly({
+        results: nearestResults || [],
+        query: categoryQuery || pendingNearby?.rawQuery || "",
+        userPhone: from,
+        intentType: "nearby",
+      });
+
+      clearPendingNearby(from);
+
+      const reply = formatNearestResults(
+        enrichedResults,
+        lang,
+        categoryQuery || pendingNearby?.rawQuery || ""
+      );
+
+      return javnaSendText({
+        to: from,
+        body: reply,
+      }).catch(console.error);
+    }
+
+    // Empty Text
+    if (!normalizedQuery) {
+      return javnaSendText({
+        to: from,
+        body:
+          lang === "ar"
+            ? "اكتب اسم شركة أو نوع نشاط."
+            : "Send a business name or category.",
+      }).catch(console.error);
+    }
+
+    // Nearby Intent
+    const nearbyIntent = parseNearbyIntent(incomingText);
+
+    if (nearbyIntent.isNearby) {
+      setPendingNearby(from, {
+        category: nearbyIntent.categoryQuery || "",
+        rawQuery: incomingText,
+      });
+
+      return javnaSendText({
+        to: from,
+        body:
+          lang === "ar"
+            ? "📍 أرسل موقعك الحالي لأعرض لك أقرب النتائج."
+            : "📍 Please share your location so I can show nearest results.",
+      }).catch(console.error);
+    }
+
+    // Normal Intent
+    const intentData = parseSearchIntent(incomingText);
+    const effectiveQuery = intentData.categoryQuery || normalizedQuery;
+    const intentType = resolveIntentType(intentData);
+
+    // Search Fast
+    const searchData = await searchBusinessesFast({
+      query: effectiveQuery,
+      lang,
+    });
+
+    // Refinement
+    if (searchData.mode === "refinement_required") {
+      const session = {
+        query: effectiveQuery,
+        lang,
+        answers: {
+          preference: "",
+          area: "",
+          priority: "",
+        },
+        step: 0,
+      };
+
+      setPendingRefinement(from, session);
+
+      return javnaSendText({
+        to: from,
+        body: formatSingleRefinementQuestion(session),
+      }).catch(console.error);
+    }
+
+    // Results
+    const enrichedResults = await enrichTopOnly({
+      results: searchData.results || [],
+      query: searchData.effectiveQuery || effectiveQuery,
+      userPhone: from,
+      intentType,
+    });
+
+    const reply = formatSearchResponse(
+      {
+        ...searchData,
+        results: enrichedResults,
+      },
+      lang
+    );
+
+    return javnaSendText({
       to: from,
       body: reply,
-    });
-  }
-}
-// =========================
-// Greeting / Help / Thanks
-// =========================
-if (isGreeting(incomingText) || isHelpCommand(incomingText)) {
-  return await javnaSendText({
-    to: from,
-    body: getWelcomeMessage(lang),
-  });
-}
-
-if (isThanks(incomingText)) {
-  return await javnaSendText({
-    to: from,
-    body: lang === "ar" ? "على الرحب والسعة 😊" : "You're welcome 😊",
-  });
-}
-
-// =========================
-// LOCATION SEARCH
-// =========================
-if (
-  messageType === "location" &&
-  incomingLocation?.latitude &&
-  incomingLocation?.longitude
-) {
-  const lat = Number(incomingLocation.latitude);
-  const lng = Number(incomingLocation.longitude);
-
-  const pendingNearby = getPendingNearby(from);
-  const categoryQuery = pendingNearby?.category || "";
-
-  const nearestResults = await findNearestBusinesses(lat, lng, 3, categoryQuery);
-
-  const enrichedNearbyResults = await enrichTopResultWithTrackedLink({ 
-    items: nearestResults || [],
-    query: categoryQuery || pendingNearby?.rawQuery || incomingText,
-    userPhone: from,
-    intentType: "nearby",
-  });
-
-  clearPendingNearby(from);
-
-  const reply = formatNearestResults(
-    enrichedNearbyResults,
-    lang,
-    categoryQuery || pendingNearby?.rawQuery || ""
-  );
-
-  return await javnaSendText({
-    to: from,
-    body: reply,
-  });
-}
-
-// =========================
-// EMPTY
-// =========================
-if (!query) {
-  return await javnaSendText({
-    to: from,
-    body:
-      lang === "ar"
-        ? "اكتب اسم شركة أو نوع نشاط."
-        : "Send a business name or category.",
-  });
-}
-
-// =========================
-// NORMAL SEARCH (NEW ENGINE)
-// =========================
-const intentData = parseSearchIntent(incomingText || "");
-const effectiveQuery =
-  intentData.categoryQuery || normalizeSearchText(incomingText || "");
-
-    const parsedIntent = parseSearchIntent(incomingText || "");
-
-const intentType = parsedIntent.isNearby
-  ? "nearby"
-  : parsedIntent.intent === "brand"
-  ? "direct"
-  : parsedIntent.intent === "category"
-  ? "category"
-  : "direct";
-
-// =========================
-// NEARBY → ask for location
-// =========================
-if (intentData.isNearby) {
-  setPendingNearby(from, {
-    category: intentData.categoryQuery || "",
-    rawQuery: incomingText || "",
-  });
-
-  const body =
-    lang === "ar"
-      ? "📍 أرسل موقعك الحالي لأعرض لك أقرب النتائج."
-      : "📍 Please share your location so I can show nearest results.";
-
-  return await javnaSendText({
-    to: from,
-    body,
-  });
-}
-
-// =========================
-// RUN SEARCH ENGINE
-// =========================
-const searchData = await searchBusinesses({
-  query: normalizeSearchText(incomingText || ""),
-  lang,
-});
-
-// =========================
-// REFINEMENT MODE
-// =========================
-if (searchData.mode === "refinement_required") {
-  const session = {
-    query: normalizeSearchText(incomingText || ""),
-    lang,
-    answers: {
-      preference: "",
-      area: "",
-      priority: "",
-    },
-    step: 0,
-  };
-
-  setPendingRefinement(from, session);
-
-  const firstQuestion = formatSingleRefinementQuestion(session);
-
-  return await javnaSendText({
-    to: from,
-    body: firstQuestion,
-  });
-}
-
-// =========================
-// RESULTS MODE
-// =========================
-
-   const resolvedIntentType = parsedIntent.isNearby
-  ? "nearby"
-  : parsedIntent.intent === "brand"
-  ? "direct"
-  : parsedIntent.intent === "category"
-  ? "category"
-  : "direct";
-
-const enrichedResults = await enrichTopResultWithTrackedLink({
-  items: searchData.results || [],
-  query: searchData.effectiveQuery || effectiveQuery,
-  userPhone: from,
- intentType: resolvedIntentType,
-});
-    
-const finalSearchData = {
-  ...searchData,
-  results: enrichedResults,
-};
-
-const reply = formatSearchResponse(finalSearchData, lang);
-
-return await javnaSendText({
-  to: from,
-  body: reply,
-});
+    }).catch(console.error);
   } catch (e) {
     console.error("WHATSAPP WEBHOOK ERROR:", e);
   }
 });
-
-function buildWhatsAppLeadMessage({
-  query = "",
-  businessId = "",
-  userPhone = "",
-}) {
-  const parts = [
-    "مرحبا، وصلت إليكم عبر TrustedLinks.",
-    "Hello, I found you through TrustedLinks.",
-  ];
-
-  if (query) {
-    parts.push(`البحث: ${query}`);
-    parts.push(`Search: ${query}`);
-  }
-
-  if (userPhone) {
-    parts.push(`رقمي: ${userPhone}`);
-  }
-
-  if (businessId) {
-    parts.push(`Ref: ${businessId}`);
-  }
-
-  parts.push("أرغب بمعرفة المزيد.");
-
-  return parts.join("\n");
-}
 
 // ============================================================================
 // LEAD TRACKED REDIRECT
