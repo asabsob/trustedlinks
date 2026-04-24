@@ -1,61 +1,77 @@
 // search/searchFormatter.js
 
-function getDisplayName(item = {}, lang = "ar") {
-  if (lang === "ar") {
-    return item.name_ar || item.name || "نشاط";
+const CATEGORY_MAP = {
+  BEVERAGES: { ar: "مشروبات", en: "Beverages" },
+  RESTAURANT: { ar: "مطعم", en: "Restaurant" },
+  RESTAURANTS: { ar: "مطاعم", en: "Restaurants" },
+  CAFE: { ar: "كافيه", en: "Cafe" },
+  CAFES: { ar: "كافيهات", en: "Cafes" },
+  COFFEE: { ar: "قهوة", en: "Coffee" },
+  DESSERTS: { ar: "حلويات", en: "Desserts" },
+  BAKERY: { ar: "مخبز", en: "Bakery" },
+  PHARMACY: { ar: "صيدلية", en: "Pharmacy" },
+  CLINIC: { ar: "عيادة", en: "Clinic" },
+  GYM: { ar: "نادي رياضي", en: "Gym" },
+  SALON: { ar: "صالون", en: "Salon" },
+  SHOPPING: { ar: "تسوق", en: "Shopping" },
+  SERVICES: { ar: "خدمات", en: "Services" },
+};
+
+function cleanText(value = "") {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function isArabicLang(lang = "ar") {
+  return lang === "ar";
+}
+
+function pickLang(item = {}, arKey, enKey, lang = "ar", fallback = "") {
+  if (isArabicLang(lang)) {
+    return cleanText(item[arKey] || item[enKey] || item.name || fallback);
   }
-  return item.name || item.name_ar || "Business";
+  return cleanText(item[enKey] || item[arKey] || item.name || fallback);
+}
+
+function translateCategory(value, lang = "ar") {
+  const key = String(value || "").trim().toUpperCase();
+  return CATEGORY_MAP[key]?.[lang] || cleanText(value);
+}
+
+function getDisplayName(item = {}, lang = "ar") {
+  return pickLang(item, "name_ar", "name_en", lang, isArabicLang(lang) ? "نشاط" : "Business");
 }
 
 function getCategoryText(item = {}, lang = "ar") {
-  const raw = Array.isArray(item.category)
-    ? item.category
-    : item.category
-    ? [item.category]
-    : [];
+  const raw =
+    isArabicLang(lang)
+      ? item.category_ar || item.category
+      : item.category_en || item.category;
 
-  const values = raw
-    .map((v) => String(v || "").trim())
+  const values = Array.isArray(raw) ? raw : raw ? [raw] : [];
+
+  const translated = values
+    .map((v) => translateCategory(v, lang))
     .filter(Boolean);
 
-  if (!values.length) return "";
+  if (!translated.length) return "";
 
-  return lang === "ar"
-    ? `التصنيف: ${values.join("، ")}`
-    : `Category: ${values.join(", ")}`;
+  return isArabicLang(lang)
+    ? `🏷️ التصنيف: ${translated.join("، ")}`
+    : `🏷️ Category: ${translated.join(", ")}`;
 }
 
-function getDescriptionText(item = {}, lang = "ar", maxLength = 120) {
-  const text =
-    lang === "ar"
-      ? item.description_ar || item.description || ""
-      : item.description || item.description_ar || "";
+function getAreaText(item = {}, lang = "ar") {
+  const area = pickLang(item, "area_ar", "area_en", lang, "");
+  const city = pickLang(item, "city_ar", "city_en", lang, "");
 
-  const cleaned = String(text).replace(/\s+/g, " ").trim();
-  if (!cleaned) return "";
-
-  const shortened =
-    cleaned.length > maxLength
-      ? `${cleaned.slice(0, maxLength).trim()}...`
-      : cleaned;
-
-  return lang === "ar"
-    ? `الوصف: ${shortened}`
-    : `Description: ${shortened}`;
+  if (area && city) return `${area} - ${city}`;
+  return area || city || "";
 }
 
-function getLocationLine(item = {}, lang = "ar") {
-  if (!item.mapLink) return "";
-  return lang === "ar"
-    ? `الموقع: ${item.mapLink}`
-    : `Location: ${item.mapLink}`;
-}
-
-function getChatLine(item = {}, lang = "ar") {
-  if (!item.trackedLink) return "";
-  return lang === "ar"
-    ? `المحادثة: ${item.trackedLink}`
-    : `Chat: ${item.trackedLink}`;
+function getLocationText(item = {}, lang = "ar") {
+  const areaText = getAreaText(item, lang);
+  if (!areaText) return "";
+  return `📍 ${areaText}`;
 }
 
 function getDistanceLine(item = {}, lang = "ar") {
@@ -63,85 +79,95 @@ function getDistanceLine(item = {}, lang = "ar") {
 
   const distanceKm = (Number(item.distance) / 1000).toFixed(1);
 
-  return lang === "ar"
-    ? `المسافة: ${distanceKm} كم`
-    : `Distance: ${distanceKm} km`;
+  return isArabicLang(lang)
+    ? `📏 يبعد ${distanceKm} كم`
+    : `📏 ${distanceKm} km away`;
+}
+
+function getChatLine(item = {}, lang = "ar") {
+  if (!item.trackedLink) return "";
+
+  return isArabicLang(lang)
+    ? `💬 واتساب:\n${item.trackedLink}`
+    : `💬 WhatsApp:\n${item.trackedLink}`;
+}
+
+function getDirectionsLine(item = {}, lang = "ar") {
+  if (!item.mapLink) return "";
+
+  return isArabicLang(lang)
+    ? `📍 الاتجاهات:\n${item.mapLink}`
+    : `📍 Directions:\n${item.mapLink}`;
 }
 
 function getIntentHeader(intent = "category", query = "", lang = "ar") {
-  if (lang === "ar") {
-    if (intent === "brand") return `نتيجة البحث عن: "${query}"`;
-    if (intent === "discovery") return `أفضل النتائج لـ: "${query}"`;
-    return `نتائج البحث عن: "${query}"`;
+  if (isArabicLang(lang)) {
+    if (intent === "brand") return `🔎 نتيجة البحث عن: "${query}"`;
+    if (intent === "discovery") return `🔎 أفضل النتائج لـ: "${query}"`;
+    return `🔎 نتائج البحث عن: "${query}"`;
   }
 
-  if (intent === "brand") return `Search result for: "${query}"`;
-  if (intent === "discovery") return `Best matches for: "${query}"`;
-  return `Results for: "${query}"`;
+  if (intent === "brand") return `🔎 Search result for: "${query}"`;
+  if (intent === "discovery") return `🔎 Best matches for: "${query}"`;
+  return `🔎 Results for: "${query}"`;
 }
 
 function getFooterHint(lang = "ar") {
-  return lang === "ar"
-    ? "أرسل بحثًا آخر أو اكتب: أقرب + نوع النشاط."
-    : "Send another search or type: nearest + category.";
+  return isArabicLang(lang)
+    ? `أرسل بحثًا آخر أو اكتب: أقرب + نوع النشاط.`
+    : `Send another search or type: nearest + category.`;
 }
 
 function formatBusinessBlock(item = {}, index = 0, lang = "ar", options = {}) {
-  const {
-    includeDistance = false,
-    includeDescription = true,
-    includeCategory = true,
-  } = options;
+  const { includeDistance = false, includeCategory = true } = options;
 
   const lines = [];
   const name = getDisplayName(item, lang);
 
-  lines.push(`${index + 1}) ${name}`);
-
-  if (includeDistance) {
-    const distanceLine = getDistanceLine(item, lang);
-    if (distanceLine) lines.push(distanceLine);
-  }
+  lines.push(`${index + 1}) 🏪 *${name}*`);
 
   if (includeCategory) {
     const categoryLine = getCategoryText(item, lang);
     if (categoryLine) lines.push(categoryLine);
   }
 
-  if (includeDescription) {
-    const descriptionLine = getDescriptionText(item, lang);
-    if (descriptionLine) lines.push(descriptionLine);
+  if (includeDistance) {
+    const distanceLine = getDistanceLine(item, lang);
+    if (distanceLine) lines.push(distanceLine);
   }
+
+  const locationText = getLocationText(item, lang);
+  if (locationText) lines.push(locationText);
+
+  lines.push("");
 
   const chatLine = getChatLine(item, lang);
   if (chatLine) lines.push(chatLine);
 
-  const locationLine = getLocationLine(item, lang);
-  if (locationLine) lines.push(locationLine);
+  const directionsLine = getDirectionsLine(item, lang);
+  if (directionsLine) lines.push("");
+  if (directionsLine) lines.push(directionsLine);
 
   return lines.join("\n");
 }
 
 export function formatNoResults(query = "", lang = "ar") {
-  if (lang === "ar") {
-    if (query?.trim()) {
-      return `لم أجد نتائج مطابقة لـ "${query}".\nجرّب اسمًا مختلفًا أو اكتب نوع النشاط بشكل أوضح.`;
-    }
-    return "لم أجد نتائج مطابقة.";
+  if (isArabicLang(lang)) {
+    return query?.trim()
+      ? `لم أجد نتائج مطابقة لـ "${query}".\nجرّب اسمًا مختلفًا أو اكتب نوع النشاط بشكل أوضح.`
+      : "لم أجد نتائج مطابقة.";
   }
 
-  if (query?.trim()) {
-    return `No matching results found for "${query}".\nTry another name or a clearer category.`;
-  }
-
-  return "No matching results found.";
+  return query?.trim()
+    ? `No matching results found for "${query}".\nTry another name or a clearer category.`
+    : "No matching results found.";
 }
 
 export function formatRefinementQuestions(questions = [], query = "", lang = "ar") {
   const safeQuestions = Array.isArray(questions) ? questions : [];
 
   if (!safeQuestions.length) {
-    return lang === "ar"
+    return isArabicLang(lang)
       ? "حتى أعطيك نتائج أدق، أجب على بعض الأسئلة القصيرة."
       : "To show more accurate results, please answer a few short questions.";
   }
@@ -149,7 +175,7 @@ export function formatRefinementQuestions(questions = [], query = "", lang = "ar
   const lines = [];
 
   lines.push(
-    lang === "ar"
+    isArabicLang(lang)
       ? query
         ? `حتى أعطيك نتائج أدق لـ "${query}"، أجب على 3 أسئلة قصيرة:`
         : "حتى أعطيك نتائج أدق، أجب على 3 أسئلة قصيرة:"
@@ -178,17 +204,40 @@ export function formatSearchResults({
   const lines = [];
 
   lines.push(getIntentHeader(intent, query, lang));
+  lines.push("");
 
-  results.forEach((item, index) => {
+  const featured = results[0];
+  lines.push(
+    isArabicLang(lang)
+      ? "🔥 أفضل نتيجة:"
+      : "🔥 Best result:"
+  );
+  lines.push("");
+  lines.push(
+    formatBusinessBlock(featured, 0, lang, {
+      includeDistance: false,
+      includeCategory: true,
+    })
+  );
+
+  const others = results.slice(1, 4);
+
+  if (others.length) {
     lines.push("");
-    lines.push(
-      formatBusinessBlock(item, index, lang, {
-        includeDistance: false,
-        includeDescription: true,
-        includeCategory: true,
-      })
-    );
-  });
+    lines.push("────────────");
+    lines.push("");
+    lines.push(isArabicLang(lang) ? "نتائج أخرى:" : "Other results:");
+
+    others.forEach((item, index) => {
+      lines.push("");
+      lines.push(
+        formatBusinessBlock(item, index + 1, lang, {
+          includeDistance: false,
+          includeCategory: false,
+        })
+      );
+    });
+  }
 
   lines.push("");
   lines.push(getFooterHint(lang));
@@ -198,7 +247,7 @@ export function formatSearchResults({
 
 export function formatNearestResults(results = [], lang = "ar", categoryQuery = "") {
   if (!Array.isArray(results) || results.length === 0) {
-    return lang === "ar"
+    return isArabicLang(lang)
       ? categoryQuery
         ? `لم أجد نتائج قريبة لـ "${categoryQuery}".`
         : "لم أجد نتائج قريبة."
@@ -210,22 +259,21 @@ export function formatNearestResults(results = [], lang = "ar", categoryQuery = 
   const lines = [];
 
   lines.push(
-    lang === "ar"
+    isArabicLang(lang)
       ? categoryQuery
-        ? `أقرب النتائج لـ "${categoryQuery}"`
-        : "أقرب النتائج"
+        ? `📍 أقرب النتائج لـ "${categoryQuery}"`
+        : "📍 أقرب النتائج"
       : categoryQuery
-      ? `Nearest results for "${categoryQuery}"`
-      : "Nearest results"
+      ? `📍 Nearest results for "${categoryQuery}"`
+      : "📍 Nearest results"
   );
 
-  results.forEach((item, index) => {
+  results.slice(0, 4).forEach((item, index) => {
     lines.push("");
     lines.push(
       formatBusinessBlock(item, index, lang, {
         includeDistance: true,
-        includeDescription: false,
-        includeCategory: true,
+        includeCategory: index === 0,
       })
     );
   });
