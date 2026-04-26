@@ -4818,8 +4818,47 @@ app.get("/l/:token", async (req, res) => {
     if (!tokenRow) {
       return res.status(404).send("Lead link not found");
     }
+    
+    const businessId = String(
+      tokenRow.business_id ||
+        tokenRow.businessId ||
+        ""
+    ).trim();
 
-  if (!tokenRow.consent_snapshot_id && !tokenRow.consentSnapshotId) {
+    if (!businessId) {
+      console.error("Lead token missing businessId", { tokenId, tokenRow });
+      return res.status(400).send("Invalid lead token business");
+    }
+
+    if (tokenRow.expires_at && new Date(tokenRow.expires_at) < new Date()) {
+      return res.status(410).send("Lead link expired");
+    }
+
+    const ip =
+      req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
+      req.socket?.remoteAddress ||
+      "";
+
+    const userAgent = String(req.headers["user-agent"] || "");
+    const acceptLanguage = String(req.headers["accept-language"] || "");
+    const platform = String(req.headers["sec-ch-ua-platform"] || "");
+
+    const fingerprint = buildFingerprint({
+      ip,
+      userAgent,
+      acceptLanguage,
+      platform,
+    });
+
+    const userPhoneHash = hashFraudPhone(
+      tokenRow.user_phone ||
+        tokenRow.userPhone ||
+        ""
+    );
+
+    const intentType = String(tokenRow.intent_type || "direct").trim() || "direct";
+
+      if (!tokenRow.consent_snapshot_id && !tokenRow.consentSnapshotId) {
   const accepted = String(req.query.acceptConsent || "") === "1";
 
   if (!accepted) {
@@ -4905,45 +4944,6 @@ app.get("/l/:token", async (req, res) => {
 
   tokenRow.consent_snapshot_id = consentRow.id;
 }
-    
-    const businessId = String(
-      tokenRow.business_id ||
-        tokenRow.businessId ||
-        ""
-    ).trim();
-
-    if (!businessId) {
-      console.error("Lead token missing businessId", { tokenId, tokenRow });
-      return res.status(400).send("Invalid lead token business");
-    }
-
-    if (tokenRow.expires_at && new Date(tokenRow.expires_at) < new Date()) {
-      return res.status(410).send("Lead link expired");
-    }
-
-    const ip =
-      req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
-      req.socket?.remoteAddress ||
-      "";
-
-    const userAgent = String(req.headers["user-agent"] || "");
-    const acceptLanguage = String(req.headers["accept-language"] || "");
-    const platform = String(req.headers["sec-ch-ua-platform"] || "");
-
-    const fingerprint = buildFingerprint({
-      ip,
-      userAgent,
-      acceptLanguage,
-      platform,
-    });
-
-    const userPhoneHash = hashFraudPhone(
-      tokenRow.user_phone ||
-        tokenRow.userPhone ||
-        ""
-    );
-
-    const intentType = String(tokenRow.intent_type || "direct").trim() || "direct";
 
     const signals = await analyzeLeadSignals({
       businessId,
