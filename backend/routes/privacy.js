@@ -1,5 +1,5 @@
 import express from "express";
-import { supabase } from "../db/postgres.js";
+import supabase from "../db/postgres.js";
 import {
   hashPhone,
   hashIp,
