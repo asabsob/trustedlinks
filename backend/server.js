@@ -600,22 +600,6 @@ const PENDING_NEARBY_REQUESTS = new Map();
 const PENDING_REFINEMENT_REQUESTS = new Map();
 
 // =========================
-// CONFIG
-// =========================
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY,
-  {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  }
-);
-
-
-// =========================
 // HELPERS
 // =========================
 
