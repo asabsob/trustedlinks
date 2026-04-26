@@ -102,6 +102,7 @@ import {
   redactIp,
   normalizeQueryForStorage,
   buildSafeSearchLog,
+  hashValue,   // 👈 أضف هذا
 } from "./utils/privacy.js";
 
 import {
@@ -4818,27 +4819,91 @@ app.get("/l/:token", async (req, res) => {
       return res.status(404).send("Lead link not found");
     }
 
-    if (!tokenRow.consent_snapshot_id && !tokenRow.consentSnapshotId) {
-  return res.status(403).send(`
-    <html>
-      <head>
-        <title>Consent Required</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-      </head>
-      <body style="font-family: Arial, sans-serif; padding: 32px; line-height: 1.6;">
-        <h2>Consent Required</h2>
-        <p>
-          Please return to TrustedLinks and accept the privacy notice before continuing to WhatsApp.
-        </p>
-        <p dir="rtl">
-          يرجى الرجوع إلى TrustedLinks والموافقة على إشعار الخصوصية قبل المتابعة إلى واتساب.
-        </p>
-        <a href="https://trustedlinks.net" style="color:#0A7C55;">
-          Back to TrustedLinks
-        </a>
-      </body>
-    </html>
-  `);
+  if (!tokenRow.consent_snapshot_id && !tokenRow.consentSnapshotId) {
+  const accepted = String(req.query.acceptConsent || "") === "1";
+
+  if (!accepted) {
+    return res.send(`
+      <html>
+        <head>
+          <title>Continue to WhatsApp</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+        </head>
+        <body style="
+          font-family: Arial, sans-serif;
+          padding: 28px;
+          line-height: 1.6;
+          max-width: 520px;
+          margin: 0 auto;
+        ">
+          <h2>Continue to WhatsApp</h2>
+
+          <p>
+            TrustedLinks will use this interaction to connect you with the selected business and improve the service.
+          </p>
+
+          <p dir="rtl" style="font-size:18px;">
+            ستستخدم TrustedLinks هذا التفاعل لربطك بالنشاط المختار عبر واتساب وتحسين الخدمة.
+          </p>
+
+          <a href="/l/${encodeURIComponent(tokenId)}?acceptConsent=1"
+             style="
+              display:block;
+              text-align:center;
+              background:#0A7C55;
+              color:white;
+              padding:14px 18px;
+              border-radius:12px;
+              text-decoration:none;
+              font-size:18px;
+              margin-top:24px;
+             ">
+            أوافق وأكمل إلى واتساب
+          </a>
+
+          <p style="font-size:13px;color:#666;margin-top:18px;">
+            By continuing, you accept TrustedLinks privacy notice.
+          </p>
+        </body>
+      </html>
+    `);
+  }
+
+  const { data: consentRow, error } = await supabase
+    .from("privacy_consents")
+    .insert({
+      user_phone_hash: userPhoneHash || null,
+      session_id: `lead-${tokenId}`,
+      service_consent: true,
+      profiling_consent: true,
+      marketing_consent: false,
+      status: "granted",
+      policy_version: "v1.0",
+      language: "ar",
+      source: "lead_redirect",
+      ip_hash: hashValue(ip || ""),
+      user_agent: userAgent || "",
+      proof_json: {
+        tokenId,
+        acceptedAt: new Date().toISOString(),
+      },
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    console.error("Consent insert error:", error);
+    return res.status(500).send("Error. Try again.");
+  }
+
+  await supabase
+    .from("lead_tokens")
+    .update({
+      consent_snapshot_id: consentRow.id,
+    })
+    .eq("id", tokenId);
+
+  tokenRow.consent_snapshot_id = consentRow.id;
 }
     
     const businessId = String(
