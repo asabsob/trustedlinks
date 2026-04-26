@@ -118,6 +118,8 @@ import {
   createPendingCharge,
 } from "./services/antiFraud/store.js";
 
+import privacyRoutes from "./routes/privacy.js";
+
 function hash(value = "") {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
 }
@@ -376,6 +378,7 @@ app.use("/l", leadLimiter);
 
 app.use(express.urlencoded({ extended: true, limit: "200kb" }));
 
+app.use("/api/privacy", privacyRoutes);
 
 const getIP = (req) =>
   req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
