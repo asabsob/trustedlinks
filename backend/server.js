@@ -12,6 +12,7 @@ import bcrypt from "bcrypt";
 import geolib from "geolib";
 import { nanoid } from "nanoid";
 
+import supabase from "./db/postgres.js";
 
 import { searchBusinesses } from "./search/searchService.js";
 import { normalizeSearchText } from "./search/textNormalizer.js";
@@ -4833,6 +4834,29 @@ app.get("/l/:token", async (req, res) => {
       return res.status(404).send("Lead link not found");
     }
 
+    if (!tokenRow.consent_snapshot_id && !tokenRow.consentSnapshotId) {
+  return res.status(403).send(`
+    <html>
+      <head>
+        <title>Consent Required</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </head>
+      <body style="font-family: Arial, sans-serif; padding: 32px; line-height: 1.6;">
+        <h2>Consent Required</h2>
+        <p>
+          Please return to TrustedLinks and accept the privacy notice before continuing to WhatsApp.
+        </p>
+        <p dir="rtl">
+          يرجى الرجوع إلى TrustedLinks والموافقة على إشعار الخصوصية قبل المتابعة إلى واتساب.
+        </p>
+        <a href="https://trustedlinks.net" style="color:#0A7C55;">
+          Back to TrustedLinks
+        </a>
+      </body>
+    </html>
+  `);
+}
+    
     const businessId = String(
       tokenRow.business_id ||
         tokenRow.businessId ||
@@ -5073,6 +5097,13 @@ await logFraudEvent({
   },
 });
 
+    await supabase
+  .from("lead_tokens")
+  .update({
+    opened_at: new Date().toISOString(),
+  })
+  .eq("id", tokenId);
+    
 return res.send(redirectHtml);
   } catch (error) {
     console.error("Lead redirect anti-fraud error:", error);
