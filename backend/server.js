@@ -4858,9 +4858,13 @@ app.get("/l/:token", async (req, res) => {
 
     const intentType = String(tokenRow.intent_type || "direct").trim() || "direct";
 
-      if (!tokenRow.consent_snapshot_id && !tokenRow.consentSnapshotId) {
+    const hasConsent =
+  tokenRow.consent_snapshot_id || tokenRow.consentSnapshotId;
+
+if (!hasConsent) {
   const accepted = String(req.query.acceptConsent || "") === "1";
 
+  // 1. عرض صفحة الموافقة
   if (!accepted) {
     return res.send(`
       <html>
@@ -4869,20 +4873,19 @@ app.get("/l/:token", async (req, res) => {
           <meta name="viewport" content="width=device-width, initial-scale=1" />
         </head>
         <body style="
-          font-family: Arial, sans-serif;
+          font-family: Arial;
           padding: 28px;
-          line-height: 1.6;
           max-width: 520px;
-          margin: 0 auto;
+          margin: auto;
         ">
           <h2>Continue to WhatsApp</h2>
 
           <p>
-            TrustedLinks will use this interaction to connect you with the selected business and improve the service.
+            TrustedLinks will connect you with the selected business via WhatsApp.
           </p>
 
-          <p dir="rtl" style="font-size:18px;">
-            ستستخدم TrustedLinks هذا التفاعل لربطك بالنشاط المختار عبر واتساب وتحسين الخدمة.
+          <p dir="rtl">
+            سيتم ربطك بالنشاط المختار عبر واتساب من خلال TrustedLinks.
           </p>
 
           <a href="/l/${encodeURIComponent(tokenId)}?acceptConsent=1"
@@ -4891,23 +4894,19 @@ app.get("/l/:token", async (req, res) => {
               text-align:center;
               background:#0A7C55;
               color:white;
-              padding:14px 18px;
+              padding:14px;
               border-radius:12px;
+              margin-top:20px;
               text-decoration:none;
-              font-size:18px;
-              margin-top:24px;
              ">
-            أوافق وأكمل إلى واتساب
+            أوافق وأكمل
           </a>
-
-          <p style="font-size:13px;color:#666;margin-top:18px;">
-            By continuing, you accept TrustedLinks privacy notice.
-          </p>
         </body>
       </html>
     `);
   }
 
+  // 2. إنشاء consent مرة واحدة فقط
   const { data: consentRow, error } = await supabase
     .from("privacy_consents")
     .insert({
@@ -4935,6 +4934,7 @@ app.get("/l/:token", async (req, res) => {
     return res.status(500).send("Error. Try again.");
   }
 
+  // 3. تحديث lead token
   await supabase
     .from("lead_tokens")
     .update({
@@ -4942,6 +4942,7 @@ app.get("/l/:token", async (req, res) => {
     })
     .eq("id", tokenId);
 
+  // 4. تحديث object في الذاكرة لمنع التكرار
   tokenRow.consent_snapshot_id = consentRow.id;
 }
 
