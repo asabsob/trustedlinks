@@ -1,5 +1,10 @@
 import crypto from "crypto";
 
+const HASH_SECRET =
+  process.env.HASH_SECRET ||
+  process.env.JWT_SECRET ||
+  "dev_secret_change_me";
+
 export function maskPhone(phone = "") {
   const clean = String(phone || "").replace(/\D/g, "");
   if (!clean) return "";
@@ -8,13 +13,18 @@ export function maskPhone(phone = "") {
 }
 
 export function hashValue(value = "") {
-  const raw = String(value || "").trim();
+  const raw = String(value || "").trim().toLowerCase();
   if (!raw) return "";
-  return crypto.createHash("sha256").update(raw).digest("hex");
+
+  return crypto
+    .createHmac("sha256", HASH_SECRET)
+    .update(raw)
+    .digest("hex");
 }
 
 export function hashPhone(phone = "") {
   const clean = String(phone || "").replace(/\D/g, "");
+  if (!clean) return "";
   return hashValue(clean);
 }
 
@@ -50,6 +60,31 @@ export function redactIp(ip = "") {
   return "redacted";
 }
 
+export function hashIp(ip = "") {
+  const value = String(ip || "").trim();
+  if (!value) return "";
+  return hashValue(value);
+}
+
+export function getClientIp(req) {
+  return (
+    req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+    req.headers["x-real-ip"] ||
+    req.socket?.remoteAddress ||
+    ""
+  );
+}
+
+export function getSessionId(req) {
+  return (
+    req.headers["x-session-id"] ||
+    req.cookies?.tl_session_id ||
+    req.body?.sessionId ||
+    req.query?.sessionId ||
+    ""
+  );
+}
+
 export function sanitizeTextForLogs(text = "", maxLength = 80) {
   return String(text || "")
     .replace(/\s+/g, " ")
@@ -72,5 +107,16 @@ export function buildSafeSearchLog({
     queryNormalized: normalizeQueryForStorage(query || incomingText || ""),
     lang: String(lang || ""),
     messageType: String(messageType || ""),
+  };
+}
+
+export function buildConsentProof(req, extra = {}) {
+  return {
+    ipHash: hashIp(getClientIp(req)),
+    ipRedacted: redactIp(getClientIp(req)),
+    userAgent: sanitizeTextForLogs(req.headers["user-agent"] || "", 180),
+    sessionId: getSessionId(req),
+    acceptedAt: new Date().toISOString(),
+    ...extra,
   };
 }
