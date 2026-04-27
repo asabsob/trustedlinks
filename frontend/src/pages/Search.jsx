@@ -288,9 +288,33 @@ const getDisplayKeywords = (b) => {
     } catch {}
   };
 
-const getWhatsappUrl = (b) => {
-  if (b.lead_link) return b.lead_link;
-  return "#";
+const createLeadAndOpen = async (businessId) => {
+  try {
+    const res = await fetch(`${API_BASE}/api/create-lead`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ businessId, source: "website_search" }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.link) {
+      alert(
+        isArabic
+          ? "تعذر بدء التواصل الآن"
+          : "Unable to start contact now"
+      );
+      return;
+    }
+
+    window.open(data.link, "_blank", "noopener,noreferrer");
+  } catch {
+    alert(
+      isArabic
+        ? "حدث خطأ أثناء بدء التواصل"
+        : "Something went wrong while starting contact"
+    );
+  }
 };
 
   const getMapUrl = (b) => {
@@ -635,40 +659,61 @@ const getWhatsappUrl = (b) => {
                         marginTop: "auto",
                       }}
                     >
-                      <button
-                        onClick={() => {
-                          navigate(`/business/${businessId}`);
-                          trackAction("/api/track-click", businessId);
-                        }}
-                        style={{
-                          background: "#f1f5f9",
-                          color: "#0f172a",
-                          border: "none",
-                          borderRadius: 12,
-                          padding: "12px 14px",
-                          cursor: "pointer",
-                          fontWeight: 700,
-                        }}
-                      >
-                        {t("View Details", "عرض التفاصيل")}
-                      </button>
+                  <button
+  onClick={() => {
+    navigate(`/business/${businessId}`);
+    trackAction("/api/track-click", businessId);
+  }}
+  style={{
+    background: "#f1f5f9",
+    color: "#0f172a",
+    border: "none",
+    borderRadius: 12,
+    padding: "12px 14px",
+    cursor: "pointer",
+    fontWeight: 700,
+  }}
+>
+  {t("View Details", "عرض التفاصيل")}
+</button>
 
-                      <a
-  href={fixUrl(whatsappUrl)}
-  target="_blank"
-  rel="noopener noreferrer"
-  onClick={(e) => {
-    if (!whatsappUrl || whatsappUrl === "#") {
-      e.preventDefault();
+<button
+  onClick={async () => {
+    trackAction("/api/track-whatsapp", businessId);
+
+    try {
+      const res = await fetch(`${API_BASE}/api/create-lead`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          businessId,
+          source: "website_search",
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.link) {
+        alert(
+          isArabic
+            ? "تعذر بدء التواصل الآن"
+            : "Unable to start contact now"
+        );
+        return;
+      }
+
+      window.open(data.link, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      console.error("Create lead error:", err);
+
       alert(
         isArabic
-          ? "هذا النشاط غير جاهز للتواصل"
-          : "Business not ready for contact"
+          ? "حدث خطأ أثناء بدء التواصل"
+          : "Something went wrong while starting contact"
       );
-      return;
     }
-
-    trackAction("/api/track-whatsapp", businessId);
   }}
   style={{
     textAlign: "center",
@@ -676,12 +721,13 @@ const getWhatsappUrl = (b) => {
     color: "#fff",
     borderRadius: 12,
     padding: "12px 14px",
-    textDecoration: "none",
     fontWeight: 700,
+    border: "none",
+    cursor: "pointer",
   }}
 >
   💬 {t("Chat Now", "تواصل الآن")}
-</a>
+</button>
                     </div>
 
                     {mapUrl && (
