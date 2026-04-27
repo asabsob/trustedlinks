@@ -1,9 +1,10 @@
 // ============================================================================
-// Trusted Links - Business Dashboard (Clean + Bilingual)
+// Trusted Links - Business Dashboard (Production Bilingual)
 // ============================================================================
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { getText, getCategoryLabel } from "../i18n";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE ||
@@ -12,7 +13,7 @@ const API_BASE =
 export default function Dashboard({ lang = "en" }) {
   const navigate = useNavigate();
   const isAr = lang === "ar";
-  const t = (en, ar) => (isAr ? ar : en);
+  const tr = (key) => getText(lang, key);
 
   const [user, setUser] = useState(null);
   const [business, setBusiness] = useState(null);
@@ -35,13 +36,13 @@ export default function Dashboard({ lang = "en" }) {
         setLoading(true);
         setError("");
 
-       const meRes = await fetch(`${API_BASE}/api/me`, {
-  cache: "no-store",
-  headers: {
-    Authorization: `Bearer ${token}`,
-  },
-});
-        
+        const meRes = await fetch(`${API_BASE}/api/me`, {
+          cache: "no-store",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
         const meData = await meRes.json().catch(() => null);
 
         if (!meRes.ok) {
@@ -51,20 +52,20 @@ export default function Dashboard({ lang = "en" }) {
         if (cancelled) return;
         setUser(meData);
 
-     const [bizRes, repRes] = await Promise.all([
-  fetch(`${API_BASE}/api/business/me`, {
-    cache: "no-store",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  }),
-  fetch(`${API_BASE}/api/business/reports`, {
-    cache: "no-store",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  }),
-]);
+        const [bizRes, repRes] = await Promise.all([
+          fetch(`${API_BASE}/api/business/me`, {
+            cache: "no-store",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }),
+          fetch(`${API_BASE}/api/business/reports?t=${Date.now()}`, {
+            cache: "no-store",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }),
+        ]);
 
         const bizData = await bizRes.json().catch(() => null);
         const repData = await repRes.json().catch(() => null);
@@ -81,12 +82,7 @@ export default function Dashboard({ lang = "en" }) {
       } catch (e) {
         if (cancelled) return;
         console.error("Dashboard load error:", e);
-        setError(
-          t(
-            "Unable to load dashboard data. Please log in again.",
-            "تعذر تحميل بيانات لوحة التحكم. يرجى تسجيل الدخول مرة أخرى."
-          )
-        );
+        setError(tr("dashboardLoadError"));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -100,30 +96,41 @@ export default function Dashboard({ lang = "en" }) {
   }, [lang, navigate]);
 
   const businessName = useMemo(() => {
-    if (!business) return t("Your Business", "نشاطك التجاري");
-    return business.name_ar || business.name || t("Your Business", "نشاطك التجاري");
+    if (!business) return tr("yourBusiness");
+
+    return isAr
+      ? business.name_ar || business.name || tr("yourBusiness")
+      : business.name || business.name_ar || tr("yourBusiness");
   }, [business, lang]);
 
   const categoryText = useMemo(() => {
-    if (!business?.category) return t("N/A", "غير متوفر");
-    if (Array.isArray(business.category)) return business.category.join(", ");
-    return business.category;
+    return getCategoryLabel(business?.category, lang);
+  }, [business, lang]);
+
+  const descriptionText = useMemo(() => {
+    if (!business) return tr("notAvailable");
+
+    return isAr
+      ? business.description_ar || business.description || tr("notAvailable")
+      : business.description || business.description_ar || tr("notAvailable");
   }, [business, lang]);
 
   const walletText = useMemo(() => {
-    if (!business) return "0 USD";
+    if (!business) return `0.00 USD`;
 
     const balance =
-  typeof business.wallet_balance === "number"
-    ? business.wallet_balance
-    : typeof business.balance === "number"
-    ? business.balance
-    : 0;
+      typeof business.wallet_balance === "number"
+        ? business.wallet_balance
+        : typeof business.balance === "number"
+        ? business.balance
+        : 0;
 
     const currency = business.wallet_currency || "USD";
 
-    return `${balance.toFixed(2)} ${currency}`;
-  }, [business]);
+    return isAr
+      ? `${currency} ${balance.toFixed(2)}`
+      : `${balance.toFixed(2)} ${currency}`;
+  }, [business, isAr]);
 
   const walletStatus = useMemo(() => {
     if (!business) return "active";
@@ -145,12 +152,18 @@ export default function Dashboard({ lang = "en" }) {
     }
   }, [business]);
 
+  const spendingText = useMemo(() => {
+    const amount = Number(reports?.estimated_revenue ?? 0).toFixed(2);
+    const currency = reports?.currency || "USD";
+    return isAr ? `${currency} ${amount}` : `${amount} ${currency}`;
+  }, [reports, isAr]);
+
   if (loading) {
     return (
       <div style={pageWrap(isAr)}>
         <div style={loadingCard}>
           <div style={spinnerStyle} />
-          <p style={{ margin: 0 }}>{t("Loading dashboard...", "جارٍ تحميل لوحة التحكم...")}</p>
+          <p style={{ margin: 0 }}>{tr("loadingDashboard")}</p>
         </div>
       </div>
     );
@@ -160,10 +173,12 @@ export default function Dashboard({ lang = "en" }) {
     return (
       <div style={pageWrap(isAr)}>
         <div style={errorCard}>
-          <h3 style={{ marginTop: 0 }}>⚠️ {t("Something went wrong", "حدث خطأ")}</h3>
+          <h3 style={{ marginTop: 0 }}>
+            ⚠️ {tr("somethingWrong")}
+          </h3>
           <p>{error}</p>
           <button onClick={() => navigate("/login")} style={primaryBtn}>
-            {t("Go to Login", "الذهاب إلى تسجيل الدخول")}
+            {tr("goToLogin")}
           </button>
         </div>
       </div>
@@ -174,16 +189,15 @@ export default function Dashboard({ lang = "en" }) {
     <div style={pageWrap(isAr)}>
       <section style={heroCard}>
         <div>
-          <div style={heroBadge}>{t("Business Dashboard", "لوحة تحكم النشاط")}</div>
+          <div style={heroBadge}>{tr("businessDashboard")}</div>
+
           <h1 style={heroTitle}>
-            {t("Welcome back", "مرحبًا بعودتك")} {businessName}
+            {isAr
+              ? `${tr("welcomeBack")} ${businessName}`
+              : `${tr("welcomeBack")} ${businessName}`}
           </h1>
-          <p style={heroSubtitle}>
-            {t(
-              "Manage your business profile, wallet, and performance from one place.",
-              "تابع ملف نشاطك، رصيدك، وأداءك من مكان واحد."
-            )}
-          </p>
+
+          <p style={heroSubtitle}>{tr("dashboardSubtitle")}</p>
         </div>
       </section>
 
@@ -191,7 +205,9 @@ export default function Dashboard({ lang = "en" }) {
         <div
           style={{
             background: walletStatus === "out" ? "#fef2f2" : "#fff7ed",
-            border: `1px solid ${walletStatus === "out" ? "#fecaca" : "#fed7aa"}`,
+            border: `1px solid ${
+              walletStatus === "out" ? "#fecaca" : "#fed7aa"
+            }`,
             borderRadius: 16,
             padding: "16px",
             marginBottom: 18,
@@ -203,22 +219,20 @@ export default function Dashboard({ lang = "en" }) {
           }}
         >
           <div>
-            <strong style={{ color: walletStatus === "out" ? "#b91c1c" : "#c2410c" }}>
+            <strong
+              style={{
+                color: walletStatus === "out" ? "#b91c1c" : "#c2410c",
+              }}
+            >
               {walletStatus === "out"
-                ? t("No balance available", "لا يوجد رصيد")
-                : t("Low balance warning", "تحذير: الرصيد منخفض")}
+                ? tr("noBalanceAvailable")
+                : tr("lowBalanceWarning")}
             </strong>
 
             <div style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>
               {walletStatus === "out"
-                ? t(
-                    "Your business is not receiving leads. Please recharge.",
-                    "لن تستقبل طلبات جديدة. يرجى شحن الرصيد."
-                  )
-                : t(
-                    "Your balance is almost finished. Recharge to continue.",
-                    "رصيدك أوشك على الانتهاء. يرجى الشحن."
-                  )}
+                ? tr("notReceivingLeads")
+                : tr("balanceAlmostFinished")}
             </div>
           </div>
 
@@ -234,21 +248,21 @@ export default function Dashboard({ lang = "en" }) {
               cursor: "pointer",
             }}
           >
-            {t("Recharge Now", "اشحن الآن")}
+            {tr("rechargeNow")}
           </button>
         </div>
       )}
 
       <section style={statsGrid}>
         <StatCard
-          title={t("Wallet Balance", "الرصيد الحالي")}
+          title={tr("walletBalance")}
           value={walletText}
           subtitle={
             walletStatus === "out"
-              ? t("Out of balance", "لا يوجد رصيد")
+              ? tr("outOfBalance")
               : walletStatus === "low"
-              ? t("Low balance", "رصيد منخفض")
-              : t("Active", "نشط")
+              ? tr("lowBalance")
+              : tr("active")
           }
           highlight={
             walletStatus === "out"
@@ -258,57 +272,64 @@ export default function Dashboard({ lang = "en" }) {
               : "#16a34a"
           }
         />
-    <StatCard
-  title={t("Direct Leads", "طلبات مباشرة")}
-  value={reports?.direct_starts ?? 0}
-/>
 
-<StatCard
-  title={t("Category Leads", "طلبات حسب الفئة")}
-  value={reports?.category_starts ?? 0}
-/>
+        <StatCard
+          title={tr("directLeads")}
+          value={reports?.direct_starts ?? 0}
+        />
 
-<StatCard
-  title={t("Nearby Leads", "طلبات قريبة")}
-  value={reports?.nearby_starts ?? 0}
-/>
+        <StatCard
+          title={tr("categoryLeads")}
+          value={reports?.category_starts ?? 0}
+        />
 
-<StatCard
-  title={t("Spending", "الإنفاق")}
-  value={`${Number(reports?.estimated_revenue ?? 0).toFixed(2)} ${reports?.currency || "USD"}`}
-/>
+        <StatCard
+          title={tr("nearbyLeads")}
+          value={reports?.nearby_starts ?? 0}
+        />
+
+        <StatCard
+          title={tr("spending")}
+          value={spendingText}
+        />
       </section>
 
       <section style={mainGrid}>
         <div style={panelCard}>
           <div style={panelHeader}>
-            <h3 style={panelTitle}>{t("Business Details", "بيانات النشاط")}</h3>
-            <p style={panelDesc}>
-              {t(
-                "Basic information for your registered business.",
-                "المعلومات الأساسية لنشاطك المسجل."
-              )}
-            </p>
+            <h3 style={panelTitle}>{tr("businessDetails")}</h3>
+            <p style={panelDesc}>{tr("businessDetailsDesc")}</p>
           </div>
 
           {business ? (
             <div style={detailsGrid}>
               <InfoItem
-                label={t("Business Name", "اسم النشاط")}
-                value={business.name_ar || business.name || t("N/A", "غير متوفر")}
+                label={tr("businessName")}
+                value={businessName}
+                isAr={isAr}
               />
-              <InfoItem label={t("Category", "الفئة")} value={categoryText} />
+
               <InfoItem
-                label={t("WhatsApp", "واتساب")}
-                value={business.whatsapp || t("N/A", "غير متوفر")}
+                label={tr("category")}
+                value={categoryText}
+                isAr={isAr}
               />
+
               <InfoItem
-                label={t("Description", "الوصف")}
-                value={business.description || t("N/A", "غير متوفر")}
+                label={tr("whatsapp")}
+                value={business.whatsapp || tr("notAvailable")}
+                isAr={isAr}
+              />
+
+              <InfoItem
+                label={tr("description")}
+                value={descriptionText}
                 fullWidth
+                isAr={isAr}
               />
+
               <InfoItem
-                label={t("Map", "الخريطة")}
+                label={tr("map")}
                 value={
                   business.mapLink ? (
                     <a
@@ -317,58 +338,62 @@ export default function Dashboard({ lang = "en" }) {
                       rel="noreferrer"
                       style={linkStyle}
                     >
-                      {t("Open location", "فتح الموقع")} · {shortMapLink}
+                      {tr("openLocation")} · {shortMapLink}
                     </a>
                   ) : (
-                    t("N/A", "غير متوفر")
+                    tr("notAvailable")
                   )
                 }
+                isAr={isAr}
               />
+
               <InfoItem
-                label={t("Coordinates", "الإحداثيات")}
+                label={tr("coordinates")}
                 value={
                   business.latitude != null && business.longitude != null
                     ? `${business.latitude}, ${business.longitude}`
-                    : t("N/A", "غير متوفر")
+                    : tr("notAvailable")
                 }
+                isAr={isAr}
               />
             </div>
           ) : (
             <EmptyState
-              title={t("No business found", "لا يوجد نشاط مسجل")}
-              text={t(
-                "Your account is active, but no business profile is linked yet.",
-                "حسابك نشط، لكن لا يوجد ملف نشاط مرتبط به حتى الآن."
-              )}
+              title={tr("noBusinessFound")}
+              text={tr("noBusinessText")}
             />
           )}
         </div>
 
         <div style={panelCard}>
           <div style={panelHeader}>
-            <h3 style={panelTitle}>{t("Performance Summary", "ملخص الأداء")}</h3>
-            <p style={panelDesc}>
-             {t(
-  "Quick overview of paid lead activity for your business.",
-  "نظرة سريعة على طلبات التواصل المدفوعة لنشاطك."
-)}
-            </p>
+            <h3 style={panelTitle}>{tr("performanceSummary")}</h3>
+            <p style={panelDesc}>{tr("performanceSummaryDesc")}</p>
           </div>
 
           {reports ? (
             <div style={miniStatsGrid}>
-            <MiniStat title={t("Total Leads", "إجمالي الطلبات")} value={reports.total_billed_conversations ?? 0} />
-<MiniStat title={t("Direct Leads", "طلبات مباشرة")} value={reports.direct_starts ?? 0} />
-<MiniStat title={t("Category Leads", "طلبات حسب الفئة")} value={reports.category_starts ?? 0} />
-<MiniStat title={t("Nearby Leads", "طلبات قريبة")} value={reports.nearby_starts ?? 0} />
+              <MiniStat
+                title={tr("totalLeads")}
+                value={reports.total_billed_conversations ?? 0}
+              />
+              <MiniStat
+                title={tr("directLeads")}
+                value={reports.direct_starts ?? 0}
+              />
+              <MiniStat
+                title={tr("categoryLeads")}
+                value={reports.category_starts ?? 0}
+              />
+              <MiniStat
+                title={tr("nearbyLeads")}
+                value={reports.nearby_starts ?? 0}
+              />
             </div>
           ) : (
             <EmptyState
-              title={t("No report data yet", "لا توجد بيانات أداء بعد")}
-              text={t(
-                "Your analytics will appear here once users start interacting with your business.",
-                "ستظهر إحصاءاتك هنا بمجرد بدء تفاعل المستخدمين مع نشاطك."
-              )}
+              title={tr("noReportData")}
+              text={tr("noReportText")}
             />
           )}
         </div>
@@ -383,13 +408,14 @@ function StatCard({ title, value, subtitle, highlight = "#111827" }) {
     fontWeight: 800,
     color: highlight,
     marginBottom: "6px",
+    wordBreak: "break-word",
   };
 
   return (
     <div style={statCard}>
       <div style={statTitle}>{title}</div>
       <div style={statValueDynamic}>{value}</div>
-      <div style={statSubtitle}>{subtitle}</div>
+      {subtitle ? <div style={statSubtitle}>{subtitle}</div> : null}
     </div>
   );
 }
@@ -403,9 +429,15 @@ function MiniStat({ title, value }) {
   );
 }
 
-function InfoItem({ label, value, fullWidth = false }) {
+function InfoItem({ label, value, fullWidth = false, isAr = false }) {
   return (
-    <div style={{ ...infoItemCard, gridColumn: fullWidth ? "1 / -1" : "auto" }}>
+    <div
+      style={{
+        ...infoItemCard,
+        gridColumn: fullWidth ? "1 / -1" : "auto",
+        textAlign: isAr ? "right" : "left",
+      }}
+    >
       <div style={infoLabel}>{label}</div>
       <div style={infoValue}>{value}</div>
     </div>
@@ -426,6 +458,8 @@ const pageWrap = (isAr) => ({
   maxWidth: "1280px",
   margin: "0 auto",
   direction: isAr ? "rtl" : "ltr",
+  textAlign: isAr ? "right" : "left",
+  fontFamily: "Tajawal, Inter, system-ui, sans-serif",
 });
 
 const heroCard = {
@@ -444,14 +478,15 @@ const heroBadge = {
   padding: "6px 12px",
   borderRadius: "999px",
   fontSize: "13px",
-  fontWeight: 600,
+  fontWeight: 700,
   marginBottom: "14px",
 };
 
 const heroTitle = {
   margin: "0 0 8px",
-  fontSize: "30px",
+  fontSize: "clamp(26px, 4vw, 34px)",
   fontWeight: 800,
+  lineHeight: 1.35,
 };
 
 const heroSubtitle = {
@@ -463,7 +498,7 @@ const heroSubtitle = {
 
 const statsGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
   gap: "16px",
   marginBottom: "22px",
 };
@@ -480,6 +515,7 @@ const statTitle = {
   color: "#6b7280",
   fontSize: "14px",
   marginBottom: "10px",
+  fontWeight: 600,
 };
 
 const statSubtitle = {
@@ -489,7 +525,7 @@ const statSubtitle = {
 
 const mainGrid = {
   display: "grid",
-  gridTemplateColumns: "1.2fr 1fr",
+  gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
   gap: "18px",
 };
 
@@ -515,11 +551,12 @@ const panelDesc = {
   margin: 0,
   color: "#6b7280",
   fontSize: "14px",
+  lineHeight: 1.7,
 };
 
 const detailsGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
   gap: "14px",
 };
 
@@ -534,19 +571,19 @@ const infoLabel = {
   fontSize: "13px",
   color: "#6b7280",
   marginBottom: "8px",
-  fontWeight: 600,
+  fontWeight: 700,
 };
 
 const infoValue = {
   fontSize: "15px",
   color: "#111827",
-  lineHeight: 1.7,
+  lineHeight: 1.8,
   wordBreak: "break-word",
 };
 
 const miniStatsGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
   gap: "14px",
 };
 
@@ -562,6 +599,7 @@ const miniStatTitle = {
   color: "#166534",
   fontSize: "14px",
   marginBottom: "8px",
+  fontWeight: 600,
 };
 
 const miniStatValue = {
@@ -618,6 +656,6 @@ const primaryBtn = {
 
 const linkStyle = {
   color: "#16a34a",
-  fontWeight: 600,
+  fontWeight: 700,
   textDecoration: "none",
 };
