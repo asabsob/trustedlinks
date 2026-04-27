@@ -9,8 +9,14 @@ function mapLeadToken(row) {
     businessPhone: row.business_phone,
     userPhone: row.user_phone,
     query: row.query || "",
+    intentType: row.intent_type || "direct",
+    consent_snapshot_id: row.consent_snapshot_id || null,
+    consentSnapshotId: row.consent_snapshot_id || null,
+    opened_at: row.opened_at || null,
+    openedAt: row.opened_at || null,
     createdAt: row.created_at,
     expiresAt: row.expires_at,
+    expires_at: row.expires_at,
   };
 }
 
