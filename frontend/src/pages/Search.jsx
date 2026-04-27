@@ -678,8 +678,7 @@ const createLeadAndOpen = async (businessId) => {
 
 <button
   onClick={async () => {
-    trackAction("/api/track-whatsapp", businessId);
-
+ 
     try {
       const res = await fetch(`${API_BASE}/api/create-lead`, {
         method: "POST",
