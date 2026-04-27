@@ -520,7 +520,6 @@ const createLeadAndOpen = async (businessId) => {
             {filteredBusinesses.map((b) => {
               const businessId = b.id || b.custom_id || b._id;
               const logoUrl = getLogoUrl(b);
-              const whatsappUrl = getWhatsappUrl(b);
               const mapUrl = getMapUrl(b);
               const instagramUrl =
                 b.mediaLink && String(b.mediaLink).includes("instagram")
