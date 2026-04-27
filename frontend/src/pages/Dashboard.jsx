@@ -258,24 +258,24 @@ export default function Dashboard({ lang = "en" }) {
               : "#16a34a"
           }
         />
-       <StatCard
-  title="Direct Starts"
+    <StatCard
+  title={t("Direct Leads", "طلبات مباشرة")}
   value={reports?.direct_starts ?? 0}
 />
 
 <StatCard
-  title="Category Starts"
+  title={t("Category Leads", "طلبات حسب الفئة")}
   value={reports?.category_starts ?? 0}
 />
 
 <StatCard
-  title="Nearby Starts"
+  title={t("Nearby Leads", "طلبات قريبة")}
   value={reports?.nearby_starts ?? 0}
 />
 
 <StatCard
-  title="Revenue"
-  value={`${reports?.estimated_revenue ?? 0} ${reports?.currency || "USD"}`}
+  title={t("Spending", "الإنفاق")}
+  value={`${Number(reports?.estimated_revenue ?? 0).toFixed(2)} ${reports?.currency || "USD"}`}
 />
       </section>
 
@@ -348,19 +348,19 @@ export default function Dashboard({ lang = "en" }) {
           <div style={panelHeader}>
             <h3 style={panelTitle}>{t("Performance Summary", "ملخص الأداء")}</h3>
             <p style={panelDesc}>
-              {t(
-                "Quick overview of engagement on your business profile.",
-                "نظرة سريعة على التفاعل مع ملف نشاطك."
-              )}
+             {t(
+  "Quick overview of paid lead activity for your business.",
+  "نظرة سريعة على طلبات التواصل المدفوعة لنشاطك."
+)}
             </p>
           </div>
 
           {reports ? (
             <div style={miniStatsGrid}>
-              <MiniStat title={t("Views", "المشاهدات")} value={reports.total_billed_conversations ?? 0} />
-              <MiniStat title={t("Clicks", "النقرات")} value={reports.direct_starts ?? 0} />
-              <MiniStat title={t("Messages", "الرسائل")} value={reports.category_starts ?? 0} />
-              <MiniStat title={t("Media Views", "مشاهدات الوسائط")} value={reports.nearby_starts ?? 0} />
+            <MiniStat title={t("Total Leads", "إجمالي الطلبات")} value={reports.total_billed_conversations ?? 0} />
+<MiniStat title={t("Direct Leads", "طلبات مباشرة")} value={reports.direct_starts ?? 0} />
+<MiniStat title={t("Category Leads", "طلبات حسب الفئة")} value={reports.category_starts ?? 0} />
+<MiniStat title={t("Nearby Leads", "طلبات قريبة")} value={reports.nearby_starts ?? 0} />
             </div>
           ) : (
             <EmptyState
