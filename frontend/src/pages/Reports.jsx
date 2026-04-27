@@ -1,3 +1,7 @@
+// ============================================================================
+// Trusted Links - Reports (Production Bilingual + Charts)
+// ============================================================================
+
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -12,6 +16,7 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
+import { getText, getCategoryLabel } from "../i18n";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE ||
@@ -20,130 +25,47 @@ const API_BASE =
 export default function Reports({ lang = "en" }) {
   const isAr = lang === "ar";
   const navigate = useNavigate();
+  const tr = (key) => getText(lang, key);
 
   const [data, setData] = useState(null);
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState("30d");
 
-  const t = useMemo(
-    () =>
-      ({
-        en: {
-          title: "Performance Reports",
-          subtitle: "Track billed conversations, revenue, and smart insights",
-          business: "Business",
-          category: "Category",
-          loading: "Loading reports...",
-          noData: "No data available.",
-          noActivity: "No activity data available yet.",
-          noRevenue: "No revenue data available yet.",
-          noSources: "No source data available yet.",
-          noKeywords: "No keyword data available yet.",
-          direct: "Direct",
-          categoryIntent: "Category",
-          nearby: "Nearby",
-          totalConversations: "Total Conversations",
-          revenue: "Revenue",
-          averageDaily: "Avg Daily Conversations",
-          avgRevenueDaily: "Avg Daily Revenue",
-          periodSummary: "Period Summary",
-          currentPeriod: "Current Period",
-          pricing: "Pricing",
-          activityTrend: "Conversation Activity Trend",
-          revenueTrend: "Revenue Trend",
-          sourceSplit: "Intent Split",
-          keyInsights: "AI Insights",
-          recommendations: "Recommendations",
-          from: "From",
-          to: "To",
-          week: "Last 7 Days",
-          month: "Last 30 Days",
-          quarter: "Last 90 Days",
-          peakDay: "Peak Day",
-          strongestIntent: "Strongest Intent",
-          performanceScore: "Performance Score",
-          noBusiness: "Business",
-          noCategory: "Category",
-          stableMessage:
-            "Your activity is stable. Keep monitoring which intent generates the strongest lead flow.",
-          growthMessage:
-            "Your category and nearby intent are creating momentum. Consider allocating more budget there.",
-          directMessage:
-            "Direct intent is strong. Focus on brand trust and clearer conversion messaging.",
-          nearbyMessage:
-            "Nearby intent is working. Improve map accuracy and local relevance to grow faster.",
-          categoryMessage:
-            "Category intent is leading. Expand keywords and category-specific positioning.",
-          lowActivityMessage:
-            "Activity is still limited. Increase discoverability through stronger descriptions, keywords, and location accuracy.",
-          balanceTip:
-            "Use your wallet balance together with recent conversation volume to plan your next budget step.",
-          forecastTitle: "Forecast",
-          estimatedNext7Days: "Estimated next 7 days",
-          estimatedNext30Days: "Estimated next 30 days",
-          conversations: "conversations",
-          currency: "USD",
-        },
-        ar: {
-          title: "تقارير الأداء",
-          subtitle: "تابع المحادثات المدفوعة والإيرادات والتحليلات الذكية",
-          business: "النشاط",
-          category: "الفئة",
-          loading: "جارٍ تحميل التقارير...",
-          noData: "لا توجد بيانات متاحة.",
-          noActivity: "لا توجد بيانات نشاط بعد.",
-          noRevenue: "لا توجد بيانات إيرادات بعد.",
-          noSources: "لا توجد بيانات مصادر بعد.",
-          noKeywords: "لا توجد بيانات كلمات بحث بعد.",
-          direct: "مباشر",
-          categoryIntent: "فئة",
-          nearby: "قريب",
-          totalConversations: "إجمالي المحادثات",
-          revenue: "الإيراد",
-          averageDaily: "متوسط المحادثات اليومي",
-          avgRevenueDaily: "متوسط الإيراد اليومي",
-          periodSummary: "ملخص الفترة",
-          currentPeriod: "الفترة الحالية",
-          pricing: "التسعير",
-          activityTrend: "اتجاه المحادثات",
-          revenueTrend: "اتجاه الإيراد",
-          sourceSplit: "توزيع النوايا",
-          keyInsights: "تحليلات ذكية",
-          recommendations: "التوصيات",
-          from: "من",
-          to: "إلى",
-          week: "آخر 7 أيام",
-          month: "آخر 30 يوم",
-          quarter: "آخر 90 يوم",
-          peakDay: "أفضل يوم",
-          strongestIntent: "أقوى نية",
-          performanceScore: "تقييم الأداء",
-          noBusiness: "النشاط",
-          noCategory: "الفئة",
-          stableMessage:
-            "الأداء مستقر. استمر في مراقبة النية التي تولد أعلى تدفق من العملاء.",
-          growthMessage:
-            "نية الفئة والقريب تصنعان زخمًا جيدًا. فكر في تخصيص ميزانية أكبر لهما.",
-          directMessage:
-            "النية المباشرة قوية. ركّز على الثقة بالعلامة التجارية ورسالة تحويل أوضح.",
-          nearbyMessage:
-            "نية البحث القريب فعالة. حسّن دقة الموقع والظهور المحلي لزيادة النتائج.",
-          categoryMessage:
-            "نية الفئة تتصدر. وسّع الكلمات المفتاحية وتموضعك داخل الفئة.",
-          lowActivityMessage:
-            "النشاط ما زال محدودًا. حسّن الوصف والكلمات المفتاحية ودقة الموقع لزيادة الظهور.",
-          balanceTip:
-            "استخدم رصيد المحفظة مع حجم المحادثات الأخير لتخطيط خطوتك القادمة في الميزانية.",
-          forecastTitle: "التوقعات",
-          estimatedNext7Days: "المتوقع خلال 7 أيام",
-          estimatedNext30Days: "المتوقع خلال 30 يوم",
-          conversations: "محادثة",
-          currency: "USD",
-        },
-      })[lang],
-    [lang]
-  );
+  const labels = {
+    title: isAr ? "تقارير الأداء" : "Performance Reports",
+    subtitle: isAr
+      ? "تابع طلبات التواصل المدفوعة، الإنفاق، والتحليلات الذكية"
+      : "Track paid leads, spending, and smart insights",
+    loading: isAr ? "جارٍ تحميل التقارير..." : "Loading reports...",
+    noData: isAr ? "لا توجد بيانات متاحة." : "No data available.",
+    noActivity: isAr ? "لا توجد بيانات نشاط بعد." : "No activity data available yet.",
+    noSpending: isAr ? "لا توجد بيانات إنفاق بعد." : "No spending data available yet.",
+    periodSummary: isAr ? "ملخص الفترة" : "Period Summary",
+    pricing: isAr ? "التسعير" : "Pricing",
+    activityTrend: isAr ? "اتجاه طلبات التواصل" : "Lead Activity Trend",
+    spendingTrend: isAr ? "اتجاه الإنفاق" : "Spending Trend",
+    intentSplit: isAr ? "توزيع مصادر الطلبات" : "Lead Source Split",
+    insights: isAr ? "تحليلات ذكية" : "Smart Insights",
+    forecast: isAr ? "التوقعات" : "Forecast",
+    from: isAr ? "من" : "From",
+    to: isAr ? "إلى" : "To",
+    week: isAr ? "آخر 7 أيام" : "Last 7 Days",
+    month: isAr ? "آخر 30 يوم" : "Last 30 Days",
+    quarter: isAr ? "آخر 90 يوم" : "Last 90 Days",
+    business: isAr ? "النشاط" : "Business",
+    category: tr("category"),
+    avgDaily: isAr ? "متوسط الطلبات اليومي" : "Avg Daily Leads",
+    avgSpendingDaily: isAr ? "متوسط الإنفاق اليومي" : "Avg Daily Spending",
+    peakDay: isAr ? "أفضل يوم" : "Peak Day",
+    strongestSource: isAr ? "أقوى مصدر" : "Strongest Source",
+    performanceScore: isAr ? "تقييم الأداء" : "Performance Score",
+    costPerLead: isAr ? "تكلفة الطلب" : "Cost per Lead",
+    next7: isAr ? "المتوقع خلال 7 أيام" : "Estimated next 7 days",
+    next30: isAr ? "المتوقع خلال 30 يوم" : "Estimated next 30 days",
+    leads: isAr ? "طلب" : "leads",
+    currency: "USD",
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -180,13 +102,10 @@ export default function Reports({ lang = "en" }) {
           throw new Error(d?.error || `HTTP ${res.status}`);
         }
 
-        if (cancelled) return;
-        setData(normalizeReportsData(d));
+        if (!cancelled) setData(normalizeReportsData(d));
       } catch (e) {
         console.error("Reports load error:", e);
-        if (!cancelled) {
-          setMsg(e?.message || t.noData);
-        }
+        if (!cancelled) setMsg(e?.message || labels.noData);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -197,7 +116,7 @@ export default function Reports({ lang = "en" }) {
     return () => {
       cancelled = true;
     };
-  }, [navigate, t.noData]);
+  }, [navigate, lang]);
 
   const rangeDays = useMemo(() => {
     if (range === "7d") return 7;
@@ -207,7 +126,6 @@ export default function Reports({ lang = "en" }) {
 
   const filteredActivity = useMemo(() => {
     const all = Array.isArray(data?.activity) ? data.activity : [];
-    if (!all.length) return [];
     return all.slice(-rangeDays);
   }, [data?.activity, rangeDays]);
 
@@ -219,103 +137,113 @@ export default function Reports({ lang = "en" }) {
       direct: Number(d.direct || 0),
       category: Number(d.category || 0),
       nearby: Number(d.nearby || 0),
-      revenue:
+      spending:
         Number(d.direct || 0) * Number(data?.pricing?.direct || 0.25) +
         Number(d.category || 0) * Number(data?.pricing?.category || 0.3) +
         Number(d.nearby || 0) * Number(data?.pricing?.nearby || 0.4),
     }));
   }, [filteredActivity, data?.pricing, isAr]);
 
-  const totalConversations = Number(data?.total_billed_conversations || 0);
   const directStarts = Number(data?.direct_starts || 0);
   const categoryStarts = Number(data?.category_starts || 0);
   const nearbyStarts = Number(data?.nearby_starts || 0);
-  const revenue = Number(data?.estimated_revenue || 0);
-  const currency = data?.currency || t.currency;
+  const totalLeads = Number(data?.total_billed_conversations || 0);
+  const spending = Number(data?.estimated_revenue || 0);
+  const currency = data?.currency || labels.currency;
 
   const averageDaily = chartData.length
     ? (chartData.reduce((sum, item) => sum + item.total, 0) / chartData.length).toFixed(1)
     : "0";
 
-  const avgRevenueDaily = chartData.length
-    ? (chartData.reduce((sum, item) => sum + item.revenue, 0) / chartData.length).toFixed(2)
+  const avgSpendingDaily = chartData.length
+    ? (chartData.reduce((sum, item) => sum + item.spending, 0) / chartData.length).toFixed(2)
     : "0.00";
+
+  const costPerLead = totalLeads > 0 ? (spending / totalLeads).toFixed(2) : "0.00";
 
   const peakDay = useMemo(() => {
     if (!chartData.length) return "-";
-    const best = [...chartData].sort((a, b) => b.total - a.total)[0];
-    return best?.date || "-";
+    return [...chartData].sort((a, b) => b.total - a.total)[0]?.date || "-";
   }, [chartData]);
 
   const strongestIntent = useMemo(() => {
     const entries = [
-      { key: "direct", label: t.direct, value: directStarts },
-      { key: "category", label: t.categoryIntent, value: categoryStarts },
-      { key: "nearby", label: t.nearby, value: nearbyStarts },
+      { label: tr("directLeads"), value: directStarts },
+      { label: tr("categoryLeads"), value: categoryStarts },
+      { label: tr("nearbyLeads"), value: nearbyStarts },
     ].sort((a, b) => b.value - a.value);
 
-    return entries[0]?.label || "-";
-  }, [directStarts, categoryStarts, nearbyStarts, t]);
+    return entries[0]?.value > 0 ? entries[0].label : "-";
+  }, [directStarts, categoryStarts, nearbyStarts, lang]);
 
   const performanceScore = useMemo(() => {
-    const volumeScore = Math.min(40, totalConversations * 2);
-    const revenueScore = Math.min(35, revenue * 2);
+    const volumeScore = Math.min(40, totalLeads * 2);
+    const spendingScore = Math.min(25, spending * 3);
     const diversityCount = [directStarts, categoryStarts, nearbyStarts].filter((v) => v > 0).length;
-    const diversityScore = diversityCount * 8;
-    const consistencyScore = chartData.length >= 7 ? 9 : chartData.length >= 3 ? 5 : 2;
-    return Math.min(100, Math.round(volumeScore + revenueScore + diversityScore + consistencyScore));
-  }, [totalConversations, revenue, directStarts, categoryStarts, nearbyStarts, chartData.length]);
+    const diversityScore = diversityCount * 10;
+    const consistencyScore = chartData.length >= 7 ? 10 : chartData.length >= 3 ? 6 : 2;
+    return Math.min(100, Math.round(volumeScore + spendingScore + diversityScore + consistencyScore));
+  }, [totalLeads, spending, directStarts, categoryStarts, nearbyStarts, chartData.length]);
 
   const sourceData = useMemo(
-    () => [
-      { name: t.direct, value: directStarts },
-      { name: t.categoryIntent, value: categoryStarts },
-      { name: t.nearby, value: nearbyStarts },
-    ].filter((item) => item.value > 0),
-    [t, directStarts, categoryStarts, nearbyStarts]
+    () =>
+      [
+        { name: tr("directLeads"), value: directStarts },
+        { name: tr("categoryLeads"), value: categoryStarts },
+        { name: tr("nearbyLeads"), value: nearbyStarts },
+      ].filter((item) => item.value > 0),
+    [directStarts, categoryStarts, nearbyStarts, lang]
   );
 
   const insights = useMemo(() => {
     const items = [];
 
-    if (totalConversations <= 5) {
-      items.push(t.lowActivityMessage);
+    if (totalLeads <= 5 && spending < 2) {
+      items.push(
+        isAr
+          ? "النشاط ما زال محدودًا. حسّن الوصف، الكلمات المفتاحية، ودقة الموقع لزيادة طلبات التواصل."
+          : "Activity is still limited. Improve descriptions, keywords, and location accuracy to increase lead flow."
+      );
     } else {
-      items.push(t.stableMessage);
-    }
-
-    if (categoryStarts >= directStarts && categoryStarts >= nearbyStarts && categoryStarts > 0) {
-      items.push(t.categoryMessage);
-    }
-
-    if (nearbyStarts >= directStarts && nearbyStarts >= categoryStarts && nearbyStarts > 0) {
-      items.push(t.nearbyMessage);
+      items.push(
+        isAr
+          ? "الأداء مستقر. راقب مصدر الطلبات الأقوى لتحديد أين تستثمر أكثر."
+          : "Performance is stable. Monitor the strongest lead source to decide where to invest more."
+      );
     }
 
     if (directStarts >= categoryStarts && directStarts >= nearbyStarts && directStarts > 0) {
-      items.push(t.directMessage);
+      items.push(
+        isAr
+          ? "الطلبات المباشرة قوية. هذا يدل على وجود معرفة أو ثقة باسم النشاط."
+          : "Direct leads are strong, indicating brand recognition or trust."
+      );
     }
 
-    if (categoryStarts + nearbyStarts > directStarts) {
-      items.push(t.growthMessage);
+    if (categoryStarts >= directStarts && categoryStarts >= nearbyStarts && categoryStarts > 0) {
+      items.push(
+        isAr
+          ? "طلبات الفئة تتصدر. وسّع الكلمات المفتاحية وتموضعك داخل الفئة."
+          : "Category leads are leading. Expand keywords and category positioning."
+      );
     }
 
-    items.push(t.balanceTip);
+    if (nearbyStarts >= directStarts && nearbyStarts >= categoryStarts && nearbyStarts > 0) {
+      items.push(
+        isAr
+          ? "الطلبات القريبة فعالة. حسّن الموقع وبيانات المنطقة لزيادة النتائج المحلية."
+          : "Nearby leads are working. Improve map accuracy and local relevance."
+      );
+    }
+
+    items.push(
+      isAr
+        ? "استخدم الرصيد والإنفاق الحالي لتقدير ميزانية الأسبوع القادم."
+        : "Use current wallet balance and spending to plan next week’s budget."
+    );
 
     return items.slice(0, 4);
-  }, [
-    totalConversations,
-    directStarts,
-    categoryStarts,
-    nearbyStarts,
-    t.lowActivityMessage,
-    t.stableMessage,
-    t.categoryMessage,
-    t.nearbyMessage,
-    t.directMessage,
-    t.growthMessage,
-    t.balanceTip,
-  ]);
+  }, [totalLeads, spending, directStarts, categoryStarts, nearbyStarts, isAr]);
 
   const forecast = useMemo(() => {
     const dailyAvg = Number(averageDaily || 0);
@@ -325,10 +253,13 @@ export default function Reports({ lang = "en" }) {
     };
   }, [averageDaily]);
 
+  const businessLabel = data?.business || (isAr ? "النشاط" : "Business");
+  const categoryLabel = getCategoryLabel(data?.category, lang);
+
   if (loading) {
     return (
       <PageWrap isAr={isAr}>
-        <Panel>{t.loading}</Panel>
+        <Panel>{labels.loading}</Panel>
       </PageWrap>
     );
   }
@@ -336,7 +267,7 @@ export default function Reports({ lang = "en" }) {
   if (!data) {
     return (
       <PageWrap isAr={isAr}>
-        <Panel>{msg || t.noData}</Panel>
+        <Panel>{msg || labels.noData}</Panel>
       </PageWrap>
     );
   }
@@ -346,64 +277,69 @@ export default function Reports({ lang = "en" }) {
       <div className="mx-auto max-w-7xl space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 md:text-3xl">{t.title}</h1>
-            <p className="mt-2 text-sm text-slate-600 md:text-base">{t.subtitle}</p>
+            <h1 className="text-2xl font-bold text-slate-900 md:text-3xl">
+              {labels.title}
+            </h1>
+            <p className="mt-2 text-sm text-slate-600 md:text-base">
+              {labels.subtitle}
+            </p>
             <p className="mt-2 text-sm text-slate-500">
-              {t.from}: {chartData[0]?.date || "-"} {" — "} {t.to}:{" "}
+              {labels.from}: {chartData[0]?.date || "-"} {" — "} {labels.to}:{" "}
               {chartData[chartData.length - 1]?.date || "-"}
             </p>
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <RangeButton active={range === "7d"} onClick={() => setRange("7d")} label={t.week} />
-            <RangeButton active={range === "30d"} onClick={() => setRange("30d")} label={t.month} />
-            <RangeButton active={range === "90d"} onClick={() => setRange("90d")} label={t.quarter} />
+            <RangeButton active={range === "7d"} onClick={() => setRange("7d")} label={labels.week} />
+            <RangeButton active={range === "30d"} onClick={() => setRange("30d")} label={labels.month} />
+            <RangeButton active={range === "90d"} onClick={() => setRange("90d")} label={labels.quarter} />
           </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-          <SummaryCard label={t.direct} value={directStarts} />
-          <SummaryCard label={t.categoryIntent} value={categoryStarts} />
-          <SummaryCard label={t.nearby} value={nearbyStarts} />
-          <SummaryCard label={t.totalConversations} value={totalConversations} />
-          <SummaryCard label={t.revenue} value={`${revenue.toFixed(2)} ${currency}`} />
+          <SummaryCard label={tr("directLeads")} value={directStarts} />
+          <SummaryCard label={tr("categoryLeads")} value={categoryStarts} />
+          <SummaryCard label={tr("nearbyLeads")} value={nearbyStarts} />
+          <SummaryCard label={tr("totalLeads")} value={totalLeads} />
+          <SummaryCard label={tr("spending")} value={`${spending.toFixed(2)} ${currency}`} />
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Panel>
-            <h3 className="text-base font-semibold text-slate-900">{t.periodSummary}</h3>
+            <h3 className="text-base font-semibold text-slate-900">{labels.periodSummary}</h3>
             <div className="mt-4 space-y-3 text-sm">
-              <MiniRow label={t.business} value={data.business || t.noBusiness} />
-              <MiniRow label={t.category} value={data.category || t.noCategory} />
-              <MiniRow label={t.averageDaily} value={averageDaily} />
-              <MiniRow label={t.avgRevenueDaily} value={`${avgRevenueDaily} ${currency}`} />
-              <MiniRow label={t.peakDay} value={peakDay} />
-              <MiniRow label={t.strongestIntent} value={strongestIntent} />
-              <MiniRow label={t.performanceScore} value={`${performanceScore}/100`} />
+              <MiniRow label={labels.business} value={businessLabel} />
+              <MiniRow label={labels.category} value={categoryLabel} />
+              <MiniRow label={labels.avgDaily} value={averageDaily} />
+              <MiniRow label={labels.avgSpendingDaily} value={`${avgSpendingDaily} ${currency}`} />
+              <MiniRow label={labels.costPerLead} value={`${costPerLead} ${currency}`} />
+              <MiniRow label={labels.peakDay} value={peakDay} />
+              <MiniRow label={labels.strongestSource} value={strongestIntent} />
+              <MiniRow label={labels.performanceScore} value={`${performanceScore}/100`} />
             </div>
           </Panel>
 
           <Panel>
-            <h3 className="text-base font-semibold text-slate-900">{t.pricing}</h3>
+            <h3 className="text-base font-semibold text-slate-900">{labels.pricing}</h3>
             <div className="mt-4 space-y-3 text-sm">
-              <MiniRow label={t.direct} value={`${Number(data?.pricing?.direct || 0).toFixed(2)} ${currency}`} />
-              <MiniRow label={t.categoryIntent} value={`${Number(data?.pricing?.category || 0).toFixed(2)} ${currency}`} />
-              <MiniRow label={t.nearby} value={`${Number(data?.pricing?.nearby || 0).toFixed(2)} ${currency}`} />
+              <MiniRow label={tr("directLeads")} value={`${Number(data?.pricing?.direct || 0).toFixed(2)} ${currency}`} />
+              <MiniRow label={tr("categoryLeads")} value={`${Number(data?.pricing?.category || 0).toFixed(2)} ${currency}`} />
+              <MiniRow label={tr("nearbyLeads")} value={`${Number(data?.pricing?.nearby || 0).toFixed(2)} ${currency}`} />
             </div>
           </Panel>
 
           <Panel>
-            <h3 className="text-base font-semibold text-slate-900">{t.forecastTitle}</h3>
+            <h3 className="text-base font-semibold text-slate-900">{labels.forecast}</h3>
             <div className="mt-4 space-y-3 text-sm">
-              <MiniRow label={t.estimatedNext7Days} value={`${forecast.next7} ${t.conversations}`} />
-              <MiniRow label={t.estimatedNext30Days} value={`${forecast.next30} ${t.conversations}`} />
+              <MiniRow label={labels.next7} value={`${forecast.next7} ${labels.leads}`} />
+              <MiniRow label={labels.next30} value={`${forecast.next30} ${labels.leads}`} />
             </div>
           </Panel>
         </div>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           <Panel>
-            <SectionTitle>{t.activityTrend}</SectionTitle>
+            <SectionTitle>{labels.activityTrend}</SectionTitle>
             {chartData.length ? (
               <div className="h-[360px]">
                 <ResponsiveContainer width="100%" height="100%">
@@ -411,21 +347,21 @@ export default function Reports({ lang = "en" }) {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis allowDecimals={false} />
-                    <Tooltip />
+                    <Tooltip formatter={(value) => Number(value).toFixed(0)} />
                     <Legend />
-                    <Area type="monotone" dataKey="direct" stackId="1" stroke="#22c55e" fill="#22c55e" name={t.direct} />
-                    <Area type="monotone" dataKey="category" stackId="1" stroke="#3b82f6" fill="#3b82f6" name={t.categoryIntent} />
-                    <Area type="monotone" dataKey="nearby" stackId="1" stroke="#f59e0b" fill="#f59e0b" name={t.nearby} />
+                    <Area type="monotone" dataKey="direct" stackId="1" stroke="#22c55e" fill="#22c55e" name={tr("directLeads")} />
+                    <Area type="monotone" dataKey="category" stackId="1" stroke="#3b82f6" fill="#3b82f6" name={tr("categoryLeads")} />
+                    <Area type="monotone" dataKey="nearby" stackId="1" stroke="#f59e0b" fill="#f59e0b" name={tr("nearbyLeads")} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
             ) : (
-              <EmptyText>{t.noActivity}</EmptyText>
+              <EmptyText>{labels.noActivity}</EmptyText>
             )}
           </Panel>
 
           <Panel>
-            <SectionTitle>{t.revenueTrend}</SectionTitle>
+            <SectionTitle>{labels.spendingTrend}</SectionTitle>
             {chartData.length ? (
               <div className="h-[360px]">
                 <ResponsiveContainer width="100%" height="100%">
@@ -433,28 +369,28 @@ export default function Reports({ lang = "en" }) {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis />
-                    <Tooltip />
+                    <Tooltip formatter={(value) => `${Number(value).toFixed(2)} ${currency}`} />
                     <Legend />
-                    <Bar dataKey="revenue" fill="#16a34a" name={t.revenue} radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="spending" fill="#16a34a" name={tr("spending")} radius={[8, 8, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             ) : (
-              <EmptyText>{t.noRevenue}</EmptyText>
+              <EmptyText>{labels.noSpending}</EmptyText>
             )}
           </Panel>
         </div>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           <Panel>
-            <SectionTitle>{t.sourceSplit}</SectionTitle>
+            <SectionTitle>{labels.intentSplit}</SectionTitle>
             {sourceData.length ? (
               <div className="space-y-4">
                 {sourceData.map((item) => {
-                  const percentage = totalConversations > 0 ? Math.round((item.value / totalConversations) * 100) : 0;
+                  const percentage = totalLeads > 0 ? Math.round((item.value / totalLeads) * 100) : 0;
                   return (
                     <div key={item.name}>
-                      <div className="mb-2 flex items-center justify-between text-sm">
+                      <div className="mb-2 flex items-center justify-between gap-3 text-sm">
                         <span>{item.name}</span>
                         <span>{item.value} · {percentage}%</span>
                       </div>
@@ -469,17 +405,17 @@ export default function Reports({ lang = "en" }) {
                 })}
               </div>
             ) : (
-              <EmptyText>{t.noSources}</EmptyText>
+              <EmptyText>{isAr ? "لا توجد بيانات مصادر بعد." : "No source data available yet."}</EmptyText>
             )}
           </Panel>
 
           <Panel>
-            <SectionTitle>{t.keyInsights}</SectionTitle>
+            <SectionTitle>{labels.insights}</SectionTitle>
             <div className="space-y-3">
               {insights.map((item, idx) => (
                 <div
                   key={`${item}-${idx}`}
-                  className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800"
+                  className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm leading-7 text-green-800"
                 >
                   {item}
                 </div>
@@ -529,7 +465,11 @@ function PageWrap({ children, isAr }) {
     <div
       dir={isAr ? "rtl" : "ltr"}
       className="min-h-screen bg-slate-50 px-4 py-8 md:px-8"
-      style={{ fontFamily: "Tajawal, Inter, sans-serif" }}
+      style={{
+        fontFamily: "Tajawal, Inter, system-ui, sans-serif",
+        direction: isAr ? "rtl" : "ltr",
+        textAlign: isAr ? "right" : "left",
+      }}
     >
       {children}
     </div>
@@ -537,7 +477,11 @@ function PageWrap({ children, isAr }) {
 }
 
 function Panel({ children }) {
-  return <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">{children}</div>;
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+      {children}
+    </div>
+  );
 }
 
 function SectionTitle({ children }) {
@@ -565,7 +509,7 @@ function SummaryCard({ label, value }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <p className="text-sm text-slate-500">{label}</p>
-      <h3 className="mt-2 text-2xl font-bold text-slate-900">{value}</h3>
+      <h3 className="mt-2 break-words text-2xl font-bold text-slate-900">{value}</h3>
     </div>
   );
 }
