@@ -2569,6 +2569,7 @@ app.post("/api/business/apply-ai-optimization", requireUser, async (req, res) =>
 
 // =========================
 // BUSINESS REPORTS
+// Source of truth: transactions
 // =========================
 app.get("/api/business/reports", requireUser, async (req, res) => {
   try {
@@ -2581,40 +2582,50 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
     const businessId = String(business.id);
 
     const { data: rows, error } = await supabase
-      .from("lead_clicks")
-      .select("intent_type, clicked_at, billing_applied, billing_amount, query")
+      .from("transactions")
+      .select("type, amount, reason, event_type, created_at, status, currency")
       .eq("business_id", businessId)
-      .order("clicked_at", { ascending: true });
+      .eq("type", "debit")
+      .eq("status", "completed")
+      .order("created_at", { ascending: true });
 
     if (error) {
-      console.error("business/reports fetch error:", error);
+      console.error("business/reports transactions fetch error:", error);
       return res.status(500).json({ error: "Failed to load reports" });
     }
 
     const safeRows = Array.isArray(rows) ? rows : [];
 
-    const directStarts = safeRows.filter(
-      (r) => r.billing_applied === true && r.intent_type === "direct"
-    ).length;
-
-    const categoryStarts = safeRows.filter(
-      (r) => r.billing_applied === true && r.intent_type === "category"
-    ).length;
-
-    const nearbyStarts = safeRows.filter(
-      (r) => r.billing_applied === true && r.intent_type === "nearby"
-    ).length;
-
-    const totalBilledConversations =
-      directStarts + categoryStarts + nearbyStarts;
-
-    const estimatedRevenue = safeRows
-      .filter((r) => r.billing_applied === true)
-      .reduce((sum, r) => sum + Number(r.billing_amount || 0), 0);
+    let directStarts = 0;
+    let categoryStarts = 0;
+    let nearbyStarts = 0;
+    let estimatedRevenue = 0;
 
     const activityMap = {};
+
     for (const row of safeRows) {
-      const date = new Date(row.clicked_at).toISOString().slice(0, 10);
+      const amount = Number(row.amount || 0);
+      estimatedRevenue += amount;
+
+      const eventType = String(row.event_type || "").toLowerCase();
+      const reason = String(row.reason || "").toLowerCase();
+
+      let intent = "direct";
+
+      if (eventType.includes("category") || reason.includes("category")) {
+        intent = "category";
+      } else if (eventType.includes("nearby") || reason.includes("nearby")) {
+        intent = "nearby";
+      } else {
+        intent = "direct";
+      }
+
+      if (intent === "direct") directStarts += 1;
+      if (intent === "category") categoryStarts += 1;
+      if (intent === "nearby") nearbyStarts += 1;
+
+      const date = new Date(row.created_at).toISOString().slice(0, 10);
+
       if (!activityMap[date]) {
         activityMap[date] = {
           date,
@@ -2625,13 +2636,12 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
         };
       }
 
-      if (row.billing_applied) {
-        activityMap[date].total += 1;
-        if (row.intent_type === "direct") activityMap[date].direct += 1;
-        if (row.intent_type === "category") activityMap[date].category += 1;
-        if (row.intent_type === "nearby") activityMap[date].nearby += 1;
-      }
+      activityMap[date][intent] += 1;
+      activityMap[date].total += 1;
     }
+
+    const totalBilledConversations =
+      directStarts + categoryStarts + nearbyStarts;
 
     const activity = Object.values(activityMap);
 
@@ -2643,6 +2653,7 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
         /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(String(business.mediaLink))
           ? business.mediaLink
           : null),
+
       category: Array.isArray(business.category)
         ? business.category.join(", ")
         : toSafeCategoryValue(business.category) || "Category",
@@ -2652,12 +2663,12 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
       nearby_starts: nearbyStarts,
       total_billed_conversations: totalBilledConversations,
       estimated_revenue: Number(estimatedRevenue.toFixed(2)),
-      currency: business.wallet?.currency || "USD",
+      currency: business.wallet_currency || business.wallet?.currency || "USD",
 
       pricing: {
         direct: Number(business.billingDirectIntentCost ?? 0.25),
-        category: Number(business.billingCategoryIntentCost ?? 0.30),
-        nearby: Number(business.billingNearbyIntentCost ?? 0.40),
+        category: Number(business.billingCategoryIntentCost ?? 0.3),
+        nearby: Number(business.billingNearbyIntentCost ?? 0.4),
       },
 
       activity,
@@ -2678,6 +2689,7 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
     return res.status(500).json({ error: "Failed" });
   }
 });
+
 // =========================
 // BUSINESS BALANCE
 // =========================
