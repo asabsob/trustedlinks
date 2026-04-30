@@ -1250,6 +1250,39 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
+app.get("/test-double-deduct", async (req, res) => {
+  try {
+    const businessId = "PUT_REAL_BUSINESS_ID_HERE";
+
+    const results = await Promise.allSettled([
+      deductBusinessWallet({
+        businessId,
+        amount: 0.25,
+        eventType: "test_parallel_deduct",
+        note: "parallel A",
+        meta: { test: true, label: "A" },
+      }),
+      deductBusinessWallet({
+        businessId,
+        amount: 0.25,
+        eventType: "test_parallel_deduct",
+        note: "parallel B",
+        meta: { test: true, label: "B" },
+      }),
+    ]);
+
+    return res.json({
+      ok: true,
+      results,
+    });
+  } catch (error) {
+    console.error("test-double-deduct error:", error);
+    return res.status(500).json({
+      ok: false,
+      error: error.message,
+    });
+  }
+});
 // ============================================================================
 // AUTH (Signup/Login + Email + Reset Password)
 // ============================================================================
@@ -4877,6 +4910,64 @@ app.get("/l/:token", async (req, res) => {
       return res.status(400).send("Invalid lead token");
     }
 
+       console.log("LEAD_TEST_START", { tokenId });
+
+    // after you load token/business
+    console.log("LEAD_TEST_TOKEN_LOADED", {
+      tokenId,
+      businessId,
+      intentType,
+    });
+
+    // after checking existing lock
+    console.log("LEAD_TEST_EXISTING_LOCK", {
+      tokenId,
+      existingLock: !!existingLock,
+      lockId: existingLock?.id || null,
+    });
+
+    // right before deduction
+    console.log("LEAD_TEST_DEDUCT_ATTEMPT", {
+      businessId,
+      amount,
+      intentType,
+    });
+
+    const deduction = await deductWalletBalance({
+      ownerUserId,
+      businessId,
+      intentType,
+      reason: "Lead click",
+      reference: tokenId,
+      meta: { tokenId },
+    });
+
+    console.log("LEAD_TEST_DEDUCT_RESULT", {
+      tokenId,
+      ok: deduction?.ok,
+      amount: deduction?.amount,
+      balanceBefore: deduction?.balanceBefore,
+      balanceAfter: deduction?.balanceAfter,
+      error: deduction?.error || null,
+      insufficient: deduction?.insufficient || false,
+    });
+
+    const chargeLock = await createChargeLock({
+      charge_key: chargeKey,
+      business_id: businessId,
+      token_id: tokenId,
+      expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
+      meta: { tokenId },
+    });
+
+    console.log("LEAD_TEST_CREATE_LOCK_RESULT", {
+      tokenId,
+      created: !!chargeLock,
+      lockId: chargeLock?.id || null,
+    });
+
+    console.log("LEAD_TEST_DONE", { tokenId });
+
     const tokenRow = await getLeadTokenById(tokenId);
     if (!tokenRow) {
       return res.status(404).send("Lead link not found");
@@ -5223,7 +5314,6 @@ return res.send(redirectHtml);
     return res.status(500).send("Internal server error");
   }
 });
-
 
 // ---------------------------------------------------------------------------
 // Debug
