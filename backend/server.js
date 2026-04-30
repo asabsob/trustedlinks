@@ -4906,73 +4906,19 @@ app.post("/api/create-lead", async (req, res) => {
 app.get("/l/:token", async (req, res) => {
   try {
     const tokenId = String(req.params.token || "").trim();
+
     if (!tokenId) {
       return res.status(400).send("Invalid lead token");
     }
 
-       console.log("LEAD_TEST_START", { tokenId });
-
-    // after you load token/business
-    console.log("LEAD_TEST_TOKEN_LOADED", {
-      tokenId,
-      businessId,
-      intentType,
-    });
-
-    // after checking existing lock
-    console.log("LEAD_TEST_EXISTING_LOCK", {
-      tokenId,
-      existingLock: !!existingLock,
-      lockId: existingLock?.id || null,
-    });
-
-    // right before deduction
-    console.log("LEAD_TEST_DEDUCT_ATTEMPT", {
-      businessId,
-      amount,
-      intentType,
-    });
-
-    const deduction = await deductWalletBalance({
-      ownerUserId,
-      businessId,
-      intentType,
-      reason: "Lead click",
-      reference: tokenId,
-      meta: { tokenId },
-    });
-
-    console.log("LEAD_TEST_DEDUCT_RESULT", {
-      tokenId,
-      ok: deduction?.ok,
-      amount: deduction?.amount,
-      balanceBefore: deduction?.balanceBefore,
-      balanceAfter: deduction?.balanceAfter,
-      error: deduction?.error || null,
-      insufficient: deduction?.insufficient || false,
-    });
-
-    const chargeLock = await createChargeLock({
-      charge_key: chargeKey,
-      business_id: businessId,
-      token_id: tokenId,
-      expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
-      meta: { tokenId },
-    });
-
-    console.log("LEAD_TEST_CREATE_LOCK_RESULT", {
-      tokenId,
-      created: !!chargeLock,
-      lockId: chargeLock?.id || null,
-    });
-
-    console.log("LEAD_TEST_DONE", { tokenId });
+    console.log("LEAD_TEST_START", { tokenId });
 
     const tokenRow = await getLeadTokenById(tokenId);
+
     if (!tokenRow) {
       return res.status(404).send("Lead link not found");
     }
-    
+
     const businessId = String(
       tokenRow.business_id ||
         tokenRow.businessId ||
@@ -4987,6 +4933,59 @@ app.get("/l/:token", async (req, res) => {
     if (tokenRow.expires_at && new Date(tokenRow.expires_at) < new Date()) {
       return res.status(410).send("Lead link expired");
     }
+
+    const intentType =
+      String(tokenRow.intent_type || tokenRow.intentType || "direct").trim() ||
+      "direct";
+
+    console.log("LEAD_TEST_TOKEN_LOADED", {
+      tokenId,
+      businessId,
+      intentType,
+    });
+
+    const rawBusinessPhone =
+      tokenRow.business_phone ||
+      tokenRow.businessPhone ||
+      "";
+
+    let safePhone = String(rawBusinessPhone).replace(/\D/g, "");
+
+    if (safePhone.startsWith("0")) {
+      safePhone = `962${safePhone.slice(1)}`;
+    }
+
+    if (!safePhone.startsWith("962") && safePhone.length === 9) {
+      safePhone = `962${safePhone}`;
+    }
+
+    if (!safePhone) {
+      return res.status(400).send("Invalid business phone");
+    }
+
+    const message = "Hello, I found you on TrustedLinks";
+    const waUrl = `https://wa.me/${safePhone}?text=${encodeURIComponent(
+      message
+    )}`;
+    const fallbackUrl = `whatsapp://send?phone=${safePhone}&text=${encodeURIComponent(
+      message
+    )}`;
+
+    const redirectHtml = `
+      <html>
+        <head>
+          <meta http-equiv="refresh" content="0; url=${waUrl}" />
+          <script>
+            setTimeout(function() {
+              window.location.href = "${fallbackUrl}";
+            }, 500);
+          </script>
+        </head>
+        <body>
+          Redirecting to WhatsApp...
+        </body>
+      </html>
+    `;
 
     const ip =
       req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
@@ -5010,95 +5009,89 @@ app.get("/l/:token", async (req, res) => {
         ""
     );
 
-    const intentType = String(tokenRow.intent_type || "direct").trim() || "direct";
-
     const hasConsent =
-  tokenRow.consent_snapshot_id || tokenRow.consentSnapshotId;
+      tokenRow.consent_snapshot_id || tokenRow.consentSnapshotId;
 
-if (!hasConsent) {
-  const accepted = String(req.query.acceptConsent || "") === "1";
+    if (!hasConsent) {
+      const accepted = String(req.query.acceptConsent || "") === "1";
 
-  // 1. عرض صفحة الموافقة
-  if (!accepted) {
-    return res.send(`
-      <html>
-        <head>
-          <title>Continue to WhatsApp</title>
-          <meta name="viewport" content="width=device-width, initial-scale=1" />
-        </head>
-        <body style="
-          font-family: Arial;
-          padding: 28px;
-          max-width: 520px;
-          margin: auto;
-        ">
-          <h2>Continue to WhatsApp</h2>
+      if (!accepted) {
+        return res.send(`
+          <html>
+            <head>
+              <title>Continue to WhatsApp</title>
+              <meta name="viewport" content="width=device-width, initial-scale=1" />
+            </head>
+            <body style="
+              font-family: Arial;
+              padding: 28px;
+              max-width: 520px;
+              margin: auto;
+            ">
+              <h2>Continue to WhatsApp</h2>
 
-          <p>
-            TrustedLinks will connect you with the selected business via WhatsApp.
-          </p>
+              <p>
+                TrustedLinks will connect you with the selected business via WhatsApp.
+              </p>
 
-          <p dir="rtl">
-            سيتم ربطك بالنشاط المختار عبر واتساب من خلال TrustedLinks.
-          </p>
+              <p dir="rtl">
+                سيتم ربطك بالنشاط المختار عبر واتساب من خلال TrustedLinks.
+              </p>
 
-          <a href="/l/${encodeURIComponent(tokenId)}?acceptConsent=1"
-             style="
-              display:block;
-              text-align:center;
-              background:#0A7C55;
-              color:white;
-              padding:14px;
-              border-radius:12px;
-              margin-top:20px;
-              text-decoration:none;
-             ">
-            أوافق وأكمل
-          </a>
-        </body>
-      </html>
-    `);
-  }
+              <a href="/l/${encodeURIComponent(tokenId)}?acceptConsent=1"
+                 style="
+                  display:block;
+                  text-align:center;
+                  background:#0A7C55;
+                  color:white;
+                  padding:14px;
+                  border-radius:12px;
+                  margin-top:20px;
+                  text-decoration:none;
+                 ">
+                أوافق وأكمل
+              </a>
+            </body>
+          </html>
+        `);
+      }
 
-  // 2. إنشاء consent مرة واحدة فقط
-  const { data: consentRow, error } = await supabase
-    .from("privacy_consents")
-    .insert({
-      user_phone_hash: userPhoneHash || null,
-      session_id: `lead-${tokenId}`,
-      service_consent: true,
-      profiling_consent: true,
-      marketing_consent: false,
-      status: "granted",
-      policy_version: "v1.0",
-      language: "ar",
-      source: "lead_redirect",
-      ip_hash: hashValue(ip || ""),
-      user_agent: userAgent || "",
-      proof_json: {
-        tokenId,
-        acceptedAt: new Date().toISOString(),
-      },
-    })
-    .select("id")
-    .single();
+      const { data: consentRow, error } = await supabase
+        .from("privacy_consents")
+        .insert({
+          user_phone_hash: userPhoneHash || null,
+          session_id: `lead-${tokenId}`,
+          service_consent: true,
+          profiling_consent: true,
+          marketing_consent: false,
+          status: "granted",
+          policy_version: "v1.0",
+          language: "ar",
+          source: "lead_redirect",
+          ip_hash: hashValue(ip || ""),
+          user_agent: userAgent || "",
+          proof_json: {
+            tokenId,
+            acceptedAt: new Date().toISOString(),
+          },
+        })
+        .select("id")
+        .single();
 
-  if (error) {
-    console.error("Consent insert error:", error);
-    return res.status(500).send("Error. Try again.");
-  }
+      if (error) {
+        console.error("Consent insert error:", error);
+        return res.status(500).send("Error. Try again.");
+      }
 
-  // 3. تحديث lead token
-  await supabase
-    .from("lead_tokens")
-    .update({
-      consent_snapshot_id: consentRow.id,
-    })
-    .eq("id", tokenId);
+      await supabase
+        .from("lead_tokens")
+        .update({
+          consent_snapshot_id: consentRow.id,
+        })
+        .eq("id", tokenId);
 
-  // 4. تحديث object في الذاكرة لمنع التكرار
-  tokenRow.consent_snapshot_id = consentRow.id;
-}
+      tokenRow.consent_snapshot_id = consentRow.id;
+    }
 
     const signals = await analyzeLeadSignals({
       businessId,
@@ -5121,6 +5114,12 @@ if (!hasConsent) {
 
     const existingLock = await findActiveChargeLock(chargeKey);
 
+    console.log("LEAD_TEST_EXISTING_LOCK", {
+      tokenId,
+      existingLock: !!existingLock,
+      lockId: existingLock?.id || null,
+    });
+
     let actionTaken = risk.action;
     let charged = false;
 
@@ -5129,122 +5128,146 @@ if (!hasConsent) {
       risk.reasonCodes.push("DUPLICATE_WITHIN_WINDOW");
     }
 
-    const rawBusinessPhone =
-      tokenRow.business_phone ||
-      tokenRow.businessPhone ||
-      "";
+    if (risk.action === "block") {
+      const fraudMeta = {
+        businessId,
+        tokenId,
+        intentType,
+        riskScore: Number(risk.score || 0),
+        riskLevel: risk.riskLevel || "unknown",
+        reasonCodes: Array.isArray(risk.reasonCodes)
+          ? risk.reasonCodes
+          : [],
+        ip: ip || null,
+        fingerprint: fingerprint || null,
+        userAgent: userAgent || "",
+      };
 
-    let safePhone = String(rawBusinessPhone).replace(/\D/g, "");
+      await logFraudEvent({
+        event_type: "lead_click",
+        user_phone_hash: userPhoneHash || null,
+        business_id: businessId,
+        token_id: tokenId,
+        ip_address: ip || null,
+        user_agent: userAgent,
+        fingerprint,
+        intent_type: intentType,
+        risk_score: risk.score,
+        risk_level: risk.riskLevel,
+        action_taken: "block",
+        reason_codes: fraudMeta.reasonCodes,
+        meta: {
+          blocked: true,
+          ...fraudMeta,
+        },
+      });
 
-    if (safePhone.startsWith("0")) {
-      safePhone = `962${safePhone.slice(1)}`;
+      await notifyFraudBlocked({
+        businessId,
+        tokenId,
+        intentType,
+        risk,
+      });
+
+      return res.status(429).send("Request blocked");
     }
 
-    if (!safePhone.startsWith("962") && safePhone.length === 9) {
-      safePhone = `962${safePhone}`;
+    if (!existingLock && risk.action === "hold") {
+      await createPendingCharge({
+        business_id: businessId,
+        token_id: tokenId,
+        amount: Number(tokenRow.charge_amount || 0),
+        currency: "USD",
+        intent_type: intentType,
+        status: "pending",
+        risk_score: risk.score,
+        reason_codes: risk.reasonCodes,
+        meta: { ip, fingerprint },
+      });
+
+      await notifyPendingCharge({
+        businessId,
+        tokenId,
+        risk,
+      });
     }
 
-    if (!safePhone) {
-      return res.status(400).send("Invalid business phone");
+    if (!existingLock && risk.action === "allow") {
+      console.log("LEAD_TEST_DEDUCT_ATTEMPT", {
+        tokenId,
+        businessId,
+        intentType,
+      });
+
+      const billingResult = await deductWalletBalance({
+        ownerUserId: "",
+        businessId,
+        intentType,
+        reason: "Tracked lead WhatsApp charge",
+        reference: tokenId,
+        meta: {
+          tokenId,
+          ip,
+          fingerprint,
+        },
+      });
+
+      console.log("LEAD_TEST_DEDUCT_RESULT", {
+        tokenId,
+        ok: billingResult?.ok,
+        amount: billingResult?.amount,
+        balanceBefore: billingResult?.balanceBefore,
+        balanceAfter: billingResult?.balanceAfter,
+        error: billingResult?.error || null,
+        insufficient: billingResult?.insufficient || false,
+      });
+
+      if (!billingResult?.ok && !billingResult?.skipped) {
+        await logFraudEvent({
+          event_type: "lead_click",
+          user_phone_hash: userPhoneHash || null,
+          business_id: businessId,
+          token_id: tokenId,
+          ip_address: ip || null,
+          user_agent: userAgent,
+          fingerprint,
+          intent_type: intentType,
+          risk_score: risk.score,
+          risk_level: risk.riskLevel,
+          action_taken: "billing_failed",
+          reason_codes: [...risk.reasonCodes, "BILLING_FAILED"],
+          meta: {
+            billingError: billingResult?.error || null,
+            insufficient: billingResult?.insufficient || false,
+          },
+        });
+
+        return res.send(redirectHtml);
+      }
+
+      const expiresAt = new Date(
+        Date.now() + 72 * 60 * 60 * 1000
+      ).toISOString();
+
+      const chargeLock = await createChargeLock({
+        business_id: businessId,
+        user_phone_hash: userPhoneHash || null,
+        fingerprint: fingerprint || null,
+        ip_address: ip || null,
+        charge_key: chargeKey,
+        first_token_id: tokenId,
+        expires_at: expiresAt,
+      });
+
+      console.log("LEAD_TEST_CREATE_LOCK_RESULT", {
+        tokenId,
+        created: !!chargeLock,
+        lockId: chargeLock?.id || null,
+      });
+
+      charged = true;
     }
 
-    const message = "Hello, I found you on TrustedLinks";
-    const waUrl = `https://wa.me/${safePhone}?text=${encodeURIComponent(message)}`;
-    const fallbackUrl = `whatsapp://send?phone=${safePhone}&text=${encodeURIComponent(message)}`;
-
-    const redirectHtml = `
-      <html>
-        <head>
-          <meta http-equiv="refresh" content="0; url=${waUrl}" />
-          <script>
-            setTimeout(function() {
-              window.location.href = "${fallbackUrl}";
-            }, 500);
-          </script>
-        </head>
-        <body>
-          Redirecting to WhatsApp...
-        </body>
-      </html>
-    `;
-
-if (risk.action === "block") {
-  const fraudMeta = {
-    businessId,
-    tokenId,
-    intentType,
-    riskScore: Number(risk.score || 0),
-    riskLevel: risk.riskLevel || "unknown",
-    reasonCodes: Array.isArray(risk.reasonCodes) ? risk.reasonCodes : [],
-    ip: ip || null,
-    fingerprint: fingerprint || null,
-    userAgent: userAgent || "",
-  };
-
-  await logFraudEvent({
-    event_type: "lead_click",
-    user_phone_hash: userPhoneHash || null,
-    business_id: businessId,
-    token_id: tokenId,
-    ip_address: ip || null,
-    user_agent: userAgent,
-    fingerprint,
-    intent_type: intentType,
-    risk_score: risk.score,
-    risk_level: risk.riskLevel,
-    action_taken: "block",
-    reason_codes: fraudMeta.reasonCodes,
-    meta: {
-      blocked: true,
-      ...fraudMeta,
-    },
-  });
-
-  await notifyFraudBlocked({
-    businessId,
-    tokenId,
-    intentType,
-    risk,
-  });
-
-  return res.status(429).send("Request blocked");
-}
-
-if (!existingLock && risk.action === "hold") {
-  await createPendingCharge({
-    business_id: businessId,
-    token_id: tokenId,
-    amount: Number(tokenRow.charge_amount || 0),
-    currency: "USD",
-    intent_type: intentType,
-    status: "pending",
-    risk_score: risk.score,
-    reason_codes: risk.reasonCodes,
-    meta: { ip, fingerprint },
-  });
-
-  await notifyPendingCharge({
-    businessId,
-    tokenId,
-    risk,
-  });
-}
-
-if (!existingLock && risk.action === "allow") {
-  const billingResult = await deductWalletBalance({
-    ownerUserId: "",
-    businessId,
-    intentType,
-    reason: "Tracked lead WhatsApp charge",
-    reference: tokenId,
-    meta: {
-      tokenId,
-      ip,
-      fingerprint,
-    },
-  });
-
-  if (!billingResult?.ok && !billingResult?.skipped) {
     await logFraudEvent({
       event_type: "lead_click",
       user_phone_hash: userPhoneHash || null,
@@ -5256,65 +5279,34 @@ if (!existingLock && risk.action === "allow") {
       intent_type: intentType,
       risk_score: risk.score,
       risk_level: risk.riskLevel,
-      action_taken: "billing_failed",
-      reason_codes: [...risk.reasonCodes, "BILLING_FAILED"],
+      action_taken: existingLock ? "allow_duplicate_no_charge" : actionTaken,
+      reason_codes: risk.reasonCodes,
       meta: {
-        billingError: billingResult?.error || null,
-        insufficient: billingResult?.insufficient || false,
+        charged,
+        duplicateSkipped: !!existingLock,
       },
     });
 
-    return res.send(redirectHtml);
-  }
-
-  const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
-
-  await createChargeLock({
-    business_id: businessId,
-    user_phone_hash: userPhoneHash || null,
-    fingerprint: fingerprint || null,
-    ip_address: ip || null,
-    charge_key: chargeKey,
-    first_token_id: tokenId,
-    expires_at: expiresAt,
-  });
-
-  charged = true;
-}
-
-await logFraudEvent({
-  event_type: "lead_click",
-  user_phone_hash: userPhoneHash || null,
-  business_id: businessId,
-  token_id: tokenId,
-  ip_address: ip || null,
-  user_agent: userAgent,
-  fingerprint,
-  intent_type: intentType,
-  risk_score: risk.score,
-  risk_level: risk.riskLevel,
-  action_taken: existingLock ? "allow_duplicate_no_charge" : actionTaken,
-  reason_codes: risk.reasonCodes,
-  meta: {
-    charged,
-    duplicateSkipped: !!existingLock,
-  },
-});
-
     await supabase
-  .from("lead_tokens")
-  .update({
-    opened_at: new Date().toISOString(),
-  })
-  .eq("id", tokenId);
-    
-return res.send(redirectHtml);
+      .from("lead_tokens")
+      .update({
+        opened_at: new Date().toISOString(),
+      })
+      .eq("id", tokenId);
+
+    console.log("LEAD_TEST_DONE", {
+      tokenId,
+      charged,
+      duplicateSkipped: !!existingLock,
+      actionTaken: existingLock ? "allow_duplicate_no_charge" : actionTaken,
+    });
+
+    return res.send(redirectHtml);
   } catch (error) {
     console.error("Lead redirect anti-fraud error:", error);
     return res.status(500).send("Internal server error");
   }
 });
-
 // ---------------------------------------------------------------------------
 // Debug
 // ---------------------------------------------------------------------------
