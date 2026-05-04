@@ -932,7 +932,7 @@ function getConversationStartPrice(business, intentType) {
 async function deductWalletBalance({
   ownerUserId,
   businessId = null,
- intentType = "category",
+  intentType = "category",
   reason,
   reference = "",
   meta = {},
@@ -947,7 +947,8 @@ async function deductWalletBalance({
       return { ok: false, error: "Business not found" };
     }
 
-    const amount = getConversationStartPrice(business, intentType);
+    const finalIntentType = intentType || "category";
+    const amount = getConversationStartPrice(business, finalIntentType);
 
     if (!amount || amount <= 0) {
       return { ok: true, skipped: true, reason: "No charge for this event" };
@@ -956,16 +957,15 @@ async function deductWalletBalance({
     const result = await deductBusinessWallet({
       businessId,
       amount,
-      eventType: `conversation_start_${intentType}`,
+      eventType: `conversation_start_${finalIntentType}`,
       note: reason,
       meta: {
         ...meta,
         reference,
         ownerUserId,
-        intentType,
+        intentType: finalIntentType,
       },
     });
-
     if (Number(result.balanceAfter) > 0 && Number(result.balanceAfter) < 5) {
       await notifyLowBalance({
         businessId,
@@ -4660,7 +4660,6 @@ async function enrichTopOnly({ results = [], query = "", userPhone = "", intentT
 
 const finalIntentType = intentType || "category";
 
-  const amount = getConversationStartPrice(business, finalIntentType);
   
   console.log("ENRICH_INTENT_DEBUG", {
     query,
