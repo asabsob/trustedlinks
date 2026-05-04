@@ -4865,7 +4865,8 @@ if (searchData.mode === "refinement_required") {
   }).catch(console.error);
 }
 
-console.time("enrichTopOnly");
+const enrichTimer = `enrichTopOnly_${Date.now()}_${Math.random()}`;
+console.time(enrichTimer);
 
 const enrichedResults = await enrichTopOnly({
   results: searchData.results || [],
@@ -4874,10 +4875,11 @@ const enrichedResults = await enrichTopOnly({
   intentType,
 });
 
-console.timeEnd("enrichTopOnly");
+console.timeEnd(enrichTimer);
 
-console.time("formatSearchResponse");
-
+const formatTimer = `formatSearchResponse_${Date.now()}_${Math.random()}`;
+console.time(formatTimer);
+    
 const reply = formatSearchResponse(
   {
     ...searchData,
@@ -5247,12 +5249,23 @@ app.get("/l/:token", async (req, res) => {
       });
     }
 
-    if (!existingLock && risk.action === "allow") {
-      console.log("LEAD_TEST_DEDUCT_ATTEMPT", {
-        tokenId,
-        businessId,
-        intentType,
-      });
+   if (!existingLock && risk.action === "allow") {
+  const alreadyOpened = tokenRow.opened_at || tokenRow.openedAt;
+
+  if (alreadyOpened) {
+    console.log("SKIP_ALREADY_OPENED", {
+      tokenId,
+      openedAt: alreadyOpened,
+    });
+
+    return res.send(redirectHtml);
+  }
+
+  console.log("LEAD_TEST_DEDUCT_ATTEMPT", {
+    tokenId,
+    businessId,
+    intentType,
+  });
 
       const billingResult = await deductWalletBalance({
         ownerUserId: "",
