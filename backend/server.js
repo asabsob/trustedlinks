@@ -499,6 +499,8 @@ async function enrichTopResultWithTrackedLink({
   userPhone = "",
   intentType = "category",
 }) {
+  const finalIntentType = intentType || "category";
+
   const safeItems = Array.isArray(items) ? items : [];
   if (!safeItems.length) return [];
 
@@ -513,7 +515,7 @@ async function enrichTopResultWithTrackedLink({
       phone: first.whatsapp,
       query,
       userPhone,
-      intentType,
+      intentType: finalIntentType,
     });
   }
 
