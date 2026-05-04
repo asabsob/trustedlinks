@@ -875,7 +875,7 @@ async function createLeadTrackedLink({
   phone = "",
   query = "",
   userPhone = "",
-  intentType = "category"
+  intentType = "category",
 }) {
   const safePhone = String(phone || "").replace(/\D/g, "");
   const safeBusinessId = String(businessId || "").trim();
@@ -927,7 +927,7 @@ async function createLeadTrackedLink({
 async function deductWalletBalance({
   ownerUserId,
   businessId = null,
-  intentType = "category"
+ intentType = "category",
   reason,
   reference = "",
   meta = {},
