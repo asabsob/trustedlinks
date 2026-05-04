@@ -879,6 +879,8 @@ async function createLeadTrackedLink({
   userPhone = "",
   intentType = "category",
 }) {
+  const finalIntentType = intentType || "category";
+
   const safePhone = String(phone || "").replace(/\D/g, "");
   const safeBusinessId = String(businessId || "").trim();
   const safeUserPhone = String(userPhone || "").replace(/\D/g, "");
@@ -886,20 +888,19 @@ async function createLeadTrackedLink({
 
   if (!safePhone || !safeBusinessId) return "";
 
- const token = await createLeadToken({
-  businessId: safeBusinessId,
-  businessPhone: safePhone,
-  userPhone: safeUserPhone,
-  query: safeQuery,
+  const token = await createLeadToken({
+    businessId: safeBusinessId,
+    businessPhone: safePhone,
+    userPhone: safeUserPhone,
+    query: safeQuery,
     intentType: finalIntentType,
-});
+  });
 
   const tokenId = token?.id || token?._id?.toString();
-  const baseUrl =
-  (process.env.FRONTEND_BASE_URL || "https://trustedlinks.net")
+  const baseUrl = (process.env.FRONTEND_BASE_URL || "https://trustedlinks.net")
     .trim()
     .replace(/\/+$/, "");
-  
+
   if (!tokenId || !baseUrl) {
     console.error("Failed to create tracked link", {
       hasToken: !!token,
@@ -4927,12 +4928,13 @@ app.post("/api/create-lead", async (req, res) => {
       });
     }
 
-    const token = await createLeadToken({
-      businessId,
-      businessPhone: rawPhone,
-      userPhone: "",
-      query: req.body?.source || "website_search",
-    });
+   const token = await createLeadToken({
+  businessId,
+  businessPhone: rawPhone,
+  userPhone: "",
+  query: req.body?.source || "website_search",
+  intentType: req.body?.intentType || "category",
+});
 
     return res.json({
       success: true,
