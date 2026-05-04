@@ -4666,6 +4666,29 @@ async function enrichTopOnly({ results = [], query = "", userPhone = "", intentT
   ];
 }
 
+function normalizeIntentType(intentData, query) {
+  const q = String(query || "").toLowerCase();
+
+  if (intentData?.intentType) {
+    return intentData.intentType;
+  }
+
+  if (
+    q.includes("near me") ||
+    q.includes("قريب") ||
+    q.includes("قريبة") ||
+    q.includes("حولي") ||
+    q.includes("جنب")
+  ) {
+    return "nearby";
+  }
+
+  if (intentData?.isBrandSearch === true) {
+    return "direct";
+  }
+
+  return "category";
+}
 // ============================================================================
 // WhatsApp Webhook - Production Fast Version
 // ============================================================================
@@ -4771,14 +4794,22 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
     }
 
     // Normal Intent
-    const intentData = parseSearchIntent(incomingText);
-    const effectiveQuery = intentData.categoryQuery || normalizedQuery;
-    const intentType = resolveIntentType(intentData);
+   const intentData = parseSearchIntent(incomingText);
+const effectiveQuery = intentData.categoryQuery || normalizedQuery;
+const intentType = normalizeIntentType(intentData, incomingText);
+
+console.log("INTENT_DEBUG", {
+  query: incomingText,
+  effectiveQuery,
+  intentData,
+  intentType,
+});
 
    // Search Fast - TEMP PERFORMANCE TEST
 const t0 = Date.now();
 
-console.time("SEARCH_TOTAL");
+const searchTimerId = `SEARCH_TOTAL_${Date.now()}_${Math.random()}`;
+console.time(searchTimerId);
 
 console.time("searchBusinessesFast");
 const searchData = await searchBusinessesFast({
@@ -4789,7 +4820,7 @@ console.timeEnd("searchBusinessesFast");
 
 // Refinement
 if (searchData.mode === "refinement_required") {
-  console.timeEnd("SEARCH_TOTAL");
+ console.timeEnd(searchTimerId);
   console.log("TOTAL USER REPLY TIME:", Date.now() - t0, "ms");
 
   const session = {
