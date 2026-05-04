@@ -976,13 +976,14 @@ async function deductWalletBalance({
       });
     }
 
-    if (Number(result.balanceAfter) < 0) {
-      await notifyNegativeBalance({
-        businessId,
-        balanceAfter: Number(result.balanceAfter),
-      });
-    }
-
+  if (Number(result.balanceAfter) < 0) {
+  if (typeof notifyNegativeBalance === "function") {
+    await notifyNegativeBalance({
+      businessId,
+      balanceAfter: Number(result.balanceAfter),
+    });
+  }
+}
     return {
       ok: true,
       amount,
@@ -3759,6 +3760,11 @@ app.post("/api/admin/fraud/pending-charges/:id/approve", requireAdmin, async (re
     });
     
 async function notifyNegativeBalance({ businessId, balanceAfter }) {
+  if (typeof emitNotification !== "function") {
+    console.warn("NEGATIVE BALANCE ALERT", { businessId, balanceAfter });
+    return;
+  }
+
   await emitNotification({
     type: "billing",
     priority: "critical",
@@ -4983,9 +4989,9 @@ app.get("/l/:token", async (req, res) => {
       return res.status(410).send("Lead link expired");
     }
 
-    const intentType =
-      String(tokenRow.intent_type || tokenRow.intentType || "direct").trim() ||
-      "direct";
+  const intentType =
+  String(tokenRow.intent_type || tokenRow.intentType || "category").trim() ||
+  "category";
 
     console.log("LEAD_TEST_TOKEN_LOADED", {
       tokenId,
