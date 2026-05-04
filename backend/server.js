@@ -911,16 +911,21 @@ async function createLeadTrackedLink({
   return `${baseUrl}/l/${tokenId}`;
 }
 
- function getConversationStartPrice(business, intentType) {
-  switch (intentType) {
+function getConversationStartPrice(business, intentType) {
+  const type = intentType || "category";
+
+  switch (type) {
     case "direct":
       return Number(business?.billingDirectIntentCost ?? 0.25);
+
     case "category":
       return Number(business?.billingCategoryIntentCost ?? 0.30);
+
     case "nearby":
       return Number(business?.billingNearbyIntentCost ?? 0.40);
+
     default:
-      return 0;
+      return Number(business?.billingCategoryIntentCost ?? 0.30);
   }
 }
 
@@ -4654,7 +4659,8 @@ async function enrichTopOnly({ results = [], query = "", userPhone = "", intentT
   if (!Array.isArray(results) || results.length === 0) return [];
 
 const finalIntentType = intentType || "category";
-const amount = getIntentPrice(finalIntentType);
+
+  const amount = getConversationStartPrice(business, finalIntentType);
   
   console.log("ENRICH_INTENT_DEBUG", {
     query,
