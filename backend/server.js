@@ -497,7 +497,7 @@ async function enrichTopResultWithTrackedLink({
   items = [],
   query = "",
   userPhone = "",
-  intentType = "direct",
+  intentType = "category",
 }) {
   const safeItems = Array.isArray(items) ? items : [];
   if (!safeItems.length) return [];
@@ -875,7 +875,7 @@ async function createLeadTrackedLink({
   phone = "",
   query = "",
   userPhone = "",
-  intentType = "direct",
+  intentType = "category"
 }) {
   const safePhone = String(phone || "").replace(/\D/g, "");
   const safeBusinessId = String(businessId || "").trim();
@@ -884,13 +884,13 @@ async function createLeadTrackedLink({
 
   if (!safePhone || !safeBusinessId) return "";
 
-  const token = await createLeadToken({
-    businessId: safeBusinessId,
-    businessPhone: safePhone,
-    userPhone: safeUserPhone,
-    query: safeQuery,
-    intentType,
-  });
+ const token = await createLeadToken({
+  businessId: safeBusinessId,
+  businessPhone: safePhone,
+  userPhone: safeUserPhone,
+  query: safeQuery,
+    intentType: finalIntentType,
+});
 
   const tokenId = token?.id || token?._id?.toString();
   const baseUrl =
@@ -927,7 +927,7 @@ async function createLeadTrackedLink({
 async function deductWalletBalance({
   ownerUserId,
   businessId = null,
-  intentType = "direct",
+  intentType = "category"
   reason,
   reference = "",
   meta = {},
@@ -4650,14 +4650,23 @@ function resolveIntentType(intentData = {}) {
   return "direct";
 }
 
-async function enrichTopOnly({ results = [], query = "", userPhone = "", intentType = "direct" }) {
+async function enrichTopOnly({ results = [], query = "", userPhone = "", intentType = "category" }) {
   if (!Array.isArray(results) || results.length === 0) return [];
+
+const finalIntentType = intentType || "category";
+const amount = getIntentPrice(finalIntentType);
+  
+  console.log("ENRICH_INTENT_DEBUG", {
+    query,
+    intentType,
+    finalIntentType,
+  });
 
   const enrichedTop = await enrichTopResultWithTrackedLink({
     items: results.slice(0, 1),
     query,
     userPhone,
-    intentType,
+    intentType: finalIntentType,
   });
 
   return [
