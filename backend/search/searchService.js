@@ -59,10 +59,22 @@ function getBusinessFields(item) {
   ].map((v) => normalizeSearchText(String(v || "")));
 }
 
-function matchesBusiness(item, regexList) {
-  if (!regexList.length) return true;
+function matchesBusiness(item, regexList, query = "") {
   const fields = getBusinessFields(item);
-  return regexList.some((rx) => fields.some((field) => rx.test(field)));
+  const fullText = fields.join(" ");
+
+  if (!regexList.length) return true;
+
+  const directMatch = regexList.some((rx) => rx.test(fullText));
+  if (directMatch) return true;
+
+  const words = normalizeSearchText(query)
+    .split(" ")
+    .filter((w) => w.length >= 3);
+
+  if (!words.length) return false;
+
+  return words.some((word) => fullText.includes(word));
 }
 
 function calculateMatchScore(item, query = "", terms = [], intent = "category") {
@@ -256,7 +268,7 @@ const searchableBusinesses = businesses.filter((b) => {
 });
 
 let matched = searchableBusinesses.filter((item) =>
-  matchesBusiness(item, regexList)
+  matchesBusiness(item, regexList, effectiveQuery)
 );
 
   matched = matched
