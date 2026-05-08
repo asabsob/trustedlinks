@@ -23,7 +23,15 @@ function buildRegexList(terms = []) {
   return terms
     .map((term) => normalizeSearchText(term))
     .filter(Boolean)
-    .map((term) => new RegExp(escapeRegex(term), "i"));
+    .map((term) => {
+      const flexible = escapeRegex(term)
+        .replace(/ه/g, "[هة]")
+        .replace(/ة/g, "[هة]")
+        .replace(/ي/g, "[يى]")
+        .replace(/ى/g, "[يى]");
+
+      return new RegExp(flexible, "i");
+    });
 }
 
 function getBusinessFields(item) {
@@ -32,15 +40,23 @@ function getBusinessFields(item) {
     item?.name_ar || "",
     item?.description || "",
     item?.description_ar || "",
+
     ...toArray(item?.keywords),
     ...toArray(item?.keywords_ar),
+
     ...toArray(item?.category),
+    ...toArray(item?.category_ar),
+
+    item?.business_type || "",
+    item?.activity || "",
+    item?.sector || "",
+
     item?.locationText || "",
     item?.location_text || "",
     item?.city || "",
     item?.area || "",
     item?.countryName || "",
-  ].map((v) => String(v || ""));
+  ].map((v) => normalizeSearchText(String(v || "")));
 }
 
 function matchesBusiness(item, regexList) {
