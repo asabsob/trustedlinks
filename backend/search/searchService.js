@@ -227,9 +227,25 @@ export async function searchBusinesses({
   const terms = expandTerms(effectiveQuery || "");
   const regexList = buildRegexList(terms);
 
-  const businesses = await listActiveBusinesses();
+ const businesses = await listActiveBusinesses();
 
-  let matched = businesses.filter((item) => matchesBusiness(item, regexList));
+const searchableBusinesses = businesses.filter((b) => {
+  if (b.wallet_status === "paused") return false;
+
+  const balance = Number(b.wallet_balance || 0);
+  const allowNegative = b.wallet_allow_negative === true;
+  const negativeLimit = Number(b.wallet_negative_limit ?? -5);
+
+  if (allowNegative) {
+    return balance > negativeLimit;
+  }
+
+  return balance > 0;
+});
+
+let matched = searchableBusinesses.filter((item) =>
+  matchesBusiness(item, regexList)
+);
 
   matched = matched
     .map((item) => ({
