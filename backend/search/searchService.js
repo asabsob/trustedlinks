@@ -232,15 +232,11 @@ export async function searchBusinesses({
 const searchableBusinesses = businesses.filter((b) => {
   if (b.wallet_status === "paused") return false;
 
-  const balance = Number(b.wallet_balance || 0);
-  const allowNegative = b.wallet_allow_negative === true;
+  const balance = Number(b.wallet_balance ?? 0);
   const negativeLimit = Number(b.wallet_negative_limit ?? -5);
 
-  if (allowNegative) {
-    return balance > negativeLimit;
-  }
-
-  return balance > 0;
+  // Allow active businesses until they reach -5
+  return balance > negativeLimit;
 });
 
 let matched = searchableBusinesses.filter((item) =>
