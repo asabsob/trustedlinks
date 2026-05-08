@@ -4841,6 +4841,14 @@ const searchData = await searchBusinesses({
 });
 console.timeEnd("searchBusinessesFast");
 
+    console.log("SEARCH_RESULT_DEBUG", {
+  query: effectiveQuery,
+  mode: searchData?.mode,
+  totalMatched: searchData?.totalMatched,
+  resultCount: searchData?.results?.length,
+  firstResult: searchData?.results?.[0]?.name || searchData?.results?.[0]?.name_ar || null,
+});
+
 // Refinement
 if (searchData.mode === "refinement_required") {
  console.timeEnd(searchTimerId);
