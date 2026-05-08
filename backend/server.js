@@ -4835,7 +4835,7 @@ const searchTimerId = `SEARCH_TOTAL_${Date.now()}_${Math.random()}`;
 console.time(searchTimerId);
 
 console.time("searchBusinessesFast");
-const searchData = await searchBusinessesFast({
+const searchData = await searchBusinesses({
   query: effectiveQuery,
   lang,
 });
@@ -4888,8 +4888,8 @@ const reply = formatSearchResponse(
   lang
 );
 
-console.timeEnd("formatSearchResponse");
-
+console.timeEnd(formatTimer);
+    
 javnaSendText({
   to: from,
   body: reply,
