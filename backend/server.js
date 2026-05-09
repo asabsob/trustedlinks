@@ -122,6 +122,7 @@ import {
 
 import privacyRoutes from "./routes/privacy.js";
 
+
 function hash(value = "") {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
 }
@@ -692,6 +693,126 @@ function requireOtpToken(req, res, next) {
     return res.status(401).json({ error: "Invalid OTP token" });
   }
 }
+
+app.post("/api/business/claim-sponsorship", requireUser, async (req, res) => {
+  try {
+    const { campaignCode } = req.body || {};
+
+    if (process.env.SPONSORED_CAMPAIGN_ENABLED !== "true") {
+      return res.status(400).json({ error: "Sponsorship campaign is not active" });
+    }
+
+    if (!campaignCode || campaignCode !== process.env.SPONSORED_CAMPAIGN_CODE) {
+      return res.status(400).json({ error: "Invalid sponsorship code" });
+    }
+
+    const { data: business, error } = await supabase
+      .from("businesses")
+      .select(`
+        id,
+        owner_id,
+        whatsapp,
+        latitude,
+        longitude,
+        sponsored_balance,
+        sponsored_status
+      `)
+      .eq("owner_id", req.user.id)
+      .single();
+
+    if (error || !business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+
+    if (!business.latitude || !business.longitude) {
+      return res.status(400).json({
+        error: "Business location is required before claiming sponsorship",
+      });
+    }
+
+    const distance = geolib.getDistance(
+      {
+        latitude: Number(process.env.SPONSORED_MALL_LAT),
+        longitude: Number(process.env.SPONSORED_MALL_LNG),
+      },
+      {
+        latitude: Number(business.latitude),
+        longitude: Number(business.longitude),
+      }
+    );
+
+    const radius = Number(process.env.SPONSORED_RADIUS_METERS || 300);
+
+    if (distance > radius) {
+      return res.status(403).json({
+        error: "This sponsorship is only available for businesses inside the mall",
+        distance,
+        allowedRadius: radius,
+      });
+    }
+
+    const { data: existingClaim } = await supabase
+      .from("sponsorship_claims")
+      .select("id")
+      .eq("campaign_code", campaignCode)
+      .eq("business_id", business.id)
+      .maybeSingle();
+
+    if (existingClaim) {
+      return res.status(400).json({ error: "Sponsorship already claimed" });
+    }
+
+    const amount = Number(process.env.SPONSORED_BALANCE_AMOUNT || 20);
+    const expiryDays = Number(process.env.SPONSORED_EXPIRY_DAYS || 90);
+    const expiresAt = new Date(
+      Date.now() + expiryDays * 24 * 60 * 60 * 1000
+    ).toISOString();
+
+    const currentSponsoredBalance = Number(business.sponsored_balance || 0);
+
+    const { error: updateError } = await supabase
+      .from("businesses")
+      .update({
+        sponsored_balance: currentSponsoredBalance + amount,
+        sponsored_campaign_name: process.env.SPONSORED_CAMPAIGN_NAME || "Mall Pilot",
+        sponsored_status: "active",
+        sponsored_credit_expires_at: expiresAt,
+        sponsored_daily_limit: Number(process.env.SPONSORED_DAILY_LIMIT || 1),
+      })
+      .eq("id", business.id);
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    const { error: claimError } = await supabase
+      .from("sponsorship_claims")
+      .insert({
+        campaign_code: campaignCode,
+        business_id: business.id,
+        whatsapp: business.whatsapp,
+        latitude: business.latitude,
+        longitude: business.longitude,
+        amount,
+        status: "granted",
+      });
+
+    if (claimError) {
+      throw claimError;
+    }
+
+    return res.json({
+      success: true,
+      message: "Sponsorship credit claimed successfully",
+      amount,
+      currency: process.env.SPONSORED_BALANCE_CURRENCY || "JOD",
+      expiresAt,
+    });
+  } catch (err) {
+    console.error("CLAIM SPONSORSHIP ERROR:", err);
+    return res.status(500).json({ error: "Failed to claim sponsorship" });
+  }
+});
 
 // =========================
 // UTILS
