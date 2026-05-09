@@ -4849,6 +4849,24 @@ console.timeEnd("searchBusinessesFast");
   firstResult: searchData?.results?.[0]?.name || searchData?.results?.[0]?.name_ar || null,
 });
 
+    // Learn failed searches
+if (
+  searchData?.mode === "results" &&
+  Number(searchData?.totalMatched || 0) === 0
+) {
+  try {
+    await supabase.from("search_no_results").insert({
+      query: incomingText,
+      normalized_query: normalizeSearchText(incomingText),
+      lang,
+      intent: intentType,
+      created_at: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error("NO_RESULT_LOG_ERROR", err);
+  }
+}
+
 // Refinement
 if (searchData.mode === "refinement_required") {
  console.timeEnd(searchTimerId);
