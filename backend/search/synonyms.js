@@ -1,101 +1,118 @@
 import { normalizeSearchText } from "./textNormalizer.js";
 
 export const SEARCH_SYNONYMS = {
-  beverages: [
-    "مشروبات", "مشروب", "مشاريب", "قهوة", "قهوه", "كوفي", "كافيه", "كافيهات",
-    "شاي", "عصير", "عصائر", "بوبل تي", "بابل تي",
-    "coffee", "cafe", "tea", "juice", "drinks", "drink", "beverages", "bubble tea",
-  ],
-
-  restaurant_food: [
-    "مطعم", "مطاعم", "اكل", "أكل", "طعام", "وجبات", "وجبه", "غداء", "عشاء",
-    "فطور", "افطار", "برغر", "برجر", "شاورما", "بيتزا", "مشاوي", "كباب",
-    "restaurant", "restaurants", "food", "meal", "burger", "pizza", "shawarma", "grill", "bbq",
-  ],
-
-  sweets_dessert: [
-    "حلويات", "حلو", "كيك", "كيكة", "معجنات", "مخبز", "مخابز", "بوظة", "ايس كريم",
-    "dessert", "desserts", "sweets", "cake", "bakery", "pastry", "ice cream",
-  ],
-
-  health_medical: [
-    "صحة", "صحه", "طبي", "طبية", "طبيه", "عيادة", "عياده", "عيادات",
-    "طبيب", "دكتور", "دكتورة", "مركز طبي", "مختبر", "تحاليل", "اسنان", "أسنان",
-    "جلدية", "جلديه", "تجميل", "صيدلية", "صيدليه", "صيدليات", "دواء", "ادوية", "أدوية",
-    "health", "medical", "clinic", "clinics", "doctor", "pharmacy", "medicine",
-    "dental", "dentist", "lab", "laboratory", "dermatology", "beauty clinic",
-  ],
-
-  shopping_retail: [
-    "تسوق", "تسوّق", "متجر", "متاجر", "محل", "محلات", "سوق", "مول",
-    "بيع", "تجزئة", "ريتيل", "ملابس", "احذية", "أحذية", "اكسسوارات", "هدايا",
-    "shopping", "shop", "store", "stores", "retail", "market", "mall",
-    "fashion", "clothes", "shoes", "accessories", "gifts",
+  automotive: [
+    "Automotive", "سيارات", "سيارة", "سياره", "معرض سيارات", "كراج",
+    "صيانة سيارات", "قطع غيار", "غسيل سيارات", "اطارات", "إطارات",
+    "car", "cars", "auto", "garage", "mechanic", "spare parts", "tires",
   ],
 
   beauty_salon: [
-    "صالون", "تجميل", "حلاقة", "حلاق", "نسائي", "رجالي", "اظافر", "أظافر",
-    "مكياج", "ميك اب", "شعر", "سبا", "مساج",
-    "salon", "beauty", "barber", "hair", "nails", "makeup", "spa", "massage",
+    "Beauty & Salon", "تجميل وصالون", "صالون", "تجميل", "حلاقة",
+    "اظافر", "أظافر", "مكياج", "شعر", "سبا",
+    "beauty", "salon", "barber", "nails", "spa",
   ],
 
-  electronics_technology: [
-    "الكترونيات", "إلكترونيات", "موبايل", "موبايلات", "هاتف", "هواتف",
-    "كمبيوتر", "لابتوب", "اجهزة", "أجهزة", "تقنية", "تكنولوجيا", "اتصالات",
-    "electronics", "mobile", "phone", "phones", "computer", "laptop",
-    "devices", "technology", "telecom", "communications",
+  clothing: [
+    "Clothing", "ملابس وأزياء", "ملابس", "أزياء", "ازياء", "موضة",
+    "احذية", "أحذية", "شنط",
+    "clothing", "fashion", "clothes", "shoes",
   ],
 
-  services_company: [
-    "شركة", "شركه", "شركات", "مؤسسة", "مؤسسه", "خدمات", "ادارة", "إدارة",
-    "استشارات", "تطوير", "اعمال", "أعمال", "حلول",
-    "company", "enterprise", "business", "services", "management",
-    "consulting", "development", "solutions",
+  education: [
+    "Education", "تعليم", "مدرسة", "مدرسه", "جامعة", "جامعه",
+    "تدريب", "دورات", "معهد",
+    "education", "school", "university", "training", "courses",
   ],
 
-  education_training: [
-    "تعليم", "تدريب", "مدرسة", "مدرسه", "مدارس", "جامعة", "جامعه",
-    "معهد", "دورات", "كورس", "تعلم", "حضانه", "حضانة",
-    "education", "training", "school", "university", "academy",
-    "institute", "courses", "course", "kindergarten", "nursery",
+  entertainment: [
+    "Entertainment", "ترفيه", "العاب", "ألعاب", "سينما",
+    "entertainment", "games", "cinema",
   ],
 
-  fitness_sports: [
-    "رياضة", "رياضه", "جيم", "نادي", "لياقة", "لياقه", "تمارين",
-    "كمال اجسام", "سباحة", "سباحه",
-    "gym", "fitness", "sport", "sports", "workout", "training", "swimming",
+  events: [
+    "Events", "تنظيم فعاليات", "فعاليات", "حفلات", "مناسبات",
+    "events", "event planning",
   ],
 
-  automotive: [
-    "سيارات", "سيارة", "سياره", "كراج", "صيانة", "صيانه", "غسيل سيارات",
-    "قطع غيار", "اطارات", "إطارات",
-    "car", "cars", "auto", "automotive", "garage", "maintenance",
-    "car wash", "spare parts", "tires",
+  finance: [
+    "Finance", "تمويل وبنوك", "تمويل", "بنك", "بنوك", "تأمين", "تامين",
+    "finance", "bank", "banks", "insurance",
   ],
 
-  home_furniture: [
-    "منزل", "بيت", "اثاث", "أثاث", "مفروشات", "ديكور", "مطابخ",
-    "ادوات منزلية", "أدوات منزلية",
-    "home", "furniture", "decor", "kitchen", "household",
+  food_grocery: [
+    "Food & Grocery", "طعام وبقالة", "طعام", "بقالة", "بقاله",
+    "سوبرماركت", "مواد غذائية", "غذائية",
+    "food", "grocery", "supermarket",
   ],
 
-  travel_hotel: [
-    "سفر", "سياحة", "سياحه", "فندق", "فنادق", "حجز", "طيران", "تذاكر",
-    "رحلات", "تأمين سفر", "تامين سفر",
-    "travel", "tourism", "hotel", "hotels", "booking", "flight",
-    "tickets", "trips", "travel insurance",
+  beverages: [
+    "Beverages", "مشروبات", "مشروب", "مشاريب", "قهوة", "قهوه",
+    "كوفي", "شاي", "عصير", "عصائر", "بابل تي", "بوبل تي",
+    "beverages", "coffee", "cafe", "tea", "juice", "drinks",
   ],
 
-  real_estate: [
-    "عقار", "عقارات", "شقة", "شقه", "شقق", "اراضي", "أراضي", "ايجار",
-    "إيجار", "بيع عقار",
-    "real estate", "property", "properties", "apartment", "rent", "sale",
+  public_service: [
+    "Public Service", "خدمات عامة", "خدمات عامه", "خدمة عامة",
+    "حكومي", "حكومة",
+    "public service", "government",
   ],
 
-  finance_legal: [
-    "محامي", "محاماة", "محاماه", "قانون", "قانوني", "محاسبة", "محاسبه",
-    "ضريبة", "ضريبه", "تمويل", "تأمين", "تامين",
-    "lawyer", "legal", "law", "accounting", "tax", "finance", "insurance",
+  hotel_lodging: [
+    "Hotel & Lodging", "فنادق وإقامة", "فنادق واقامة", "فندق",
+    "فنادق", "إقامة", "اقامة", "سكن",
+    "hotel", "hotels", "lodging", "accommodation",
+  ],
+
+  medical_health: [
+    "Medical & Health", "صحة وطبية", "صحه وطبيه", "صحة", "صحه",
+    "طبي", "طبية", "طبيه", "عيادة", "عياده", "عيادات",
+    "طبيب", "دكتور", "مركز طبي", "اسنان", "جلدية", "جلديه",
+    "medical", "health", "clinic", "doctor", "dentist", "dermatology",
+  ],
+
+  otc_drugs: [
+    "OTC Drugs", "أدوية بدون وصفة", "ادوية بدون وصفة",
+    "صيدلية", "صيدليه", "صيدليات", "دواء", "أدوية", "ادوية",
+    "pharmacy", "medicine", "drugs",
+  ],
+
+  nonprofit: [
+    "Non-profit", "غير ربحي", "جمعية", "جمعيه", "منظمة", "منظمه",
+    "خيري", "خيرية",
+    "nonprofit", "ngo", "charity",
+  ],
+
+  professional_services: [
+    "Professional Services", "خدمات مهنية", "خدمات مهنيه",
+    "محامي", "قانون", "محاسبة", "محاسبه", "استشارات", "تسويق",
+    "تصميم", "خدمات",
+    "professional services", "legal", "accounting", "consulting", "marketing",
+  ],
+
+  shopping_retail: [
+    "Shopping & Retail", "تسوق وتجزئة", "تسوق وتجزئه",
+    "تسوق", "تجزئة", "تجزئه", "ريتيل", "متجر", "متاجر",
+    "محل", "محلات", "سوق", "مول",
+    "shopping", "retail", "shop", "store", "market", "mall",
+  ],
+
+  travel_transport: [
+    "Travel & Transportation", "سفر ومواصلات", "سفر", "مواصلات",
+    "نقل", "تكسي", "تاكسي", "طيران", "رحلات", "تذاكر",
+    "travel", "transportation", "transport", "taxi", "flight", "tickets",
+  ],
+
+  restaurant_cafe: [
+    "Restaurant / Cafe", "مطعم / مقهى", "مطعم", "مطاعم",
+    "مقهى", "مقهي", "كافيه", "اكل", "أكل", "وجبات",
+    "برغر", "بيتزا", "شاورما", "مشاوي",
+    "restaurant", "cafe", "food", "meal", "burger", "pizza", "shawarma",
+  ],
+
+  other: [
+    "Other", "أخرى", "اخرى", "غير ذلك", "عام", "متنوع",
+    "other", "general", "misc",
   ],
 };
 
@@ -122,6 +139,7 @@ export function expandTerms(query = "") {
     });
 
     if (matched) {
+      expanded.add(normalizeSearchText(groupKey));
       normalizedSynonyms.forEach((term) => expanded.add(term));
     }
   }
