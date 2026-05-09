@@ -143,6 +143,8 @@ function calculateMatchScore(item, query = "", terms = [], intent = "category") 
 }
 
 function shouldAskRefinement({ intent = "category", query = "", results = [] }) {
+   if (!results || results.length === 0) return false;
+
   const normalizedQuery = normalizeSearchText(query);
   const wordCount = normalizedQuery.split(/\s+/).filter(Boolean).length;
   const resultCount = results.length;
