@@ -707,23 +707,11 @@ app.post("/api/business/claim-sponsorship", requireUser, async (req, res) => {
       return res.status(400).json({ error: "Invalid sponsorship code" });
     }
 
-    const { data: business, error } = await supabase
-      .from("businesses")
-      .select(`
-        id,
-        owner_id,
-        whatsapp,
-        latitude,
-        longitude,
-        sponsored_balance,
-        sponsored_status
-      `)
-      .eq("ownerUserId", req.user.id)
-      .single();
+   const business = await getBusinessByOwnerUserId(String(req.user.id));
 
-    if (error || !business) {
-      return res.status(404).json({ error: "Business not found" });
-    }
+if (!business) {
+  return res.status(404).json({ error: "Business not found" });
+}
 
     if (!business.latitude || !business.longitude) {
       return res.status(400).json({
@@ -769,7 +757,7 @@ app.post("/api/business/claim-sponsorship", requireUser, async (req, res) => {
       Date.now() + expiryDays * 24 * 60 * 60 * 1000
     ).toISOString();
 
-    const currentSponsoredBalance = Number(business.sponsored_balance || 0);
+   const currentSponsoredBalance = Number(business.sponsoredBalance || business.sponsored_balance || 0);
 
     const { error: updateError } = await supabase
       .from("businesses")
