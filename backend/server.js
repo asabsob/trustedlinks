@@ -203,6 +203,7 @@ async function emitNotification({
 
 dotenv.config();
 console.log("🚀 SERVER VERSION: TEST 1 - SAMEER");
+console.log("🚀 SERVER VERSION: sponsorship-route-v1 loaded");
 
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
   throw new Error("Missing Supabase environment variables");
