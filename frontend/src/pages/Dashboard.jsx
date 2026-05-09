@@ -20,6 +20,9 @@ export default function Dashboard({ lang = "en" }) {
   const [reports, setReports] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [campaignCode, setCampaignCode] = useState("");
+const [claimLoading, setClaimLoading] = useState(false);
+const [claimMessage, setClaimMessage] = useState("");
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -152,6 +155,46 @@ export default function Dashboard({ lang = "en" }) {
     }
   }, [business]);
 
+  async function handleClaimSponsorship() {
+  try {
+    setClaimLoading(true);
+    setClaimMessage("");
+
+    const token = localStorage.getItem("token");
+
+    const res = await fetch(
+      `${API_BASE}/api/business/claim-sponsorship`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          campaignCode,
+        }),
+      }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      setClaimMessage(data.error || "Unable to claim sponsorship");
+      return;
+    }
+
+    setClaimMessage(
+      `Successfully claimed ${data.amount} ${data.currency}`
+    );
+
+    window.location.reload();
+  } catch (err) {
+    setClaimMessage("Something went wrong");
+  } finally {
+    setClaimLoading(false);
+  }
+}
+
   const spendingText = useMemo(() => {
     const amount = Number(reports?.estimated_revenue ?? 0).toFixed(2);
     const currency = reports?.currency || "USD";
@@ -252,6 +295,91 @@ export default function Dashboard({ lang = "en" }) {
           </button>
         </div>
       )}
+
+      {business?.sponsored_status !== "active" && (
+  <section
+    style={{
+      background: "#fff",
+      border: "1px solid #e5e7eb",
+      borderRadius: "18px",
+      padding: "22px",
+      marginBottom: "20px",
+      boxShadow: "0 6px 18px rgba(15, 23, 42, 0.04)",
+    }}
+  >
+    <h3
+      style={{
+        marginTop: 0,
+        marginBottom: 8,
+        color: "#111827",
+      }}
+    >
+      🎁 Mall Sponsorship Credit
+    </h3>
+
+    <p
+      style={{
+        color: "#6b7280",
+        marginBottom: 16,
+        lineHeight: 1.7,
+      }}
+    >
+      If your business is located inside the participating mall,
+      enter your sponsorship code to claim your promotional balance.
+    </p>
+
+    <div
+      style={{
+        display: "flex",
+        gap: 10,
+        flexWrap: "wrap",
+      }}
+    >
+      <input
+        value={campaignCode}
+        onChange={(e) => setCampaignCode(e.target.value)}
+        placeholder="Enter sponsorship code"
+        style={{
+          flex: 1,
+          minWidth: 220,
+          padding: "12px 14px",
+          borderRadius: 12,
+          border: "1px solid #d1d5db",
+          outline: "none",
+        }}
+      />
+
+      <button
+        onClick={handleClaimSponsorship}
+        disabled={!campaignCode || claimLoading}
+        style={{
+          background: "#16a34a",
+          color: "#fff",
+          border: "none",
+          borderRadius: 12,
+          padding: "12px 18px",
+          fontWeight: 700,
+          cursor: "pointer",
+          opacity: claimLoading ? 0.7 : 1,
+        }}
+      >
+        {claimLoading ? "Claiming..." : "Claim Credit"}
+      </button>
+    </div>
+
+    {claimMessage && (
+      <div
+        style={{
+          marginTop: 14,
+          color: "#374151",
+          fontSize: 14,
+        }}
+      >
+        {claimMessage}
+      </div>
+    )}
+  </section>
+)}
 
       <section style={statsGrid}>
         <StatCard
