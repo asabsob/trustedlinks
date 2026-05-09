@@ -718,7 +718,7 @@ app.post("/api/business/claim-sponsorship", requireUser, async (req, res) => {
         sponsored_balance,
         sponsored_status
       `)
-      .eq("owner_id", req.user.id)
+      .eq("ownerUserId", req.user.id)
       .single();
 
     if (error || !business) {
