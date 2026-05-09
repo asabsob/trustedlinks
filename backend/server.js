@@ -500,35 +500,39 @@ async function enrichTopResultWithTrackedLink({
   intentType = "category",
 }) {
   const finalIntentType = intentType || "category";
-
   const safeItems = Array.isArray(items) ? items : [];
+
   if (!safeItems.length) return [];
 
-  const first = safeItems[0];
-  const rest = safeItems.slice(1);
+  const enriched = [];
 
-  let trackedLink = null;
+  for (const item of safeItems) {
+    let trackedLink = null;
 
-  if (first?.id && first?.whatsapp) {
-    trackedLink = await createLeadTrackedLink({
-      businessId: first.id,
-      phone: first.whatsapp,
-      query,
-      userPhone,
-      intentType: finalIntentType,
+    try {
+      if (item?.id && item?.whatsapp) {
+        trackedLink = await createLeadTrackedLink({
+          businessId: item.id,
+          phone: item.whatsapp,
+          query,
+          userPhone,
+          intentType: finalIntentType,
+        });
+      }
+    } catch (err) {
+      console.error("TRACKED_LINK_CREATE_ERROR", {
+        businessId: item?.id,
+        error: err.message,
+      });
+    }
+
+    enriched.push({
+      ...item,
+      trackedLink,
     });
   }
 
-  return [
-    {
-      ...first,
-      trackedLink,
-    },
-    ...rest.map((item) => ({
-      ...item,
-      trackedLink: null,
-    })),
-  ];
+  return enriched;
 }
 
 async function mapBusinessNames(rows = []) {
@@ -4906,6 +4910,16 @@ const enrichedResults = await enrichTopOnly({
 });
 
 console.timeEnd(enrichTimer);
+
+    console.log(
+  "ENRICHED_LINKS_DEBUG",
+  enrichedResults.map((r) => ({
+    id: r.id,
+    name: r.name,
+    name_ar: r.name_ar,
+    trackedLink: r.trackedLink,
+  }))
+);
 
 const formatTimer = `formatSearchResponse_${Date.now()}_${Math.random()}`;
 console.time(formatTimer);
