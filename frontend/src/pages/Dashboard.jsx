@@ -5,6 +5,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getText, getCategoryLabel } from "../i18n";
+import geolib from "geolib";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE ||
@@ -154,6 +155,46 @@ const [claimMessage, setClaimMessage] = useState("");
       return business.mapLink;
     }
   }, [business]);
+
+  function isBusinessInsideMallArea() {
+  if (!business?.latitude || !business?.longitude) {
+    return false;
+  }
+
+  const mallLat = Number(
+    import.meta.env.VITE_SPONSORED_MALL_LAT
+  );
+
+  const mallLng = Number(
+    import.meta.env.VITE_SPONSORED_MALL_LNG
+  );
+
+  const radius = Number(
+    import.meta.env.VITE_SPONSORED_RADIUS_METERS || 300
+  );
+
+  if (!mallLat || !mallLng) {
+    return false;
+  }
+
+  const distance = geolib.getDistance(
+    {
+      latitude: mallLat,
+      longitude: mallLng,
+    },
+    {
+      latitude: Number(business.latitude),
+      longitude: Number(business.longitude),
+    }
+  );
+
+  return distance <= radius;
+}
+
+const showSponsorshipCard =
+  import.meta.env.VITE_SPONSORED_CAMPAIGN_ENABLED === "true" &&
+  business?.sponsored_status !== "active" &&
+  isBusinessInsideMallArea();
 
 async function handleClaimSponsorship() {
   try {
@@ -307,7 +348,7 @@ async function handleClaimSponsorship() {
         </div>
       )}
 
-      {business?.sponsored_status !== "active" && (
+     {showSponsorshipCard && (
   <section
     style={{
       background: "#fff",
