@@ -58,7 +58,21 @@ function translateCategory(value, lang = "ar") {
 }
 
 function getDisplayName(item = {}, lang = "ar") {
-  return pickLang(item, "name_ar", "name_en", lang, isArabicLang(lang) ? "نشاط" : "Business");
+  if (isArabicLang(lang)) {
+    return cleanText(
+      item.name_ar ||
+      item.name ||
+      item.name_en ||
+      "نشاط"
+    );
+  }
+
+  return cleanText(
+    item.name_en ||
+    item.name ||
+    item.name_ar ||
+    "Business"
+  );
 }
 
 function getCategoryText(item = {}, lang = "ar") {
@@ -73,9 +87,9 @@ function getCategoryText(item = {}, lang = "ar") {
 
   if (!translated.length) return "";
 
-  return isArabicLang(lang)
-    ? `📂 ${translated.join("، ")}`
-    : `📂 ${translated.join(", ")}`;
+return isArabicLang(lang)
+  ? `• التصنيف: ${translated.join("، ")}`
+  : `• Category: ${translated.join(", ")}`;
 }
 
 function getAreaText(item = {}, lang = "ar") {
@@ -94,7 +108,9 @@ function getAreaText(item = {}, lang = "ar") {
 function getLocationText(item = {}, lang = "ar") {
   const areaText = getAreaText(item, lang);
   if (!areaText) return "";
-  return `📍 ${areaText}`;
+ return isArabicLang(lang)
+  ? `• الموقع: ${areaText}`
+  : `• Location: ${areaText}`;
 }
 
 function getDistanceLine(item = {}, lang = "ar") {
@@ -147,8 +163,8 @@ function getIntentHeader(intent = "category", query = "", lang = "ar") {
 
 function getFooterHint(lang = "ar") {
   return isArabicLang(lang)
-    ? `💡 أرسل بحثًا آخر\nمثال: قهوة، مطعم، أقرب صيدلية`
-    : `💡 Send another search\nExample: coffee, restaurant, nearest pharmacy`;
+    ? `أرسل بحثًا آخر\nمثال: قهوة، مطعم، أقرب صيدلية`
+    : `Send another search\nExample: coffee, restaurant, nearest pharmacy`;
 }
 
 function formatBusinessBlock(item = {}, index = 0, lang = "ar", options = {}) {
@@ -157,8 +173,8 @@ function formatBusinessBlock(item = {}, index = 0, lang = "ar", options = {}) {
   const lines = [];
   const name = getDisplayName(item, lang);
 
-  lines.push("━━━━━━━━━━━━");
-  lines.push(`${index + 1}️⃣ ${name}`);
+lines.push("────────────");
+lines.push(`${index + 1}. ${name}`);
 
   if (includeCategory) {
     const categoryLine = getCategoryText(item, lang);
@@ -292,7 +308,7 @@ export function formatNearestResults(results = [], lang = "ar", categoryQuery = 
     lines.push("");
   });
 
-  lines.push("━━━━━━━━━━━━");
+ lines.push("────────────");
   lines.push(getFooterHint(lang));
 
   return lines.join("\n");
