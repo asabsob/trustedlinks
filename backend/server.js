@@ -4664,29 +4664,33 @@ function resolveIntentType(intentData = {}) {
   return "direct";
 }
 
-async function enrichTopOnly({ results = [], query = "", userPhone = "", intentType = "category" }) {
+async function enrichTopOnly({
+  results = [],
+  query = "",
+  userPhone = "",
+  intentType = "category",
+}) {
   if (!Array.isArray(results) || results.length === 0) return [];
 
-const finalIntentType = intentType || "category";
+  const finalIntentType = intentType || "category";
 
-  
   console.log("ENRICH_INTENT_DEBUG", {
     query,
     intentType,
     finalIntentType,
+    resultCount: results.length,
   });
 
-  const enrichedTop = await enrichTopResultWithTrackedLink({
-    items: results.slice(0, 1),
+  const resultsToEnrich = results.slice(0, 4);
+
+  const enrichedResults = await enrichTopResultWithTrackedLink({
+    items: resultsToEnrich,
     query,
     userPhone,
     intentType: finalIntentType,
   });
 
-  return [
-    enrichedTop?.[0] || results[0],
-    ...results.slice(1, 4),
-  ];
+  return enrichedResults;
 }
 
 function normalizeIntentType(intentData, query) {
