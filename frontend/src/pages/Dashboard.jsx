@@ -157,6 +157,8 @@ const [claimMessage, setClaimMessage] = useState("");
 
   async function handleClaimSponsorship() {
   try {
+   async function handleClaimSponsorship() {
+  try {
     setClaimLoading(true);
     setClaimMessage("");
 
@@ -179,22 +181,32 @@ const [claimMessage, setClaimMessage] = useState("");
     const data = await res.json();
 
     if (!res.ok) {
-      setClaimMessage(data.error || "Unable to claim sponsorship");
+      setClaimMessage(
+        data.error ||
+          (isAr
+            ? "تعذر تفعيل الرصيد الترويجي"
+            : "Unable to claim sponsorship")
+      );
       return;
     }
 
     setClaimMessage(
-      `Successfully claimed ${data.amount} ${data.currency}`
+      isAr
+        ? `تم تفعيل الرصيد بنجاح: ${data.amount} ${data.currency}`
+        : `Successfully claimed ${data.amount} ${data.currency}`
     );
 
     window.location.reload();
   } catch (err) {
-    setClaimMessage("Something went wrong");
+    setClaimMessage(
+      isAr
+        ? "حدث خطأ غير متوقع"
+        : "Something went wrong"
+    );
   } finally {
     setClaimLoading(false);
   }
 }
-
   const spendingText = useMemo(() => {
     const amount = Number(reports?.estimated_revenue ?? 0).toFixed(2);
     const currency = reports?.currency || "USD";
@@ -314,7 +326,7 @@ const [claimMessage, setClaimMessage] = useState("");
         color: "#111827",
       }}
     >
-      🎁 Mall Sponsorship Credit
+      {isAr ? "رصيد رعاية المول 🎁" : "Mall Sponsorship Credit 🎁"}
     </h3>
 
     <p
@@ -324,8 +336,9 @@ const [claimMessage, setClaimMessage] = useState("");
         lineHeight: 1.7,
       }}
     >
-      If your business is located inside the participating mall,
-      enter your sponsorship code to claim your promotional balance.
+      {isAr
+  ? "إذا كان نشاطك داخل العبدل مول، أدخل رمز الرعاية للحصول على الرصيد الترويجي."
+  : "If your business is located inside the Abdali mall, enter your sponsorship code to claim your promotional balance."}
     </p>
 
     <div
@@ -338,7 +351,7 @@ const [claimMessage, setClaimMessage] = useState("");
       <input
         value={campaignCode}
         onChange={(e) => setCampaignCode(e.target.value)}
-        placeholder="Enter sponsorship code"
+        placeholder={isAr ? "أدخل رمز الرعاية" : "Enter sponsorship code"}
         style={{
           flex: 1,
           minWidth: 220,
@@ -363,7 +376,13 @@ const [claimMessage, setClaimMessage] = useState("");
           opacity: claimLoading ? 0.7 : 1,
         }}
       >
-        {claimLoading ? "Claiming..." : "Claim Credit"}
+       {claimLoading
+  ? isAr
+    ? "جاري التفعيل..."
+    : "Claiming..."
+  : isAr
+  ? "تفعيل الرصيد"
+  : "Claim Credit"}
       </button>
     </div>
 
