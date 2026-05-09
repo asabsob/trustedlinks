@@ -336,7 +336,7 @@ async function handleClaimSponsorship() {
       }}
     >
       {isAr
-  ? "إذا كان نشاطك داخل العبدل مول، أدخل رمز الرعاية للحصول على الرصيد الترويجي."
+  ? "إذا كان نشاطك داخل العبدلي مول، أدخل رمز الرعاية للحصول على الرصيد الترويجي."
   : "If your business is located inside the Abdali mall, enter your sponsorship code to claim your promotional balance."}
     </p>
 
