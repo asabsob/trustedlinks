@@ -155,9 +155,7 @@ const [claimMessage, setClaimMessage] = useState("");
     }
   }, [business]);
 
-  async function handleClaimSponsorship() {
-  try {
-   async function handleClaimSponsorship() {
+async function handleClaimSponsorship() {
   try {
     setClaimLoading(true);
     setClaimMessage("");
@@ -207,6 +205,7 @@ const [claimMessage, setClaimMessage] = useState("");
     setClaimLoading(false);
   }
 }
+  
   const spendingText = useMemo(() => {
     const amount = Number(reports?.estimated_revenue ?? 0).toFixed(2);
     const currency = reports?.currency || "USD";
