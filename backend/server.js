@@ -1054,22 +1054,37 @@ async function createLeadTrackedLink({
   return `${baseUrl}/l/${tokenId}`;
 }
 
+function getBusinessPricing(business = {}) {
+  const countryCode = String(business.countryCode || business.country_code || "").toUpperCase();
+  const phone = String(business.whatsapp || "").replace(/\D/g, "");
+
+  if (countryCode === "JO" || phone.startsWith("962")) {
+    return { currency: "JOD", direct: 0.2, category: 0.25, nearby: 0.3 };
+  }
+
+  if (countryCode === "QA" || phone.startsWith("974")) {
+    return { currency: "QAR", direct: 1, category: 1.25, nearby: 1.5 };
+  }
+
+  if (countryCode === "SA" || phone.startsWith("966")) {
+    return { currency: "SAR", direct: 1, category: 1.25, nearby: 1.5 };
+  }
+
+  if (countryCode === "AE" || phone.startsWith("971")) {
+    return { currency: "AED", direct: 1, category: 1.25, nearby: 1.5 };
+  }
+
+  return { currency: "USD", direct: 0.25, category: 0.3, nearby: 0.4 };
+}
+
 function getConversationStartPrice(business, intentType) {
   const type = intentType || "category";
+  const pricing = getBusinessPricing(business);
 
-  switch (type) {
-    case "direct":
-      return Number(business?.billingDirectIntentCost ?? 0.25);
+  if (type === "direct") return pricing.direct;
+  if (type === "nearby") return pricing.nearby;
 
-    case "category":
-      return Number(business?.billingCategoryIntentCost ?? 0.30);
-
-    case "nearby":
-      return Number(business?.billingNearbyIntentCost ?? 0.40);
-
-    default:
-      return Number(business?.billingCategoryIntentCost ?? 0.30);
-  }
+  return pricing.category;
 }
 
 async function deductWalletBalance({
@@ -1129,7 +1144,7 @@ async function deductWalletBalance({
       amount,
       balanceBefore: result.balanceBefore,
       balanceAfter: result.balanceAfter,
-      currency: result.currency,
+     currency: getBusinessPricing(business).currency,
       isNegative: Number(result.balanceAfter) < 0,
     };
   } catch (e) {
@@ -1514,11 +1529,21 @@ app.post("/api/auth/signup", async (req, res) => {
       walletLowBalanceThreshold: 5,
       
      planName: "standard",
-billingDirectIntentCost: 0.25,
-billingCategoryIntentCost: 0.30,
-billingNearbyIntentCost: 0.40,
-    });
+billingDirectIntentCost: getBusinessPricing({
+  countryCode: business.countryCode,
+  whatsapp: business.whatsapp,
+}).direct,
 
+billingCategoryIntentCost: getBusinessPricing({
+  countryCode: business.countryCode,
+  whatsapp: business.whatsapp,
+}).category,
+
+billingNearbyIntentCost: getBusinessPricing({
+  countryCode: business.countryCode,
+  whatsapp: business.whatsapp,
+}).nearby,
+      
     const verifyUrl =
       `${API_BASE_URL}/api/auth/verify-email` +
       `?email=${encodeURIComponent(emailNorm)}` +
@@ -2881,12 +2906,12 @@ app.get("/api/business/reports", requireUser, async (req, res) => {
       estimated_revenue: Number(estimatedRevenue.toFixed(2)),
       currency: business.wallet_currency || business.wallet?.currency || "USD",
 
-      pricing: {
-        direct: Number(business.billingDirectIntentCost ?? 0.25),
-        category: Number(business.billingCategoryIntentCost ?? 0.3),
-        nearby: Number(business.billingNearbyIntentCost ?? 0.4),
-      },
-
+     pricing: {
+  currency: getBusinessPricing(business).currency,
+  direct: getBusinessPricing(business).direct,
+  category: getBusinessPricing(business).category,
+  nearby: getBusinessPricing(business).nearby,
+},
       activity,
       hourly: [],
       keywords: [],
