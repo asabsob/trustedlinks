@@ -122,27 +122,6 @@ const [claimMessage, setClaimMessage] = useState("");
 const walletText = useMemo(() => {
   if (!business) return `0.00 JOD`;
 
-  const paidBalance = Number(
-    business.wallet_balance || 0
-  );
-
-  const sponsoredBalance = Number(
-    business.sponsored_balance || 0
-  );
-
-  const total = Number(
-    business.total_available_balance ??
-    paidBalance + sponsoredBalance
-  );
-
-  const currency =
-    business.wallet_currency || "JOD";
-
-  return isAr
-    ? `${currency} ${total.toFixed(2)}`
-    : `${total.toFixed(2)} ${currency}`;
-}, [business, isAr]);
-
   const sponsoredText = useMemo(() => {
   if (!business) return null;
 
