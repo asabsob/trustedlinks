@@ -119,22 +119,68 @@ const [claimMessage, setClaimMessage] = useState("");
       : business.description || business.description_ar || tr("notAvailable");
   }, [business, lang]);
 
-  const walletText = useMemo(() => {
-    if (!business) return `0.00 USD`;
+const walletText = useMemo(() => {
+  if (!business) return `0.00 JOD`;
 
-    const balance =
-      typeof business.wallet_balance === "number"
-        ? business.wallet_balance
-        : typeof business.balance === "number"
-        ? business.balance
-        : 0;
+  const paidBalance = Number(
+    business.wallet_balance || 0
+  );
 
-    const currency = business.wallet_currency || "USD";
+  const sponsoredBalance = Number(
+    business.sponsored_balance || 0
+  );
 
-    return isAr
-      ? `${currency} ${balance.toFixed(2)}`
-      : `${balance.toFixed(2)} ${currency}`;
-  }, [business, isAr]);
+  const total = Number(
+    business.total_available_balance ??
+    paidBalance + sponsoredBalance
+  );
+
+  const currency =
+    business.wallet_currency || "JOD";
+
+  return isAr
+    ? `${currency} ${total.toFixed(2)}`
+    : `${total.toFixed(2)} ${currency}`;
+}, [business, isAr]);
+
+  const sponsoredText = useMemo(() => {
+  if (!business) return null;
+
+  const amount = Number(
+    business.sponsored_balance || 0
+  );
+
+  if (amount <= 0) return null;
+
+  const currency =
+    business.wallet_currency || "JOD";
+
+  return isAr
+    ? `${currency} ${amount.toFixed(2)}`
+    : `${amount.toFixed(2)} ${currency}`;
+}, [business, isAr]);
+
+  const paidBalance = Number(
+    business.wallet_balance || 0
+  );
+
+  const sponsoredBalance = Number(
+    business.sponsored_balance || 0
+  );
+
+  const total =
+    Number(
+      business.total_available_balance ??
+      paidBalance + sponsoredBalance
+    );
+
+  const currency =
+    business.wallet_currency || "JOD";
+
+  return isAr
+    ? `${currency} ${total.toFixed(2)}`
+    : `${total.toFixed(2)} ${currency}`;
+}, [business, isAr]);
 
   const walletStatus = useMemo(() => {
     if (!business) return "active";
@@ -231,8 +277,8 @@ async function handleClaimSponsorship() {
 
     setClaimMessage(
       isAr
-        ? `تم تفعيل الرصيد بنجاح: ${data.amount} ${data.currency}`
-        : `Successfully claimed ${data.amount} ${data.currency}`
+        ? `تم تفعيل رصيد رعاية المول بنجاح: ${data.amount} ${data.currency}`
+        : `Successfully activated mall sponsorship ${data.amount} ${data.currency}`
     );
 
     window.location.reload();
@@ -441,24 +487,33 @@ async function handleClaimSponsorship() {
 )}
 
       <section style={statsGrid}>
-        <StatCard
-          title={tr("walletBalance")}
-          value={walletText}
-          subtitle={
-            walletStatus === "out"
-              ? tr("outOfBalance")
-              : walletStatus === "low"
-              ? tr("lowBalance")
-              : tr("active")
-          }
-          highlight={
-            walletStatus === "out"
-              ? "#ef4444"
-              : walletStatus === "low"
-              ? "#f59e0b"
-              : "#16a34a"
-          }
-        />
+      <StatCard
+  title={
+    isAr
+      ? "إجمالي الرصيد"
+      : "Total Balance"
+  }
+  value={walletText}
+  subtitle={
+    sponsoredText
+      ? isAr
+        ? `الرصيد المقدم من المول: ${sponsoredText}`
+        : `Mall Sponsored Credit: ${sponsoredText}`
+      : walletStatus === "out"
+      ? tr("outOfBalance")
+      : walletStatus === "low"
+      ? tr("lowBalance")
+      : tr("active")
+  }
+  highlight={
+    walletStatus === "out"
+      ? "#ef4444"
+      : walletStatus === "low"
+      ? "#f59e0b"
+      : "#16a34a"
+  }
+/>
+      
 
         <StatCard
           title={tr("directLeads")}
@@ -475,6 +530,18 @@ async function handleClaimSponsorship() {
           value={reports?.nearby_starts ?? 0}
         />
 
+        <StatCard
+  title={
+    isAr
+      ? "سعر المحادثة المباشرة"
+      : "Direct Conversation Price"
+  }
+  value={
+    business?.pricing?.direct
+      ? `${business.pricing.direct} ${business.pricing.currency || business.wallet_currency || "JOD"}`
+      : "-"
+  }
+/>
         <StatCard
           title={tr("spending")}
           value={spendingText}
