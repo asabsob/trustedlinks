@@ -639,6 +639,21 @@ function readBearer(req) {
 function safeString(v) {
   return String(v || "").trim().slice(0, 500);
 }
+
+function detectCurrencyByCountry({ countryCode = "", whatsapp = "" }) {
+  const cc = String(countryCode || "").toUpperCase();
+  const phone = String(whatsapp || "").replace(/\D/g, "");
+
+  if (cc === "JO" || phone.startsWith("962")) return "JOD";
+  if (cc === "SA" || phone.startsWith("966")) return "SAR";
+  if (cc === "AE" || phone.startsWith("971")) return "AED";
+  if (cc === "QA" || phone.startsWith("974")) return "QAR";
+  if (cc === "KW" || phone.startsWith("965")) return "KWD";
+  if (cc === "OM" || phone.startsWith("968")) return "OMR";
+  if (cc === "BH" || phone.startsWith("973")) return "BHD";
+
+  return "USD";
+}
 // =========================
 // AUTH MIDDLEWARE
 // =========================
@@ -707,17 +722,22 @@ app.post("/api/business/claim-sponsorship", requireUser, async (req, res) => {
       return res.status(400).json({ error: "Invalid sponsorship code" });
     }
 
-   const business = await getBusinessByOwnerUserId(String(req.user.id));
+    const business = await getBusinessByOwnerUserId(String(req.user.id));
 
-if (!business) {
-  return res.status(404).json({ error: "Business not found" });
-}
+    if (!business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
 
     if (!business.latitude || !business.longitude) {
       return res.status(400).json({
         error: "Business location is required before claiming sponsorship",
       });
     }
+
+    const currency = detectCurrencyByCountry({
+      countryCode: business.countryCode || business.country_code || "",
+      whatsapp: business.whatsapp || "",
+    });
 
     const distance = geolib.getDistance(
       {
@@ -753,20 +773,25 @@ if (!business) {
 
     const amount = Number(process.env.SPONSORED_BALANCE_AMOUNT || 20);
     const expiryDays = Number(process.env.SPONSORED_EXPIRY_DAYS || 90);
+
     const expiresAt = new Date(
       Date.now() + expiryDays * 24 * 60 * 60 * 1000
     ).toISOString();
 
-   const currentSponsoredBalance = Number(business.sponsoredBalance || business.sponsored_balance || 0);
+    const currentSponsoredBalance = Number(
+      business.sponsoredBalance || business.sponsored_balance || 0
+    );
 
     const { error: updateError } = await supabase
       .from("businesses")
       .update({
         sponsored_balance: currentSponsoredBalance + amount,
-        sponsored_campaign_name: process.env.SPONSORED_CAMPAIGN_NAME || "Mall Pilot",
+        sponsored_campaign_name:
+          process.env.SPONSORED_CAMPAIGN_NAME || "Mall Sponsorship",
         sponsored_status: "active",
         sponsored_credit_expires_at: expiresAt,
         sponsored_daily_limit: Number(process.env.SPONSORED_DAILY_LIMIT || 1),
+        wallet_currency: currency,
       })
       .eq("id", business.id);
 
@@ -794,7 +819,8 @@ if (!business) {
       success: true,
       message: "Sponsorship credit claimed successfully",
       amount,
-      currency: process.env.SPONSORED_BALANCE_CURRENCY || "JOD",
+      currency,
+      campaignName: process.env.SPONSORED_CAMPAIGN_NAME || "Mall Sponsorship",
       expiresAt,
     });
   } catch (err) {
@@ -1478,7 +1504,10 @@ app.post("/api/auth/signup", async (req, res) => {
 
       // Wallet (Business)
       walletBalance: 5,
-      walletCurrency: "USD",
+     walletCurrency: detectCurrencyByCountry({
+  countryCode: business.countryCode,
+  whatsapp: business.whatsapp,
+}),
       walletStatus: "active",
      walletAllowNegative: true,
       walletNegativeLimit: -5,
@@ -2469,11 +2498,16 @@ app.get("/api/business/me", requireUser, async (req, res) => {
       0
     );
 
+    const currency =
+      business?.wallet?.currency ||
+      business?.wallet_currency ||
+      "JOD";
+
     const formatted = {
       ...business,
 
       wallet_balance: walletBalance,
-      wallet_currency: business?.wallet?.currency || "USD",
+      wallet_currency: currency,
       wallet_status: business?.wallet?.status || "active",
 
       sponsored_balance: sponsoredBalance,
@@ -2481,10 +2515,12 @@ app.get("/api/business/me", requireUser, async (req, res) => {
         business?.sponsoredCampaignName ??
         business?.sponsored_campaign_name ??
         null,
+
       sponsored_status:
         business?.sponsoredStatus ??
         business?.sponsored_status ??
         "none",
+
       sponsored_credit_expires_at:
         business?.sponsoredCreditExpiresAt ??
         business?.sponsored_credit_expires_at ??
