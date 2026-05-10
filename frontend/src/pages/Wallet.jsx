@@ -9,6 +9,9 @@ export default function Wallet({ lang = "en" }) {
   const [balance, setBalance] = useState(0);
   const [currency, setCurrency] = useState("USD");
   const [status, setStatus] = useState("active");
+  const [sponsoredBalance, setSponsoredBalance] = useState(0);
+const [sponsoredStatus, setSponsoredStatus] = useState("none");
+const [totalAvailableBalance, setTotalAvailableBalance] = useState(0);
   const [topupAmount, setTopupAmount] = useState("");
   const [transactions, setTransactions] = useState([]);
   const [message, setMessage] = useState("");
@@ -92,6 +95,8 @@ export default function Wallet({ lang = "en" }) {
   )[lang];
 
  const quickPackages = useMemo(() => [5, 10, 15, 20], []);
+  const isSponsoredTenant =
+  sponsoredStatus === "active";
 
   useEffect(() => {
     document.title =
@@ -148,10 +153,33 @@ export default function Wallet({ lang = "en" }) {
         throw new Error(bizData?.error || "Failed to load wallet");
       }
 
-      const nextBalance = Number(bizData?.wallet_balance || 0);
-      setBalance(nextBalance);
-      setCurrency(bizData?.wallet_currency || "USD");
-      setStatus(bizData?.wallet_status || inferStatus(nextBalance));
+     const paidBalance = Number(bizData?.wallet_balance || 0);
+
+const sponsored = Number(
+  bizData?.sponsored_balance || 0
+);
+
+const total = Number(
+  bizData?.total_available_balance ||
+  paidBalance + sponsored
+);
+
+setBalance(paidBalance);
+setSponsoredBalance(sponsored);
+setSponsoredStatus(
+  bizData?.sponsored_status || "none"
+);
+
+setTotalAvailableBalance(total);
+
+setCurrency(
+  bizData?.wallet_currency || "USD"
+);
+
+setStatus(
+  bizData?.wallet_status ||
+  inferStatus(total)
+);
 
       if (txRes.ok) {
         const txList = Array.isArray(txData)
@@ -406,9 +434,27 @@ const res = await fetch(`${API_BASE}/api/payments/confirm-topup-order`, {
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="text-sm text-slate-500">{t.currentBalance}</p>
-                <h2 className="mt-2 text-3xl font-bold text-slate-900">
-                  {loading ? "..." : `${balance.toFixed(2)} ${currency}`}
-                </h2>
+               <div className="mt-2">
+  <h2 className="text-3xl font-bold text-slate-900">
+    {loading
+      ? "..."
+      : `${totalAvailableBalance.toFixed(2)} ${currency}`}
+  </h2>
+
+  <div className="mt-2 space-y-1 text-sm">
+    <div className="text-slate-600">
+      {lang === "ar"
+        ? `الرصيد المدفوع: ${balance.toFixed(2)} ${currency}`
+        : `Paid Balance: ${balance.toFixed(2)} ${currency}`}
+    </div>
+
+    <div className="text-green-700 font-medium">
+      {lang === "ar"
+        ? `الرصيد الترويجي: ${sponsoredBalance.toFixed(2)} ${currency}`
+        : `Sponsored Balance: ${sponsoredBalance.toFixed(2)} ${currency}`}
+    </div>
+  </div>
+</div>
               </div>
 
               <div className="flex items-center gap-3">
@@ -443,38 +489,54 @@ const res = await fetch(`${API_BASE}/api/payments/confirm-topup-order`, {
             </div>
           </div>
 
-         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-  <h3 className="mb-2 text-lg font-semibold text-slate-900">
-    {t.addBalance}
-  </h3>
-<p className="mb-2 text-xs text-slate-500">
-  {lang === "ar"
-    ? `الحد التجريبي: 20$ | المتبقي: ${(20 - balance).toFixed(2)}`
-    : `Trial limit: $20 | Remaining: ${(20 - balance).toFixed(2)}`}
-</p>
+     {!isSponsoredTenant ? (
+  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <h3 className="mb-2 text-lg font-semibold text-slate-900">
+      {t.addBalance}
+    </h3>
 
-            <form onSubmit={handleTopup} className="space-y-4">
-              <input
-                type="number"
-                max="20"
-                min="1"
-                step="0.01"
-                value={topupAmount}
-                onChange={(e) => setTopupAmount(e.target.value)}
-                placeholder={t.enterAmount}
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-500"
-              />
+    <p className="mb-2 text-xs text-slate-500">
+      {lang === "ar"
+        ? `الحد التجريبي: 20$ | المتبقي: ${(20 - balance).toFixed(2)}`
+        : `Trial limit: $20 | Remaining: ${(20 - balance).toFixed(2)}`}
+    </p>
 
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {submitting ? "..." : t.topup}
-              </button>
-            </form>
-          </div>
-        </div>
+    <form onSubmit={handleTopup} className="space-y-4">
+      <input
+        type="number"
+        max="20"
+        min="1"
+        step="0.01"
+        value={topupAmount}
+        onChange={(e) => setTopupAmount(e.target.value)}
+        placeholder={t.enterAmount}
+        className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-500"
+      />
+
+      <button
+        type="submit"
+        disabled={submitting}
+        className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {submitting ? "..." : t.topup}
+      </button>
+    </form>
+  </div>
+) : (
+  <div className="rounded-2xl border border-green-200 bg-green-50 p-6 shadow-sm">
+    <h3 className="text-lg font-semibold text-green-800">
+      {lang === "ar"
+        ? "رصيد برعاية المول"
+        : "Mall Sponsored Balance"}
+    </h3>
+
+    <p className="mt-2 text-sm text-green-700 leading-7">
+      {lang === "ar"
+        ? "رصيدك الترويجي مقدم برعاية المول. الشحن غير متاح خلال فترة التجربة."
+        : "Your promotional balance is sponsored by the mall. Recharge is disabled during the pilot period."}
+    </p>
+  </div>
+)}
 
         <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
