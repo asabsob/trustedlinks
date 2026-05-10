@@ -2603,11 +2603,11 @@ app.put("/api/business/update", requireUser, async (req, res) => {
       keywords_ar: Array.isArray(req.body.keywords_ar) ? req.body.keywords_ar : [],
       category: Array.isArray(req.body.category) ? req.body.category : [],
       whatsapp: req.body.whatsapp,
-      mediaLink: req.body.mediaLink,
-      logo: req.body.logo,
-      locationText: req.body.locationText,
-      countryCode: req.body.countryCode,
-      countryName: req.body.countryName,
+   mediaLink: req.body.mediaLink || "",
+logo: req.body.logo || "",
+locationText: req.body.locationText || "",
+countryCode: req.body.countryCode || "",
+countryName: req.body.countryName || "",
     };
 
     const lang = String(req.body?.lang || "en").toLowerCase();
@@ -2669,15 +2669,15 @@ app.put("/api/business/update", requireUser, async (req, res) => {
 
     const formatted = {
       ...updated,
-      logo:
-        updated.logo ||
-        (updated.mediaLink &&
-        /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(String(updated.mediaLink))
-          ? updated.mediaLink
-          : null),
+     logo:
+  updated.logo ||
+  (updated.mediaLink &&
+  /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(String(updated.mediaLink))
+    ? updated.mediaLink
+    : ""),
       whatsappLink: updated.whatsapp
         ? `https://wa.me/${String(updated.whatsapp).replace(/\D/g, "")}`
-        : null,
+       : "",
     };
 
     return res.json({
@@ -2796,15 +2796,15 @@ app.post("/api/business/apply-ai-optimization", requireUser, async (req, res) =>
 
     const formatted = {
       ...updated,
-      logo:
-        updated.logo ||
-        (updated.mediaLink &&
-        /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(String(updated.mediaLink))
-          ? updated.mediaLink
-          : null),
+     logo:
+  updated.logo ||
+  (updated.mediaLink &&
+  /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(String(updated.mediaLink))
+    ? updated.mediaLink
+    : ""),
       whatsappLink: updated.whatsapp
         ? `https://wa.me/${String(updated.whatsapp).replace(/\D/g, "")}`
-        : null,
+       : "",
     };
 
     return res.json({
