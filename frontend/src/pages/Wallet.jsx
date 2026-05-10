@@ -51,7 +51,7 @@ const [totalAvailableBalance, setTotalAvailableBalance] = useState(0);
         packageLabel: "Recommended packages",
         customAmount: "Custom amount",
         confirmPayment: "Confirm Payment",
-        confirmDemoPayment: "Confirm Demo Payment",
+        confirmDemoPayment: "Confirm Top-up",
         orderCreated: "Top-up order created. Please confirm payment to continue.",
         confirmPaymentFailed: "Failed to confirm payment.",
         cancel: "Cancel",
@@ -85,7 +85,7 @@ const [totalAvailableBalance, setTotalAvailableBalance] = useState(0);
         packageLabel: "باقات مقترحة",
         customAmount: "مبلغ مخصص",
         confirmPayment: "تأكيد الدفع",
-        confirmDemoPayment: "تأكيد الدفع التجريبي",
+       confirmDemoPayment: "تأكيد الشحن ",
         orderCreated: "تم إنشاء طلب الشحن. قم بتأكيد الدفع للمتابعة.",
         confirmPaymentFailed: "فشل تأكيد الدفع.",
         cancel: "إلغاء",
@@ -496,9 +496,9 @@ const res = await fetch(`${API_BASE}/api/payments/confirm-topup-order`, {
     </h3>
 
     <p className="mb-2 text-xs text-slate-500">
-      {lang === "ar"
-        ? `الحد التجريبي: 20$ | المتبقي: ${(20 - balance).toFixed(2)}`
-        : `Trial limit: $20 | Remaining: ${(20 - balance).toFixed(2)}`}
+     {lang === "ar"
+  ? `الشحن : 20 ${currency} | المتبقي: ${(20 - balance).toFixed(2)}`
+  : `Top-up limit: 20 ${currency} | Remaining: ${(20 - balance).toFixed(2)}`}
     </p>
 
     <form onSubmit={handleTopup} className="space-y-4">
