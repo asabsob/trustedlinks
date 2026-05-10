@@ -2060,6 +2060,11 @@ app.post("/api/whatsapp/verify-otp", async (req, res) => {
 // =========================
 app.post("/api/payments/create-topup-order", requireUser, async (req, res) => {
   try {
+        return res.status(403).json({
+      ok: false,
+      error: "Free top-up is currently disabled",
+      reason: "FREE_TOPUP_DISABLED",
+    });
     const amount = Number(req.body?.amount || 0);
     const businessId = String(req.body?.businessId || "").trim();
 
