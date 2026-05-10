@@ -2460,13 +2460,37 @@ app.get("/api/business/me", requireUser, async (req, res) => {
     if (!business) {
       return res.status(404).json({ error: "Business not found" });
     }
-    
+
+    const walletBalance = Number(business?.wallet?.balance ?? 0);
+
+    const sponsoredBalance = Number(
+      business?.sponsoredBalance ??
+      business?.sponsored_balance ??
+      0
+    );
+
     const formatted = {
       ...business,
 
-      wallet_balance: Number(business?.wallet?.balance ?? 0),
+      wallet_balance: walletBalance,
       wallet_currency: business?.wallet?.currency || "USD",
       wallet_status: business?.wallet?.status || "active",
+
+      sponsored_balance: sponsoredBalance,
+      sponsored_campaign_name:
+        business?.sponsoredCampaignName ??
+        business?.sponsored_campaign_name ??
+        null,
+      sponsored_status:
+        business?.sponsoredStatus ??
+        business?.sponsored_status ??
+        "none",
+      sponsored_credit_expires_at:
+        business?.sponsoredCreditExpiresAt ??
+        business?.sponsored_credit_expires_at ??
+        null,
+
+      total_available_balance: walletBalance + sponsoredBalance,
 
       logo:
         business.logo ||
