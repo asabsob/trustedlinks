@@ -1543,7 +1543,8 @@ billingNearbyIntentCost: getBusinessPricing({
   countryCode: business.countryCode,
   whatsapp: business.whatsapp,
 }).nearby,
-      
+      });
+    
     const verifyUrl =
       `${API_BASE_URL}/api/auth/verify-email` +
       `?email=${encodeURIComponent(emailNorm)}` +
