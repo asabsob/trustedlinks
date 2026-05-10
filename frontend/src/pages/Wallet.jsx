@@ -531,9 +531,9 @@ const res = await fetch(`${API_BASE}/api/payments/confirm-topup-order`, {
     </h3>
 
     <p className="mt-2 text-sm text-green-700 leading-7">
-      {lang === "ar"
-        ? "رصيدك الترويجي مقدم برعاية المول. الشحن غير متاح خلال فترة التجربة."
-        : "Your promotional balance is sponsored by the mall. Recharge is disabled during the pilot period."}
+     {lang === "ar"
+  ? `الشحن غير متاح حالياً للحسابات العادية`
+  : `Top-up is currently unavailable for standard accounts`}
     </p>
   </div>
 )}
