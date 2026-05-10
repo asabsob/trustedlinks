@@ -2508,6 +2508,7 @@ app.post("/api/payments/confirm-topup-order", requireUser, async (req, res) => {
 // =========================
 // GET CURRENT USER BUSINESS
 // =========================
+
 app.get("/api/business/me", requireUser, async (req, res) => {
   try {
     const business = await getBusinessByOwnerUserId(String(req.user.id));
@@ -2515,6 +2516,8 @@ app.get("/api/business/me", requireUser, async (req, res) => {
     if (!business) {
       return res.status(404).json({ error: "Business not found" });
     }
+
+    const pricing = getBusinessPricing(business);
 
     const walletBalance = Number(business?.wallet?.balance ?? 0);
 
@@ -2526,7 +2529,9 @@ app.get("/api/business/me", requireUser, async (req, res) => {
 
     const currency =
       business?.wallet?.currency ||
+      business?.walletCurrency ||
       business?.wallet_currency ||
+      pricing.currency ||
       "JOD";
 
     const formatted = {
@@ -2554,6 +2559,13 @@ app.get("/api/business/me", requireUser, async (req, res) => {
 
       total_available_balance: walletBalance + sponsoredBalance,
 
+      pricing: {
+        currency,
+        direct: pricing.direct,
+        category: pricing.category,
+        nearby: pricing.nearby,
+      },
+
       logo:
         business.logo ||
         (business.mediaLink &&
@@ -2572,7 +2584,6 @@ app.get("/api/business/me", requireUser, async (req, res) => {
     return res.status(500).json({ error: "Failed to load business" });
   }
 });
-
 // =========================
 // UPDATE CURRENT USER BUSINESS
 // =========================
