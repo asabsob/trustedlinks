@@ -496,9 +496,9 @@ const res = await fetch(`${API_BASE}/api/payments/confirm-topup-order`, {
     </h3>
 
     <p className="mb-2 text-xs text-slate-500">
-     {lang === "ar"
-  ? `الشحن : 20 ${currency} | المتبقي: ${(20 - balance).toFixed(2)}`
-  : `Top-up limit: 20 ${currency} | Remaining: ${(20 - balance).toFixed(2)}`}
+    {lang === "ar"
+  ? `رصيد مجاني مقدم من المول: 20 ${currency} | المتبقي: ${(20 - balance).toFixed(2)}`
+  : `Mall sponsored credit: 20 ${currency} | Remaining: ${(20 - balance).toFixed(2)}`}
     </p>
 
     <form onSubmit={handleTopup} className="space-y-4">
