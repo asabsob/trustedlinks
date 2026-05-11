@@ -202,6 +202,7 @@ export default function App() {
   path="/campaign/register"
   element={<CampaignRegister lang={lang} />}
 />
+         <Route path="campaigns" element={<CampaignCampaigns lang={lang} />} />
 
 <Route
   path="/campaign"
@@ -238,7 +239,6 @@ export default function App() {
   <Route path="ai-summary" element={<AdminAISummary />} />
   <Route path="fraud" element={<AdminFraud />} />
   <Route path="settings" element={<AdminSettings />} />
-  <Route path="campaigns" element={<CampaignCampaigns />} />
 </Route>
         {/* Fallback */} 
         <Route path="*" element={<Navigate to="/" replace />} />
