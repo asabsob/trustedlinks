@@ -1093,6 +1093,146 @@ function getConversationStartPrice(business, intentType) {
   return pricing.category;
 }
 
+async function tryDeductFromCampaign({
+  businessId,
+  amount,
+  intentType = "category",
+  reference = "",
+  meta = {},
+}) {
+  try {
+    if (!businessId || !amount || amount <= 0) {
+      return { ok: false, skipped: true };
+    }
+
+    const { data: business, error: businessError } = await supabase
+      .from("businesses")
+      .select("*")
+      .eq("id", businessId)
+      .maybeSingle();
+
+    if (businessError) throw businessError;
+
+    if (!business) {
+      return { ok: false, error: "Business not found" };
+    }
+
+    const sponsoredBalance = Number(business.sponsored_balance || 0);
+
+    if (sponsoredBalance < amount) {
+      return {
+        ok: false,
+        skipped: true,
+        reason: "No campaign balance",
+      };
+    }
+
+    const { data: claims, error: claimsError } = await supabase
+      .from("campaign_claims")
+      .select(`
+        id,
+        funding_code_id,
+        funding_codes (
+          id,
+          campaign_id,
+          campaigns (
+            id,
+            remaining_budget,
+            currency,
+            status
+          )
+        )
+      `)
+      .eq("business_id", businessId)
+      .order("claimed_at", { ascending: false })
+      .limit(1);
+
+    if (claimsError) throw claimsError;
+
+    const claim = claims?.[0];
+
+    const campaign =
+      claim?.funding_codes?.campaigns;
+
+    if (!campaign || campaign.status !== "active") {
+      return {
+        ok: false,
+        skipped: true,
+        reason: "No active campaign",
+      };
+    }
+
+    const campaignRemaining =
+      Number(campaign.remaining_budget || 0);
+
+    if (campaignRemaining < amount) {
+      return {
+        ok: false,
+        skipped: true,
+        reason: "Campaign budget insufficient",
+      };
+    }
+
+    const newSponsoredBalance =
+      sponsoredBalance - amount;
+
+    const newCampaignRemaining =
+      campaignRemaining - amount;
+
+    const { error: businessUpdateError } = await supabase
+      .from("businesses")
+      .update({
+        sponsored_balance: newSponsoredBalance,
+      })
+      .eq("id", businessId);
+
+    if (businessUpdateError) throw businessUpdateError;
+
+    const { error: campaignUpdateError } = await supabase
+      .from("campaigns")
+      .update({
+        remaining_budget: newCampaignRemaining,
+      })
+      .eq("id", campaign.id);
+
+    if (campaignUpdateError) throw campaignUpdateError;
+
+    const { error: txError } = await supabase
+      .from("campaign_transactions")
+      .insert({
+        campaign_id: campaign.id,
+        business_id: businessId,
+        amount,
+        currency: campaign.currency || "JOD",
+        transaction_type: "campaign_lead_charge",
+        reference_id: reference,
+        metadata: {
+          ...meta,
+          intentType,
+          source: "lead_billing",
+        },
+      });
+
+    if (txError) throw txError;
+
+    return {
+      ok: true,
+      chargedFrom: "campaign",
+      amount,
+      sponsoredBalanceAfter: newSponsoredBalance,
+      campaignRemainingAfter: newCampaignRemaining,
+      currency: campaign.currency || "JOD",
+    };
+  } catch (err) {
+    console.error("CAMPAIGN DEDUCT ERROR:", err);
+    return {
+      ok: false,
+      skipped: true,
+      error: err.message,
+    };
+  }
+}
+
 async function deductWalletBalance({
   ownerUserId,
   businessId = null,
@@ -1117,6 +1257,21 @@ async function deductWalletBalance({
     if (!amount || amount <= 0) {
       return { ok: true, skipped: true, reason: "No charge for this event" };
     }
+
+    const campaignDeduct = await tryDeductFromCampaign({
+  businessId,
+  amount,
+  intentType: finalIntentType,
+  reference,
+  meta: {
+    ...meta,
+    ownerUserId,
+  },
+});
+
+if (campaignDeduct.ok) {
+  return campaignDeduct;
+}
 
     const result = await deductBusinessWallet({
       businessId,
