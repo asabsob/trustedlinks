@@ -41,6 +41,7 @@ import CampaignLogin from "./pages/campaign/CampaignLogin";
 import CampaignRegister from "./pages/campaign/CampaignRegister";
 import CampaignDashboard from "./pages/campaign/CampaignDashboard";
 import CampaignFundingCodes from "./pages/campaign/CampaignFundingCodes";
+import CampaignCampaigns from "./pages/campaign/CampaignCampaigns";
 
 
 
@@ -237,8 +238,9 @@ export default function App() {
   <Route path="ai-summary" element={<AdminAISummary />} />
   <Route path="fraud" element={<AdminFraud />} />
   <Route path="settings" element={<AdminSettings />} />
+  <Route path="campaigns" element={<CampaignCampaigns />} />
 </Route>
-        {/* Fallback */}
+        {/* Fallback */} 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
