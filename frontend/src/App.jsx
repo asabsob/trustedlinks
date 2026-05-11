@@ -35,10 +35,14 @@ import { useAdminAuth } from "./context/AdminAuthContext.jsx";
 /* ⭐ Navbar */
 import Navbar from "./components/Navbar.jsx";
 
+import CampaignLayout from "./layouts/CampaignLayout";
+
 import CampaignLogin from "./pages/campaign/CampaignLogin";
 import CampaignRegister from "./pages/campaign/CampaignRegister";
 import CampaignDashboard from "./pages/campaign/CampaignDashboard";
 import CampaignFundingCodes from "./pages/campaign/CampaignFundingCodes";
+
+
 
 // -------------------------
 // User Protected Route
@@ -188,7 +192,7 @@ export default function App() {
   }
 />
 
- <Route
+<Route
   path="/campaign/login"
   element={<CampaignLogin lang={lang} />}
 />
@@ -199,13 +203,19 @@ export default function App() {
 />
 
 <Route
-  path="/campaign/dashboard"
-  element={<CampaignDashboard lang={lang} />}
-/>
-        <Route
-  path="/campaign/funding-codes"
-  element={<CampaignFundingCodes lang={lang} />}
-/>
+  path="/campaign"
+  element={<CampaignLayout />}
+>
+  <Route
+    path="dashboard"
+    element={<CampaignDashboard />}
+  />
+
+  <Route
+    path="funding-codes"
+    element={<CampaignFundingCodes />}
+  />
+</Route>
         
       {/* Admin Login */}
 <Route path="/admin/login" element={<AdminLogin />} />
