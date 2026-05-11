@@ -317,6 +317,62 @@ async function handleClaimSponsorship() {
         </div>
       </section>
 
+      {sponsoredText && (
+  <section
+    style={{
+      background:
+        "linear-gradient(135deg, #111827 0%, #16a34a 100%)",
+      color: "#fff",
+      borderRadius: "20px",
+      padding: "22px",
+      marginBottom: "22px",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      boxShadow:
+        "0 10px 28px rgba(22, 163, 74, 0.18)",
+    }}
+  >
+    <div>
+      <div
+        style={{
+          fontSize: 13,
+          opacity: 0.8,
+          marginBottom: 6,
+        }}
+      >
+        {isAr
+          ? "حملة رعاية مفعّلة"
+          : "Sponsored Campaign Active"}
+      </div>
+
+      <h3
+        style={{
+          margin: 0,
+          fontSize: 24,
+        }}
+      >
+        {business?.sponsored_campaign_name ||
+          "Campaign Sponsorship"}
+      </h3>
+
+      <div
+        style={{
+          marginTop: 10,
+          fontSize: 18,
+          fontWeight: 700,
+        }}
+      >
+        {sponsoredText}
+      </div>
+    </div>
+
+    <div style={{ fontSize: 44 }}>
+      🎁
+    </div>
+  </section>
+)}
+
       {walletStatus !== "active" && (
         <div
           style={{
@@ -699,6 +755,7 @@ const heroCard = {
   marginBottom: "22px",
   boxShadow: "0 10px 30px rgba(22, 163, 74, 0.18)",
 };
+
 
 const heroBadge = {
   display: "inline-block",
