@@ -317,20 +317,25 @@ async function handleClaimSponsorship() {
         </div>
       </section>
 
-      {sponsoredText && (
-  <section
+ <section
+  style={{
+    background:
+      "linear-gradient(135deg, #111827 0%, #16a34a 100%)",
+    color: "#fff",
+    borderRadius: "20px",
+    padding: "22px",
+    marginBottom: "22px",
+    boxShadow:
+      "0 10px 28px rgba(22, 163, 74, 0.18)",
+  }}
+>
+  <div
     style={{
-      background:
-        "linear-gradient(135deg, #111827 0%, #16a34a 100%)",
-      color: "#fff",
-      borderRadius: "20px",
-      padding: "22px",
-      marginBottom: "22px",
       display: "flex",
       justifyContent: "space-between",
       alignItems: "center",
-      boxShadow:
-        "0 10px 28px rgba(22, 163, 74, 0.18)",
+      gap: "20px",
+      flexWrap: "wrap",
     }}
   >
     <div>
@@ -370,8 +375,61 @@ async function handleClaimSponsorship() {
     <div style={{ fontSize: 44 }}>
       🎁
     </div>
-  </section>
-)}
+  </div>
+
+  {/* Small claim form */}
+  <div
+    style={{
+      marginTop: "18px",
+      display: "flex",
+      gap: "10px",
+      flexWrap: "wrap",
+    }}
+  >
+    <input
+      value={campaignCode}
+      onChange={(e) =>
+        setCampaignCode(e.target.value)
+      }
+      placeholder={
+        isAr
+          ? "إضافة كود جديد"
+          : "Add another sponsorship code"
+      }
+      style={{
+        flex: 1,
+        minWidth: "220px",
+        padding: "12px 14px",
+        borderRadius: "12px",
+        border: "none",
+        outline: "none",
+        fontSize: "15px",
+      }}
+    />
+
+    <button
+      onClick={handleClaimSponsorship}
+      disabled={claimLoading}
+      style={{
+        background: "#fff",
+        color: "#16a34a",
+        border: "none",
+        borderRadius: "12px",
+        padding: "12px 18px",
+        fontWeight: 700,
+        cursor: "pointer",
+      }}
+    >
+      {claimLoading
+        ? isAr
+          ? "جاري التفعيل..."
+          : "Applying..."
+        : isAr
+        ? "تفعيل"
+        : "Apply"}
+    </button>
+  </div>
+</section>
 
       {walletStatus !== "active" && (
         <div
