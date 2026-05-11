@@ -202,15 +202,18 @@ export default function App() {
   path="/campaign/register"
   element={<CampaignRegister lang={lang} />}
 />
-         <Route path="campaigns" element={<CampaignCampaigns lang={lang} />} />
-
-<Route
+       <Route
   path="/campaign"
   element={<CampaignLayout />}
 >
   <Route
     path="dashboard"
     element={<CampaignDashboard />}
+  />
+
+  <Route
+    path="campaigns"
+    element={<CampaignCampaigns />}
   />
 
   <Route
