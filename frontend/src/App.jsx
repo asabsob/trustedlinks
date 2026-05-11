@@ -38,6 +38,7 @@ import Navbar from "./components/Navbar.jsx";
 import CampaignLogin from "./pages/campaign/CampaignLogin";
 import CampaignRegister from "./pages/campaign/CampaignRegister";
 import CampaignDashboard from "./pages/campaign/CampaignDashboard";
+import CampaignFundingCodes from "./pages/campaign/CampaignFundingCodes";
 
 // -------------------------
 // User Protected Route
@@ -200,6 +201,10 @@ export default function App() {
 <Route
   path="/campaign/dashboard"
   element={<CampaignDashboard lang={lang} />}
+/>
+        <Route
+  path="/campaign/funding-codes"
+  element={<CampaignFundingCodes lang={lang} />}
 />
         
       {/* Admin Login */}
