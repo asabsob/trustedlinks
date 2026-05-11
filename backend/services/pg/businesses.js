@@ -35,6 +35,24 @@ function mapBusiness(row) {
       lowBalanceThreshold: Number(row.wallet_low_balance_threshold ?? 5),
     },
 
+        // ✅ sponsorship
+    sponsoredBalance: Number(
+      row.sponsored_balance ?? 0
+    ),
+
+    sponsoredCampaignName:
+      row.sponsored_campaign_name || null,
+
+    sponsoredStatus:
+      row.sponsored_status || "none",
+
+    sponsoredCreditExpiresAt:
+      row.sponsored_credit_expires_at || null,
+
+    sponsoredDailyLimit: Number(
+      row.sponsored_daily_limit ?? 0
+    ),
+
     // ✅ billing
     billing: {
       clickCost: Number(row.billing_click_cost ?? 0.05),
