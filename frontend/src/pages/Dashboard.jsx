@@ -228,16 +228,16 @@ async function handleClaimSponsorship() {
     const token = localStorage.getItem("token");
 
     const res = await fetch(
-      `${API_BASE}/api/business/claim-sponsorship`,
+      `${API_BASE}/api/campaign/funding-codes/claim`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          campaignCode,
-        }),
+       body: JSON.stringify({
+  code: campaignCode,
+})
       }
     );
 
