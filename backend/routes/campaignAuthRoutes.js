@@ -2,6 +2,7 @@ import express from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import supabase from "../db/postgres.js";
+import { requireCampaignManager } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -21,27 +22,6 @@ function signCampaignToken(owner) {
   );
 }
 
-function requireCampaignManager(req, res, next) {
-  try {
-    const header = req.headers.authorization || "";
-    const token = header.startsWith("Bearer ") ? header.slice(7) : "";
-
-    if (!token) {
-      return res.status(401).json({ error: "Missing token" });
-    }
-
-    const decoded = jwt.verify(token, JWT_SECRET);
-
-    if (decoded?.role !== "campaign_manager" || !decoded?.ownerId) {
-      return res.status(403).json({ error: "Not allowed" });
-    }
-
-    req.campaignOwner = decoded;
-    next();
-  } catch (err) {
-    return res.status(401).json({ error: "Invalid token" });
-  }
-}
 
 // REGISTER
 router.post("/register", async (req, res) => {
@@ -204,5 +184,5 @@ router.get("/me", requireCampaignManager, async (req, res) => {
   }
 });
 
-export { requireCampaignManager };
+
 export default router;
