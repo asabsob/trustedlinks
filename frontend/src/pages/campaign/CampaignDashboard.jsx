@@ -6,6 +6,9 @@ export default function CampaignDashboard() {
     localStorage.getItem("campaign_lang") || "en"
   );
 
+  const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "";
+
   const [loading, setLoading] = useState(true);
 
   const [dashboard, setDashboard] = useState(null);
@@ -41,18 +44,18 @@ export default function CampaignDashboard() {
         Authorization: `Bearer ${token}`,
       };
 
-      const [dashboardRes, financeRes] =
-        await Promise.all([
-          fetch(
-            "/api/campaign/dashboard",
-            { headers }
-          ),
+  const [dashboardRes, financeRes] =
+  await Promise.all([
+    fetch(
+      `${API_BASE}/api/campaign/dashboard`,
+      { headers }
+    ),
 
-          fetch(
-            "/api/campaign/analytics/finance",
-            { headers }
-          ),
-        ]);
+    fetch(
+      `${API_BASE}/api/campaign/analytics/finance`,
+      { headers }
+    ),
+  ]);
 
       const dashboardData =
         await dashboardRes.json();
