@@ -195,17 +195,23 @@ export default function App() {
 
 <Route
   path="/campaign/login"
-  element={<CampaignLogin lang={lang} />}
+  element={<CampaignLogin />}
 />
 
 <Route
   path="/campaign/register"
-  element={<CampaignRegister lang={lang} />}
+  element={<CampaignRegister />}
 />
-       <Route
+
+<Route
   path="/campaign"
   element={<CampaignLayout />}
 >
+  <Route
+    index
+    element={<Navigate to="dashboard" replace />}
+  />
+
   <Route
     path="dashboard"
     element={<CampaignDashboard />}
@@ -220,8 +226,7 @@ export default function App() {
     path="funding-codes"
     element={<CampaignFundingCodes />}
   />
-</Route>
-        
+</Route>        
       {/* Admin Login */}
 <Route path="/admin/login" element={<AdminLogin />} />
 
