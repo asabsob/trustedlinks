@@ -1,6 +1,6 @@
 import express from "express";
 import supabase from "../db/postgres.js";
-import { requireCampaignManager } from "./campaignAuthRoutes.js";
+import { requireCampaignManager } from "../middleware/auth.js";
 
 const router = express.Router();
 
