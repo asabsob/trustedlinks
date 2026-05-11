@@ -365,6 +365,9 @@ const res = await fetch(`${API_BASE}/api/payments/confirm-topup-order`, {
     await submitTopup(topupAmount);
   };
 
+  const isSponsoredTenant =
+  business?.sponsored_status === "active";
+
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8 md:px-8">
       <div className="mx-auto max-w-6xl">
@@ -448,13 +451,21 @@ const res = await fetch(`${API_BASE}/api/payments/confirm-topup-order`, {
         : `Paid Balance: ${balance.toFixed(2)} ${currency}`}
     </div>
 
-    <div className="text-green-700 font-medium">
-      {lang === "ar"
-        ? `الرصيد الترويجي: ${sponsoredBalance.toFixed(2)} ${currency}`
-        : `Sponsored Balance: ${sponsoredBalance.toFixed(2)} ${currency}`}
-    </div>
+    {isSponsoredTenant && sponsoredBalance > 0 && (
+  <div className="text-green-700 font-medium">
+    {lang === "ar"
+      ? `الرصيد المقدم من المول: ${sponsoredBalance.toFixed(2)} ${currency}`
+      : `Mall Sponsored Credit: ${sponsoredBalance.toFixed(2)} ${currency}`}
   </div>
-</div>
+)}
+
+{isSponsoredTenant && sponsoredBalance <= 0 && (
+  <div className="text-slate-500 font-medium">
+    {lang === "ar"
+      ? "حساب مدعوم ضمن برنامج المول"
+      : "Account enrolled in mall sponsorship program"}
+  </div>
+)}
               </div>
 
               <div className="flex items-center gap-3">
