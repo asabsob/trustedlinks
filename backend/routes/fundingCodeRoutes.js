@@ -159,11 +159,16 @@ router.post("/claim", requireUser, async (req, res) => {
       });
     }
 
-    const { data: fundingCode, error: fundingCodeError } = await supabase
-      .from("funding_codes")
-      .select("*")
-      .eq("code", String(code).trim().toUpperCase())
-      .maybeSingle();
+   const normalizedCode = String(code || "").trim().toUpperCase();
+
+console.log("CLAIM CODE RAW:", code);
+console.log("CLAIM CODE NORMALIZED:", normalizedCode);
+
+const { data: fundingCode, error: fundingCodeError } = await supabase
+  .from("funding_codes")
+  .select("*")
+  .ilike("code", normalizedCode)
+  .maybeSingle();
 
     if (fundingCodeError) throw fundingCodeError;
 
