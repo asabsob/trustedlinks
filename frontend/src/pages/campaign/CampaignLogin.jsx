@@ -4,6 +4,9 @@ import { useNavigate, Link } from "react-router-dom";
 export default function CampaignLogin() {
   const navigate = useNavigate();
 
+  const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "";
+  
   const [lang, setLang] = useState("en");
 
   const [form, setForm] = useState({
@@ -43,17 +46,18 @@ export default function CampaignLogin() {
     setLoading(true);
 
     try {
-      const res = await fetch(
-        "/api/campaign/auth/login",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+  const res = await fetch(
+    `${API_BASE}/api/campaign/auth/login`,
+    {
+      method: "POST",
 
-          body: JSON.stringify(form),
-        }
-      );
+      headers: {
+        "Content-Type": "application/json",
+      },
+
+      body: JSON.stringify(form),
+    }
+  );
 
       const data = await res.json();
 
