@@ -235,10 +235,8 @@ async function handleClaimSponsorship() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-       body: JSON.stringify({
-  code: String(campaignCode || "")
-  .trim()
-  .toUpperCase(),
+     body: JSON.stringify({
+  code: String(campaignCode || "").trim().toUpperCase(),
 })
       }
     );
