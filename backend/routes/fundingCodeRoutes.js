@@ -2,7 +2,7 @@ import express from "express";
 import crypto from "crypto";
 
 import supabase from "../db/postgres.js";
-import { requireUser } from "../middleware/auth.js";
+
 
 import {
   requireCampaignManager,
