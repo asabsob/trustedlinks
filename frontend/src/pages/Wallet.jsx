@@ -365,9 +365,6 @@ const res = await fetch(`${API_BASE}/api/payments/confirm-topup-order`, {
     await submitTopup(topupAmount);
   };
 
-  const isSponsoredTenant =
-  business?.sponsored_status === "active";
-
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8 md:px-8">
       <div className="mx-auto max-w-6xl">
@@ -480,74 +477,39 @@ const res = await fetch(`${API_BASE}/api/payments/confirm-topup-order`, {
               </div>
             </div>
 
-            <div className="mt-6">
-              <p className="mb-3 text-sm font-medium text-slate-700">
-                {t.packageLabel}
-              </p>
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                {quickPackages.map((pkg) => (
-                  <button
-                    key={pkg}
-                    type="button"
-                    disabled={submitting}
-                    onClick={() => submitTopup(pkg)}
-                    className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-800 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    +{pkg} {currency}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+       <div className="mt-6 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
+  {lang === "ar"
+    ? "سيتم تفعيل خيارات الشحن التجاري قريباً."
+    : "Commercial recharge options will be available soon."}
+</div>
 
-     {!isSponsoredTenant ? (
+</div>
+{!isSponsoredTenant ? (
   <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
     <h3 className="mb-2 text-lg font-semibold text-slate-900">
-      {t.addBalance}
+      {lang === "ar" ? "الشحن غير متاح حالياً" : "Top-up unavailable"}
     </h3>
 
-    <p className="mb-2 text-xs text-slate-500">
-    {lang === "ar"
-  ? `رصيد مجاني مقدم من المول: 20 ${currency} | المتبقي: ${(20 - balance).toFixed(2)}`
-  : `Mall sponsored credit: 20 ${currency} | Remaining: ${(20 - balance).toFixed(2)}`}
+    <p className="text-sm text-slate-600 leading-7">
+      {lang === "ar"
+        ? "رصيد البداية المجاني هو 5 فقط. سيتم تفعيل خيارات الشحن التجاري قريباً."
+        : "The free starting balance is 5 only. Commercial recharge options will be available soon."}
     </p>
-
-    <form onSubmit={handleTopup} className="space-y-4">
-      <input
-        type="number"
-        max="20"
-        min="1"
-        step="0.01"
-        value={topupAmount}
-        onChange={(e) => setTopupAmount(e.target.value)}
-        placeholder={t.enterAmount}
-        className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-500"
-      />
-
-      <button
-        type="submit"
-        disabled={submitting}
-        className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {submitting ? "..." : t.topup}
-      </button>
-    </form>
   </div>
 ) : (
   <div className="rounded-2xl border border-green-200 bg-green-50 p-6 shadow-sm">
     <h3 className="text-lg font-semibold text-green-800">
-      {lang === "ar"
-        ? "رصيد برعاية المول"
-        : "Mall Sponsored Balance"}
+      {lang === "ar" ? "رصيد برعاية المول" : "Mall Sponsored Balance"}
     </h3>
 
     <p className="mt-2 text-sm text-green-700 leading-7">
-     {lang === "ar"
-  ? `الشحن غير متاح حالياً للحسابات العادية`
-  : `Top-up is currently unavailable for standard accounts`}
+      {lang === "ar"
+        ? "رصيدك مقدم ضمن برنامج دعم متاجر المول. لا حاجة للشحن خلال فترة الرعاية."
+        : "Your balance is provided under the mall tenant support program. No recharge is needed during the sponsorship period."}
     </p>
   </div>
 )}
+</div>
           </div>
 
         <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
