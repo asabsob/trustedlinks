@@ -8,7 +8,7 @@ import { getText, getCategoryLabel } from "../i18n";
 import geolib from "geolib";
 
 const API_BASE =
-  import.meta.env.VITE_API_BASE ||
+  import.meta.env.VITE_API_BASE_URL ||
   "https://trustedlinks-backend-production.up.railway.app";
 
 export default function Dashboard({ lang = "en" }) {
