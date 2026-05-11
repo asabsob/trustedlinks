@@ -512,7 +512,6 @@ const res = await fetch(`${API_BASE}/api/payments/confirm-topup-order`, {
   </div>
 )}
 </div>
-          </div>
 
         <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
