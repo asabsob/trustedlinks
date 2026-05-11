@@ -4,6 +4,9 @@ import { useNavigate, Link } from "react-router-dom";
 export default function CampaignRegister() {
   const navigate = useNavigate();
 
+  const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "";
+  
   const [lang, setLang] = useState("en");
 
   const [form, setForm] = useState({
@@ -71,18 +74,18 @@ export default function CampaignRegister() {
     setError("");
 
     try {
-      const res = await fetch(
-        "/api/campaign/auth/register",
-        {
-          method: "POST",
+    const res = await fetch(
+  `${API_BASE}/api/campaign/auth/register`,
+  {
+    method: "POST",
 
-          headers: {
-            "Content-Type": "application/json",
-          },
+    headers: {
+      "Content-Type": "application/json",
+    },
 
-          body: JSON.stringify(form),
-        }
-      );
+    body: JSON.stringify(form),
+  }
+);
 
       const data = await res.json();
 
