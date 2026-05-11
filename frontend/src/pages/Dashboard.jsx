@@ -114,10 +114,10 @@ const [claimMessage, setClaimMessage] = useState("");
   const descriptionText = useMemo(() => {
     if (!business) return tr("notAvailable");
 
-    return isAr
-      ? business.description_ar || business.description || tr("notAvailable")
-      : business.description || business.description_ar || tr("notAvailable");
-  }, [business, lang]);
+ return isAr
+  ? business.description_ar || business.description || tr("notAvailable")
+  : business.description || business.description_ar || tr("notAvailable");
+}, [business, lang]);
 
 const walletText = useMemo(() => {
   if (!business) return `0.00 JOD`;
@@ -130,20 +130,8 @@ const walletText = useMemo(() => {
     business.sponsored_balance || 0
   );
 
- const walletText = useMemo(() => {
-  if (!business) return `0.00 JOD`;
-
-  const paidBalance = Number(business.wallet_balance || 0);
-  const sponsoredBalance = Number(business.sponsored_balance || 0);
-
-  const total = paidBalance + sponsoredBalance;
-
-  const currency = business.wallet_currency || "JOD";
-
-  return isAr
-    ? `${currency} ${total.toFixed(2)}`
-    : `${total.toFixed(2)} ${currency}`;
-}, [business, isAr]);
+  const total =
+    paidBalance + sponsoredBalance;
 
   const currency =
     business.wallet_currency || "JOD";
@@ -170,9 +158,8 @@ const sponsoredText = useMemo(() => {
     : `${amount.toFixed(2)} ${currency}`;
 }, [business, isAr]);
 
-  const walletStatus = useMemo(() => {
-    if (!business) return "active";
-
+const walletStatus = useMemo(() => {
+  if (!business) return "active";
     const balance = Number(business.wallet_balance || 0);
 
     if (balance <= 0) return "out";
