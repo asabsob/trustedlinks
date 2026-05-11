@@ -22,6 +22,7 @@ import crypto from "crypto";
 import { parseSearchIntent } from "./search/intentDetector.js";
 import { optimizeBusinessProfile } from "./services/aiOptimizer.js";
 import { translateBusinessContent } from "./services/ai/translateBusiness.js";
+import campaignAuthRoutes from "./routes/campaignAuthRoutes.js";
 
 import {
   getUserById,
@@ -383,6 +384,8 @@ app.use("/l", leadLimiter);
 app.use(express.urlencoded({ extended: true, limit: "200kb" }));
 
 app.use("/api/privacy", privacyRoutes);
+
+app.use("/api/campaign/auth", campaignAuthRoutes);
 
 const getIP = (req) =>
   req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
