@@ -25,6 +25,10 @@ import { translateBusinessContent } from "./services/ai/translateBusiness.js";
 import campaignAuthRoutes from "./routes/campaignAuthRoutes.js";
 import campaignRoutes from "./routes/campaignRoutes.js";
 import campaignAnalyticsRoutes from "./routes/campaignAnalyticsRoutes.js";
+import campaignAuthRoutes from "./routes/campaignAuthRoutes.js";
+import campaignRoutes from "./routes/campaignRoutes.js";
+import fundingCodeRoutes from "./routes/fundingCodeRoutes.js";
+import campaignAnalyticsRoutes from "./routes/campaignAnalyticsRoutes.js";
 
 import {
   getUserById,
@@ -389,6 +393,11 @@ app.use("/api/privacy", privacyRoutes);
 app.use("/api/campaign", campaignRoutes);
 app.use("/api/campaign/analytics",campaignAnalyticsRoutes);
 app.use("/api/campaign/auth", campaignAuthRoutes);
+
+app.use("/api/campaign/auth", campaignAuthRoutes);
+app.use("/api/campaign", campaignRoutes);
+app.use("/api/campaign/funding-codes", fundingCodeRoutes);
+app.use("/api/campaign/analytics", campaignAnalyticsRoutes);
 
 const getIP = (req) =>
   req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
