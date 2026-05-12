@@ -2802,11 +2802,11 @@ app.post("/api/business/ai-optimize", requireUser, async (req, res) => {
       result,
     });
   } catch (e) {
-    console.error("ai optimize error:", e?.message || e, e);
-    return res.status(500).json({
-      ok: false,
-      error: "AI optimization failed",
-    });
+    console.error("ai optimize error:", {
+  message: err.message,
+  status: err.status,
+  type: err.type,
+});
   }
 });
 
