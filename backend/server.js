@@ -5542,6 +5542,7 @@ return res.send(`
 </body>
 </html>
 `);
+              }
 
       const { data: consentRow, error } = await supabase
         .from("privacy_consents")
