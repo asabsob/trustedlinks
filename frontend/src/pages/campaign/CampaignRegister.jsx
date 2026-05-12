@@ -199,100 +199,85 @@ export default function CampaignRegister({
           </p>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
+       <form onSubmit={handleSubmit}>
+  {/* Organization */}
+  <div style={sectionStyle}>
+    <h3
+      style={{
+        marginTop: 0,
+        marginBottom: "18px",
+        fontSize: "18px",
+      }}
+    >
+      {t(
+        "Organization Information",
+        "بيانات الجهة"
+      )}
+    </h3>
+
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns:
+          "repeat(auto-fit,minmax(240px,1fr))",
+        gap: "16px",
+      }}
+    >
+      {/* Name */}
+      <div>
+        <label style={labelStyle}>
+          {t(
+            "Organization Name",
+            "اسم الجهة"
+          )}
+        </label>
+
+        <input
+          name="name"
+          value={form.name}
+          onChange={handleChange}
+          style={inputStyle}
+          required
+        />
+      </div>
+
+      {/* Type */}
+      <div>
+        <label style={labelStyle}>
+          {t(
+            "Organization Type",
+            "نوع الجهة"
+          )}
+        </label>
+
+        <select
+          name="entityType"
+          value={form.entityType}
+          onChange={handleChange}
+          style={inputStyle}
         >
-          {/* Organization */}
-          <div style={sectionStyle}>
-            <h3
-              style={{
-                marginTop: 0,
-                marginBottom: "18px",
-                fontSize: "18px",
-              }}
-            >
-              {t(
-                "Organization Information",
-                "بيانات الجهة"
-              )}
-            </h3>
+          <option value="mall">
+            {t("Mall", "مول")}
+          </option>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns:
-                  "repeat(auto-fit,minmax(240px,1fr))",
-                gap: "16px",
-              }}
-            >
-              <div>
-                <label
-                  style={labelStyle}
-                >
-                  {t(
-                    "Organization Name",
-                    "اسم الجهة"
-                  )}
-                </label>
+          <option value="government">
+            {t(
+              "Government",
+              "جهة حكومية"
+            )}
+          </option>
 
-                <input
-  name="name"
-  value={form.name}
-  onChange={handleChange}
-  style={inputStyle}
-  required
-/>
+          <option value="event">
+            {t("Event", "فعالية")}
+          </option>
 
-              <div>
-                <label
-                  style={labelStyle}
-                >
-                  {t(
-                    "Organization Type",
-                    "نوع الجهة"
-                  )}
-                </label>
-
-                <select
-               <select
-  name="entityType"
-  value={form.entityType}
-  onChange={handleChange}
-  style={inputStyle}
->
-                  style={inputStyle}
-                >
-                  <option value="mall">
-                    {t(
-                      "Mall",
-                      "مول"
-                    )}
-                  </option>
-
-                  <option value="government">
-                    {t(
-                      "Government",
-                      "جهة حكومية"
-                    )}
-                  </option>
-
-                  <option value="event">
-                    {t(
-                      "Event",
-                      "فعالية"
-                    )}
-                  </option>
-
-                  <option value="sponsor">
-                    {t(
-                      "Sponsor",
-                      "راعي"
-                    )}
-                  </option>
-                </select>
-              </div>
-            </div>
-          </div>
+          <option value="sponsor">
+            {t("Sponsor", "راعي")}
+          </option>
+        </select>
+      </div>
+    </div>
+  </div>
 
           {/* Contact */}
           <div style={sectionStyle}>
