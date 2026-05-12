@@ -239,12 +239,16 @@ const { data: fundingCode, error: fundingCodeError } = await supabase
     // insert claim
     const { error: claimInsertError } = await supabase
       .from("campaign_claims")
-      .insert({
-        funding_code_id: fundingCode.id,
-        business_id: business.id,
-        claimed_amount: fundingCode.credit_amount,
-      });
-
+     .insert({
+  funding_code_id: fundingCode.id,
+  campaign_id: fundingCode.campaign_id,
+  business_id: business.id,
+  code: fundingCode.code,
+  claimed_amount: fundingCode.credit_amount,
+  status: "active",
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+});
     if (claimInsertError) throw claimInsertError;
 
     // update code usage
