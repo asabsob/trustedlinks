@@ -153,4 +153,127 @@ router.patch("/campaigns/:id/status", requireCampaignManager, async (req, res) =
   }
 });
 
+// LIST campaign participants
+router.get("/participants", requireCampaignManager, async (req, res) => {
+  try {
+    const ownerId = req.campaignOwner.ownerId;
+
+    const { data: campaigns, error: campaignsError } = await supabase
+      .from("campaigns")
+      .select("id")
+      .eq("owner_id", ownerId);
+
+    if (campaignsError) throw campaignsError;
+
+    const campaignIds = (campaigns || []).map((c) => c.id);
+
+    if (!campaignIds.length) {
+      return res.json({
+        ok: true,
+        participants: [],
+        totalCredits: 0,
+        activeParticipants: 0,
+      });
+    }
+
+    const { data: fundingCodes, error: codesError } = await supabase
+      .from("funding_codes")
+      .select("id, code, campaign_id")
+      .in("campaign_id", campaignIds);
+
+    if (codesError) throw codesError;
+
+    const fundingCodeIds = (fundingCodes || []).map((c) => c.id);
+
+    if (!fundingCodeIds.length) {
+      return res.json({
+        ok: true,
+        participants: [],
+        totalCredits: 0,
+        activeParticipants: 0,
+      });
+    }
+
+    const { data: claims, error: claimsError } = await supabase
+      .from("campaign_claims")
+      .select(`
+        id,
+        funding_code_id,
+        business_id,
+        claimed_amount,
+        created_at
+      `)
+      .in("funding_code_id", fundingCodeIds)
+      .order("created_at", { ascending: false });
+
+    if (claimsError) throw claimsError;
+
+    const businessIds = [
+      ...new Set((claims || []).map((c) => c.business_id).filter(Boolean)),
+    ];
+
+    let businesses = [];
+
+    if (businessIds.length) {
+      const { data: businessData, error: businessError } = await supabase
+        .from("businesses")
+        .select(`
+          id,
+          name,
+          name_ar,
+          whatsapp,
+          country_code,
+          sponsored_balance,
+          sponsored_status,
+          wallet_currency
+        `)
+        .in("id", businessIds);
+
+      if (businessError) throw businessError;
+
+      businesses = businessData || [];
+    }
+
+    const businessMap = new Map(businesses.map((b) => [b.id, b]));
+    const codeMap = new Map((fundingCodes || []).map((c) => [c.id, c]));
+
+    const participants = (claims || []).map((claim) => {
+      const business = businessMap.get(claim.business_id);
+      const code = codeMap.get(claim.funding_code_id);
+
+      return {
+        id: claim.id,
+        business_id: claim.business_id,
+        name: business?.name || "-",
+        name_ar: business?.name_ar || business?.name || "-",
+        whatsapp: business?.whatsapp || "-",
+        country: business?.country_code || "-",
+        sponsored_balance:
+          Number(business?.sponsored_balance ?? claim.claimed_amount ?? 0),
+        sponsored_status: business?.sponsored_status || "active",
+        wallet_currency: business?.wallet_currency || "JOD",
+        code: code?.code || "-",
+        claimed_at: claim.created_at,
+      };
+    });
+
+    return res.json({
+      ok: true,
+      participants,
+      totalCredits: participants.reduce(
+        (sum, p) => sum + Number(p.sponsored_balance || 0),
+        0
+      ),
+      activeParticipants: participants.filter(
+        (p) => p.sponsored_status === "active"
+      ).length,
+    });
+  } catch (err) {
+    console.error("CAMPAIGN PARTICIPANTS ERROR:", err);
+    return res.status(500).json({
+      error: "Failed to load participants",
+    });
+  }
+});
+
 export default router;
