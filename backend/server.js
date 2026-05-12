@@ -4960,14 +4960,13 @@ async function enrichTopOnly({
   return enrichedResults;
 }
 
-function normalizeIntentType(intentData, query) {
-  const q = String(query || "").toLowerCase();
+function normalizeIntentType(intentData = {}, query = "") {
+  const q = String(query || "").trim().toLowerCase();
 
-  if (intentData?.intentType) {
-    return intentData.intentType;
-  }
-
+  // nearby intent
   if (
+    intentData?.isNearby ||
+    intentData?.intent === "nearby" ||
     q.includes("near me") ||
     q.includes("قريب") ||
     q.includes("قريبة") ||
@@ -4977,7 +4976,21 @@ function normalizeIntentType(intentData, query) {
     return "nearby";
   }
 
-  if (intentData?.isBrandSearch === true) {
+  // direct business / brand search
+  if (
+    intentData?.intent === "brand" ||
+    intentData?.isBrandSearch === true
+  ) {
+    return "direct";
+  }
+
+  // category search
+  if (intentData?.intent === "category") {
+    return "category";
+  }
+
+  // smart fallback
+  if (q.split(" ").length <= 2) {
     return "direct";
   }
 
