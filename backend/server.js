@@ -5379,8 +5379,27 @@ app.get("/l/:token", async (req, res) => {
     if (!hasConsent) {
       const accepted = String(req.query.acceptConsent || "") === "1";
 
+      const rawLang =
+  tokenRow.language ||
+  tokenRow.lang ||
+  tokenRow.search_lang ||
+  tokenRow.searchLang ||
+  "";
+
+const rawQuery = String(
+  tokenRow.query ||
+  tokenRow.search_query ||
+  tokenRow.searchQuery ||
+  ""
+);
+
+const looksEnglish = /[a-zA-Z]/.test(rawQuery) && !/[\u0600-\u06FF]/.test(rawQuery);
+
+const pageLang = rawLang || (looksEnglish ? "en" : "ar");
+const isAr = pageLang === "ar";
+
       if (!accepted) {
-      const pageLang = tokenRow.language || tokenRow.lang || "ar";
+  
 const isAr = pageLang === "ar";
 
 const title = isAr ? "المتابعة إلى واتساب" : "Continue to WhatsApp";
@@ -5522,23 +5541,15 @@ return res.send(`
     <div class="note">${note}</div>
   </div>
 
-  <script>
-    const btn = document.getElementById("continueBtn");
-    const btnText = document.getElementById("btnText");
+ <script>
+  const btn = document.getElementById("continueBtn");
+  const btnText = document.getElementById("btnText");
 
-    btn.addEventListener("click", function (e) {
-      e.preventDefault();
-
-      const href = btn.getAttribute("href");
-
-      btn.classList.add("loading");
-      btnText.textContent = "${loadingText}";
-
-      setTimeout(function () {
-        window.location.href = href;
-      }, 450);
-    });
-  </script>
+  btn.addEventListener("click", function () {
+    btn.classList.add("loading");
+    btnText.textContent = "${loadingText}";
+  });
+</script>
 </body>
 </html>
 `);
