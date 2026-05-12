@@ -5380,16 +5380,26 @@ app.get("/l/:token", async (req, res) => {
       const accepted = String(req.query.acceptConsent || "") === "1";
 
       if (!accepted) {
-       return res.send(`
+      const pageLang = tokenRow.language || tokenRow.lang || "ar";
+const isAr = pageLang === "ar";
+
+const title = isAr ? "المتابعة إلى واتساب" : "Continue to WhatsApp";
+const message = isAr
+  ? "سيقوم TrustedLinks بتحويلك بأمان إلى النشاط التجاري المختار عبر واتساب."
+  : "TrustedLinks will safely redirect you to the selected business on WhatsApp.";
+
+const buttonText = isAr ? "أوافق وأكمل إلى واتساب" : "Agree and continue to WhatsApp";
+const loadingText = isAr ? "جاري فتح واتساب..." : "Opening WhatsApp...";
+const note = isAr ? "سيتم فتح واتساب بعد التأكيد." : "WhatsApp will open after confirmation.";
+
+return res.send(`
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="${isAr ? "ar" : "en"}" dir="${isAr ? "rtl" : "ltr"}">
 <head>
-  <title>Continue to WhatsApp</title>
+  <title>${title}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -5408,45 +5418,37 @@ app.get("/l/:token", async (req, res) => {
       max-width: 520px;
       background: #ffffff;
       border-radius: 24px;
-      padding: 28px;
+      padding: 30px 26px;
       box-shadow: 0 18px 45px rgba(0, 0, 0, 0.10);
       border: 1px solid #e7f5ec;
       text-align: center;
     }
 
     .logo {
-      width: 58px;
-      height: 58px;
-      border-radius: 18px;
-      margin: 0 auto 14px;
+      width: 68px;
+      height: 68px;
+      border-radius: 20px;
+      margin: 0 auto 18px;
       background: #0A7C55;
       color: white;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 28px;
+      font-size: 34px;
       font-weight: bold;
     }
 
     h2 {
-      margin: 8px 0 12px;
-      font-size: 24px;
+      margin: 10px 0 18px;
+      font-size: 27px;
       color: #0A7C55;
     }
 
     p {
-      margin: 8px 0;
-      line-height: 1.7;
-      font-size: 15px;
+      margin: 10px 0;
+      line-height: 1.8;
+      font-size: 16px;
       color: #475569;
-    }
-
-    .en {
-      direction: ltr;
-      text-align: center;
-      margin-top: 16px;
-      padding-top: 16px;
-      border-top: 1px solid #edf2f7;
     }
 
     .button {
@@ -5457,20 +5459,16 @@ app.get("/l/:token", async (req, res) => {
       gap: 10px;
       background: #0A7C55;
       color: white;
-      padding: 15px 18px;
+      padding: 16px 18px;
       border-radius: 16px;
-      margin-top: 24px;
+      margin-top: 26px;
       text-decoration: none;
       font-weight: bold;
       font-size: 17px;
       transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease;
-      border: none;
-      cursor: pointer;
     }
 
-    .button:active {
-      transform: scale(0.97);
-    }
+    .button:active { transform: scale(0.97); }
 
     .button.loading {
       background: #075f42;
@@ -5509,25 +5507,8 @@ app.get("/l/:token", async (req, res) => {
   <div class="card">
     <div class="logo">✓</div>
 
-    <h2>المتابعة إلى واتساب</h2>
-
-    <p>
-      سيقوم TrustedLinks بتحويلك بأمان إلى النشاط التجاري المختار عبر واتساب.
-    </p>
-
-    <p>
-      لا يوجد أي دفع مطلوب منك. هذه الخطوة فقط لتأكيد المتابعة.
-    </p>
-
-    <div class="en">
-      <p><strong>Continue to WhatsApp</strong></p>
-      <p>
-        TrustedLinks will safely redirect you to the selected business on WhatsApp.
-      </p>
-      <p>
-        No payment is required from you.
-      </p>
-    </div>
+    <h2>${title}</h2>
+    <p>${message}</p>
 
     <a
       id="continueBtn"
@@ -5535,27 +5516,32 @@ app.get("/l/:token", async (req, res) => {
       href="/l/${encodeURIComponent(tokenId)}?acceptConsent=1"
     >
       <span class="spinner"></span>
-      <span id="btnText">أوافق وأكمل إلى واتساب</span>
+      <span id="btnText">${buttonText}</span>
     </a>
 
-    <div class="note">
-      سيتم فتح واتساب بعد تأكيد الموافقة.
-    </div>
+    <div class="note">${note}</div>
   </div>
 
   <script>
     const btn = document.getElementById("continueBtn");
     const btnText = document.getElementById("btnText");
 
-    btn.addEventListener("click", function () {
+    btn.addEventListener("click", function (e) {
+      e.preventDefault();
+
+      const href = btn.getAttribute("href");
+
       btn.classList.add("loading");
-      btnText.textContent = "جاري فتح واتساب...";
+      btnText.textContent = "${loadingText}";
+
+      setTimeout(function () {
+        window.location.href = href;
+      }, 450);
     });
   </script>
 </body>
 </html>
 `);
-      }
 
       const { data: consentRow, error } = await supabase
         .from("privacy_consents")
