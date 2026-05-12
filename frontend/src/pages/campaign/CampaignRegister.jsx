@@ -430,9 +430,31 @@ export default function CampaignRegister({
   </div>
 </div>
 
-          <Section title={t("Country", "الدولة")}>
-  <Grid>
-    <Field label={t("Country", "الدولة")}>
+       {/* Country */}
+<div style={sectionStyle}>
+  <h3
+    style={{
+      marginTop: 0,
+      marginBottom: "18px",
+      fontSize: "18px",
+    }}
+  >
+    {t("Country", "الدولة")}
+  </h3>
+
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns:
+        "repeat(auto-fit,minmax(240px,1fr))",
+      gap: "16px",
+    }}
+  >
+    <div>
+      <label style={labelStyle}>
+        {t("Country", "الدولة")}
+      </label>
+
       <select
         name="country"
         value={form.country}
@@ -440,22 +462,66 @@ export default function CampaignRegister({
         style={inputStyle}
         required
       >
-        <option value="JO">{t("Jordan", "الأردن")}</option>
-        <option value="QA">{t("Qatar", "قطر")}</option>
-        <option value="SA">{t("Saudi Arabia", "السعودية")}</option>
-        <option value="AE">{t("United Arab Emirates", "الإمارات")}</option>
-        <option value="KW">{t("Kuwait", "الكويت")}</option>
-        <option value="BH">{t("Bahrain", "البحرين")}</option>
-        <option value="OM">{t("Oman", "عُمان")}</option>
-        <option value="LB">{t("Lebanon", "لبنان")}</option>
-        <option value="EG">{t("Egypt", "مصر")}</option>
-        <option value="US">{t("United States", "الولايات المتحدة")}</option>
-        <option value="GB">{t("United Kingdom", "المملكة المتحدة")}</option>
-        <option value="OTHER">{t("Other", "أخرى")}</option>
+        <option value="JO">
+          {t("Jordan", "الأردن")}
+        </option>
+
+        <option value="QA">
+          {t("Qatar", "قطر")}
+        </option>
+
+        <option value="SA">
+          {t("Saudi Arabia", "السعودية")}
+        </option>
+
+        <option value="AE">
+          {t(
+            "United Arab Emirates",
+            "الإمارات"
+          )}
+        </option>
+
+        <option value="KW">
+          {t("Kuwait", "الكويت")}
+        </option>
+
+        <option value="BH">
+          {t("Bahrain", "البحرين")}
+        </option>
+
+        <option value="OM">
+          {t("Oman", "عُمان")}
+        </option>
+
+        <option value="LB">
+          {t("Lebanon", "لبنان")}
+        </option>
+
+        <option value="EG">
+          {t("Egypt", "مصر")}
+        </option>
+
+        <option value="US">
+          {t(
+            "United States",
+            "الولايات المتحدة"
+          )}
+        </option>
+
+        <option value="GB">
+          {t(
+            "United Kingdom",
+            "المملكة المتحدة"
+          )}
+        </option>
+
+        <option value="OTHER">
+          {t("Other", "أخرى")}
+        </option>
       </select>
-    </Field>
-  </Grid>
-</Section>
+    </div>
+  </div>
+</div>
 
           {error && (
             <div
