@@ -16,17 +16,17 @@ export default function CampaignRegister({
   const [error, setError] =
     useState("");
 
-  const [form, setForm] = useState({
-    organizationName: "",
-    organizationType: "mall",
-    email: "",
-    phone: "",
-    username: "",
-    password: "",
-    country: "",
-    city: "",
-  });
-
+ const [form, setForm] = useState({
+  name: "",
+  entityType: "mall",
+  email: "",
+  phone: "",
+  username: "",
+  password: "",
+  confirmPassword: "",
+  country: "JO",
+});
+  
   const t = (en, ar) =>
     isAr ? ar : en;
 
@@ -44,6 +44,16 @@ export default function CampaignRegister({
     setLoading(true);
     setError("");
 
+    if (form.password !== form.confirmPassword) {
+  setError(
+    isAr
+      ? "كلمة المرور وتأكيد كلمة المرور غير متطابقين"
+      : "Password and confirm password do not match"
+  );
+  setLoading(false);
+  return;
+}
+
     try {
       const res = await fetch(
         `${API_BASE}/api/campaign/auth/register`,
@@ -53,7 +63,15 @@ export default function CampaignRegister({
             "Content-Type":
               "application/json",
           },
-          body: JSON.stringify(form),
+          body: JSON.stringify({
+  name: form.name,
+  entityType: form.entityType,
+  email: form.email,
+  phone: form.phone,
+  username: form.username,
+  password: form.password,
+  country: form.country,
+}),
         }
       );
 
@@ -347,144 +365,97 @@ export default function CampaignRegister({
             </div>
           </div>
 
-          {/* Account */}
-          <div style={sectionStyle}>
-            <h3
-              style={{
-                marginTop: 0,
-                marginBottom: "18px",
-                fontSize: "18px",
-              }}
-            >
-              {t(
-                "Account Details",
-                "بيانات الحساب"
-              )}
-            </h3>
+         {/* Account */}
+<div style={sectionStyle}>
+  <h3
+    style={{
+      marginTop: 0,
+      marginBottom: "18px",
+      fontSize: "18px",
+    }}
+  >
+    {t("Account Details", "بيانات الحساب")}
+  </h3>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns:
-                  "repeat(auto-fit,minmax(240px,1fr))",
-                gap: "16px",
-              }}
-            >
-              <div>
-                <label
-                  style={labelStyle}
-                >
-                  {t(
-                    "Username",
-                    "اسم المستخدم"
-                  )}
-                </label>
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))",
+      gap: "16px",
+    }}
+  >
+    <div>
+      <label style={labelStyle}>
+        {t("Username", "اسم المستخدم")}
+      </label>
 
-                <input
-                  name="username"
-                  value={
-                    form.username
-                  }
-                  onChange={
-                    handleChange
-                  }
-                  style={inputStyle}
-                  required
-                />
-              </div>
+      <input
+        name="username"
+        value={form.username}
+        onChange={handleChange}
+        style={inputStyle}
+        required
+      />
+    </div>
 
-              <div>
-                <label
-                  style={labelStyle}
-                >
-                  {t(
-                    "Password",
-                    "كلمة المرور"
-                  )}
-                </label>
+    <div>
+      <label style={labelStyle}>
+        {t("Password", "كلمة المرور")}
+      </label>
 
-                <input
-                  type="password"
-                  name="password"
-                  value={
-                    form.password
-                  }
-                  onChange={
-                    handleChange
-                  }
-                  style={inputStyle}
-                  required
-                />
-              </div>
-            </div>
-          </div>
+      <input
+        type="password"
+        name="password"
+        value={form.password}
+        onChange={handleChange}
+        style={inputStyle}
+        required
+      />
+    </div>
 
-          {/* Location */}
-          <div style={sectionStyle}>
-            <h3
-              style={{
-                marginTop: 0,
-                marginBottom: "18px",
-                fontSize: "18px",
-              }}
-            >
-              {t(
-                "Location",
-                "الموقع"
-              )}
-            </h3>
+    <div>
+      <label style={labelStyle}>
+        {t("Confirm Password", "تأكيد كلمة المرور")}
+      </label>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns:
-                  "repeat(auto-fit,minmax(240px,1fr))",
-                gap: "16px",
-              }}
-            >
-              <div>
-                <label
-                  style={labelStyle}
-                >
-                  {t(
-                    "Country",
-                    "الدولة"
-                  )}
-                </label>
+      <input
+        type="password"
+        name="confirmPassword"
+        value={form.confirmPassword}
+        onChange={handleChange}
+        style={inputStyle}
+        required
+      />
+    </div>
+  </div>
+</div>
 
-                <input
-                  name="country"
-                  value={
-                    form.country
-                  }
-                  onChange={
-                    handleChange
-                  }
-                  style={inputStyle}
-                />
-              </div>
-
-              <div>
-                <label
-                  style={labelStyle}
-                >
-                  {t(
-                    "City",
-                    "المدينة"
-                  )}
-                </label>
-
-                <input
-                  name="city"
-                  value={form.city}
-                  onChange={
-                    handleChange
-                  }
-                  style={inputStyle}
-                />
-              </div>
-            </div>
-          </div>
+          <Section title={t("Country", "الدولة")}>
+  <Grid>
+    <Field label={t("Country", "الدولة")}>
+      <select
+        name="country"
+        value={form.country}
+        onChange={handleChange}
+        style={inputStyle}
+        required
+      >
+        <option value="JO">{t("Jordan", "الأردن")}</option>
+        <option value="QA">{t("Qatar", "قطر")}</option>
+        <option value="SA">{t("Saudi Arabia", "السعودية")}</option>
+        <option value="AE">{t("United Arab Emirates", "الإمارات")}</option>
+        <option value="KW">{t("Kuwait", "الكويت")}</option>
+        <option value="BH">{t("Bahrain", "البحرين")}</option>
+        <option value="OM">{t("Oman", "عُمان")}</option>
+        <option value="LB">{t("Lebanon", "لبنان")}</option>
+        <option value="EG">{t("Egypt", "مصر")}</option>
+        <option value="US">{t("United States", "الولايات المتحدة")}</option>
+        <option value="GB">{t("United Kingdom", "المملكة المتحدة")}</option>
+        <option value="OTHER">{t("Other", "أخرى")}</option>
+      </select>
+    </Field>
+  </Grid>
+</Section>
 
           {error && (
             <div
