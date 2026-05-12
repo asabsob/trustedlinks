@@ -226,6 +226,12 @@ export default function App() {
     path="funding-codes"
     element={<CampaignFundingCodes />}
   />
+
+  <Route
+  path="participants"
+  element={<CampaignParticipants />}
+/>
+  
 </Route>        
       {/* Admin Login */}
 <Route path="/admin/login" element={<AdminLogin />} />
