@@ -236,9 +236,8 @@ export default function CampaignRegister({
                 </label>
 
                 <input
-                  name="organizationName"
-                  value={
-                    form.organizationName
+                 name="name"
+value={form.name}
                   }
                   onChange={
                     handleChange
@@ -259,9 +258,8 @@ export default function CampaignRegister({
                 </label>
 
                 <select
-                  name="organizationType"
-                  value={
-                    form.organizationType
+                  name="entityType"
+value={form.entityType}
                   }
                   onChange={
                     handleChange
