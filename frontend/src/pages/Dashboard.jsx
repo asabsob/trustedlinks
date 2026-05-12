@@ -5,7 +5,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getText, getCategoryLabel } from "../i18n";
-import geolib from "geolib";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL ||
@@ -141,30 +140,9 @@ export default function Dashboard({ lang = "en" }) {
     }
   }, [business]);
 
-  function isBusinessInsideMallArea() {
-    if (!business?.latitude || !business?.longitude) return false;
-
-    const mallLat = Number(import.meta.env.VITE_SPONSORED_MALL_LAT);
-    const mallLng = Number(import.meta.env.VITE_SPONSORED_MALL_LNG);
-    const radius = Number(import.meta.env.VITE_SPONSORED_RADIUS_METERS || 300);
-
-    if (!mallLat || !mallLng) return false;
-
-    const distance = geolib.getDistance(
-      { latitude: mallLat, longitude: mallLng },
-      {
-        latitude: Number(business.latitude),
-        longitude: Number(business.longitude),
-      }
-    );
-
-    return distance <= radius;
-  }
-
-  const showSponsorshipCard =
-    import.meta.env.VITE_SPONSORED_CAMPAIGN_ENABLED === "true" &&
-    isBusinessInsideMallArea();
-
+ const showSponsorshipCard =
+  import.meta.env.VITE_SPONSORED_CAMPAIGN_ENABLED === "true";
+  
   async function handleClaimSponsorship() {
     if (!campaignCode) return;
 
@@ -356,8 +334,8 @@ export default function Dashboard({ lang = "en" }) {
           subtitle={
             sponsoredText
               ? isAr
-                ? `الرصيد المقدم من المول: ${sponsoredText}`
-                : `Mall Sponsored Credit: ${sponsoredText}`
+                ? `رصيد الرعاية: ${sponsoredText}`
+                : `Sponsored Credit: ${sponsoredText}`
               : walletStatus === "out"
               ? tr("outOfBalance") || "Out of balance"
               : walletStatus === "low"
