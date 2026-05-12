@@ -195,14 +195,14 @@ export default function App() {
 
 <Route
   path="/campaign/login"
-  element={<CampaignLogin />}
+  element={<CampaignLogin lang={lang} />}
 />
 
 <Route
   path="/campaign/register"
-  element={<CampaignRegister />}
+  element={<CampaignRegister lang={lang} />}
 />
-
+        
 <Route
   path="/campaign"
   element={<CampaignLayout />}
