@@ -242,11 +242,6 @@ export default function CampaignRegister({
   style={inputStyle}
   required
 />
-                  }
-                  style={inputStyle}
-                  required
-                />
-              </div>
 
               <div>
                 <label
