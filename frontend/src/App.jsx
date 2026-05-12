@@ -232,7 +232,10 @@ export default function App() {
   element={<CampaignParticipants />}
 />
 
-  <Route path="finance" element={<CampaignFinance />} />
+<Route
+  path="finance"
+  element={<CampaignFinance lang={lang} />}
+/>
   
 </Route>        
       {/* Admin Login */}
