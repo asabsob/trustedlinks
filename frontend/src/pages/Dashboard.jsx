@@ -387,25 +387,21 @@ async function handleClaimSponsorship() {
     }}
   >
     <input
-      value={campaignCode}
-      onChange={(e) =>
-        setCampaignCode(e.target.value)
-      }
-      placeholder={
-        isAr
-          ? "إضافة كود جديد"
-          : "Add another sponsorship code"
-      }
-      style={{
-        flex: 1,
-        minWidth: "220px",
-        padding: "12px 14px",
-        borderRadius: "12px",
-        border: "none",
-        outline: "none",
-        fontSize: "15px",
-      }}
-    />
+  value={campaignCode}
+  onChange={(e) => setCampaignCode(e.target.value)}
+  placeholder={isAr ? "إضافة كود جديد" : "Add another sponsorship code"}
+  style={{
+    flex: 1,
+    minWidth: "220px",
+    padding: "12px 14px",
+    borderRadius: "12px",
+    border: "none",
+    outline: "none",
+    fontSize: "15px",
+    color: "#111827",
+    background: "#fff",
+  }}
+/>
 
     <button
       onClick={handleClaimSponsorship}
