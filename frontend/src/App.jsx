@@ -42,7 +42,7 @@ import CampaignRegister from "./pages/campaign/CampaignRegister";
 import CampaignDashboard from "./pages/campaign/CampaignDashboard";
 import CampaignFundingCodes from "./pages/campaign/CampaignFundingCodes";
 import CampaignCampaigns from "./pages/campaign/CampaignCampaigns";
-
+import CampaignParticipants from "./pages/campaign/CampaignParticipants";
 
 
 // -------------------------
