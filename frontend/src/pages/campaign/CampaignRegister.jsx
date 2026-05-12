@@ -1,19 +1,24 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
-export default function CampaignRegister() {
-  const navigate = useNavigate();
-
-  const API_BASE =
+const API_BASE =
   import.meta.env.VITE_API_BASE_URL || "";
 
-  console.log("API_BASE:", API_BASE);
-  
-  const [lang, setLang] = useState("en");
+export default function CampaignRegister({
+  lang = "en",
+}) {
+  const isAr = lang === "ar";
+  const navigate = useNavigate();
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const [error, setError] =
+    useState("");
 
   const [form, setForm] = useState({
-    name: "",
-    entityType: "mall",
+    organizationName: "",
+    organizationType: "mall",
     email: "",
     phone: "",
     username: "",
@@ -22,273 +27,509 @@ export default function CampaignRegister() {
     city: "",
   });
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const t = (en, ar) =>
+    isAr ? ar : en;
 
-  const t = {
-    en: {
-      title: "Campaign Management",
-      subtitle:
-        "Create campaign manager account",
-
-      name: "Organization Name",
-      entityType: "Entity Type",
-      email: "Email",
-      phone: "Phone",
-      username: "Username",
-      password: "Password",
-      country: "Country",
-      city: "City",
-
-      button: "Create Account",
-
-      login: "Already have account?",
-
-      language: "العربية",
-    },
-
-    ar: {
-      title: "إدارة الحملات",
-      subtitle:
-        "إنشاء حساب إدارة حملات",
-
-      name: "اسم الجهة",
-      entityType: "نوع الجهة",
-      email: "البريد الإلكتروني",
-      phone: "رقم الهاتف",
-      username: "اسم المستخدم",
-      password: "كلمة المرور",
-      country: "الدولة",
-      city: "المدينة",
-
-      button: "إنشاء الحساب",
-
-      login: "لديك حساب بالفعل؟",
-
-      language: "English",
-    },
+  const handleChange = (e) => {
+    setForm({
+      ...form,
+      [e.target.name]:
+        e.target.value,
+    });
   };
 
-  async function handleSubmit(e) {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     setLoading(true);
     setError("");
 
     try {
-    const res = await fetch(
-  `${API_BASE}/api/campaign/auth/register`,
-  {
-    method: "POST",
-
-    headers: {
-      "Content-Type": "application/json",
-    },
-
-    body: JSON.stringify(form),
-  }
-);
+      const res = await fetch(
+        `${API_BASE}/api/campaign/auth/register`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify(form),
+        }
+      );
 
       const data = await res.json();
 
       if (!res.ok) {
         throw new Error(
-          data.error || "Register failed"
+          data?.error ||
+            "Registration failed"
         );
       }
 
       localStorage.setItem(
-        "campaign_token",
+        "campaignToken",
         data.token
       );
 
-      localStorage.setItem(
-        "campaign_owner",
-        JSON.stringify(data.owner)
+      navigate(
+        "/campaign/dashboard"
       );
-
-      navigate("/campaign/dashboard");
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }
+  };
+
+  const pageStyle = {
+    minHeight: "100vh",
+    background: "#f8fafc",
+    display: "flex",
+    justifyContent: "center",
+    padding: "40px 16px",
+  };
+
+  const cardStyle = {
+    width: "100%",
+    maxWidth: "760px",
+    background: "#fff",
+    borderRadius: "24px",
+    padding: "32px",
+    boxShadow:
+      "0 10px 30px rgba(15,23,42,0.06)",
+    border:
+      "1px solid rgba(15,23,42,0.06)",
+  };
+
+  const sectionStyle = {
+    border:
+      "1px solid #e2e8f0",
+    borderRadius: "18px",
+    padding: "20px",
+    marginBottom: "18px",
+  };
+
+  const labelStyle = {
+    fontSize: "13px",
+    fontWeight: 700,
+    marginBottom: "8px",
+    display: "block",
+    color: "#0f172a",
+  };
+
+  const inputStyle = {
+    width: "100%",
+    padding: "14px",
+    borderRadius: "12px",
+    border: "1px solid #dbe2ea",
+    fontSize: "15px",
+    outline: "none",
+    background: "#fff",
+    color: "#111827",
+  };
+
+  const greenBtn = {
+    width: "100%",
+    background:
+      "linear-gradient(135deg,#16a34a,#22c55e)",
+    color: "#fff",
+    border: "none",
+    borderRadius: "14px",
+    padding: "15px",
+    fontWeight: 700,
+    fontSize: "16px",
+    cursor: "pointer",
+    marginTop: "10px",
+  };
 
   return (
     <div
-      dir={lang === "ar" ? "rtl" : "ltr"}
-      className="min-h-screen bg-slate-100 flex items-center justify-center p-4"
+      style={pageStyle}
+      dir={isAr ? "rtl" : "ltr"}
     >
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-8">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-2xl font-bold">
-              {t[lang].title}
-            </h1>
-
-            <p className="text-slate-500 mt-1">
-              {t[lang].subtitle}
-            </p>
-          </div>
-
-          <button
-            onClick={() =>
-              setLang(
-                lang === "en" ? "ar" : "en"
-              )
-            }
-            className="text-sm bg-slate-200 px-3 py-1 rounded-lg"
+      <div style={cardStyle}>
+        {/* Header */}
+        <div
+          style={{
+            marginBottom: "24px",
+          }}
+        >
+          <h1
+            style={{
+              margin: 0,
+              color: "#16a34a",
+              fontSize: "30px",
+              fontWeight: 800,
+            }}
           >
-            {t[lang].language}
-          </button>
+            {t(
+              "Campaign Management",
+              "إدارة الحملات"
+            )}
+          </h1>
+
+          <p
+            style={{
+              color: "#64748b",
+              marginTop: "8px",
+            }}
+          >
+            {t(
+              "Create organization sponsorship account",
+              "إنشاء حساب إدارة حملات ورعاية"
+            )}
+          </p>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="grid grid-cols-1 md:grid-cols-2 gap-4"
         >
-          <input
-            placeholder={t[lang].name}
-            value={form.name}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                name: e.target.value,
-              })
-            }
-            className="border rounded-xl p-3"
-          />
+          {/* Organization */}
+          <div style={sectionStyle}>
+            <h3
+              style={{
+                marginTop: 0,
+                marginBottom: "18px",
+                fontSize: "18px",
+              }}
+            >
+              {t(
+                "Organization Information",
+                "بيانات الجهة"
+              )}
+            </h3>
 
-          <select
-            value={form.entityType}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                entityType: e.target.value,
-              })
-            }
-            className="border rounded-xl p-3"
-          >
-            <option value="mall">
-              Mall
-            </option>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "repeat(auto-fit,minmax(240px,1fr))",
+                gap: "16px",
+              }}
+            >
+              <div>
+                <label
+                  style={labelStyle}
+                >
+                  {t(
+                    "Organization Name",
+                    "اسم الجهة"
+                  )}
+                </label>
 
-            <option value="government">
-              Government
-            </option>
+                <input
+                  name="organizationName"
+                  value={
+                    form.organizationName
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  style={inputStyle}
+                  required
+                />
+              </div>
 
-            <option value="university">
-              University
-            </option>
+              <div>
+                <label
+                  style={labelStyle}
+                >
+                  {t(
+                    "Organization Type",
+                    "نوع الجهة"
+                  )}
+                </label>
 
-            <option value="event">
-              Event
-            </option>
+                <select
+                  name="organizationType"
+                  value={
+                    form.organizationType
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  style={inputStyle}
+                >
+                  <option value="mall">
+                    {t(
+                      "Mall",
+                      "مول"
+                    )}
+                  </option>
 
-            <option value="other">
-              Other
-            </option>
-          </select>
+                  <option value="government">
+                    {t(
+                      "Government",
+                      "جهة حكومية"
+                    )}
+                  </option>
 
-          <input
-            placeholder={t[lang].email}
-            value={form.email}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                email: e.target.value,
-              })
-            }
-            className="border rounded-xl p-3"
-          />
+                  <option value="event">
+                    {t(
+                      "Event",
+                      "فعالية"
+                    )}
+                  </option>
 
-          <input
-            placeholder={t[lang].phone}
-            value={form.phone}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                phone: e.target.value,
-              })
-            }
-            className="border rounded-xl p-3"
-          />
+                  <option value="sponsor">
+                    {t(
+                      "Sponsor",
+                      "راعي"
+                    )}
+                  </option>
+                </select>
+              </div>
+            </div>
+          </div>
 
-          <input
-            placeholder={t[lang].username}
-            value={form.username}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                username: e.target.value,
-              })
-            }
-            className="border rounded-xl p-3"
-          />
+          {/* Contact */}
+          <div style={sectionStyle}>
+            <h3
+              style={{
+                marginTop: 0,
+                marginBottom: "18px",
+                fontSize: "18px",
+              }}
+            >
+              {t(
+                "Contact Information",
+                "بيانات التواصل"
+              )}
+            </h3>
 
-          <input
-            type="password"
-            placeholder={t[lang].password}
-            value={form.password}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                password: e.target.value,
-              })
-            }
-            className="border rounded-xl p-3"
-          />
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "repeat(auto-fit,minmax(240px,1fr))",
+                gap: "16px",
+              }}
+            >
+              <div>
+                <label
+                  style={labelStyle}
+                >
+                  Email
+                </label>
 
-          <input
-            placeholder={t[lang].country}
-            value={form.country}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                country: e.target.value,
-              })
-            }
-            className="border rounded-xl p-3"
-          />
+                <input
+                  type="email"
+                  name="email"
+                  value={form.email}
+                  onChange={
+                    handleChange
+                  }
+                  style={inputStyle}
+                  required
+                />
+              </div>
 
-          <input
-            placeholder={t[lang].city}
-            value={form.city}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                city: e.target.value,
-              })
-            }
-            className="border rounded-xl p-3"
-          />
+              <div>
+                <label
+                  style={labelStyle}
+                >
+                  {t(
+                    "Phone",
+                    "الهاتف"
+                  )}
+                </label>
+
+                <input
+                  name="phone"
+                  value={form.phone}
+                  onChange={
+                    handleChange
+                  }
+                  style={inputStyle}
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Account */}
+          <div style={sectionStyle}>
+            <h3
+              style={{
+                marginTop: 0,
+                marginBottom: "18px",
+                fontSize: "18px",
+              }}
+            >
+              {t(
+                "Account Details",
+                "بيانات الحساب"
+              )}
+            </h3>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "repeat(auto-fit,minmax(240px,1fr))",
+                gap: "16px",
+              }}
+            >
+              <div>
+                <label
+                  style={labelStyle}
+                >
+                  {t(
+                    "Username",
+                    "اسم المستخدم"
+                  )}
+                </label>
+
+                <input
+                  name="username"
+                  value={
+                    form.username
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  style={inputStyle}
+                  required
+                />
+              </div>
+
+              <div>
+                <label
+                  style={labelStyle}
+                >
+                  {t(
+                    "Password",
+                    "كلمة المرور"
+                  )}
+                </label>
+
+                <input
+                  type="password"
+                  name="password"
+                  value={
+                    form.password
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  style={inputStyle}
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Location */}
+          <div style={sectionStyle}>
+            <h3
+              style={{
+                marginTop: 0,
+                marginBottom: "18px",
+                fontSize: "18px",
+              }}
+            >
+              {t(
+                "Location",
+                "الموقع"
+              )}
+            </h3>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "repeat(auto-fit,minmax(240px,1fr))",
+                gap: "16px",
+              }}
+            >
+              <div>
+                <label
+                  style={labelStyle}
+                >
+                  {t(
+                    "Country",
+                    "الدولة"
+                  )}
+                </label>
+
+                <input
+                  name="country"
+                  value={
+                    form.country
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label
+                  style={labelStyle}
+                >
+                  {t(
+                    "City",
+                    "المدينة"
+                  )}
+                </label>
+
+                <input
+                  name="city"
+                  value={form.city}
+                  onChange={
+                    handleChange
+                  }
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+          </div>
 
           {error && (
-            <div className="text-red-500 text-sm col-span-2">
+            <div
+              style={{
+                color: "#dc2626",
+                marginBottom: "14px",
+                fontWeight: 600,
+              }}
+            >
               {error}
             </div>
           )}
 
           <button
             type="submit"
+            style={greenBtn}
             disabled={loading}
-            className="col-span-2 bg-black text-white rounded-xl p-3"
           >
             {loading
-              ? "..."
-              : t[lang].button}
+              ? t(
+                  "Creating account...",
+                  "جاري إنشاء الحساب..."
+                )
+              : t(
+                  "Create Account",
+                  "إنشاء الحساب"
+                )}
           </button>
-        </form>
 
-        <div className="mt-6 text-center text-sm">
-          <Link
-            to="/campaign/login"
-            className="text-blue-600"
+          <div
+            style={{
+              textAlign: "center",
+              marginTop: "18px",
+            }}
           >
-            {t[lang].login}
-          </Link>
-        </div>
+            <Link
+              to="/campaign/login"
+            >
+              {t(
+                "Already have account?",
+                "لديك حساب بالفعل؟"
+              )}
+            </Link>
+          </div>
+        </form>
       </div>
     </div>
   );
