@@ -236,11 +236,12 @@ export default function CampaignRegister({
                 </label>
 
                 <input
-                 name="name"
-value={form.name}
-                  }
-                  onChange={
-                    handleChange
+  name="name"
+  value={form.name}
+  onChange={handleChange}
+  style={inputStyle}
+  required
+/>
                   }
                   style={inputStyle}
                   required
@@ -258,12 +259,12 @@ value={form.name}
                 </label>
 
                 <select
-                  name="entityType"
-value={form.entityType}
-                  }
-                  onChange={
-                    handleChange
-                  }
+               <select
+  name="entityType"
+  value={form.entityType}
+  onChange={handleChange}
+  style={inputStyle}
+>
                   style={inputStyle}
                 >
                   <option value="mall">
