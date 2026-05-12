@@ -43,7 +43,7 @@ import CampaignDashboard from "./pages/campaign/CampaignDashboard";
 import CampaignFundingCodes from "./pages/campaign/CampaignFundingCodes";
 import CampaignCampaigns from "./pages/campaign/CampaignCampaigns";
 import CampaignParticipants from "./pages/campaign/CampaignParticipants";
-
+import CampaignFinance from "./pages/campaign/CampaignFinance";
 
 // -------------------------
 // User Protected Route
@@ -231,6 +231,8 @@ export default function App() {
   path="participants"
   element={<CampaignParticipants />}
 />
+
+  <Route path="finance" element={<CampaignFinance />} />
   
 </Route>        
       {/* Admin Login */}
