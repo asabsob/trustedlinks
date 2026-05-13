@@ -188,7 +188,7 @@ function formatBusinessBlock(item = {}, index = 0, lang = "ar", options = {}) {
   const name = getDisplayName(item, lang);
 
   lines.push("────────────");
-  lines.push(`${index + 1}. ${name}`);
+ lines.push(`${index + 1}️⃣ ${name}`);
 
   if (includeCategory) {
     const categoryLine = getCategoryText(item, lang);
@@ -202,6 +202,16 @@ function formatBusinessBlock(item = {}, index = 0, lang = "ar", options = {}) {
 
   const locationText = getLocationText(item, lang);
   if (locationText) lines.push(locationText);
+
+  if (!showLink) {
+  lines.push("");
+
+  lines.push(
+    isArabicLang(lang)
+      ? `📩 أرسل ${index + 1} لفتح رابط التواصل.`
+      : `📩 Send ${index + 1} to open the contact link.`
+  );
+}
 
   const chatLine = getChatLine(item, lang, {
     showLink,
