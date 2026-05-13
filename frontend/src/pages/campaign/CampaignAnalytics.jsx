@@ -193,6 +193,192 @@ async function loadAnalytics() {
         />
       </section>
 
+      <section style={panelStyle}>
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: "20px",
+      flexWrap: "wrap",
+      gap: "12px",
+    }}
+  >
+    <div>
+      <h2 style={panelTitle}>
+        {t(
+          "Platform Insights",
+          "تحليلات المنصة"
+        )}
+      </h2>
+
+      <p style={mutedText}>
+        {t(
+          "Live search demand and platform activity.",
+          "تحليلات مباشرة لطلبات البحث ونشاط المنصة."
+        )}
+      </p>
+    </div>
+
+    <div
+      style={{
+        background: "#dcfce7",
+        color: "#166534",
+        padding: "8px 14px",
+        borderRadius: "999px",
+        fontWeight: 700,
+        fontSize: "13px",
+      }}
+    >
+      Trusted Links Live
+    </div>
+  </div>
+
+  <div style={statsGrid}>
+    <MetricCard
+      title={t(
+        "Total Searches",
+        "إجمالي عمليات البحث"
+      )}
+      value={
+        platform?.overview
+          ?.totalSearches || 0
+      }
+      color="#2563eb"
+    />
+
+    <MetricCard
+      title={t(
+        "Unique Users",
+        "المستخدمون"
+      )}
+      value={
+        platform?.overview
+          ?.uniqueUsers || 0
+      }
+      color="#7c3aed"
+    />
+
+    <MetricCard
+      title={t(
+        "No Result Searches",
+        "بحث بدون نتائج"
+      )}
+      value={
+        platform?.overview
+          ?.noResults || 0
+      }
+      color="#dc2626"
+    />
+  </div>
+</section>
+
+      <section style={gridTwo}>
+  <div style={panelStyle}>
+    <h2 style={panelTitle}>
+      {t(
+        "Top Search Keywords",
+        "أكثر الكلمات بحثًا"
+      )}
+    </h2>
+
+    <div
+      style={{
+        display: "grid",
+        gap: "10px",
+      }}
+    >
+      {(platform?.topKeywords || [])
+        .slice(0, 8)
+        .map((item, index) => (
+          <div
+            key={index}
+            style={{
+              display: "flex",
+              justifyContent:
+                "space-between",
+              alignItems: "center",
+              padding: "12px 14px",
+              background: "#f8fafc",
+              borderRadius: "14px",
+              border:
+                "1px solid #e5e7eb",
+            }}
+          >
+            <span
+              style={{
+                fontWeight: 600,
+              }}
+            >
+              {item.query}
+            </span>
+
+            <span
+              style={{
+                color: "#16a34a",
+                fontWeight: 700,
+              }}
+            >
+              {item.count}
+            </span>
+          </div>
+        ))}
+    </div>
+  </div>
+
+  <div style={panelStyle}>
+    <h2 style={panelTitle}>
+      {t(
+        "Search Intent Types",
+        "أنواع البحث"
+      )}
+    </h2>
+
+    <div
+      style={{
+        display: "grid",
+        gap: "10px",
+      }}
+    >
+      {(platform?.topIntents || [])
+        .slice(0, 8)
+        .map((item, index) => (
+          <div
+            key={index}
+            style={{
+              display: "flex",
+              justifyContent:
+                "space-between",
+              alignItems: "center",
+              padding: "12px 14px",
+              background: "#f8fafc",
+              borderRadius: "14px",
+              border:
+                "1px solid #e5e7eb",
+            }}
+          >
+            <span
+              style={{
+                fontWeight: 600,
+              }}
+            >
+              {item.intent}
+            </span>
+
+            <span
+              style={{
+                color: "#2563eb",
+                fontWeight: 700,
+              }}
+            >
+              {item.count}
+            </span>
+          </div>
+        ))}
+    </div>
+  </div>
+</section>
+
       <section style={gridTwo}>
         <div style={panelStyle}>
           <h2 style={panelTitle}>{t("Budget Usage", "استخدام الميزانية")}</h2>
@@ -236,6 +422,117 @@ async function loadAnalytics() {
         </div>
       </section>
 
+      <section style={panelStyle}>
+  <h2 style={panelTitle}>
+    {t(
+      "Top Visible Businesses",
+      "أكثر الشركات ظهورًا"
+    )}
+  </h2>
+
+  <div
+    style={{
+      display: "grid",
+      gap: "12px",
+    }}
+  >
+    {(platform?.topBusinesses || [])
+      .slice(0, 8)
+      .map((business, index) => (
+        <div
+          key={index}
+          style={{
+            display: "flex",
+            justifyContent:
+              "space-between",
+            alignItems: "center",
+            padding: "16px",
+            background: "#f8fafc",
+            borderRadius: "14px",
+            border:
+              "1px solid #e5e7eb",
+            flexWrap: "wrap",
+            gap: "12px",
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontWeight: 700,
+                color: "#111827",
+              }}
+            >
+              {isAr
+                ? business.name_ar
+                : business.name}
+            </div>
+
+            <div
+              style={{
+                color: "#64748b",
+                fontSize: "13px",
+                marginTop: "4px",
+              }}
+            >
+              {t(
+                "Top performing business",
+                "أعلى الشركات أداءً"
+              )}
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: "18px",
+              flexWrap: "wrap",
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  fontSize: "12px",
+                  color: "#64748b",
+                }}
+              >
+                {t("Views", "الظهور")}
+              </div>
+
+              <div
+                style={{
+                  fontWeight: 800,
+                  color: "#2563eb",
+                }}
+              >
+                {business.views}
+              </div>
+            </div>
+
+            <div>
+              <div
+                style={{
+                  fontSize: "12px",
+                  color: "#64748b",
+                }}
+              >
+                WhatsApp
+              </div>
+
+              <div
+                style={{
+                  fontWeight: 800,
+                  color: "#16a34a",
+                }}
+              >
+                {business.whatsapp}
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+  </div>
+</section>
+      
       <section style={panelStyle}>
         <h2 style={panelTitle}>{t("Campaign Performance", "أداء الحملات")}</h2>
 
