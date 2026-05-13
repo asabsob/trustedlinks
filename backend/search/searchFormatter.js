@@ -178,16 +178,17 @@ function getFooterHint(lang = "ar") {
 
 function formatBusinessBlock(item = {}, index = 0, lang = "ar", options = {}) {
   const {
-  includeDistance = false,
-  includeCategory = true,
-  showLink = true,
-} = options;
-  
+    includeDistance = false,
+    includeCategory = true,
+    showLink = true,
+    showDirections = true,
+  } = options;
+
   const lines = [];
   const name = getDisplayName(item, lang);
 
-lines.push("────────────");
-lines.push(`${index + 1}. ${name}`);
+  lines.push("────────────");
+  lines.push(`${index + 1}. ${name}`);
 
   if (includeCategory) {
     const categoryLine = getCategoryText(item, lang);
@@ -202,15 +203,19 @@ lines.push(`${index + 1}. ${name}`);
   const locationText = getLocationText(item, lang);
   if (locationText) lines.push(locationText);
 
-const chatLine = getChatLine(item, lang, {
-  showLink,
-});
+  const chatLine = getChatLine(item, lang, {
+    showLink,
+  });
+
   if (chatLine) {
     lines.push("");
     lines.push(chatLine);
   }
 
-  const directionsLine = getDirectionsLine(item, lang);
+  const directionsLine = showDirections
+    ? getDirectionsLine(item, lang)
+    : "";
+
   if (directionsLine) {
     lines.push("");
     lines.push(directionsLine);
@@ -218,7 +223,6 @@ const chatLine = getChatLine(item, lang, {
 
   return lines.join("\n");
 }
-
 export function formatNoResults(query = "", lang = "ar") {
   if (isArabicLang(lang)) {
     return query?.trim()
@@ -278,6 +282,7 @@ export function formatSearchResults({
       includeDistance: false,
       includeCategory: true,
       showLink: index === 0,
+      showDirections: index === 0,
     })
   );
 
@@ -331,6 +336,7 @@ results.slice(0, 4).forEach((item, index) => {
       includeDistance: true,
       includeCategory: true,
       showLink: index === 0,
+      showDirections: index === 0,
     })
   );
 
