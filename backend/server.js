@@ -23,7 +23,6 @@ import { parseSearchIntent } from "./search/intentDetector.js";
 import { optimizeBusinessProfile } from "./services/aiOptimizer.js";
 import { translateBusinessContent } from "./services/ai/translateBusiness.js";
 import campaignRoutes from "./routes/campaignRoutes.js";
-import campaignAnalyticsRoutes from "./routes/campaignAnalyticsRoutes.js";
 import campaignAuthRoutes from "./routes/campaignAuthRoutes.js";
 import fundingCodeRoutes from "./routes/fundingCodeRoutes.js";
 import platformAnalyticsRoutes from "./routes/platformAnalyticsRoutes.js";
@@ -401,7 +400,7 @@ app.use("/api/campaign/auth", campaignAuthRoutes);
 app.use("/api/campaign/auth", campaignAuthRoutes);
 app.use("/api/campaign", campaignRoutes);
 app.use("/api/campaign/funding-codes", fundingCodeRoutes);
-app.use("/api/campaign/analytics", campaignAnalyticsRoutes);
+
 
 app.use(
   "/api/platform/analytics",
