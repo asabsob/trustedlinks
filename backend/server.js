@@ -5315,10 +5315,12 @@ if (
     refinedIntentType,
   });
 
-  const searchData = await searchBusinesses({
-    query: refinedEffectiveQuery,
-    lang,
-  });
+const searchData = await searchBusinesses({
+  query: effectiveQuery,
+  lang,
+  intentType,
+  isNearby: nearbyIntent?.isNearby || false,
+});
 
   if (
     !searchData?.results ||
@@ -5414,6 +5416,8 @@ console.time("searchBusinessesFast");
 const searchData = await searchBusinesses({
   query: effectiveQuery,
   lang,
+  intentType,
+  isNearby: nearbyIntent?.isNearby || false,
 });
 console.timeEnd("searchBusinessesFast");
 
