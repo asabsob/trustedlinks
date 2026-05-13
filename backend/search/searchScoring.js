@@ -1,4 +1,5 @@
 import { normalizeSearchText } from "./textNormalizer.js";
+import { fuzzyMatch } from "./fuzzyMatching.js";
 
 function safeNormalize(value = "") {
   return normalizeSearchText(String(value || ""));
@@ -96,6 +97,15 @@ function calculateFieldScore(
     score += 50;
   }
 
+  else if (
+  fuzzyMatch(
+    normalizedField,
+    normalizedQuery
+  )
+) {
+  score += 25;
+}
+  
   // Word-level scoring
   score += calculateWordMatchScore(
     normalizedField,
