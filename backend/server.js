@@ -394,8 +394,9 @@ app.use(express.urlencoded({ extended: true, limit: "200kb" }));
 
 app.use("/api/privacy", privacyRoutes);
 app.use("/api/campaign", campaignRoutes);
-app.use("/api/campaign/analytics",campaignAnalyticsRoutes);
+
 app.use("/api/campaign/auth", campaignAuthRoutes);
+app.use("/api/platform/analytics", platformAnalyticsRoutes);
 
 app.use("/api/campaign/auth", campaignAuthRoutes);
 app.use("/api/campaign", campaignRoutes);
