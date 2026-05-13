@@ -117,8 +117,8 @@ function getChatLine(item = {}, lang = "ar", options = {}) {
   if (!link) return "";
 
   return isArabicLang(lang)
-    ? `💬 اضغط للتواصل عبر واتساب:\n${link}`
-    : `💬 Tap to contact on WhatsApp:\n${link}`;
+    ? `💬 رابط التواصل:\n${link}`
+    : `💬 Contact link:\n${link}`;
 }
 
 function getMapLink(item = {}) {
@@ -138,8 +138,8 @@ function getDirectionsLine(item = {}, lang = "ar") {
   if (!link) return "";
 
   return isArabicLang(lang)
-    ? `🧭 الاتجاهات على الخريطة:\n${link}`
-    : `🧭 Directions on map:\n${link}`;
+    ? `📍 فتح الاتجاهات:\n${link}`
+    : `📍 Open directions:\n${link}`;
 }
 
 function getIntentHeader(intent = "category", query = "", lang = "ar") {
@@ -166,7 +166,11 @@ function formatBusinessBlock(item = {}, index = 0, lang = "ar", options = {}) {
   const name = getDisplayName(item, lang);
 
   lines.push("────────────");
-  lines.push(`${index + 1}️⃣ ${name}`);
+ lines.push(
+  isArabicLang(lang)
+    ? `🔹 ${index + 1}. ${name}`
+    : `${index + 1}. ${name}`
+);
 
   if (includeCategory) {
     const categoryLine = getCategoryText(item, lang);
