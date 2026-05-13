@@ -140,19 +140,55 @@ export async function understandConversationMessage({
     };
   }
 
-  if (session?.state === "awaiting_refinement") {
-    const refinement = detectRefinementAnswer(text, session);
+  function looksLikeNewSearch(text = "", session = {}) {
+  const q = normalizeText(text);
+  const lastQuery = normalizeText(session?.last_query || session?.lastQuery || "");
 
-    if (refinement) {
-      return {
-        messageType: MESSAGE_TYPES.REFINEMENT_ANSWER,
-        action: "apply_refinement",
-        session,
-        payload: refinement,
-      };
-    }
+  if (!q) return false;
+
+  if (lastQuery && q === lastQuery) return true;
+
+  const strongSearchWords = [
+    "مطعم",
+    "خدمات",
+    "صيدليه",
+    "قهوه",
+    "كافيه",
+    "شاورما",
+    "برجر",
+    "بيتزا",
+    "حلويات",
+    "ملابس",
+    "عطور",
+    "صالون",
+    "عياده",
+    "مخبز",
+    "restaurant",
+    "services",
+    "pharmacy",
+    "coffee",
+    "cafe",
+    "burger",
+    "pizza",
+  ];
+
+  return strongSearchWords.includes(q);
+}
+ if (
+  session?.state === "awaiting_refinement" &&
+  !looksLikeNewSearch(text, session)
+) {
+  const refinement = detectRefinementAnswer(text, session);
+
+  if (refinement) {
+    return {
+      messageType: MESSAGE_TYPES.REFINEMENT_ANSWER,
+      action: "apply_refinement",
+      session,
+      payload: refinement,
+    };
   }
-
+}
   if (session?.last_results?.length) {
     const selection = detectResultSelection(text);
 
