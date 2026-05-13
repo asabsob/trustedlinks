@@ -5316,10 +5316,10 @@ if (
   });
 
 const searchData = await searchBusinesses({
-  query: effectiveQuery,
+  query: refinedEffectiveQuery,
   lang,
-  intentType,
-  isNearby: nearbyIntent?.isNearby || false,
+  intentType: refinedIntentType,
+  isNearby: refinedIntentData?.isNearby || false,
 });
 
   if (
