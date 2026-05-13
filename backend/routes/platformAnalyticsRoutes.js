@@ -1,12 +1,12 @@
 import express from "express";
 import supabase from "../db/postgres.js";
-import { requireAdmin } from "../middleware/auth.js";
+import { requireAuth } from "../middleware/auth.js";
 
 const router = express.Router();
 
 router.get(
   "/search-demand",
-  requireAdmin,
+  requireAuth,
   async (req, res) => {
     try {
       // TOTAL SEARCHES
