@@ -2,6 +2,7 @@ import { expandTerms } from "./synonyms.js";
 import { parseSearchIntent } from "./intentDetector.js";
 import { normalizeSearchText } from "./textNormalizer.js";
 import { listActiveBusinesses } from "../services/pg/businesses.js";
+import { calculateBusinessScore } from "./searchScoring.js";
 
 const RESULT_LIMITS = {
   brand: 3,
@@ -77,97 +78,58 @@ function matchesBusiness(item, regexList, query = "") {
   return words.some((word) => fullText.includes(word));
 }
 
-function calculateMatchScore(item, query = "", terms = [], intent = "category") {
-  const normalizedQuery = normalizeSearchText(query);
-  const name = normalizeSearchText(item?.name || "");
-  const nameAr = normalizeSearchText(item?.name_ar || "");
-  const description = normalizeSearchText(item?.description || "");
-  const descriptionAr = normalizeSearchText(item?.description_ar || "");
-  const keywords = toArray(item?.keywords).map((v) => normalizeSearchText(v)).join(" ");
-  const keywordsAr = toArray(item?.keywords_ar).map((v) => normalizeSearchText(v)).join(" ");
-  const categories = toArray(item?.category).map((v) => normalizeSearchText(v)).join(" ");
-  const locationText = normalizeSearchText(
-    item?.locationText || item?.location_text || item?.city || item?.area || item?.countryName || ""
-  );
-
-  let score = 0;
-
-  if (!normalizedQuery) score += 1;
-
-  if (name === normalizedQuery && normalizedQuery) score += 120;
-  if (nameAr === normalizedQuery && normalizedQuery) score += 120;
-
-  if (name.includes(normalizedQuery) && normalizedQuery) score += 80;
-  if (nameAr.includes(normalizedQuery) && normalizedQuery) score += 80;
-
-  if (keywords.includes(normalizedQuery) && normalizedQuery) score += 35;
-  if (keywordsAr.includes(normalizedQuery) && normalizedQuery) score += 35;
-
-  if (categories.includes(normalizedQuery) && normalizedQuery) score += 25;
-  if (description.includes(normalizedQuery) && normalizedQuery) score += 18;
-  if (descriptionAr.includes(normalizedQuery) && normalizedQuery) score += 18;
-  if (locationText.includes(normalizedQuery) && normalizedQuery) score += 12;
-
-  terms.forEach((term) => {
-    const t = normalizeSearchText(term);
-    if (!t) return;
-
-    if (name.includes(t)) score += 20;
-    if (nameAr.includes(t)) score += 20;
-    if (keywords.includes(t)) score += 10;
-    if (keywordsAr.includes(t)) score += 10;
-    if (categories.includes(t)) score += 8;
-    if (description.includes(t)) score += 5;
-    if (descriptionAr.includes(t)) score += 5;
-    if (locationText.includes(t)) score += 4;
-  });
-
-  if (intent === "brand") {
-    if (name.includes(normalizedQuery) || nameAr.includes(normalizedQuery)) {
-      score += 40;
-    }
-  }
-
-  if (intent === "category") {
-    if (categories.includes(normalizedQuery) && normalizedQuery) {
-      score += 18;
-    }
-  }
-
-  if (intent === "discovery") {
-    if (description || descriptionAr) score += 6;
-    if (keywords || keywordsAr) score += 6;
-  }
-
-  return score;
-}
-
-function shouldAskRefinement({ intent = "category", query = "", results = [] }) {
-   if (!results || results.length === 0) return false;
-
-  const normalizedQuery = normalizeSearchText(query);
-  const wordCount = normalizedQuery.split(/\s+/).filter(Boolean).length;
-  const resultCount = results.length;
-
-  if (intent === "brand") {
-    return resultCount > 5;
-  }
-
-  if (intent === "category") {
-    if (wordCount <= 1) return true;
-    if (resultCount > 10) return true;
+function shouldAskRefinement({
+  intent = "category",
+  query = "",
+  results = [],
+}) {
+  if (!results || results.length === 0) {
     return false;
   }
 
+  const normalizedQuery =
+    normalizeSearchText(query);
+
+  const wordCount = normalizedQuery
+    .split(/\s+/)
+    .filter(Boolean).length;
+
+  const resultCount = results.length;
+
+  // Small result sets should NEVER ask refinement
+  if (resultCount <= 3) {
+    return false;
+  }
+
+  // Brand searches rarely need refinement
+  if (intent === "brand") {
+    return resultCount > 6;
+  }
+
+  // Category logic
+  if (intent === "category") {
+    if (wordCount <= 1 && resultCount >= 6) {
+      return true;
+    }
+
+    if (resultCount >= 10) {
+      return true;
+    }
+
+    return false;
+  }
+
+  // Discovery searches
   if (intent === "discovery") {
-    if (wordCount <= 3) return true;
-    if (resultCount > 8) return true;
-    return true;
+    if (resultCount >= 8) {
+      return true;
+    }
+
+    return false;
   }
 
   return false;
 }
-
 function getRefinementQuestions(lang = "ar") {
   return [
     {
@@ -242,10 +204,13 @@ function applyRefinementAnswers(results = [], refinementAnswers = {}) {
 }
 
 export async function searchBusinesses({
-  query = "",
+  query,
   lang = "ar",
+  intentType = "category",
+  isNearby = false,
   refinementAnswers = null,
-} = {}) {
+}) {
+
   const safeQuery = String(query || "").trim();
   const intentData = parseSearchIntent(safeQuery);
 
@@ -273,13 +238,26 @@ let matched = searchableBusinesses.filter((item) =>
   matchesBusiness(item, regexList, effectiveQuery)
 );
 
-  matched = matched
-    .map((item) => ({
-      ...item,
-      _matchScore: calculateMatchScore(item, effectiveQuery, terms, intentData.intent),
-    }))
-    .filter((item) => item._matchScore > 0)
-    .sort((a, b) => b._matchScore - a._matchScore);
+ matched = matched
+  .map((item) => ({
+    ...item,
+   _matchScore: calculateBusinessScore({
+  business: item,
+  query: effectiveQuery,
+  intentType,
+  isNearby,
+}),
+  }))
+  .filter((item) => item._matchScore > 0)
+  .sort((a, b) => b._matchScore - a._matchScore);
+
+console.log(
+  "SEARCH_TOP_RESULTS",
+  matched.slice(0, 5).map((r) => ({
+    name: r.name,
+    score: r._matchScore,
+  }))
+);
 
   const needsRefinement =
     !refinementAnswers &&
