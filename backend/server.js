@@ -5012,17 +5012,6 @@ function parseNearbyIntent(text = "", session = {}) {
   };
 }
 
-  const categoryQuery = raw
-    .replace(/أقرب|اقرب|قريبة مني|قريب مني|قريبة|قريب|مني|عندي|حولي|بالقرب/gi, " ")
-    .replace(/near me|nearest|closest|near|around|me/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  return {
-    isNearby: true,
-    categoryQuery,
-  };
-}
 // ============================================================================
 // Search Cache
 // ============================================================================
