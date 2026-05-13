@@ -44,6 +44,7 @@ import CampaignFundingCodes from "./pages/campaign/CampaignFundingCodes";
 import CampaignCampaigns from "./pages/campaign/CampaignCampaigns";
 import CampaignParticipants from "./pages/campaign/CampaignParticipants";
 import CampaignFinance from "./pages/campaign/CampaignFinance";
+import CampaignAnalytics from "./pages/campaign/CampaignAnalytics";
 
 // -------------------------
 // User Protected Route
@@ -235,6 +236,11 @@ export default function App() {
 <Route
   path="finance"
   element={<CampaignFinance lang={lang} />}
+/>
+
+  <Route
+  path="analytics"
+  element={<CampaignAnalytics lang={lang} />}
 />
   
 </Route>        
