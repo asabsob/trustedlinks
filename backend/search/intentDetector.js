@@ -2,6 +2,10 @@
 
 import { normalizeSearchText } from "./textNormalizer.js";
 
+import {
+  detectCategoryKeyword,
+} from "./categoryDictionary.js";
+
 const BRAND_HINTS_AR = [
   "اسم",
   "فرع",
@@ -284,6 +288,9 @@ export function parseSearchIntent(text = "") {
 
   const nearby = detectNearby(normalized, raw);
 
+  const categoryDictionaryMatch =
+  detectCategoryKeyword(normalized);
+
   const brand = detectBrandIntent(normalized);
   const category = detectCategoryIntent(normalized);
   const discovery = detectDiscoveryIntent(normalized, nearby.isNearby);
@@ -296,6 +303,10 @@ export function parseSearchIntent(text = "") {
     intent = "discovery";
     confidence = discovery.confidence || 0.85;
     reason = discovery.reason || "nearby_search_detected";
+    } else if (categoryDictionaryMatch.matched) {
+  intent = "category";
+  confidence = 0.9;
+  reason = "category_dictionary_match";
   } else if (brand.matched && brand.confidence >= category.confidence) {
     intent = "brand";
     confidence = brand.confidence;
