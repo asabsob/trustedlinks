@@ -36,8 +36,22 @@ function detectReset(text = "") {
   ].includes(q);
 }
 
+function normalizeDigits(text = "") {
+  return String(text || "")
+    .replace(/[٠۰]/g, "0")
+    .replace(/[١۱]/g, "1")
+    .replace(/[٢۲]/g, "2")
+    .replace(/[٣۳]/g, "3")
+    .replace(/[٤۴]/g, "4")
+    .replace(/[٥۵]/g, "5")
+    .replace(/[٦۶]/g, "6")
+    .replace(/[٧۷]/g, "7")
+    .replace(/[٨۸]/g, "8")
+    .replace(/[٩۹]/g, "9");
+}
+
 function detectResultSelection(text = "") {
-  const q = normalizeText(text);
+  const q = normalizeDigits(normalizeText(text));
 
   const map = {
     "1": 0,
@@ -53,6 +67,10 @@ function detectResultSelection(text = "") {
     "3": 2,
     "الثالث": 2,
     "افتح الثالث": 2,
+
+    "4": 3,
+    "الرابع": 3,
+    "افتح الرابع": 3,
   };
 
   if (map[q] !== undefined) {
@@ -63,7 +81,6 @@ function detectResultSelection(text = "") {
 
   return null;
 }
-
 function detectRefinementAnswer(text = "", session = {}) {
   const q = normalizeText(text);
 
