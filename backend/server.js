@@ -5140,15 +5140,99 @@ if (
     payload: conversationDecision.payload,
   });
 
+  const lastQuery =
+    conversationDecision.session?.last_query ||
+    conversationDecision.session?.lastQuery ||
+    "";
+
+  const answerValue =
+    conversationDecision.payload?.value || "";
+
+  const ignoredAnswers = [
+    "اي شي",
+    "أي شي",
+    "اي شيء",
+    "أي شيء",
+    "مش مهم",
+    "عادي",
+    "نعم",
+    "yes",
+    "anything",
+  ];
+
+  const normalizedAnswer = normalizeSearchText(answerValue);
+
+  const refinedQuery = ignoredAnswers
+    .map((x) => normalizeSearchText(x))
+    .includes(normalizedAnswer)
+      ? lastQuery
+      : `${lastQuery} ${answerValue}`.trim();
+
+  const refinedIntentData = parseSearchIntent(refinedQuery);
+  const refinedEffectiveQuery =
+    refinedIntentData.categoryQuery ||
+    normalizeSearchText(refinedQuery);
+
+  const refinedIntentType = normalizeIntentType(
+    refinedIntentData,
+    refinedQuery
+  );
+
+  console.log("REFINEMENT_APPLY_DEBUG", {
+    lastQuery,
+    answerValue,
+    refinedQuery,
+    refinedEffectiveQuery,
+    refinedIntentType,
+  });
+
+  const searchData = await searchBusinesses({
+    query: refinedEffectiveQuery,
+    lang,
+  });
+
+  if (
+    !searchData?.results ||
+    searchData.results.length === 0
+  ) {
+    return javnaSendText({
+      to: from,
+      body:
+        lang === "ar"
+          ? "لم أجد نتائج مناسبة لهذا التفضيل. جرّب وصفًا آخر أو اكتب بحثًا جديدًا."
+          : "I couldn’t find suitable results for that preference. Try another description or start a new search.",
+    }).catch(console.error);
+  }
+
+  const enrichedResults = await enrichTopOnly({
+    results: searchData.results || [],
+    query: refinedEffectiveQuery,
+    userPhone: from,
+    intentType: refinedIntentType,
+  });
+
+  await saveSearchSession({
+    userPhone: from,
+    query: refinedEffectiveQuery,
+    intentType: refinedIntentType,
+    results: enrichedResults,
+    needsRefinement: false,
+  });
+
+  const reply = formatSearchResponse(
+    {
+      ...searchData,
+      mode: "results",
+      results: enrichedResults,
+    },
+    lang
+  );
+
   return javnaSendText({
     to: from,
-    body:
-      lang === "ar"
-        ? `تم فهم التفضيل: ${conversationDecision.payload?.value}`
-        : `Preference understood: ${conversationDecision.payload?.value}`,
+    body: reply,
   }).catch(console.error);
 }
-
     // Nearby Intent
     const nearbyIntent = parseNearbyIntent(incomingText);
 
@@ -5254,7 +5338,7 @@ if (searchData.mode === "refinement_required") {
     }),
   }).catch(console.error);
 }
-
+    
 const enrichTimer = `enrichTopOnly_${Date.now()}_${Math.random()}`;
 console.time(enrichTimer);
 
