@@ -5229,20 +5229,29 @@ if (
 
 // Refinement
 if (searchData.mode === "refinement_required") {
- console.timeEnd(searchTimerId);
+  console.timeEnd(searchTimerId);
   console.log("TOTAL USER REPLY TIME:", Date.now() - t0, "ms");
 
- await saveSearchSession({
-  userPhone: from,
-  query: effectiveQuery,
-  intentType,
-  results: searchData.results || [],
-  needsRefinement: true,
-});
+  await saveSearchSession({
+    userPhone: from,
+    query: effectiveQuery,
+    intentType,
+    results: searchData.results || [],
+    needsRefinement: true,
+  });
 
   return javnaSendText({
     to: from,
-    body: formatSingleRefinementQuestion(session),
+    body: formatSingleRefinementQuestion({
+      query: effectiveQuery,
+      lang,
+      answers: {
+        preference: "",
+        area: "",
+        priority: "",
+      },
+      step: 0,
+    }),
   }).catch(console.error);
 }
 
