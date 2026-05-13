@@ -206,6 +206,12 @@ export async function understandConversationMessage({
     };
   }
 }
+  console.log("SESSION_RESULTS_DEBUG", {
+  hasSession: !!session,
+  state: session?.state,
+  lastResultsCount: session?.last_results?.length || 0,
+});
+  
   if (session?.last_results?.length) {
     const selection = detectResultSelection(text);
 
