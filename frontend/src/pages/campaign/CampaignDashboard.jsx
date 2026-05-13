@@ -44,41 +44,100 @@ export default function CampaignDashboard() {
         Authorization: `Bearer ${token}`,
       };
 
-  const [dashboardRes, financeRes] =
-  await Promise.all([
-    fetch(
-      `${API_BASE}/api/campaign/dashboard`,
-      { headers }
-    ),
+  const [
+  dashboardRes,
+  campaignsRes,
+  participantsRes,
+] = await Promise.all([
+  fetch(
+    `${API_BASE}/api/campaign/dashboard`,
+    { headers }
+  ),
 
-    fetch(
-      `${API_BASE}/api/campaign/analytics/finance`,
-      { headers }
-    ),
-  ]);
+  fetch(
+    `${API_BASE}/api/campaign/campaigns`,
+    { headers }
+  ),
 
-      const dashboardData =
-        await dashboardRes.json();
+  fetch(
+    `${API_BASE}/api/campaign/participants`,
+    { headers }
+  ),
+]);
 
-      const financeData =
-        await financeRes.json();
+const dashboardData =
+  await dashboardRes.json();
 
-      if (!dashboardRes.ok) {
-        throw new Error(
-          dashboardData.error ||
-            "Failed to load dashboard"
-        );
-      }
+const campaignsData =
+  await campaignsRes.json();
 
-      if (!financeRes.ok) {
-        throw new Error(
-          financeData.error ||
-            "Failed to load finance"
-        );
-      }
+const participantsData =
+  await participantsRes.json();
 
-      setDashboard(dashboardData);
-      setFinance(financeData);
+if (!dashboardRes.ok) {
+  throw new Error(
+    dashboardData.error ||
+      "Failed to load dashboard"
+  );
+}
+
+      if (!campaignsRes.ok) {
+  throw new Error(
+    campaignsData.error ||
+      "Failed to load campaigns"
+  );
+}
+
+if (!participantsRes.ok) {
+  throw new Error(
+    participantsData.error ||
+      "Failed to load participants"
+  );
+}
+      
+const totalBudget =
+  (campaignsData.campaigns || []).reduce(
+    (sum, c) =>
+      sum +
+      Number(c.total_budget || 0),
+    0
+  );
+
+const remainingBudget =
+  (campaignsData.campaigns || []).reduce(
+    (sum, c) =>
+      sum +
+      Number(
+        c.remaining_budget || 0
+      ),
+    0
+  );
+
+const usedBudget =
+  totalBudget - remainingBudget;
+
+setDashboard(dashboardData);
+
+setFinance({
+  finance: {
+    totalBudget,
+    usedBudget,
+    remainingBudget,
+  },
+
+  analytics: {
+    totalCampaigns:
+      campaignsData.campaigns
+        ?.length || 0,
+
+    totalParticipants:
+      participantsData.participants
+        ?.length || 0,
+
+    totalFundingCodes: 0,
+    activeFundingCodes: 0,
+  },
+});
     } catch (err) {
       setError(err.message);
     } finally {
