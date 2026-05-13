@@ -1181,13 +1181,30 @@ if (campaignDeduct.ok) {
         intentType: finalIntentType,
       },
     });
-    if (Number(result.balanceAfter) > 0 && Number(result.balanceAfter) < 5) {
+    
+  if (
+  Number(result.balanceAfter) > 0 &&
+  Number(result.balanceAfter) < 5
+) {
+  try {
+    if (typeof notifyLowBalance === "function") {
       await notifyLowBalance({
         businessId,
         balanceAfter: Number(result.balanceAfter),
       });
+    } else {
+      console.warn(
+        "notifyLowBalance is not defined"
+      );
     }
-
+  } catch (notifyErr) {
+    console.error(
+      "notifyLowBalance failed:",
+      notifyErr
+    );
+  }
+}
+    
   if (Number(result.balanceAfter) < 0) {
   if (typeof notifyNegativeBalance === "function") {
     await notifyNegativeBalance({
@@ -4854,23 +4871,146 @@ function getWelcomeMessage(lang = "ar") {
     : "Welcome to TrustedLinks 👋\n\nType a business name or category to search.\n\nExample:\n• restaurant\n• coffee\n• pharmacy\n• nearest restaurant";
 }
 
-function parseNearbyIntent(text = "") {
+function normalizeNearbyText(text = "") {
+  return String(text || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ة/g, "ه")
+    .replace(/ى/g, "ي")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parseNearbyIntent(text = "", session = {}) {
   const raw = String(text || "").trim();
-  const q = raw.toLowerCase();
+  const q = normalizeNearbyText(raw);
 
-  const isNearby =
-    q.includes("أقرب") ||
-    q.includes("اقرب") ||
-    q.includes("قريب") ||
-    q.includes("قريبة") ||
-    q.includes("near me") ||
-    q.includes("nearest") ||
-    q.includes("closest") ||
-    q.includes("near");
-
-  if (!isNearby) {
-    return { isNearby: false, categoryQuery: "" };
+  if (!q) {
+    return { isNearby: false, categoryQuery: "", source: "empty" };
   }
+
+  const nearbySignals = [
+    "اقرب",
+    "قريب",
+    "قريبه",
+    "قريب مني",
+    "قريبه مني",
+    "حولي",
+    "حولينا",
+    "جنب",
+    "جنبي",
+    "جنبنا",
+    "بالقرب",
+    "بالقرب مني",
+    "ناحيتي",
+    "بجانبي",
+    "وين اقرب",
+    "هات الاقرب",
+    "الاقرب",
+    "في المنطقه",
+    "بالمنطقه",
+    "داخل المول",
+    "في المول",
+    "نفس المول",
+    "near me",
+    "nearest",
+    "closest",
+    "nearby",
+    "around me",
+    "around us",
+    "close to me",
+    "near",
+    "in the mall",
+    "inside mall",
+    "inside the mall",
+  ];
+
+  const contextualNearbyAnswers = [
+    "قريب",
+    "قريبه",
+    "اقرب",
+    "الاقرب",
+    "حولي",
+    "حولينا",
+    "جنبنا",
+    "جنب",
+    "داخل المول",
+    "في المول",
+    "near",
+    "nearby",
+    "nearest",
+    "closest",
+  ];
+
+  const hasNearbySignal = nearbySignals.some((signal) =>
+    q.includes(normalizeNearbyText(signal))
+  );
+
+  const isContextNearby =
+    session?.state === "awaiting_refinement" &&
+    contextualNearbyAnswers.includes(q);
+
+  if (!hasNearbySignal && !isContextNearby) {
+    return { isNearby: false, categoryQuery: "", source: "none" };
+  }
+
+  let categoryQuery = q;
+
+  const cleanupPatterns = [
+    /وين اقرب/g,
+    /هات الاقرب/g,
+    /الاقرب/g,
+    /اقرب/g,
+    /قريب مني/g,
+    /قريبه مني/g,
+    /قريب/g,
+    /قريبه/g,
+    /مني/g,
+    /حولي/g,
+    /حولينا/g,
+    /جنبنا/g,
+    /جنبي/g,
+    /جنب/g,
+    /بالقرب مني/g,
+    /بالقرب/g,
+    /ناحيتي/g,
+    /بجانبي/g,
+    /في المنطقه/g,
+    /بالمنطقه/g,
+    /داخل المول/g,
+    /في المول/g,
+    /نفس المول/g,
+    /near me/g,
+    /nearest/g,
+    /closest/g,
+    /nearby/g,
+    /around me/g,
+    /around us/g,
+    /close to me/g,
+    /inside the mall/g,
+    /inside mall/g,
+    /in the mall/g,
+    /near/g,
+  ];
+
+  cleanupPatterns.forEach((pattern) => {
+    categoryQuery = categoryQuery.replace(pattern, " ");
+  });
+
+  categoryQuery = categoryQuery.replace(/\s+/g, " ").trim();
+
+  if (!categoryQuery && session?.last_query) {
+    categoryQuery = session.last_query;
+  }
+
+  return {
+    isNearby: true,
+    categoryQuery,
+    source: isContextNearby ? "conversation_context" : "rules",
+  };
+}
 
   const categoryQuery = raw
     .replace(/أقرب|اقرب|قريبة مني|قريب مني|قريبة|قريب|مني|عندي|حولي|بالقرب/gi, " ")
@@ -5234,7 +5374,10 @@ if (
   }).catch(console.error);
 }
     // Nearby Intent
-    const nearbyIntent = parseNearbyIntent(incomingText);
+  const nearbyIntent = parseNearbyIntent(
+  incomingText,
+  conversationDecision.session
+);
 
     if (nearbyIntent.isNearby) {
       setPendingNearby(from, {
