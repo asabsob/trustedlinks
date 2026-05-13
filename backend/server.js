@@ -127,6 +127,12 @@ import {
 
 import privacyRoutes from "./routes/privacy.js";
 
+import {
+  understandConversationMessage,
+  saveSearchSession,
+  MESSAGE_TYPES,
+} from "./services/conversationOrchestrator.js";
+
 
 function hash(value = "") {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
@@ -5020,6 +5026,17 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
     const lang = detectLanguage(incomingText);
     const normalizedQuery = normalizeSearchText(incomingText);
 
+    const conversationDecision = await understandConversationMessage({
+  userPhone: from,
+  message: incomingText,
+});
+
+console.log("CONVERSATION_DECISION_DEBUG", {
+  message: incomingText,
+  messageType: conversationDecision.messageType,
+  action: conversationDecision.action,
+});
+
     // Greeting / Help
     if (messageType === "text" && (isGreeting(incomingText) || isHelpCommand(incomingText))) {
       return javnaSendText({
@@ -5082,6 +5099,56 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
       }).catch(console.error);
     }
 
+    // Conversation Result Selection
+if (
+  conversationDecision.messageType ===
+  MESSAGE_TYPES.RESULT_SELECTION
+) {
+  const selected = conversationDecision.payload?.result;
+
+  if (selected?.trackedLink) {
+    return javnaSendText({
+      to: from,
+      body:
+        lang === "ar"
+          ? `تفضل رابط التواصل:\n${selected.trackedLink}`
+          : `Here is the business link:\n${selected.trackedLink}`,
+    }).catch(console.error);
+  }
+}
+
+// Reset Conversation
+if (
+  conversationDecision.messageType ===
+  MESSAGE_TYPES.RESET
+) {
+  return javnaSendText({
+    to: from,
+    body:
+      lang === "ar"
+        ? "تم بدء بحث جديد، ماذا تبحث عنه؟"
+        : "Started a new search. What are you looking for?",
+  }).catch(console.error);
+}
+
+// Refinement Answer
+if (
+  conversationDecision.messageType ===
+  MESSAGE_TYPES.REFINEMENT_ANSWER
+) {
+  console.log("REFINEMENT_ANSWER_DEBUG", {
+    payload: conversationDecision.payload,
+  });
+
+  return javnaSendText({
+    to: from,
+    body:
+      lang === "ar"
+        ? `تم فهم التفضيل: ${conversationDecision.payload?.value}`
+        : `Preference understood: ${conversationDecision.payload?.value}`,
+  }).catch(console.error);
+}
+
     // Nearby Intent
     const nearbyIntent = parseNearbyIntent(incomingText);
 
@@ -5101,8 +5168,17 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
     }
 
     // Normal Intent
-   const intentData = parseSearchIntent(incomingText);
-const effectiveQuery = intentData.categoryQuery || normalizedQuery;
+   const effectiveIncomingText =
+  conversationDecision.payload?.query || incomingText;
+
+const intentData = parseSearchIntent(
+  effectiveIncomingText
+);
+    
+const effectiveQuery =
+  intentData.categoryQuery ||
+  normalizeSearchText(effectiveIncomingText);
+    
 const intentType = normalizeIntentType(intentData, incomingText);
 
 console.log("INTENT_DEBUG", {
@@ -5156,18 +5232,13 @@ if (searchData.mode === "refinement_required") {
  console.timeEnd(searchTimerId);
   console.log("TOTAL USER REPLY TIME:", Date.now() - t0, "ms");
 
-  const session = {
-    query: effectiveQuery,
-    lang,
-    answers: {
-      preference: "",
-      area: "",
-      priority: "",
-    },
-    step: 0,
-  };
-
-  setPendingRefinement(from, session);
+ await saveSearchSession({
+  userPhone: from,
+  query: effectiveQuery,
+  intentType,
+  results: searchData.results || [],
+  needsRefinement: true,
+});
 
   return javnaSendText({
     to: from,
@@ -5184,6 +5255,16 @@ const enrichedResults = await enrichTopOnly({
   userPhone: from,
   intentType,
 });
+
+    await saveSearchSession({
+  userPhone: from,
+  query: effectiveQuery,
+  intentType,
+  results: enrichedResults,
+  needsRefinement:
+    searchData?.mode === "refinement_required",
+});
+  
 
 console.timeEnd(enrichTimer);
 
