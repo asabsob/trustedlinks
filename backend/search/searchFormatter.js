@@ -123,13 +123,22 @@ function getDistanceLine(item = {}, lang = "ar") {
     : `📏 ${distanceKm} km away`;
 }
 
-function getChatLine(item = {}, lang = "ar") {
+function getChatLine(
+  item = {},
+  lang = "ar",
+  options = {}
+) {
+  const { showLink = true } = options;
+
+  if (!showLink) return "";
+
   const link = item.trackedLink || item.whatsappLink;
+
   if (!link) return "";
 
   return isArabicLang(lang)
-    ? `💬 تواصل:\n${link}`
-    : `💬 Contact:\n${link}`;
+    ? `💬 رابط التواصل:\n${link}`
+    : `💬 Contact Link:\n${link}`;
 }
 
 function getMapLink(item = {}) {
@@ -168,8 +177,12 @@ function getFooterHint(lang = "ar") {
 }
 
 function formatBusinessBlock(item = {}, index = 0, lang = "ar", options = {}) {
-  const { includeDistance = false, includeCategory = true } = options;
-
+  const {
+  includeDistance = false,
+  includeCategory = true,
+  showLink = true,
+} = options;
+  
   const lines = [];
   const name = getDisplayName(item, lang);
 
@@ -189,7 +202,9 @@ lines.push(`${index + 1}. ${name}`);
   const locationText = getLocationText(item, lang);
   if (locationText) lines.push(locationText);
 
-  const chatLine = getChatLine(item, lang);
+const chatLine = getChatLine(item, lang, {
+  showLink,
+});
   if (chatLine) {
     lines.push("");
     lines.push(chatLine);
@@ -257,15 +272,27 @@ export function formatSearchResults({
   lines.push(getIntentHeader(intent, query, lang));
   lines.push("");
 
-  results.slice(0, 4).forEach((item, index) => {
-    lines.push(
-      formatBusinessBlock(item, index, lang, {
-        includeDistance: false,
-        includeCategory: true,
-      })
-    );
-    lines.push("");
-  });
+ results.slice(0, 4).forEach((item, index) => {
+  lines.push(
+    formatBusinessBlock(item, index, lang, {
+      includeDistance: false,
+      includeCategory: true,
+      showLink: index === 0,
+    })
+  );
+
+  lines.push("");
+});
+
+  if (results.length > 1) {
+  lines.push(
+    isArabicLang(lang)
+      ? "📌 أرسل رقم النتيجة لفتح رابطها."
+      : "📌 Send the result number to open its link."
+  );
+
+  lines.push("");
+}
 
   lines.push("━━━━━━━━━━━━");
   lines.push(getFooterHint(lang));
@@ -298,15 +325,27 @@ export function formatNearestResults(results = [], lang = "ar", categoryQuery = 
 
   lines.push("");
 
-  results.slice(0, 4).forEach((item, index) => {
-    lines.push(
-      formatBusinessBlock(item, index, lang, {
-        includeDistance: true,
-        includeCategory: true,
-      })
-    );
-    lines.push("");
-  });
+results.slice(0, 4).forEach((item, index) => {
+  lines.push(
+    formatBusinessBlock(item, index, lang, {
+      includeDistance: true,
+      includeCategory: true,
+      showLink: index === 0,
+    })
+  );
+
+  lines.push("");
+});
+
+  if (results.length > 1) {
+  lines.push(
+    isArabicLang(lang)
+      ? "📌 أرسل رقم النتيجة لفتح رابطها."
+      : "📌 Send the result number to open its link."
+  );
+
+  lines.push("");
+}
 
  lines.push("────────────");
   lines.push(getFooterHint(lang));
