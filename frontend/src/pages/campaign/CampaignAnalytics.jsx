@@ -10,43 +10,92 @@ export default function CampaignAnalytics({ lang = "en" }) {
   const [campaigns, setCampaigns] = useState([]);
   const [participants, setParticipants] = useState([]);
   const [error, setError] = useState("");
-
+  const [platform, setPlatform] = useState(null);
+  
   useEffect(() => {
     loadAnalytics();
   }, []);
+async function loadAnalytics() {
+  try {
+    setLoading(true);
+    setError("");
 
-  async function loadAnalytics() {
-    try {
-      setLoading(true);
-      setError("");
+    const token =
+      localStorage.getItem("campaign_token");
 
-      const token = localStorage.getItem("campaign_token");
-      const headers = { Authorization: `Bearer ${token}` };
+    const headers = {
+      Authorization: `Bearer ${token}`,
+    };
 
-      const [campaignsRes, participantsRes] = await Promise.all([
-        fetch(`${API_BASE}/api/campaign/campaigns`, { headers }),
-        fetch(`${API_BASE}/api/campaign/participants`, { headers }),
-      ]);
+    const [
+      campaignsRes,
+      participantsRes,
+      platformRes,
+    ] = await Promise.all([
+      fetch(
+        `${API_BASE}/api/campaign/campaigns`,
+        { headers }
+      ),
 
-      const campaignsData = await campaignsRes.json();
-      const participantsData = await participantsRes.json();
+      fetch(
+        `${API_BASE}/api/campaign/participants`,
+        { headers }
+      ),
 
-      if (!campaignsRes.ok) {
-        throw new Error(campaignsData.error || "Failed to load campaigns");
-      }
+      fetch(
+        `${API_BASE}/api/platform/analytics/search-demand`,
+        { headers }
+      ),
+    ]);
 
-      if (!participantsRes.ok) {
-        throw new Error(participantsData.error || "Failed to load participants");
-      }
+    const campaignsData =
+      await campaignsRes.json();
 
-      setCampaigns(campaignsData.campaigns || []);
-      setParticipants(participantsData.participants || []);
-    } catch (err) {
-      setError(err.message || "Failed to load analytics");
-    } finally {
-      setLoading(false);
+    const participantsData =
+      await participantsRes.json();
+
+    const platformData =
+      await platformRes.json();
+
+    if (!campaignsRes.ok) {
+      throw new Error(
+        campaignsData.error ||
+          "Failed to load campaigns"
+      );
     }
+
+    if (!participantsRes.ok) {
+      throw new Error(
+        participantsData.error ||
+          "Failed to load participants"
+      );
+    }
+
+    if (!platformRes.ok) {
+      throw new Error(
+        platformData.error ||
+          "Failed to load platform analytics"
+      );
+    }
+
+    setCampaigns(
+      campaignsData.campaigns || []
+    );
+
+    setParticipants(
+      participantsData.participants || []
+    );
+
+    setPlatform(platformData);
+  } catch (err) {
+    setError(
+      err.message ||
+        "Failed to load analytics"
+    );
+  } finally {
+    setLoading(false);
   }
+}
 
   const analytics = useMemo(() => {
     const totalBudget = campaigns.reduce(
