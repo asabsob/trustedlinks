@@ -161,7 +161,7 @@ export default function CampaignLayout() {
             {t[lang].campaignManagement}
           </div>
 
-          <nav className="space-y-2">
+          <nav className="space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon;
 
@@ -170,7 +170,7 @@ export default function CampaignLayout() {
                   key={item.to}
                   to={item.to}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-4 py-3 rounded-2xl transition ${
+                    `flex items-center gap-3 px-4 py-2.5 rounded-xl transition ${
                       isActive
                         ? "bg-green-500 text-white"
                         : "hover:bg-white/10 text-slate-300"
@@ -187,24 +187,7 @@ export default function CampaignLayout() {
             })}
           </nav>
 
-          {/* ACCOUNT */}
-          <div className="mt-10">
-            <div className="text-xs uppercase tracking-wider text-slate-500 mb-4 px-3">
-              {t[lang].account}
-            </div>
-
-            <button
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-white/10 text-slate-300 transition"
-            >
-              <Settings size={20} />
-
-              <span>
-                {t[lang].settings}
-              </span>
-            </button>
-          </div>
-        </div>
-
+      
         {/* FOOTER */}
         <div className="p-4 border-t border-white/10">
           <button
