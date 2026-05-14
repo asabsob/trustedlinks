@@ -213,10 +213,7 @@ export default function App() {
     element={<Navigate to="dashboard" replace />}
   />
 
-  <Route
-    path="dashboard"
-    element={<CampaignDashboard />}
-  />
+  <Route path="dashboard" element={<CampaignDashboard lang={lang} />} />
 
   <Route
     path="campaigns"
