@@ -85,43 +85,49 @@ export default function CampaignLayout() {
     navigate("/campaign/login");
   }
 
-  const navItems = [
-    {
-      to: "/campaign/dashboard",
-      label: t[lang].dashboard,
-      icon: LayoutDashboard,
-    },
+ const navItems = [
+  {
+    to: "/campaign/dashboard",
+    label: t[lang].dashboard,
+    icon: LayoutDashboard,
+  },
 
-    {
-      to: "/campaign/campaigns",
-      label: t[lang].campaigns,
-      icon: Megaphone,
-    },
+  {
+    to: "/campaign/campaigns",
+    label: t[lang].campaigns,
+    icon: Megaphone,
+  },
 
-    {
-      to: "/campaign/funding-codes",
-      label: t[lang].fundingCodes,
-      icon: Ticket,
-    },
+  {
+    to: "/campaign/funding-codes",
+    label: t[lang].fundingCodes,
+    icon: Ticket,
+  },
 
-    {
-      to: "/campaign/participants",
-      label: t[lang].participants,
-      icon: Users,
-    },
+  {
+    to: "/campaign/participants",
+    label: t[lang].participants,
+    icon: Users,
+  },
 
-    {
-      to: "/campaign/finance",
-      label: t[lang].finance,
-      icon: Wallet,
-    },
+  {
+    to: "/campaign/finance",
+    label: t[lang].finance,
+    icon: Wallet,
+  },
 
-    {
-      to: "/campaign/analytics",
-      label: t[lang].analytics,
-      icon: BarChart3,
-    },
-  ];
+  {
+    to: "/campaign/analytics",
+    label: t[lang].analytics,
+    icon: BarChart3,
+  },
+
+  {
+    to: "/campaign/settings",
+    label: t[lang].settings,
+    icon: Settings,
+  },
+];
 
   return (
     <div
