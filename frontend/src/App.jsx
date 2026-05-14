@@ -205,6 +205,11 @@ export default function App() {
   path="/campaign/register"
   element={<CampaignRegister lang={lang} />}
 />
+
+  <Route
+  path="/campaign/forgot-password"
+  element={<CampaignForgotPassword lang={lang} />}
+/>
         
 <Route
   path="/campaign"
@@ -238,12 +243,9 @@ export default function App() {
   element={<CampaignSettings lang={lang} />}
 />
   
-  <Route
-  path="/campaign/forgot-password"
-  element={<CampaignForgotPassword lang={lang} />}
-/>
-  
-</Route>        
+</Route>     
+
+      
       {/* Admin Login */}
 <Route path="/admin/login" element={<AdminLogin />} />
 
