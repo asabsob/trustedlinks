@@ -1720,6 +1720,53 @@ app.get("/api/auth/verify-email", async (req, res) => {
 });
 
 // =========================
+// FORGOT PASSWORD
+// =========================
+app.post("/api/auth/forgot-password", async (req, res) => {
+  try {
+    const emailNorm = String(req.body?.email || "")
+      .toLowerCase()
+      .trim();
+
+    if (!emailNorm) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    const user = await getUserByEmail(emailNorm);
+
+    // لا نكشف إذا الإيميل موجود أو لا
+    if (!user) {
+      return res.json({ ok: true });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+
+    await setResetToken(user.id, resetToken, expiresAt);
+
+    const resetUrl = `${FRONTEND_BASE_URL}/reset-password?email=${encodeURIComponent(
+      emailNorm
+    )}&token=${encodeURIComponent(resetToken)}`;
+
+    await sendEmail({
+      to: emailNorm,
+      subject: "Reset your Trusted Links password",
+      html: `
+        <p>You requested to reset your password.</p>
+        <p><a href="${resetUrl}">Reset Password</a></p>
+        <p>This link expires in 30 minutes.</p>
+      `,
+      text: `Reset your password: ${resetUrl}`,
+    });
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("forgot-password error:", e);
+    return res.status(500).json({ error: "Failed" });
+  }
+});
+
+// =========================
 // RESEND VERIFICATION
 // =========================
 app.post("/api/auth/resend-verification", async (req, res) => {
