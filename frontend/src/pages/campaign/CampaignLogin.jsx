@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { Eye, EyeOff } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -19,6 +20,7 @@ export default function CampaignLogin({ lang: appLang = "en" }) {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
 
   const t = (en, ar) => (isAr ? ar : en);
 
@@ -201,20 +203,38 @@ export default function CampaignLogin({ lang: appLang = "en" }) {
               />
             </Field>
 
-            <Field label={t("Password", "كلمة المرور")}>
-              <input
-                type="password"
-                value={form.password}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    password: e.target.value,
-                  })
-                }
-                placeholder={t("Enter your password", "أدخل كلمة المرور")}
-                className="w-full border border-slate-200 rounded-xl p-3.5 outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-              />
-            </Field>
+           <Field label={t("Password", "كلمة المرور")}>
+  <div className="relative">
+    <input
+      type={showPassword ? "text" : "password"}
+      value={form.password}
+      onChange={(e) =>
+        setForm({
+          ...form,
+          password: e.target.value,
+        })
+      }
+      placeholder={t("Enter your password", "أدخل كلمة المرور")}
+      className="w-full border border-slate-200 rounded-xl p-3.5 pe-12 outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+    />
+
+    <button
+      type="button"
+      onClick={() => setShowPassword(!showPassword)}
+      className="absolute top-1/2 -translate-y-1/2 end-3 text-slate-400 hover:text-slate-700"
+    >
+      {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+    </button>
+  </div>
+</Field>
+            <div className="text-end">
+  <Link
+    to="/campaign/forgot-password"
+    className="text-sm text-green-600 font-semibold hover:underline"
+  >
+    {t("Forgot password?", "نسيت كلمة المرور؟")}
+  </Link>
+</div>
 
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 text-sm">
