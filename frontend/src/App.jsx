@@ -217,15 +217,9 @@ export default function App() {
 
   <Route path="campaigns" element={<CampaignCampaigns lang={lang} />} />
   
-  <Route
-    path="funding-codes"
-    element={<CampaignFundingCodes />}
-  />
+  <Route path="funding-codes" element={<CampaignFundingCodes lang={lang} />} />
 
-  <Route
-  path="participants"
-  element={<CampaignParticipants />}
-/>
+  <Route path="participants" element={<CampaignParticipants lang={lang} />} />
 
 <Route
   path="finance"
