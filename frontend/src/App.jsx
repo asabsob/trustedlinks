@@ -46,6 +46,7 @@ import CampaignParticipants from "./pages/campaign/CampaignParticipants";
 import CampaignFinance from "./pages/campaign/CampaignFinance";
 import CampaignAnalytics from "./pages/campaign/CampaignAnalytics";
 import CampaignSettings from "./pages/campaign/CampaignSettings";
+import CampaignForgotPassword from "./pages/campaign/CampaignForgotPassword";
 
 // -------------------------
 // User Protected Route
@@ -235,6 +236,11 @@ export default function App() {
   <Route
   path="settings"
   element={<CampaignSettings lang={lang} />}
+/>
+  
+  <Route
+  path="/campaign/forgot-password"
+  element={<CampaignForgotPassword lang={lang} />}
 />
   
 </Route>        
