@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import LoginModal from "../components/LoginModal";
-import { Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage({ lang }) {
   const [open, setOpen] = useState(false);
@@ -13,7 +12,7 @@ export default function LoginPage({ lang }) {
   }, []);
 
   const from = location.state?.from?.pathname || "/dashboard";
-const [showPassword, setShowPassword] = useState(false);
+
   return (
     <LoginModal
       isOpen={open}
