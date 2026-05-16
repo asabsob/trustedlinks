@@ -5735,11 +5735,14 @@ console.log(
   enrichedResults.map((r) => ({
     id: r.id,
     name: r.name,
-    name_ar: r.name_ar,
+    custom_id: r.custom_id,
+    customId: r.customId,
+    logo: r.logo,
+    logo_url: r.logo_url,
     trackedLink: r.trackedLink,
   }))
 );
-
+    
 const formatTimer =
   `formatSearchResponse_${Date.now()}_${Math.random()}`;
 
