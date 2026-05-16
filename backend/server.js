@@ -5590,6 +5590,18 @@ const imageCardResults = enrichedResults.filter((item) => {
   return logoUrl && /^https?:\/\//i.test(logoUrl);
 });
 
+    const imageCardResults = enrichedResults.filter((item) => {
+  const logoUrl =
+    item.logo_url ||
+    item.logoUrl ||
+    item.logo;
+
+  return (
+    logoUrl &&
+    /^https?:\/\//i.test(logoUrl)
+  );
+});
+
 const useImageCards =
   imageCardResults.length > 0 &&
   enrichedResults.length <= 3;
