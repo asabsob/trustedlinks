@@ -5,6 +5,10 @@
       "destination": "https://trustedlinks-backend-production.up.railway.app/l/:token"
     },
     {
+      "source": "/media/logo/:slug",
+      "destination": "https://trustedlinks-backend-production.up.railway.app/media/logo/:slug"
+    },
+    {
       "source": "/(.*)",
       "destination": "/"
     }
