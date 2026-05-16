@@ -18,7 +18,11 @@ import multer from "multer";
 
 import { searchBusinesses } from "./search/searchService.js";
 import { normalizeSearchText } from "./search/textNormalizer.js";
-import { formatSearchResponse, formatNearestResults } from "./search/searchFormatter.js";
+import {
+  formatSearchResponse,
+  formatNearestResults,
+  formatBusinessBlock,
+} from "./search/searchFormatter.js";
 import { findNearestBusinesses } from "./search/nearbyService.js";
 import crypto from "crypto";
 import { parseSearchIntent } from "./search/intentDetector.js";
