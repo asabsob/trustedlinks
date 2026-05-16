@@ -5580,17 +5580,7 @@ const enrichedResults = await enrichTopOnly({
     searchData?.mode === "refinement_required",
 });
 
-  const imageCardResults = enrichedResults.filter((item) => {
-  const logoUrl = item.logo_url || item.logoUrl || item.logo;
-  return logoUrl && /^https?:\/\//i.test(logoUrl);
-});
-
-const imageCardResults = enrichedResults.filter((item) => {
-  const logoUrl = item.logo_url || item.logoUrl || item.logo;
-  return logoUrl && /^https?:\/\//i.test(logoUrl);
-});
-
-    const imageCardResults = enrichedResults.filter((item) => {
+ const imageCardResults = enrichedResults.filter((item) => {
   const logoUrl =
     item.logo_url ||
     item.logoUrl ||
@@ -5605,7 +5595,7 @@ const imageCardResults = enrichedResults.filter((item) => {
 const useImageCards =
   imageCardResults.length > 0 &&
   enrichedResults.length <= 3;
-
+    
 if (useImageCards) {
   await javnaSendText({
     to: from,
