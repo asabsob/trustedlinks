@@ -14,6 +14,8 @@ import { nanoid } from "nanoid";
 
 import supabase from "./db/postgres.js";
 
+import multer from "multer";
+
 import { searchBusinesses } from "./search/searchService.js";
 import { normalizeSearchText } from "./search/textNormalizer.js";
 import { formatSearchResponse, formatNearestResults } from "./search/searchFormatter.js";
@@ -221,6 +223,13 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
 
 const app = express();
 app.set("trust proxy", 1);
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+  },
+});
 
 app.use(express.json({ limit: "200kb" }));
 app.use(express.urlencoded({ extended: true, limit: "200kb" }));
@@ -1683,6 +1692,57 @@ billingNearbyIntentCost: getBusinessPricing({
     return res.status(500).json({ error: "Signup failed" });
   }
 });
+
+app.post(
+  "/api/upload/logo",
+  upload.single("logo"),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          error: "Logo file is required",
+        });
+      }
+
+      const file = req.file;
+
+      const ext =
+        file.originalname.split(".").pop() || "jpg";
+
+      const fileName =
+        `logos/${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2)}.${ext}`;
+
+      const { error: uploadError } = await supabase
+        .storage
+        .from("business-media")
+        .upload(fileName, file.buffer, {
+          contentType: file.mimetype,
+          upsert: false,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data } = supabase.storage
+        .from("business-media")
+        .getPublicUrl(fileName);
+
+      return res.json({
+        success: true,
+        logoUrl: data.publicUrl,
+      });
+    } catch (err) {
+      console.error("LOGO_UPLOAD_ERROR", err);
+
+      return res.status(500).json({
+        error: "Failed to upload logo",
+      });
+    }
+  }
+);
 
 // =========================
 // LOGIN
