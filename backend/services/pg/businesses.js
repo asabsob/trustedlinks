@@ -19,6 +19,7 @@ function mapBusiness(row) {
     longitude: row.longitude,
     mapLink: row.map_link,
     mediaLink: row.media_link,
+    logo_url: row.logo,
     logo: row.logo,
     locationText: row.location_text,
     countryCode: row.country_code,
