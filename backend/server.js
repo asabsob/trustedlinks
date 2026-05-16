@@ -1457,7 +1457,7 @@ async function javnaSendImage({
   return javnaSendText({
     to,
     body:
-      `${caption}\n\n🖼 شعار النشاط:\n${imageUrl}`,
+  `${caption}\n\n${imageUrl}`,
   });
 }
 
