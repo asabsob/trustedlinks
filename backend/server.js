@@ -1454,10 +1454,13 @@ async function javnaSendImage({
   customId,
   caption = "",
 }) {
+  if (!customId) {
+    return javnaSendText({ to, body: caption });
+  }
+
   return javnaSendText({
     to,
-    body:
-      `${caption}\n\n${FRONTEND_BASE_URL}/logo/${customId}`,
+    body: `${caption}\n\n${FRONTEND_BASE_URL}/media/logo/${customId}`,
   });
 }
 
@@ -5260,7 +5263,7 @@ function normalizeIntentType(intentData = {}, query = "") {
   return "category";
 }
 
-app.get("/logo/:slug", async (req, res) => {
+app.get("/media/logo/:slug", async (req, res) => {
   try {
     const slug = String(req.params.slug || "").trim();
 
@@ -5271,10 +5274,7 @@ app.get("/logo/:slug", async (req, res) => {
       .maybeSingle();
 
     if (error) throw error;
-
-    if (!business?.logo) {
-      return res.status(404).send("Logo not found");
-    }
+    if (!business?.logo) return res.status(404).send("Logo not found");
 
     return res.redirect(302, business.logo);
   } catch (err) {
