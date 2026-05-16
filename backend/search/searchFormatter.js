@@ -64,12 +64,6 @@ function getDisplayName(item = {}, lang = "ar") {
     : cleanText(item.name_en || item.name || item.name_ar || "Business");
 }
 
-function getLogoLine(item = {}) {
-  const logo = item.logo_url || item.logoUrl || "";
-  if (!logo) return "";
-
-  return `🖼 ${logo}`;
-}
 
 function getCategoryText(item = {}, lang = "ar") {
   const raw = isArabicLang(lang)
@@ -151,8 +145,8 @@ function getDirectionsLine(item = {}, lang = "ar") {
 
 function getIntentHeader(intent = "category", query = "", lang = "ar") {
   return isArabicLang(lang)
-    ? `🔎 نتائج البحث\n"${query}"`
-    : `🔎 Search results\n"${query}"`;
+  ? `🔎 نتائج البحث: "${query}"`
+  : `🔎 Search results: "${query}"`
 }
 
 function getFooterHint(lang = "ar") {
@@ -172,14 +166,7 @@ function formatBusinessBlock(item = {}, index = 0, lang = "ar", options = {}) {
 const lines = [];
 const name = getDisplayName(item, lang);
 
-const logoLine = getLogoLine(item);
-
-lines.push("────────────");
-
-if (logoLine) {
-  lines.push(logoLine);
-  lines.push("");
-}
+  lines.push("────────────");
 
 lines.push(
   isArabicLang(lang)
