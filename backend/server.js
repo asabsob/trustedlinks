@@ -1436,6 +1436,40 @@ async function javnaSendText({ to, body }) {
   }
 }
 
+async function javnaSendImage({
+  to,
+  imageUrl,
+  caption = "",
+}) {
+  const response = await fetch(
+    "https://api.ja-vna.com/v1/messages",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.JAVNA_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        to,
+        type: "image",
+        image: {
+          link: imageUrl,
+          caption,
+        },
+      }),
+    }
+  );
+
+  const text = await response.text();
+
+  if (!response.ok) {
+    throw new Error(
+      `Javna image send failed (${response.status}): ${text}`
+    );
+  }
+
+  return text;
+}
 async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
   if (!JAVNA_FROM) throw new Error("Missing JAVNA_FROM");
@@ -5545,8 +5579,65 @@ const enrichedResults = await enrichTopOnly({
   needsRefinement:
     searchData?.mode === "refinement_required",
 });
-  
 
+  const imageCardResults = enrichedResults.filter((item) => {
+  const logoUrl = item.logo_url || item.logoUrl || item.logo;
+  return logoUrl && /^https?:\/\//i.test(logoUrl);
+});
+
+const imageCardResults = enrichedResults.filter((item) => {
+  const logoUrl = item.logo_url || item.logoUrl || item.logo;
+  return logoUrl && /^https?:\/\//i.test(logoUrl);
+});
+
+const useImageCards =
+  imageCardResults.length > 0 &&
+  enrichedResults.length <= 3;
+
+if (useImageCards) {
+  await javnaSendText({
+    to: from,
+    body:
+      lang === "ar"
+        ? `🔎 نتائج البحث: "${effectiveQuery}"`
+        : `🔎 Search results: "${effectiveQuery}"`,
+  }).catch(console.error);
+
+  for (let i = 0; i < enrichedResults.length; i++) {
+    const item = enrichedResults[i];
+    const logoUrl = item.logo_url || item.logoUrl || item.logo;
+
+    if (!logoUrl || !/^https?:\/\//i.test(logoUrl)) {
+      await javnaSendText({
+        to: from,
+        body: formatBusinessBlock(item, i, lang, {
+          includeCategory: true,
+          includeDistance: false,
+          showLink: i === 0,
+          showDirections: i === 0,
+        }),
+      }).catch(console.error);
+
+      continue;
+    }
+
+    await javnaSendImage({
+      to: from,
+      imageUrl: logoUrl,
+      caption: formatBusinessBlock(item, i, lang, {
+        includeCategory: true,
+        includeDistance: false,
+        showLink: i === 0,
+        showDirections: i === 0,
+      }),
+    }).catch((err) => {
+      console.error("JAVNA IMAGE SEND ERROR:", err);
+    });
+  }
+
+  return;
+}
+    
 console.timeEnd(enrichTimer);
 
     console.log(
@@ -5571,6 +5662,7 @@ const reply = formatSearchResponse(
 );
 
 console.timeEnd(formatTimer);
+
     
 javnaSendText({
   to: from,
