@@ -19,12 +19,14 @@ function mapBusiness(row) {
     longitude: row.longitude,
     mapLink: row.map_link,
     mediaLink: row.media_link,
-    logo_url: row.logo,
-    logo: row.logo,
     locationText: row.location_text,
     countryCode: row.country_code,
     countryName: row.country_name,
-    customId: row.custom_id,
+   customId: row.custom_id,
+custom_id: row.custom_id,
+logo_url: row.logo,
+logoUrl: row.logo,
+logo: row.logo,
 
     // ✅ wallet
     wallet: {
