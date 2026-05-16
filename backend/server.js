@@ -5685,7 +5685,7 @@ for (let i = 0; i < enrichedResults.length; i++) {
     continue;
   }
 
-  try {
+   try {
     await javnaSendImage({
       to: from,
       imageUrl: logoUrl,
@@ -5701,43 +5701,9 @@ for (let i = 0; i < enrichedResults.length; i++) {
   }
 }
 
-return;    
-console.timeEnd(enrichTimer);
-
-    console.log(
-  "ENRICHED_LINKS_DEBUG",
-  enrichedResults.map((r) => ({
-    id: r.id,
-    name: r.name,
-    name_ar: r.name_ar,
-    trackedLink: r.trackedLink,
-  }))
-);
-
-const formatTimer = `formatSearchResponse_${Date.now()}_${Math.random()}`;
-console.time(formatTimer);
-    
-const reply = formatSearchResponse(
-  {
-    ...searchData,
-    results: enrichedResults,
-  },
-  lang
-);
-
-console.timeEnd(formatTimer);
-
-    
-javnaSendText({
-  to: from,
-  body: reply,
-}).catch((err) => {
-  console.error("JAVNA SEND ERROR:", err);
-});
-
 return;
-    
-      } catch (e) {
+
+  } catch (e) {
     console.error("WHATSAPP WEBHOOK ERROR:", e);
   }
 });
