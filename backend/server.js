@@ -5665,41 +5665,43 @@ if (useImageCards) {
         : `🔎 Search results: "${effectiveQuery}"`,
   }).catch(console.error);
 
-  for (let i = 0; i < enrichedResults.length; i++) {
-    const item = enrichedResults[i];
-    const logoUrl = item.logo_url || item.logoUrl || item.logo;
+for (let i = 0; i < enrichedResults.length; i++) {
+  const item = enrichedResults[i];
+  const logoUrl = item.logo_url || item.logoUrl || item.logo;
 
-    if (!logoUrl || !/^https?:\/\//i.test(logoUrl)) {
-      await javnaSendText({
-        to: from,
-        body: formatBusinessBlock(item, i, lang, {
-          includeCategory: true,
-          includeDistance: false,
-          showLink: i === 0,
-          showDirections: i === 0,
-        }),
-      }).catch(console.error);
+  const caption = formatBusinessBlock(item, i, lang, {
+    includeCategory: true,
+    includeDistance: false,
+    showLink: i === 0,
+    showDirections: i === 0,
+  });
 
-      continue;
-    }
+  if (!logoUrl || !/^https?:\/\//i.test(logoUrl)) {
+    await javnaSendText({
+      to: from,
+      body: caption,
+    }).catch(console.error);
 
+    continue;
+  }
+
+  try {
     await javnaSendImage({
       to: from,
       imageUrl: logoUrl,
-      caption: formatBusinessBlock(item, i, lang, {
-        includeCategory: true,
-        includeDistance: false,
-        showLink: i === 0,
-        showDirections: i === 0,
-      }),
-    }).catch((err) => {
-      console.error("JAVNA IMAGE SEND ERROR:", err);
+      caption,
     });
-  }
+  } catch (err) {
+    console.error("JAVNA IMAGE SEND ERROR:", err);
 
-  return;
+    await javnaSendText({
+      to: from,
+      body: caption,
+    }).catch(console.error);
+  }
 }
-    
+
+return;    
 console.timeEnd(enrichTimer);
 
     console.log(
