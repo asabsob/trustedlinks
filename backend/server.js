@@ -5640,7 +5640,7 @@ const enrichedResults = await enrichTopOnly({
     searchData?.mode === "refinement_required",
 });
 
- const imageCardResults = enrichedResults.filter((item) => {
+const imageCardResults = enrichedResults.filter((item) => {
   const logoUrl =
     item.logo_url ||
     item.logoUrl ||
@@ -5655,7 +5655,7 @@ const enrichedResults = await enrichTopOnly({
 const useImageCards =
   imageCardResults.length > 0 &&
   enrichedResults.length <= 3;
-    
+
 if (useImageCards) {
   await javnaSendText({
     to: from,
@@ -5665,48 +5665,105 @@ if (useImageCards) {
         : `🔎 Search results: "${effectiveQuery}"`,
   }).catch(console.error);
 
-for (let i = 0; i < enrichedResults.length; i++) {
-  const item = enrichedResults[i];
-  const logoUrl = item.logo_url || item.logoUrl || item.logo;
+  for (let i = 0; i < enrichedResults.length; i++) {
+    const item = enrichedResults[i];
 
-  const caption = formatBusinessBlock(item, i, lang, {
-    includeCategory: true,
-    includeDistance: false,
-    showLink: i === 0,
-    showDirections: i === 0,
-  });
+    const logoUrl =
+      item.logo_url ||
+      item.logoUrl ||
+      item.logo;
 
-  if (!logoUrl || !/^https?:\/\//i.test(logoUrl)) {
-    await javnaSendText({
-      to: from,
-      body: caption,
-    }).catch(console.error);
+    const caption = formatBusinessBlock(
+      item,
+      i,
+      lang,
+      {
+        includeCategory: true,
+        includeDistance: false,
+        showLink: i === 0,
+        showDirections: i === 0,
+      }
+    );
 
-    continue;
+    if (
+      !logoUrl ||
+      !/^https?:\/\//i.test(logoUrl)
+    ) {
+      await javnaSendText({
+        to: from,
+        body: caption,
+      }).catch(console.error);
+
+      continue;
+    }
+
+    try {
+      await javnaSendImage({
+        to: from,
+        imageUrl: logoUrl,
+        caption,
+      });
+    } catch (err) {
+      console.error(
+        "JAVNA IMAGE SEND ERROR:",
+        err
+      );
+
+      await javnaSendText({
+        to: from,
+        body: caption,
+      }).catch(console.error);
+    }
   }
 
-   try {
-    await javnaSendImage({
-      to: from,
-      imageUrl: logoUrl,
-      caption,
-    });
-  } catch (err) {
-    console.error("JAVNA IMAGE SEND ERROR:", err);
-
-    await javnaSendText({
-      to: from,
-      body: caption,
-    }).catch(console.error);
-  }
+  return;
 }
+
+console.timeEnd(enrichTimer);
+
+console.log(
+  "ENRICHED_LINKS_DEBUG",
+  enrichedResults.map((r) => ({
+    id: r.id,
+    name: r.name,
+    name_ar: r.name_ar,
+    trackedLink: r.trackedLink,
+  }))
+);
+
+const formatTimer =
+  `formatSearchResponse_${Date.now()}_${Math.random()}`;
+
+console.time(formatTimer);
+
+const reply = formatSearchResponse(
+  {
+    ...searchData,
+    results: enrichedResults,
+  },
+  lang
+);
+
+console.timeEnd(formatTimer);
+
+javnaSendText({
+  to: from,
+  body: reply,
+}).catch((err) => {
+  console.error(
+    "JAVNA SEND ERROR:",
+    err
+  );
+});
 
 return;
 
-  } catch (e) {
-    console.error("WHATSAPP WEBHOOK ERROR:", e);
-  }
+    } catch (e) {
+  console.error("WHATSAPP WEBHOOK ERROR:", e);
+}
 });
+
+
 
 app.post("/api/create-lead", async (req, res) => {
   try {
