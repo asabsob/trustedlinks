@@ -64,6 +64,13 @@ function getDisplayName(item = {}, lang = "ar") {
     : cleanText(item.name_en || item.name || item.name_ar || "Business");
 }
 
+function getLogoLine(item = {}) {
+  const logo = item.logo_url || item.logoUrl || "";
+  if (!logo) return "";
+
+  return `🖼 ${logo}`;
+}
+
 function getCategoryText(item = {}, lang = "ar") {
   const raw = isArabicLang(lang)
     ? item.category_ar || item.category
@@ -116,9 +123,9 @@ function getChatLine(item = {}, lang = "ar", options = {}) {
   const link = item.trackedLink || item.whatsappLink;
   if (!link) return "";
 
-  return isArabicLang(lang)
-    ? `💬 رابط التواصل:\n${link}`
-    : `💬 Contact link:\n${link}`;
+ return isArabicLang(lang)
+  ? `💬 رابط التواصل عبر واتساب:\n${link}`
+  : `💬 WhatsApp contact link:\n${link}`;
 }
 
 function getMapLink(item = {}) {
@@ -162,14 +169,22 @@ function formatBusinessBlock(item = {}, index = 0, lang = "ar", options = {}) {
     showDirections = true,
   } = options;
 
-  const lines = [];
-  const name = getDisplayName(item, lang);
+const lines = [];
+const name = getDisplayName(item, lang);
 
-  lines.push("────────────");
- lines.push(
+const logoLine = getLogoLine(item);
+
+lines.push("────────────");
+
+if (logoLine) {
+  lines.push(logoLine);
+  lines.push("");
+}
+
+lines.push(
   isArabicLang(lang)
     ? `🔹 ${index + 1}. ${name}`
-    : `${index + 1}. ${name}`
+    : `🔹 ${index + 1}. ${name}`
 );
 
   if (includeCategory) {
