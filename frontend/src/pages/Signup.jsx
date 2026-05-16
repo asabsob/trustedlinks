@@ -379,48 +379,26 @@ export default function Signup({ lang = "en" }) {
     );
   };
 
-  const convertLogoToBase64 = async () => {
-    if (!logo) return "";
+ async function uploadLogo(file) {
+  if (!file) return "";
 
-    return new Promise((resolve) => {
-      const img = new Image();
-      const reader = new FileReader();
+  const formData = new FormData();
+  formData.append("logo", file);
 
-      reader.onload = (e) => {
-        img.src = e.target.result;
-      };
+  const res = await fetch(`${API_BASE}/api/upload/logo`, {
+    method: "POST",
+    body: formData,
+  });
 
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
+  const data = await res.json();
 
-        const MAX_SIZE = 300;
-        let width = img.width;
-        let height = img.height;
+  if (!res.ok) {
+    throw new Error(data?.error || "Logo upload failed");
+  }
 
-        if (width > height) {
-          if (width > MAX_SIZE) {
-            height *= MAX_SIZE / width;
-            width = MAX_SIZE;
-          }
-        } else if (height > MAX_SIZE) {
-          width *= MAX_SIZE / height;
-          height = MAX_SIZE;
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0, width, height);
-
-        const compressed = canvas.toDataURL("image/jpeg", 0.7);
-        resolve(compressed);
-      };
-
-      reader.readAsDataURL(logo);
-    });
-  };
-
+  return data.logoUrl || "";
+}
+  
   const handleSignup = async (e) => {
     e.preventDefault();
 
@@ -482,7 +460,7 @@ export default function Signup({ lang = "en" }) {
     setLoading(true);
 
     try {
-      const logoBase64 = await convertLogoToBase64();
+      const logoUrl = logo ? await uploadLogo(logo) : "";
 
       const cleanInstagram = instagram.trim().replace(/^@+/, "");
       const instagramLink = cleanInstagram
@@ -510,7 +488,7 @@ export default function Signup({ lang = "en" }) {
         mapLink: mapLink.trim(),
         mediaLink: instagramLink,
         otpToken,
-        logo: logoBase64,
+        logo: logoUrl,
       };
 
       localStorage.setItem("otpToken", otpToken);
