@@ -155,7 +155,7 @@ function getFooterHint(lang = "ar") {
     : `💡 Send another search\nExample: coffee, restaurant, nearest pharmacy`;
 }
 
-export function formatBusinessBlock((item = {}, index = 0, lang = "ar", options = {}) {
+export function formatBusinessBlock(item = {}, index = 0, lang = "ar", options = {}) {
   const {
     includeDistance = false,
     includeCategory = true,
