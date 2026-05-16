@@ -1451,13 +1451,13 @@ async function javnaSendText({ to, body }) {
 
 async function javnaSendImage({
   to,
-  imageUrl,
+  customId,
   caption = "",
 }) {
   return javnaSendText({
     to,
     body:
-  `${caption}\n\n${imageUrl}`,
+      `${caption}\n\n${FRONTEND_BASE_URL}/logo/${customId}`,
   });
 }
 
@@ -5259,6 +5259,30 @@ function normalizeIntentType(intentData = {}, query = "") {
 
   return "category";
 }
+
+app.get("/logo/:slug", async (req, res) => {
+  try {
+    const slug = String(req.params.slug || "").trim();
+
+    const { data: business, error } = await supabase
+      .from("businesses")
+      .select("logo")
+      .eq("custom_id", slug)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (!business?.logo) {
+      return res.status(404).send("Logo not found");
+    }
+
+    return res.redirect(302, business.logo);
+  } catch (err) {
+    console.error("LOGO_REDIRECT_ERROR", err);
+    return res.status(500).send("Logo error");
+  }
+});
+
 // ============================================================================
 // WhatsApp Webhook - Production Fast Version
 // ============================================================================
@@ -5681,10 +5705,13 @@ if (useImageCards) {
 
     try {
       await javnaSendImage({
-        to: from,
-        imageUrl: logoUrl,
-        caption,
-      });
+  to: from,
+ customId:
+  item.custom_id ||
+  item.customId,
+  caption,
+});
+      
     } catch (err) {
       console.error(
         "JAVNA IMAGE SEND ERROR:",
