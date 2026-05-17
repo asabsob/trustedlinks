@@ -5837,6 +5837,26 @@ if (useImageCards) {
     });
   }
 
+  await javnaSendInteractiveButtons({
+  to: from,
+  body:
+    lang === "ar"
+      ? "اختر الإجراء المناسب:"
+      : "Choose an action:",
+  buttons: [
+    {
+      id: `contact_${item.id}`,
+      title: lang === "ar" ? "تواصل" : "Contact",
+    },
+    {
+      id: `directions_${item.id}`,
+      title: lang === "ar" ? "الاتجاهات" : "Directions",
+    },
+  ],
+}).catch((err) => {
+  console.error("JAVNA INTERACTIVE ERROR:", err);
+});
+  
   return;
 }
 console.timeEnd(enrichTimer);
@@ -5886,25 +5906,6 @@ return;
 }
 });
 
-await javnaSendInteractiveButtons({
-  to: from,
-  body:
-    lang === "ar"
-      ? "اختر الإجراء المناسب:"
-      : "Choose an action:",
-  buttons: [
-    {
-      id: `contact_${item.id}`,
-      title: lang === "ar" ? "تواصل" : "Contact",
-    },
-    {
-      id: `directions_${item.id}`,
-      title: lang === "ar" ? "الاتجاهات" : "Directions",
-    },
-  ],
-}).catch((err) => {
-  console.error("JAVNA INTERACTIVE ERROR:", err);
-});
 
 app.post("/api/create-lead", async (req, res) => {
   try {
