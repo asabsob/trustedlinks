@@ -235,8 +235,7 @@ export default function Dashboard({ lang = "en" }) {
               "Manage your business profile, wallet, and performance from one place."}
           </p>
         </div>
-      </section>
-
+     
       </section>
 
 <AIAssistantBox
