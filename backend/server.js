@@ -1520,20 +1520,6 @@ async function javnaSendText({ to, body }) {
   }
 }
 
-async function javnaSendImage({
-  to,
-  customId,
-  caption = "",
-}) {
-  if (!customId) {
-    return javnaSendText({ to, body: caption });
-  }
-
-  return javnaSendText({
-    to,
-    body: `${caption}\n\n${FRONTEND_BASE_URL}/media/logo/${customId}`,
-  });
-}
 
 async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
