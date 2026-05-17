@@ -6,7 +6,10 @@ const API_BASE =
   import.meta.env.VITE_API_BASE ||
   "https://trustedlinks-backend-production.up.railway.app";
 
-export default function AIAssistantBox({ lang = "ar", pageContext = "dashboard" }) {
+export default function AIAssistantBox({
+  lang = "ar",
+  pageContext = "dashboard",
+}) {
   const isAr = lang === "ar";
   const [loading, setLoading] = useState(false);
   const [answer, setAnswer] = useState("");
@@ -19,6 +22,11 @@ export default function AIAssistantBox({ lang = "ar", pageContext = "dashboard" 
       const token =
         localStorage.getItem("token") ||
         localStorage.getItem("trustedlinks_token");
+
+      if (!token) {
+        setAnswer(isAr ? "يرجى تسجيل الدخول أولًا." : "Please login first.");
+        return;
+      }
 
       const res = await fetch(`${API_BASE}/api/ai/merchant/assistant`, {
         method: "POST",
@@ -52,19 +60,21 @@ export default function AIAssistantBox({ lang = "ar", pageContext = "dashboard" 
   }
 
   return (
-    <section className="mb-6 rounded-3xl border border-green-100 bg-gradient-to-br from-green-50 to-white p-6 shadow-sm">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+    <section style={boxStyle}>
+      <div style={topRowStyle}>
         <div>
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-green-100 px-4 py-1 text-sm font-semibold text-green-700">
+          <div style={badgeStyle}>
             <Bot size={16} />
             {isAr ? "مساعد TrustedLinks الذكي" : "TrustedLinks AI Assistant"}
           </div>
 
-          <h3 className="text-xl font-bold text-slate-900">
-            {isAr ? "افهم أداء نشاطك بسرعة" : "Understand your business performance"}
+          <h3 style={titleStyle}>
+            {isAr
+              ? "افهم أداء نشاطك بسرعة"
+              : "Understand your business performance"}
           </h3>
 
-          <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-600">
+          <p style={descStyle}>
             {isAr
               ? "يشرح لك الرصيد، الليدز، حالة النشاط، الرعاية، ويقترح تحسينات لزيادة الظهور."
               : "Explains wallet, leads, business status, sponsorship, and gives visibility recommendations."}
@@ -74,7 +84,11 @@ export default function AIAssistantBox({ lang = "ar", pageContext = "dashboard" 
         <button
           onClick={askAI}
           disabled={loading}
-          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-green-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+          style={{
+            ...buttonStyle,
+            opacity: loading ? 0.65 : 1,
+            cursor: loading ? "not-allowed" : "pointer",
+          }}
         >
           <Sparkles size={16} />
           {loading
@@ -87,11 +101,78 @@ export default function AIAssistantBox({ lang = "ar", pageContext = "dashboard" 
         </button>
       </div>
 
-      {answer && (
-        <div className="mt-5 whitespace-pre-line rounded-2xl border border-slate-100 bg-white p-5 text-sm leading-8 text-slate-700 shadow-sm">
-          {answer}
-        </div>
-      )}
+      {answer && <div style={answerStyle}>{answer}</div>}
     </section>
   );
 }
+
+const boxStyle = {
+  marginBottom: 22,
+  padding: 22,
+  borderRadius: 20,
+  border: "1px solid #bbf7d0",
+  background: "linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%)",
+  boxShadow: "0 8px 24px rgba(22, 163, 74, 0.08)",
+};
+
+const topRowStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: 18,
+  flexWrap: "wrap",
+};
+
+const badgeStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+  background: "#dcfce7",
+  color: "#166534",
+  borderRadius: 999,
+  padding: "6px 12px",
+  fontSize: 13,
+  fontWeight: 700,
+  marginBottom: 12,
+};
+
+const titleStyle = {
+  margin: "0 0 8px",
+  fontSize: 22,
+  fontWeight: 800,
+  color: "#111827",
+};
+
+const descStyle = {
+  margin: 0,
+  maxWidth: 720,
+  fontSize: 14,
+  lineHeight: 1.8,
+  color: "#4b5563",
+};
+
+const buttonStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+  border: "none",
+  borderRadius: 14,
+  background: "#16a34a",
+  color: "#fff",
+  padding: "12px 18px",
+  fontSize: 14,
+  fontWeight: 800,
+};
+
+const answerStyle = {
+  marginTop: 18,
+  whiteSpace: "pre-line",
+  background: "#fff",
+  border: "1px solid #e5e7eb",
+  borderRadius: 16,
+  padding: 18,
+  fontSize: 14,
+  lineHeight: 2,
+  color: "#374151",
+};
