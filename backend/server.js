@@ -5793,6 +5793,7 @@ const imageCardResults = enrichedResults.filter((item) => {
 const useImageCards =
   imageCardResults.length > 0 &&
   enrichedResults.length <= 3;
+
 if (useImageCards) {
   await javnaSendText({
     to: from,
@@ -5802,51 +5803,42 @@ if (useImageCards) {
         : `🔎 Search results: "${effectiveQuery}"`,
   }).catch(console.error);
 
- ```js
-for (let i = 0; i < enrichedResults.length; i++) {
-  const item = enrichedResults[i];
+  for (let i = 0; i < enrichedResults.length; i++) {
+    const item = enrichedResults[i];
 
-  const logoUrl =
-    item.logo_url ||
-    item.logoUrl ||
-    item.logo;
+    const logoUrl =
+      item.logo_url ||
+      item.logoUrl ||
+      item.logo;
 
-  const caption = formatBusinessBlock(
-    item,
-    i,
-    lang,
-    {
+    const caption = formatBusinessBlock(item, i, lang, {
       includeCategory: true,
       includeDistance: false,
       showLink: i === 0,
       showDirections: i === 0,
+    });
+
+    if (!logoUrl || !/^https?:\/\//i.test(logoUrl)) {
+      await javnaSendText({
+        to: from,
+        body: caption,
+      }).catch(console.error);
+
+      continue;
     }
-  );
 
-  if (
-    !logoUrl ||
-    !/^https?:\/\//i.test(logoUrl)
-  ) {
-    await javnaSendText({
+    await javnaSendImage({
       to: from,
-      body: caption,
-    }).catch(console.error);
-
-    continue;
+      customId:
+        item.custom_id ||
+        item.customId,
+      caption,
+    });
   }
 
-  await javnaSendImage({
-    to: from,
-    customId:
-      item.custom_id ||
-      item.customId,
-    caption,
-  });
+  return;
+}
 
-
-return;
-
-  
 console.timeEnd(enrichTimer);
 
 console.log(
@@ -5855,34 +5847,7 @@ console.log(
     id: r.id,
     name: r.name,
     custom_id: r.custom_id,
-    customId: r.customId,await javnaSendInteractiveButtons({
-  to: from,
-  body:
-    lang === "ar"
-      ? "اختر الإجراء المناسب:"
-      : "Choose an action:",
-  buttons: [
-    {
-      id: "contact_" + item.id,
-      title:
-        lang === "ar"
-          ? "تواصل"
-          : "Contact",
-    },
-    {
-      id: "directions_" + item.id,
-      title:
-        lang === "ar"
-          ? "الاتجاهات"
-          : "Directions",
-    },
-  ],
-}).catch((err) => {
-  console.error(
-    "JAVNA INTERACTIVE ERROR:",
-    err
-  );
-});
+    customId: r.customId,
     logo: r.logo,
     logo_url: r.logo_url,
     trackedLink: r.trackedLink,
