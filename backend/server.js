@@ -5732,7 +5732,6 @@ const imageCardResults = enrichedResults.filter((item) => {
 const useImageCards =
   imageCardResults.length > 0 &&
   enrichedResults.length <= 3;
-
 if (useImageCards) {
   await javnaSendText({
     to: from,
@@ -5775,25 +5774,25 @@ if (useImageCards) {
     }
 
     console.log("IMAGE_CARD_ITEM_DEBUG", {
-  id: item.id,
-  name: item.name,
-  custom_id: item.custom_id,
-  customId: item.customId,
-  logo: item.logo,
-  logo_url: item.logo_url,
-});
-    
-   await javnaSendImage({
-  to: from,
-  customId:
-    item.custom_id ||
-    item.customId,
-  caption,
-});
-      
+      id: item.id,
+      name: item.name,
+      custom_id: item.custom_id,
+      customId: item.customId,
+      logo: item.logo,
+      logo_url: item.logo_url,
+    });
+
+    await javnaSendImage({
+      to: from,
+      customId:
+        item.custom_id ||
+        item.customId,
+      caption,
+    });
+  }
+
   return;
 }
-
 console.timeEnd(enrichTimer);
 
 console.log(
