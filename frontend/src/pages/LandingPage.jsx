@@ -1,9 +1,12 @@
 import React from "react";
 import { MessageCircle, Store, Building2, ShieldCheck } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export default function LandingPage({ lang = "ar" }) {
   const isAr = lang === "ar";
 
+  const navigate = useNavigate();
+  
   const t = {
     ar: {
       heroTitle: "ابحث عن الأنشطة الموثوقة عبر واتساب",
@@ -73,7 +76,7 @@ export default function LandingPage({ lang = "ar" }) {
 
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             <a
-              href="https://wa.me/"
+            href="https://wa.me/97472097723"
               target="_blank"
               rel="noreferrer"
               className="flex items-center gap-2 rounded-2xl bg-green-600 px-7 py-4 text-white shadow-lg transition hover:bg-green-700"
@@ -130,9 +133,12 @@ export default function LandingPage({ lang = "ar" }) {
               {t.merchantText}
             </p>
 
-            <button className="mt-8 rounded-2xl bg-green-600 px-6 py-3 text-white transition hover:bg-green-700">
-              {t.merchantBtn}
-            </button>
+           <button
+  onClick={() => navigate("/register")}
+  className="mt-8 rounded-2xl bg-green-600 px-6 py-3 text-white transition hover:bg-green-700"
+>
+  {t.merchantBtn}
+</button>
           </div>
 
           {/* Malls */}
@@ -147,9 +153,12 @@ export default function LandingPage({ lang = "ar" }) {
               {t.mallText}
             </p>
 
-            <button className="mt-8 rounded-2xl border border-green-600 px-6 py-3 text-green-700 transition hover:bg-green-50">
-              {t.mallBtn}
-            </button>
+           <button
+  onClick={() => navigate("/campaign/login")}
+  className="mt-8 rounded-2xl border border-green-600 px-6 py-3 text-green-700 transition hover:bg-green-50"
+>
+  {t.mallBtn}
+</button>
           </div>
         </div>
       </section>
