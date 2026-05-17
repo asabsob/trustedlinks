@@ -1425,13 +1425,14 @@ async function javnaSendImage({
     throw new Error("Missing JAVNA_FROM");
   }
 
-  if (!customId) {
-    return javnaSendText({
-      to,
-      body: caption,
-    });
-  }
-
+if (!customId) {
+  console.log("MISSING_CUSTOM_ID_FOR_IMAGE", { customId });
+  return javnaSendText({
+    to,
+    body: caption,
+  });
+}
+  
   const headers = {
     "Content-Type": "application/json",
     "X-API-Key": JAVNA_API_KEY,
@@ -5773,12 +5774,13 @@ if (useImageCards) {
       continue;
     }
 
-    try {
-      await javnaSendImage({
+   await javnaSendImage({
   to: from,
- customId:
-  item.custom_id ||
-  item.customId,
+  customId:
+    item.custom_id ||
+    item.customId ||
+    item.customID ||
+    item.custom_id_slug,
   caption,
 });
       
