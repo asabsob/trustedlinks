@@ -12,6 +12,21 @@ import bcrypt from "bcrypt";
 import geolib from "geolib";
 import { nanoid } from "nanoid";
 
+console.timeEnd(enrichTimer);
+
+console.log(
+  "ENRICHED_LINKS_DEBUG",
+  enrichedResults.map((r) => ({
+    id: r.id,
+    name: r.name,
+    custom_id: r.custom_id,
+    customId: r.customId,
+    logo: r.logo,
+    logo_url: r.logo_url,
+    trackedLink: r.trackedLink,
+  }))
+);
+    
 import supabase from "./db/postgres.js";
 
 import multer from "multer";
@@ -5828,16 +5843,15 @@ if (useImageCards) {
       logo_url: item.logo_url,
     });
 
-    await javnaSendImage({
-      to: from,
-      customId:
-        item.custom_id ||
-        item.customId,
-      caption,
-    });
-  }
+ await javnaSendImage({
+  to: from,
+  customId:
+    item.custom_id ||
+    item.customId,
+  caption,
+});
 
-  await javnaSendInteractiveButtons({
+await javnaSendInteractiveButtons({
   to: from,
   body:
     lang === "ar"
@@ -5856,9 +5870,10 @@ if (useImageCards) {
 }).catch((err) => {
   console.error("JAVNA INTERACTIVE ERROR:", err);
 });
-  
-  return;
 }
+
+return;
+  
 console.timeEnd(enrichTimer);
 
 console.log(
