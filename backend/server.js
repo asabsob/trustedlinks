@@ -5861,9 +5861,10 @@ await javnaSendImage({
     item.customId,
   caption,
 });
-}
+  }
 
-return;
+  return;
+}
 
 
     } catch (e) {
