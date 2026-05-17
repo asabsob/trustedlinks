@@ -1411,6 +1411,8 @@ const JAVNA_BASE_URL = "https://whatsapp.api.javna.com/whatsapp/v1.0";
 const JAVNA_SEND_TEXT_URL = `${JAVNA_BASE_URL}/message/text`;
 const JAVNA_SEND_AUTH_TEMPLATE_URL = `${JAVNA_BASE_URL}/message/template/authentication`;
 const JAVNA_SEND_IMAGE_URL =  `${JAVNA_BASE_URL}/message/image`;
+const JAVNA_SEND_INTERACTIVE_URL =
+  `${JAVNA_BASE_URL}/message/interactive`;
 
 async function javnaSendImage({
   to,
@@ -1560,6 +1562,50 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   }
 
   return JSON.parse(txt);
+}
+
+async function javnaSendInteractiveButtons({
+  to,
+  body,
+  buttons = [],
+}) {
+  const headers = {
+    "Content-Type": "application/json",
+    "X-API-Key": JAVNA_API_KEY,
+  };
+
+  const from = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
+  const toNumber = String(to || "").startsWith("+") ? String(to) : `+${to}`;
+
+  const payload = {
+    from,
+    to: toNumber,
+    content: {
+      body,
+      buttons: buttons.map((b) => ({
+        id: b.id,
+        title: b.title,
+      })),
+    },
+  };
+
+  const r = await fetch(JAVNA_SEND_INTERACTIVE_URL, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  const txt = await r.text();
+
+  if (!r.ok) {
+    throw new Error(`Javna interactive failed (${r.status}): ${txt}`);
+  }
+
+  try {
+    return JSON.parse(txt);
+  } catch {
+    return { ok: true, raw: txt };
+  }
 }
 
 // ============================================================================
@@ -5840,7 +5886,25 @@ return;
 }
 });
 
-
+await javnaSendInteractiveButtons({
+  to: from,
+  body:
+    lang === "ar"
+      ? "اختر الإجراء المناسب:"
+      : "Choose an action:",
+  buttons: [
+    {
+      id: `contact_${item.id}`,
+      title: lang === "ar" ? "تواصل" : "Contact",
+    },
+    {
+      id: `directions_${item.id}`,
+      title: lang === "ar" ? "الاتجاهات" : "Directions",
+    },
+  ],
+}).catch((err) => {
+  console.error("JAVNA INTERACTIVE ERROR:", err);
+});
 
 app.post("/api/create-lead", async (req, res) => {
   try {
