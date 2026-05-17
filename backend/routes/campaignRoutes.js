@@ -2,7 +2,23 @@ import express from "express";
 import supabase from "../db/postgres.js";
 import { requireCampaignManager } from "../middleware/auth.js";
 
+import { runSafeAI } from "../ai/gateway/aiGateway.js";
+
 const router = express.Router();
+
+const ai = await runSafeAI({
+  role: "merchant",
+  task: "Explain dashboard performance",
+  language: "ar",
+  input: {
+    businessName: "Coco Bubble Tea",
+    wallet: 12.5,
+    directLeads: 15,
+    categoryLeads: 8,
+  },
+});
+
+console.log(ai);
 
 // GET dashboard overview
 router.get("/dashboard", requireCampaignManager, async (req, res) => {
