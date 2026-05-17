@@ -1452,9 +1452,9 @@ if (!customId) {
   const payload = {
     from,
     to: toNumber,
-    content: {
-      imageUrl,
-      caption: String(caption || " "),
+   content: {
+  mediaUrl: imageUrl,
+  caption: String(caption || " "),
     },
   };
 
