@@ -5350,7 +5350,7 @@ app.get("/media/logo/:customId", async (req, res) => {
       err
     );
 
-    return res.status(500).send("Server error");
+    return res.status(500).send("Logo error");
   }
 });
 
@@ -5783,14 +5783,11 @@ if (useImageCards) {
   logo_url: item.logo_url,
 });
     
-    try {
    await javnaSendImage({
   to: from,
   customId:
     item.custom_id ||
-    item.customId ||
-    item.customID ||
-    item.custom_id_slug,
+    item.customId,
   caption,
 });
       
