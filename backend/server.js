@@ -35,6 +35,8 @@ import campaignAuthRoutes from "./routes/campaignAuthRoutes.js";
 import fundingCodeRoutes from "./routes/fundingCodeRoutes.js";
 import platformAnalyticsRoutes from "./routes/platformAnalyticsRoutes.js";
 
+import merchantAIRoutes from "./routes/ai/merchantAI.js";
+
 import {
   getUserById,
   getUserByEmail,
@@ -417,6 +419,7 @@ app.use("/api/campaign/auth", campaignAuthRoutes);
 app.use("/api/campaign", campaignRoutes);
 app.use("/api/campaign/funding-codes", fundingCodeRoutes);
 
+app.use("/api/ai", merchantAIRoutes);
 
 app.use(
   "/api/platform/analytics",
