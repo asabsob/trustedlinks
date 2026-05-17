@@ -5802,77 +5802,79 @@ if (useImageCards) {
         : `🔎 Search results: "${effectiveQuery}"`,
   }).catch(console.error);
 
-  for (let i = 0; i < enrichedResults.length; i++) {
-    const item = enrichedResults[i];
+ ```js
+for (let i = 0; i < enrichedResults.length; i++) {
+  const item = enrichedResults[i];
 
-    const logoUrl =
-      item.logo_url ||
-      item.logoUrl ||
-      item.logo;
+  const logoUrl =
+    item.logo_url ||
+    item.logoUrl ||
+    item.logo;
 
-    const caption = formatBusinessBlock(
-      item,
-      i,
-      lang,
-      {
-        includeCategory: true,
-        includeDistance: false,
-        showLink: i === 0,
-        showDirections: i === 0,
-      }
-    );
-
-    if (
-      !logoUrl ||
-      !/^https?:\/\//i.test(logoUrl)
-    ) {
-      await javnaSendText({
-        to: from,
-        body: caption,
-      }).catch(console.error);
-
-      continue;
+  const caption = formatBusinessBlock(
+    item,
+    i,
+    lang,
+    {
+      includeCategory: true,
+      includeDistance: false,
+      showLink: i === 0,
+      showDirections: i === 0,
     }
+  );
 
-    console.log("IMAGE_CARD_ITEM_DEBUG", {
-      id: item.id,
-      name: item.name,
-      custom_id: item.custom_id,
-      customId: item.customId,
-      logo: item.logo,
-      logo_url: item.logo_url,
-    });
+  if (
+    !logoUrl ||
+    !/^https?:\/\//i.test(logoUrl)
+  ) {
+    await javnaSendText({
+      to: from,
+      body: caption,
+    }).catch(console.error);
 
- await javnaSendImage({
-  to: from,
-  customId:
-    item.custom_id ||
-    item.customId,
-  caption,
-});
+    continue;
+  }
 
-await javnaSendInteractiveButtons({
-  to: from,
-  body:
-    lang === "ar"
-      ? "اختر الإجراء المناسب:"
-      : "Choose an action:",
-  buttons: [
-    {
-      id: `contact_${item.id}`,
-      title: lang === "ar" ? "تواصل" : "Contact",
-    },
-    {
-      id: `directions_${item.id}`,
-      title: lang === "ar" ? "الاتجاهات" : "Directions",
-    },
-  ],
-}).catch((err) => {
-  console.error("JAVNA INTERACTIVE ERROR:", err);
-});
+  await javnaSendImage({
+    to: from,
+    customId:
+      item.custom_id ||
+      item.customId,
+    caption,
+  });
+
+  await javnaSendInteractiveButtons({
+    to: from,
+    body:
+      lang === "ar"
+        ? "اختر الإجراء المناسب:"
+        : "Choose an action:",
+    buttons: [
+      {
+        id: `contact_${item.id}`,
+        title:
+          lang === "ar"
+            ? "تواصل"
+            : "Contact",
+      },
+      {
+        id: `directions_${item.id}`,
+        title:
+          lang === "ar"
+            ? "الاتجاهات"
+            : "Directions",
+      },
+    ],
+  }).catch((err) => {
+    console.error(
+      "JAVNA INTERACTIVE ERROR:",
+      err
+    );
+  });
 }
 
 return;
+
   
 console.timeEnd(enrichTimer);
 
