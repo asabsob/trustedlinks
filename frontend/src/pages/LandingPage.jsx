@@ -230,6 +230,55 @@ export default function LandingPage({ lang = "ar" }) {
     </div>
   </div>
 </section>
+
+      {/* FOOTER */}
+<footer className="border-t border-slate-100 bg-white">
+  <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-6 py-10 md:flex-row">
+
+    {/* Left */}
+    <div>
+      <div className="text-xl font-bold text-slate-900">
+        TrustedLinks
+      </div>
+
+      <div className="mt-2 text-sm text-slate-500">
+        {lang === "ar"
+          ? "منصة اكتشاف الأنشطة عبر واتساب"
+          : "WhatsApp Business Discovery Platform"}
+      </div>
+    </div>
+
+    {/* Center */}
+    <div className="flex flex-wrap items-center gap-6 text-sm text-slate-600">
+
+      <button
+        onClick={() => navigate("/register")}
+        className="transition hover:text-green-700"
+      >
+        {lang === "ar" ? "تسجيل النشاط" : "Register"}
+      </button>
+
+      <button
+        onClick={() => navigate("/login")}
+        className="transition hover:text-green-700"
+      >
+        {lang === "ar" ? "تسجيل الدخول" : "Login"}
+      </button>
+
+      <button
+        onClick={() => navigate("/campaign/login")}
+        className="transition hover:text-green-700"
+      >
+        {lang === "ar" ? "حلول المولات" : "Mall Solutions"}
+      </button>
+    </div>
+
+    {/* Right */}
+    <div className="text-sm text-slate-400">
+      © {new Date().getFullYear()} TrustedLinks
+    </div>
+  </div>
+</footer>
       
       {/* HOW IT WORKS */}
       <section className="mx-auto max-w-6xl px-6 py-20">
