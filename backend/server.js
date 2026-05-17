@@ -16,6 +16,8 @@ import supabase from "./db/postgres.js";
 
 import multer from "multer";
 
+import { sendEmail } from "./services/email.js";
+
 import { searchBusinesses } from "./search/searchService.js";
 import { normalizeSearchText } from "./search/textNormalizer.js";
 import {
