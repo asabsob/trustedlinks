@@ -5843,35 +5843,6 @@ for (let i = 0; i < enrichedResults.length; i++) {
     caption,
   });
 
-  await javnaSendInteractiveButtons({
-    to: from,
-    body:
-      lang === "ar"
-        ? "اختر الإجراء المناسب:"
-        : "Choose an action:",
-    buttons: [
-      {
-        id: `contact_${item.id}`,
-        title:
-          lang === "ar"
-            ? "تواصل"
-            : "Contact",
-      },
-      {
-        id: `directions_${item.id}`,
-        title:
-          lang === "ar"
-            ? "الاتجاهات"
-            : "Directions",
-      },
-    ],
-  }).catch((err) => {
-    console.error(
-      "JAVNA INTERACTIVE ERROR:",
-      err
-    );
-  });
-}
 
 return;
 
@@ -5884,7 +5855,34 @@ console.log(
     id: r.id,
     name: r.name,
     custom_id: r.custom_id,
-    customId: r.customId,
+    customId: r.customId,await javnaSendInteractiveButtons({
+  to: from,
+  body:
+    lang === "ar"
+      ? "اختر الإجراء المناسب:"
+      : "Choose an action:",
+  buttons: [
+    {
+      id: "contact_" + item.id,
+      title:
+        lang === "ar"
+          ? "تواصل"
+          : "Contact",
+    },
+    {
+      id: "directions_" + item.id,
+      title:
+        lang === "ar"
+          ? "الاتجاهات"
+          : "Directions",
+    },
+  ],
+}).catch((err) => {
+  console.error(
+    "JAVNA INTERACTIVE ERROR:",
+    err
+  );
+});
     logo: r.logo,
     logo_url: r.logo_url,
     trackedLink: r.trackedLink,
