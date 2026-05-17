@@ -274,4 +274,67 @@ router.post("/forgot-password", async (req, res) => {
   }
 });
 
+// RESET PASSWORD
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { token, newPassword } = req.body || {};
+
+    if (!token || !newPassword) {
+      return res.status(400).json({
+        error: "Token and new password are required",
+      });
+    }
+
+    if (String(newPassword).length < 8) {
+      return res.status(400).json({
+        error: "Password must be at least 8 characters",
+      });
+    }
+
+    const { data: owner, error } = await supabase
+      .from("campaign_owners")
+      .select("*")
+      .eq("reset_token", token)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (!owner) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+
+    if (owner.reset_token_used) {
+      return res.status(401).json({ error: "Token already used" });
+    }
+
+    if (
+      !owner.reset_token_expires_at ||
+      new Date(owner.reset_token_expires_at) < new Date()
+    ) {
+      return res.status(410).json({ error: "Expired token" });
+    }
+
+    const passwordHash = await bcrypt.hash(String(newPassword), 10);
+
+    const { error: updateError } = await supabase
+      .from("campaign_owners")
+      .update({
+        password_hash: passwordHash,
+        reset_token: null,
+        reset_token_expires_at: null,
+        reset_token_used: true,
+      })
+      .eq("id", owner.id);
+
+    if (updateError) throw updateError;
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("CAMPAIGN RESET PASSWORD ERROR:", err);
+    return res.status(500).json({
+      error: "Failed to reset password",
+    });
+  }
+});
+
 export default router;
