@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import supabase from "../db/postgres.js";
 import { requireCampaignManager } from "../middleware/auth.js";
+import { sendEmail } from "../services/email.js";
 
 const router = express.Router();
 
