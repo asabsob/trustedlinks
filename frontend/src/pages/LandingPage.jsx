@@ -1,6 +1,7 @@
 import React from "react";
 import { MessageCircle, Store, Building2, ShieldCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { Globe } from "lucide-react";
 
 export default function LandingPage({ lang = "ar" }) {
   const isAr = lang === "ar";
@@ -59,6 +60,52 @@ export default function LandingPage({ lang = "ar" }) {
         isAr ? "rtl" : "ltr"
       }`}
     >
+      <header className="sticky top-0 z-50 border-b border-slate-100 bg-white/90 backdrop-blur">
+  <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+
+    {/* Logo */}
+    <div className="flex items-center gap-3">
+      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-green-600 text-lg font-bold text-white">
+        T
+      </div>
+
+      <div>
+        <div className="text-lg font-bold text-slate-900">
+          TrustedLinks
+        </div>
+
+        <div className="text-xs text-slate-500">
+          WhatsApp Discovery Platform
+        </div>
+      </div>
+    </div>
+
+    {/* Actions */}
+    <div className="flex items-center gap-3">
+
+      {/* Language */}
+      <button
+        onClick={() => {
+          const nextLang = lang === "ar" ? "en" : "ar";
+          localStorage.setItem("lang", nextLang);
+          window.location.reload();
+        }}
+        className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+      >
+        <Globe size={16} />
+        {lang === "ar" ? "English" : "العربية"}
+      </button>
+
+      {/* Login */}
+      <button
+        onClick={() => navigate("/login")}
+        className="rounded-xl bg-green-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-green-700"
+      >
+        {lang === "ar" ? "تسجيل الدخول" : "Login"}
+      </button>
+    </div>
+  </div>
+</header>
       {/* HERO */}
       <section className="relative overflow-hidden border-b border-slate-100 bg-gradient-to-b from-green-50 to-white">
         <div className="mx-auto flex max-w-7xl flex-col items-center px-6 py-20 text-center">
