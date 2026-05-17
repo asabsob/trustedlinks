@@ -5813,17 +5813,45 @@ if (useImageCards) {
       continue;
     }
 
-    await javnaSendImage({
-      to: from,
-      customId:
-        item.custom_id ||
-        item.customId,
-      caption,
-    });
-  }
+   await javnaSendImage({
+  to: from,
+  customId:
+    item.custom_id ||
+    item.customId,
+  caption,
+});
 
-  return;
+await javnaSendInteractiveButtons({
+  to: from,
+  body:
+    lang === "ar"
+      ? "اختر الإجراء المناسب:"
+      : "Choose an action:",
+  buttons: [
+    {
+      id: "contact_" + item.id,
+      title:
+        lang === "ar"
+          ? "تواصل"
+          : "Contact",
+    },
+    {
+      id: "directions_" + item.id,
+      title:
+        lang === "ar"
+          ? "الاتجاهات"
+          : "Directions",
+    },
+  ],
+}).catch((err) => {
+  console.error(
+    "JAVNA INTERACTIVE ERROR:",
+    err
+  );
+});
 }
+
+return;
 
 console.timeEnd(enrichTimer);
 
