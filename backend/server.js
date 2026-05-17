@@ -5774,6 +5774,7 @@ if (useImageCards) {
       continue;
     }
 
+    try {
    await javnaSendImage({
   to: from,
   customId:
