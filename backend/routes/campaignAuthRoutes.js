@@ -4,6 +4,7 @@ import bcrypt from "bcrypt";
 import supabase from "../db/postgres.js";
 import { requireCampaignManager } from "../middleware/auth.js";
 import { sendEmail } from "../services/email.js";
+import crypto from "crypto";
 
 const router = express.Router();
 
@@ -185,5 +186,92 @@ router.get("/me", requireCampaignManager, async (req, res) => {
   }
 });
 
+// FORGOT PASSWORD
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const emailNorm = String(req.body?.email || "")
+      .toLowerCase()
+      .trim();
+
+    if (!emailNorm) {
+      return res.status(400).json({
+        error: "Email is required",
+      });
+    }
+
+    const { data: owner, error } = await supabase
+      .from("campaign_owners")
+      .select("*")
+      .eq("email", emailNorm)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    // لا نكشف إذا الإيميل موجود أو لا
+    if (!owner) {
+      return res.json({ ok: true });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+
+    const expiresAt = new Date(
+      Date.now() + 30 * 60 * 1000
+    ).toISOString();
+
+    const { error: updateError } = await supabase
+      .from("campaign_owners")
+      .update({
+        reset_token: resetToken,
+        reset_token_expires_at: expiresAt,
+        reset_token_used: false,
+      })
+      .eq("id", owner.id);
+
+    if (updateError) throw updateError;
+
+    const resetUrl = `${
+      process.env.FRONTEND_BASE_URL || "https://trustedlinks.net"
+    }/campaign/reset-password/${resetToken}`;
+
+    await sendEmail({
+      to: owner.email,
+      subject: "Reset your campaign password",
+      html: `
+        <div style="font-family:Arial;padding:20px;">
+          <h2>Reset Password</h2>
+
+          <p>Click the button below to reset your password.</p>
+
+          <a
+            href="${resetUrl}"
+            style="
+              display:inline-block;
+              background:#16a34a;
+              color:#fff;
+              padding:12px 22px;
+              border-radius:10px;
+              text-decoration:none;
+              font-weight:bold;
+            "
+          >
+            Reset Password
+          </a>
+
+          <p style="margin-top:20px;color:#666;">
+            This link expires in 30 minutes.
+          </p>
+        </div>
+      `,
+      text: `Reset Password: ${resetUrl}`,
+    });
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("CAMPAIGN FORGOT PASSWORD ERROR:", err);
+    return res.status(500).json({
+      error: "Failed to process forgot password request",
+    });
+  }
+});
 
 export default router;
