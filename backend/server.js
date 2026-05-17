@@ -1410,6 +1410,76 @@ const JAVNA_FROM = (process.env.JAVNA_FROM || "").trim();
 const JAVNA_BASE_URL = "https://whatsapp.api.javna.com/whatsapp/v1.0";
 const JAVNA_SEND_TEXT_URL = `${JAVNA_BASE_URL}/message/text`;
 const JAVNA_SEND_AUTH_TEMPLATE_URL = `${JAVNA_BASE_URL}/message/template/authentication`;
+const JAVNA_SEND_IMAGE_URL =  `${JAVNA_BASE_URL}/message/image`;
+
+async function javnaSendImage({
+  to,
+  customId,
+  caption = "",
+}) {
+  if (!JAVNA_API_KEY) {
+    throw new Error("Missing JAVNA_API_KEY");
+  }
+
+  if (!JAVNA_FROM) {
+    throw new Error("Missing JAVNA_FROM");
+  }
+
+  if (!customId) {
+    return javnaSendText({
+      to,
+      body: caption,
+    });
+  }
+
+  const headers = {
+    "Content-Type": "application/json",
+    "X-API-Key": JAVNA_API_KEY,
+  };
+
+  const from = JAVNA_FROM.startsWith("+")
+    ? JAVNA_FROM
+    : `+${JAVNA_FROM}`;
+
+  const toNumber = String(to || "").startsWith("+")
+    ? String(to)
+    : `+${to}`;
+
+  const imageUrl =
+    `${FRONTEND_BASE_URL}/media/logo/${customId}`;
+
+  const payload = {
+    from,
+    to: toNumber,
+    content: {
+      imageUrl,
+      caption: String(caption || " "),
+    },
+  };
+
+  const r = await fetch(
+    JAVNA_SEND_IMAGE_URL,
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    }
+  );
+
+  const txt = await r.text();
+
+  if (!r.ok) {
+    throw new Error(
+      `Javna image send failed (${r.status}): ${txt}`
+    );
+  }
+
+  try {
+    return JSON.parse(txt);
+  } catch {
+    return { ok: true, raw: txt };
+  }
+}
 
 async function javnaSendText({ to, body }) {
   if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
@@ -5264,23 +5334,36 @@ function normalizeIntentType(intentData = {}, query = "") {
   return "category";
 }
 
-app.get("/media/logo/:slug", async (req, res) => {
+app.get("/media/logo/:customId", async (req, res) => {
   try {
-    const slug = String(req.params.slug || "").trim();
+    const customId = String(
+      req.params.customId || ""
+    ).trim();
 
-    const { data: business, error } = await supabase
-      .from("businesses")
-      .select("logo")
-      .eq("custom_id", slug)
-      .maybeSingle();
+    if (!customId) {
+      return res.status(400).send("Missing customId");
+    }
 
-    if (error) throw error;
-    if (!business?.logo) return res.status(404).send("Logo not found");
+    const business =
+      await getBusinessByCustomId(customId);
+
+    if (!business?.logo) {
+      return res.status(404).send("Logo not found");
+    }
+
+    res.setHeader(
+      "Cache-Control",
+      "public, max-age=86400"
+    );
 
     return res.redirect(302, business.logo);
   } catch (err) {
-    console.error("LOGO_REDIRECT_ERROR", err);
-    return res.status(500).send("Logo error");
+    console.error(
+      "MEDIA_LOGO_ERROR",
+      err
+    );
+
+    return res.status(500).send("Server error");
   }
 });
 
