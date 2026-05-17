@@ -5774,6 +5774,15 @@ if (useImageCards) {
       continue;
     }
 
+    console.log("IMAGE_CARD_ITEM_DEBUG", {
+  id: item.id,
+  name: item.name,
+  custom_id: item.custom_id,
+  customId: item.customId,
+  logo: item.logo,
+  logo_url: item.logo_url,
+});
+    
     try {
    await javnaSendImage({
   to: from,
