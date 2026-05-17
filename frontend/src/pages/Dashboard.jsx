@@ -5,6 +5,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getText, getCategoryLabel } from "../i18n";
+import AIAssistantBox from "../components/ai/AIAssistantBox";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL ||
@@ -235,6 +236,13 @@ export default function Dashboard({ lang = "en" }) {
           </p>
         </div>
       </section>
+
+      </section>
+
+<AIAssistantBox
+  lang={lang}
+  pageContext="business_dashboard"
+/>
 
       {showSponsorshipCard && (
         <section style={sponsorshipCard}>
