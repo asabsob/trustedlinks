@@ -143,6 +143,94 @@ export default function LandingPage({ lang = "ar" }) {
         </div>
       </section>
 
+      {/* SEARCH DEMO */}
+<section className="mx-auto max-w-6xl px-6 py-20">
+  <div className="rounded-[32px] border border-green-100 bg-gradient-to-br from-green-50 to-white p-10 shadow-sm">
+
+    <div className="mx-auto max-w-3xl text-center">
+      <div className="mb-4 inline-flex rounded-full bg-green-100 px-4 py-1 text-sm font-semibold text-green-700">
+        WhatsApp AI Search
+      </div>
+
+      <h2 className="text-3xl font-bold md:text-5xl">
+        {lang === "ar"
+          ? "جرّب البحث الآن"
+          : "Try Searching Now"}
+      </h2>
+
+      <p className="mt-5 text-lg leading-8 text-slate-600">
+        {lang === "ar"
+          ? "ابحث عن مطاعم، قهوة، صيدليات، أو أي نشاط قريب منك مباشرة عبر واتساب."
+          : "Search for restaurants, cafes, pharmacies, and nearby businesses directly through WhatsApp."}
+      </p>
+    </div>
+
+    {/* Demo Search */}
+    <div className="mx-auto mt-12 max-w-2xl rounded-3xl border border-slate-200 bg-white p-5 shadow-lg">
+
+      <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+
+        <MessageCircle className="text-green-600" size={22} />
+
+        <div className="flex-1 text-left text-slate-700">
+          {lang === "ar"
+            ? "أقرب bubble tea"
+            : "Best bubble tea nearby"}
+        </div>
+
+        <button className="rounded-xl bg-green-600 px-5 py-2 text-sm text-white transition hover:bg-green-700">
+          {lang === "ar" ? "بحث" : "Search"}
+        </button>
+      </div>
+
+      {/* Demo Results */}
+      <div className="mt-6 space-y-4">
+
+        <div className="rounded-2xl border border-green-100 bg-green-50 p-4">
+          <div className="flex items-center justify-between">
+
+            <div>
+              <div className="font-bold text-slate-900">
+                Coco Bubble Tea
+              </div>
+
+              <div className="mt-1 text-sm text-slate-600">
+                Bubble Tea • 1.2 KM
+              </div>
+            </div>
+
+            <div className="rounded-full bg-green-600 px-3 py-1 text-xs font-semibold text-white">
+              TOP MATCH
+            </div>
+          </div>
+
+          <div className="mt-4 flex gap-3">
+
+            <button className="flex items-center gap-2 rounded-xl bg-green-600 px-4 py-2 text-sm text-white">
+              <MessageCircle size={16} />
+              WhatsApp
+            </button>
+
+            <button className="rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-700">
+              {lang === "ar" ? "الاتجاهات" : "Directions"}
+            </button>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 opacity-80">
+          <div className="font-semibold text-slate-800">
+            Bubble Zone
+          </div>
+
+          <div className="mt-1 text-sm text-slate-500">
+            Bubble Tea • 2.5 KM
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+      
       {/* HOW IT WORKS */}
       <section className="mx-auto max-w-6xl px-6 py-20">
         <div className="mb-14 text-center">
