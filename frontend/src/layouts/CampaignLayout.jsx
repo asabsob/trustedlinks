@@ -22,6 +22,12 @@ export default function CampaignLayout() {
 
   const owner = JSON.parse(localStorage.getItem("campaign_owner") || "{}");
 
+  const token = localStorage.getItem("campaign_token");
+
+if (!token || token === "undefined" || token === "null") {
+  navigate("/campaign/login");
+}
+
   const t = {
     en: {
       dashboard: "Dashboard",
