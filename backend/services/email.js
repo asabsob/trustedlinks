@@ -20,20 +20,3 @@ export async function sendEmail({
   });
 }
 
-export async function sendEmail({
-  to,
-  subject,
-  html,
-  text,
-}) {
-  return transporter.sendMail({
-    from:
-      process.env.FROM_EMAIL ||
-      process.env.SMTP_USER,
-
-    to,
-    subject,
-    html,
-    text,
-  });
-}
