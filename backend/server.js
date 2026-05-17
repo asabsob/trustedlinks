@@ -5791,19 +5791,6 @@ if (useImageCards) {
   caption,
 });
       
-    } catch (err) {
-      console.error(
-        "JAVNA IMAGE SEND ERROR:",
-        err
-      );
-
-      await javnaSendText({
-        to: from,
-        body: caption,
-      }).catch(console.error);
-    }
-  }
-
   return;
 }
 
