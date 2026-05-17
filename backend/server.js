@@ -12,20 +12,6 @@ import bcrypt from "bcrypt";
 import geolib from "geolib";
 import { nanoid } from "nanoid";
 
-console.timeEnd(enrichTimer);
-
-console.log(
-  "ENRICHED_LINKS_DEBUG",
-  enrichedResults.map((r) => ({
-    id: r.id,
-    name: r.name,
-    custom_id: r.custom_id,
-    customId: r.customId,
-    logo: r.logo,
-    logo_url: r.logo_url,
-    trackedLink: r.trackedLink,
-  }))
-);
     
 import supabase from "./db/postgres.js";
 
