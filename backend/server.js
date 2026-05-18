@@ -5823,10 +5823,7 @@ const imageCardResults = enrichedResults.filter((item) => {
     item.logoUrl ||
     item.logo;
 
-  return (
-    logoUrl &&
-    /^https?:\/\//i.test(logoUrl)
-  );
+  return logoUrl && /^https?:\/\//i.test(logoUrl);
 });
 
 const useImageCards =
@@ -5834,7 +5831,6 @@ const useImageCards =
   enrichedResults.length <= 3;
 
 if (useImageCards) {
-
   await javnaSendText({
     to: from,
     body:
@@ -5844,7 +5840,6 @@ if (useImageCards) {
   }).catch(console.error);
 
   for (let i = 0; i < enrichedResults.length; i++) {
-
     const item = enrichedResults[i];
 
     const logoUrl =
@@ -5852,23 +5847,14 @@ if (useImageCards) {
       item.logoUrl ||
       item.logo;
 
-    const caption = formatBusinessBlock(
-      item,
-      i,
-      lang,
-      {
-        includeCategory: true,
-        includeDistance: false,
-        showLink: i === 0,
-        showDirections: i === 0,
-      }
-    );
+    const caption = formatBusinessBlock(item, i, lang, {
+      includeCategory: true,
+      includeDistance: false,
+      showLink: false,
+      showDirections: false,
+    });
 
-    if (
-      !logoUrl ||
-      !/^https?:\/\//i.test(logoUrl)
-    ) {
-
+    if (!logoUrl || !/^https?:\/\//i.test(logoUrl)) {
       await javnaSendText({
         to: from,
         body: caption,
@@ -5885,22 +5871,46 @@ if (useImageCards) {
       caption,
     });
 
-   await javnaSendCallToAction({
-  to: from,
+    await javnaSendCallToAction({
+      to: from,
+      body:
+        lang === "ar"
+          ? "🟢 تواصل مباشرة عبر واتساب"
+          : "🟢 Contact directly via WhatsApp",
+      buttonText:
+        lang === "ar"
+          ? "واتساب"
+          : "WhatsApp",
+      url: item.trackedLink,
+    }).catch((err) => {
+      console.error("JAVNA_CTA_ERROR:", err);
+    });
 
-  body:
-    lang === "ar"
-      ? `🟢 تواصل مباشرة عبر واتساب\n📍 ${item.location || item.address || ""}`
-      : `🟢 Contact directly via WhatsApp\n📍 ${item.location || item.address || ""}`,
+    const mapsUrl =
+      item.mapLink ||
+      item.map_link ||
+      (
+        item.latitude && item.longitude
+          ? `https://www.google.com/maps?q=${item.latitude},${item.longitude}`
+          : ""
+      );
 
-  buttonText:
-    lang === "ar"
-      ? "واتساب"
-      : "WhatsApp",
-
-  url: item.trackedLink,
-});
-      
+    if (mapsUrl) {
+      await javnaSendCallToAction({
+        to: from,
+        body:
+          lang === "ar"
+            ? "📍 فتح الموقع والاتجاهات"
+            : "📍 Open location & directions",
+        buttonText:
+          lang === "ar"
+            ? "الموقع"
+            : "Location",
+        url: mapsUrl,
+      }).catch((err) => {
+        console.error("JAVNA_MAP_CTA_ERROR:", err);
+      });
+    }
   }
 
   return;
