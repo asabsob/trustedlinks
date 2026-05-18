@@ -1527,19 +1527,6 @@ async function javnaSendText({ to, body }) {
   }
 }
 
-const txt = await r.text();
-
-console.log("JAVNA_INTERACTIVE_RAW_RESPONSE", {
-  status: r.status,
-  body: txt,
-});
-
-if (!r.ok) {
-  throw new Error(
-    `Javna interactive failed (${r.status}): ${txt}`
-  );
-}
-
 
 async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
