@@ -165,13 +165,13 @@ export function formatBusinessBlock(item = {}, index = 0, lang = "ar", options =
 const lines = [];
 const name = getDisplayName(item, lang);
 
-  lines.push("────────────");
-
 lines.push(
   isArabicLang(lang)
-    ? `🔹 ${index + 1}. ${name}`
-    : `🔹 ${index + 1}. ${name}`
+    ? "🟢 TrustedLinks"
+    : "🟢 TrustedLinks"
 );
+
+lines.push(`🏪 ${name}`);
 
   if (includeCategory) {
     const categoryLine = getCategoryText(item, lang);
@@ -187,17 +187,6 @@ lines.push(
   if (locationText) lines.push(locationText);
 
 
-  const chatLine = getChatLine(item, lang, { showLink });
-  if (chatLine) {
-    lines.push("");
-    lines.push(chatLine);
-  }
-
-  const directionsLine = showDirections ? getDirectionsLine(item, lang) : "";
-  if (directionsLine) {
-    lines.push("");
-    lines.push(directionsLine);
-  }
 
   return lines.join("\n");
 }
