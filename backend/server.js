@@ -5885,21 +5885,22 @@ if (useImageCards) {
       caption,
     });
 
-    await javnaSendCallToAction({
-      to: from,
-      body:
-        lang === "ar"
-          ? "اضغط للتواصل مع النشاط عبر TrustedLinks:"
-          : "Tap to contact this business via TrustedLinks:",
-      buttonText:
-        lang === "ar"
-          ? "تواصل الآن"
-          : "Contact now",
-      url: item.trackedLink,
-    }).catch((err) => {
-      console.error("JAVNA_CTA_ERROR:", err);
-    });
+   await javnaSendCallToAction({
+  to: from,
 
+  body:
+    lang === "ar"
+      ? `🟢 تواصل مباشرة عبر واتساب\n📍 ${item.location || item.address || ""}`
+      : `🟢 Contact directly via WhatsApp\n📍 ${item.location || item.address || ""}`,
+
+  buttonText:
+    lang === "ar"
+      ? "واتساب"
+      : "WhatsApp",
+
+  url: item.trackedLink,
+});
+      
   }
 
   return;
