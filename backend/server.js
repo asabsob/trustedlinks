@@ -1568,15 +1568,7 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
   return JSON.parse(txt);
 }
 
-async function javnaSendInteractiveButtons({
-  to,
-  body,
-  buttons = [],
-}) {
-  const headers = {
-    "Content-Type": "application/json",
-    "X-API-Key": JAVNA_API_KEY,
-  };
+
 
   const from = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
   const toNumber = String(to || "").startsWith("+") ? String(to) : `+${to}`;
@@ -1610,30 +1602,6 @@ async function javnaSendInteractiveButtons({
   } catch {
     return { ok: true, raw: txt };
   }
-}
-
-async function sendBusinessActionButtons({
-  to,
-  item,
-  lang = "ar",
-}) {
-  return javnaSendInteractiveButtons({
-    to,
-    body:
-      lang === "ar"
-        ? "اختر الإجراء المناسب:"
-        : "Choose an action:",
-    buttons: [
-      {
-        id: "contact_" + item.id,
-        title: lang === "ar" ? "تواصل" : "Contact",
-      },
-      {
-        id: "directions_" + item.id,
-        title: lang === "ar" ? "الاتجاهات" : "Directions",
-      },
-    ],
-  });
 }
 
 async function javnaSendCallToAction({
@@ -5855,6 +5823,7 @@ const useImageCards =
   enrichedResults.length <= 3;
 
 if (useImageCards) {
+
   await javnaSendText({
     to: from,
     body:
@@ -5864,6 +5833,7 @@ if (useImageCards) {
   }).catch(console.error);
 
   for (let i = 0; i < enrichedResults.length; i++) {
+
     const item = enrichedResults[i];
 
     const logoUrl =
@@ -5887,6 +5857,7 @@ if (useImageCards) {
       !logoUrl ||
       !/^https?:\/\//i.test(logoUrl)
     ) {
+
       await javnaSendText({
         to: from,
         body: caption,
@@ -5903,23 +5874,24 @@ if (useImageCards) {
       caption,
     });
 
-      await javnaSendCallToAction({
-  to: from,
-  body:
-    lang === "ar"
-      ? "اضغط للتواصل مع النشاط عبر TrustedLinks:"
-      : "Tap to contact this business via TrustedLinks:",
-  buttonText:
-    lang === "ar"
-      ? "تواصل الآن"
-      : "Contact now",
-  url: item.trackedLink,
-}).catch((err) => {
-  console.error("JAVNA_CTA_ERROR:", err);
-});
-      
+    await javnaSendCallToAction({
+      to: from,
+      body:
+        lang === "ar"
+          ? "اضغط للتواصل مع النشاط عبر TrustedLinks:"
+          : "Tap to contact this business via TrustedLinks:",
+      buttonText:
+        lang === "ar"
+          ? "تواصل الآن"
+          : "Contact now",
+      url: item.trackedLink,
+    }).catch((err) => {
+      console.error("JAVNA_CTA_ERROR:", err);
+    });
 
-return;
+  }
+
+  return;
 }
 
 console.timeEnd(enrichTimer);
