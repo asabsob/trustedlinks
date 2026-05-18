@@ -1625,21 +1625,16 @@ async function javnaSendCallToAction({
     ? String(to)
     : `+${to}`;
 
-  const payload = {
-    from,
-    to: toNumber,
-    content: {
-      body,
-      action: {
-        name: "cta_url",
-        parameters: {
-          displayText: buttonText,
-          url,
-        },
-      },
-    },
-  };
-
+ const payload = {
+  from,
+  to: toNumber,
+  content: {
+    bodyText: String(body || ""),
+    displayText: String(buttonText || ""),
+    url: String(url || ""),
+  },
+};
+    
   const r = await fetch(
     JAVNA_SEND_INTERACTIVE_URL,
     {
