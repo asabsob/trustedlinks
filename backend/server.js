@@ -1528,20 +1528,42 @@ async function javnaSendText({ to, body }) {
 }
 
 
-async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
-  if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
-  if (!JAVNA_FROM) throw new Error("Missing JAVNA_FROM");
+async function javnaSendOtpTemplate({
+  to,
+  code,
+  lang = "en",
+}) {
+
+  if (!JAVNA_API_KEY) {
+    throw new Error("Missing JAVNA_API_KEY");
+  }
+
+  if (!JAVNA_FROM) {
+    throw new Error("Missing JAVNA_FROM");
+  }
 
   const headers = {
     "Content-Type": "application/json",
     "X-API-Key": JAVNA_API_KEY,
   };
 
-  const from = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
-  const toNumber = String(to || "").startsWith("+") ? String(to) : `+${to}`;
+  const from = JAVNA_FROM.startsWith("+")
+    ? JAVNA_FROM
+    : `+${JAVNA_FROM}`;
 
-  const templateName = lang === "ar" ? "turstedlinks_otp_ar" : "trustedlinks_otp_en";
-  const templateLanguage = lang === "ar" ? "ar" : "en";
+  const toNumber = String(to || "").startsWith("+")
+    ? String(to)
+    : `+${to}`;
+
+  const templateName =
+    lang === "ar"
+      ? "turstedlinks_otp_ar"
+      : "trustedlinks_otp_en";
+
+  const templateLanguage =
+    lang === "ar"
+      ? "ar"
+      : "en";
 
   const payload = {
     from,
@@ -1553,16 +1575,21 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
     },
   };
 
-  const r = await fetch(JAVNA_SEND_AUTH_TEMPLATE_URL, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(payload),
-  });
+  const r = await fetch(
+    JAVNA_SEND_AUTH_TEMPLATE_URL,
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    }
+  );
 
   const txt = await r.text();
 
   if (!r.ok) {
-    throw new Error(`Javna auth template failed (${r.status}): ${txt}`);
+    throw new Error(
+      `Javna auth template failed (${r.status}): ${txt}`
+    );
   }
 
   return JSON.parse(txt);
@@ -1570,53 +1597,33 @@ async function javnaSendOtpTemplate({ to, code, lang = "en" }) {
 
 
 
-  const from = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
-  const toNumber = String(to || "").startsWith("+") ? String(to) : `+${to}`;
-
-  const payload = {
-    from,
-    to: toNumber,
-    content: {
-      body,
-      buttons: buttons.map((b) => ({
-        id: b.id,
-        title: b.title,
-      })),
-    },
-  };
-
-  const r = await fetch(JAVNA_SEND_INTERACTIVE_URL, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(payload),
-  });
-
-  const txt = await r.text();
-
-  if (!r.ok) {
-    throw new Error(`Javna interactive failed (${r.status}): ${txt}`);
-  }
-
-  try {
-    return JSON.parse(txt);
-  } catch {
-    return { ok: true, raw: txt };
-  }
-}
-
 async function javnaSendCallToAction({
   to,
   body,
   buttonText,
   url,
 }) {
+
+  if (!JAVNA_API_KEY) {
+    throw new Error("Missing JAVNA_API_KEY");
+  }
+
+  if (!JAVNA_FROM) {
+    throw new Error("Missing JAVNA_FROM");
+  }
+
   const headers = {
     "Content-Type": "application/json",
     "X-API-Key": JAVNA_API_KEY,
   };
 
-  const from = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
-  const toNumber = String(to || "").startsWith("+") ? String(to) : `+${to}`;
+  const from = JAVNA_FROM.startsWith("+")
+    ? JAVNA_FROM
+    : `+${JAVNA_FROM}`;
+
+  const toNumber = String(to || "").startsWith("+")
+    ? String(to)
+    : `+${to}`;
 
   const payload = {
     from,
@@ -1633,24 +1640,33 @@ async function javnaSendCallToAction({
     },
   };
 
-  const r = await fetch(JAVNA_SEND_INTERACTIVE_URL, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(payload),
-  });
+  const r = await fetch(
+    JAVNA_SEND_INTERACTIVE_URL,
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    }
+  );
 
   const txt = await r.text();
 
   if (!r.ok) {
-    throw new Error(`Javna CTA failed (${r.status}): ${txt}`);
+    throw new Error(
+      `Javna CTA failed (${r.status}): ${txt}`
+    );
   }
 
   try {
     return JSON.parse(txt);
   } catch {
-    return { ok: true, raw: txt };
+    return {
+      ok: true,
+      raw: txt,
+    };
   }
 }
+
 // ============================================================================
 // Health
 // ============================================================================
