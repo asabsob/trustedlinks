@@ -5823,14 +5823,22 @@ if (useImageCards) {
       item.logoUrl ||
       item.logo;
 
-    const caption = formatBusinessBlock(item, i, lang, {
-      includeCategory: true,
-      includeDistance: false,
-      showLink: i === 0,
-      showDirections: i === 0,
-    });
+    const caption = formatBusinessBlock(
+      item,
+      i,
+      lang,
+      {
+        includeCategory: true,
+        includeDistance: false,
+        showLink: i === 0,
+        showDirections: i === 0,
+      }
+    );
 
-    if (!logoUrl || !/^https?:\/\//i.test(logoUrl)) {
+    if (
+      !logoUrl ||
+      !/^https?:\/\//i.test(logoUrl)
+    ) {
       await javnaSendText({
         to: from,
         body: caption,
@@ -5839,24 +5847,24 @@ if (useImageCards) {
       continue;
     }
 
- await javnaSendImage({
-  to: from,
-  customId:
-    item.custom_id ||
-    item.customId,
-  caption,
-});
+    await javnaSendImage({
+      to: from,
+      customId:
+        item.custom_id ||
+        item.customId,
+      caption,
+    });
 
-await sendBusinessActionButtons({
-  to: from,
-  item,
-  lang,
-}).catch((err) => {
-  console.error(
-    "BUSINESS_ACTION_BUTTONS_ERROR:",
-    err
-  );
-});
+    await sendBusinessActionButtons({
+      to: from,
+      item,
+      lang,
+    }).catch((err) => {
+      console.error(
+        "BUSINESS_ACTION_BUTTONS_ERROR:",
+        err
+      );
+    });
   }
 
   return;
