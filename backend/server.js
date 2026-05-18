@@ -1417,6 +1417,8 @@ const JAVNA_SEND_AUTH_TEMPLATE_URL = `${JAVNA_BASE_URL}/message/template/authent
 const JAVNA_SEND_IMAGE_URL =  `${JAVNA_BASE_URL}/message/image`;
 const JAVNA_SEND_INTERACTIVE_URL =
   `${JAVNA_BASE_URL}/message/interactive/callToAction`;
+const JAVNA_SEND_BUTTONS_URL =
+  `${JAVNA_BASE_URL}/message/interactive/buttons`;
 
 async function javnaSendImage({
   to,
@@ -1636,7 +1638,7 @@ async function javnaSendCallToAction({
 };
     
   const r = await fetch(
-    JAVNA_SEND_INTERACTIVE_URL,
+   JAVNA_SEND_CTA_URL,
     {
       method: "POST",
       headers,
