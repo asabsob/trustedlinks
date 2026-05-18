@@ -1416,7 +1416,7 @@ const JAVNA_SEND_TEXT_URL = `${JAVNA_BASE_URL}/message/text`;
 const JAVNA_SEND_AUTH_TEMPLATE_URL = `${JAVNA_BASE_URL}/message/template/authentication`;
 const JAVNA_SEND_IMAGE_URL =  `${JAVNA_BASE_URL}/message/image`;
 const JAVNA_SEND_INTERACTIVE_URL =
-  `${JAVNA_BASE_URL}/message/buttons`;
+  `${JAVNA_BASE_URL}/message/interactive/ReplyButtons`;
 
 async function javnaSendImage({
   to,
