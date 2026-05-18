@@ -112,14 +112,12 @@ function getDistanceLine(item = {}, lang = "ar") {
 
 function getChatLine(item = {}, lang = "ar", options = {}) {
   const { showLink = true } = options;
+
   if (!showLink) return "";
 
-  const link = item.trackedLink || item.whatsappLink;
-  if (!link) return "";
-
- return isArabicLang(lang)
-  ? `💬 رابط التواصل عبر واتساب:\n${link}`
-  : `💬 WhatsApp contact link:\n${link}`;
+  return isArabicLang(lang)
+    ? `🟢 تواصل مباشر عبر واتساب`
+    : `🟢 Direct WhatsApp Contact`;
 }
 
 function getMapLink(item = {}) {
@@ -136,11 +134,12 @@ function getMapLink(item = {}) {
 
 function getDirectionsLine(item = {}, lang = "ar") {
   const link = getMapLink(item);
+
   if (!link) return "";
 
   return isArabicLang(lang)
-    ? `📍 فتح الاتجاهات:\n${link}`
-    : `📍 Open directions:\n${link}`;
+    ? `🌐 الموقع والاتجاهات`
+    : `🌐 Website & Directions`;
 }
 
 function getIntentHeader(intent = "category", query = "", lang = "ar") {
@@ -187,14 +186,6 @@ lines.push(
   const locationText = getLocationText(item, lang);
   if (locationText) lines.push(locationText);
 
-  if (!showLink) {
-    lines.push("");
-    lines.push(
-      isArabicLang(lang)
-        ? `📩 أرسل ${index + 1} لفتح رابط التواصل.`
-        : `📩 Send ${index + 1} to open the contact link.`
-    );
-  }
 
   const chatLine = getChatLine(item, lang, { showLink });
   if (chatLine) {
