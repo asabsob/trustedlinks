@@ -1416,7 +1416,7 @@ const JAVNA_SEND_TEXT_URL = `${JAVNA_BASE_URL}/message/text`;
 const JAVNA_SEND_AUTH_TEMPLATE_URL = `${JAVNA_BASE_URL}/message/template/authentication`;
 const JAVNA_SEND_IMAGE_URL =  `${JAVNA_BASE_URL}/message/image`;
 const JAVNA_SEND_INTERACTIVE_URL =
-  `${JAVNA_BASE_URL}/message/interactive/Button`;
+  `${JAVNA_BASE_URL}/message/interactive/callToAction`;
 
 async function javnaSendImage({
   to,
@@ -1634,6 +1634,54 @@ async function sendBusinessActionButtons({
       },
     ],
   });
+}
+
+async function javnaSendCallToAction({
+  to,
+  body,
+  buttonText,
+  url,
+}) {
+  const headers = {
+    "Content-Type": "application/json",
+    "X-API-Key": JAVNA_API_KEY,
+  };
+
+  const from = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
+  const toNumber = String(to || "").startsWith("+") ? String(to) : `+${to}`;
+
+  const payload = {
+    from,
+    to: toNumber,
+    content: {
+      body,
+      action: {
+        name: "cta_url",
+        parameters: {
+          displayText: buttonText,
+          url,
+        },
+      },
+    },
+  };
+
+  const r = await fetch(JAVNA_SEND_INTERACTIVE_URL, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  const txt = await r.text();
+
+  if (!r.ok) {
+    throw new Error(`Javna CTA failed (${r.status}): ${txt}`);
+  }
+
+  try {
+    return JSON.parse(txt);
+  } catch {
+    return { ok: true, raw: txt };
+  }
 }
 // ============================================================================
 // Health
@@ -5855,17 +5903,21 @@ if (useImageCards) {
       caption,
     });
 
-    await sendBusinessActionButtons({
-      to: from,
-      item,
-      lang,
-    }).catch((err) => {
-      console.error(
-        "BUSINESS_ACTION_BUTTONS_ERROR:",
-        err
-      );
-    });
-  }
+      await javnaSendCallToAction({
+  to: from,
+  body:
+    lang === "ar"
+      ? "اضغط للتواصل مع النشاط عبر TrustedLinks:"
+      : "Tap to contact this business via TrustedLinks:",
+  buttonText:
+    lang === "ar"
+      ? "تواصل الآن"
+      : "Contact now",
+  url: item.trackedLink,
+}).catch((err) => {
+  console.error("JAVNA_CTA_ERROR:", err);
+});
+      
 
 return;
 }
