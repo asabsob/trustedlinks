@@ -1,4 +1,4 @@
-// backend/server.js
+ب// backend/server.js
 // ============================================================================
 // Trusted Links Backend API (Supabase Version)
 // ============================================================================
@@ -1612,6 +1612,29 @@ async function javnaSendInteractiveButtons({
   }
 }
 
+async function sendBusinessActionButtons({
+  to,
+  item,
+  lang = "ar",
+}) {
+  return javnaSendInteractiveButtons({
+    to,
+    body:
+      lang === "ar"
+        ? "اختر الإجراء المناسب:"
+        : "Choose an action:",
+    buttons: [
+      {
+        id: "contact_" + item.id,
+        title: lang === "ar" ? "تواصل" : "Contact",
+      },
+      {
+        id: "directions_" + item.id,
+        title: lang === "ar" ? "الاتجاهات" : "Directions",
+      },
+    ],
+  });
+}
 // ============================================================================
 // Health
 // ============================================================================
