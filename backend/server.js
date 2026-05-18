@@ -5867,11 +5867,16 @@ if (useImageCards) {
     });
   }
 
-  return;
+return;
 }
 
 console.timeEnd(enrichTimer);
       
+const formatTimer =
+  `formatSearchResponse_${Date.now()}_${Math.random()}`;
+
+console.time(formatTimer);
+
 const reply = formatSearchResponse(
   {
     ...searchData,
@@ -5882,24 +5887,19 @@ const reply = formatSearchResponse(
 
 console.timeEnd(formatTimer);
 
-await javnaSendImage({
+javnaSendText({
   to: from,
-  customId:
-    item.custom_id ||
-    item.customId,
-  caption,
+  body: reply,
+}).catch((err) => {
+  console.error("JAVNA SEND ERROR:", err);
 });
+
+return;
+
+  } catch (e) {
+    console.error("WHATSAPP WEBHOOK ERROR:", e);
   }
-
-  return;
-}
-
-
-    } catch (e) {
-  console.error("WHATSAPP WEBHOOK ERROR:", e);
-}
 });
-
 
 app.post("/api/create-lead", async (req, res) => {
   try {
