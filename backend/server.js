@@ -5839,7 +5839,7 @@ if (useImageCards) {
       continue;
     }
 
-   await javnaSendImage({
+ await javnaSendImage({
   to: from,
   customId:
     item.custom_id ||
@@ -5847,29 +5847,23 @@ if (useImageCards) {
   caption,
 });
 
+await sendBusinessActionButtons({
+  to: from,
+  item,
+  lang,
+}).catch((err) => {
+  console.error(
+    "BUSINESS_ACTION_BUTTONS_ERROR:",
+    err
+  );
+});
+  }
 
-return;
+  return;
+}
 
 console.timeEnd(enrichTimer);
-
-console.log(
-  "ENRICHED_LINKS_DEBUG",
-  enrichedResults.map((r) => ({
-    id: r.id,
-    name: r.name,
-    custom_id: r.custom_id,
-    customId: r.customId,
-    logo: r.logo,
-    logo_url: r.logo_url,
-    trackedLink: r.trackedLink,
-  }))
-);
-    
-const formatTimer =
-  `formatSearchResponse_${Date.now()}_${Math.random()}`;
-
-console.time(formatTimer);
-
+      
 const reply = formatSearchResponse(
   {
     ...searchData,
