@@ -1416,7 +1416,7 @@ const JAVNA_SEND_TEXT_URL = `${JAVNA_BASE_URL}/message/text`;
 const JAVNA_SEND_AUTH_TEMPLATE_URL = `${JAVNA_BASE_URL}/message/template/authentication`;
 const JAVNA_SEND_IMAGE_URL =  `${JAVNA_BASE_URL}/message/image`;
 const JAVNA_SEND_INTERACTIVE_URL =
-  `${JAVNA_BASE_URL}/message/interactive`;
+  `${JAVNA_BASE_URL}/message/interactive/reply-buttons`;
 
 async function javnaSendImage({
   to,
@@ -1525,6 +1525,19 @@ async function javnaSendText({ to, body }) {
   } catch {
     return { ok: true, raw: txt };
   }
+}
+
+const txt = await r.text();
+
+console.log("JAVNA_INTERACTIVE_RAW_RESPONSE", {
+  status: r.status,
+  body: txt,
+});
+
+if (!r.ok) {
+  throw new Error(
+    `Javna interactive failed (${r.status}): ${txt}`
+  );
 }
 
 
