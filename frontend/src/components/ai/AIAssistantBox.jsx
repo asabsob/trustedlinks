@@ -107,6 +107,7 @@ async function askAI(customQuestion = "") {
 
       <div style={quickActionsStyle}>
   {[
+    isAr ? "ماذا أفعل في هذه الصفحة؟" : "What can I do on this page?"
     isAr ? "اشرح الأداء" : "Explain performance",
     isAr ? "كيف أزيد العملاء؟" : "How can I get more customers?",
     isAr ? "لماذا الليدز منخفضة؟" : "Why are leads low?",
