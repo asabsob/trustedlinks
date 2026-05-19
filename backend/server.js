@@ -1417,8 +1417,7 @@ const JAVNA_SEND_AUTH_TEMPLATE_URL = `${JAVNA_BASE_URL}/message/template/authent
 const JAVNA_SEND_IMAGE_URL =  `${JAVNA_BASE_URL}/message/image`;
 const JAVNA_SEND_CTA_URL =
   `${JAVNA_BASE_URL}/message/interactive/callToAction`;
-const JAVNA_SEND_BUTTONS_URL =
-  `${JAVNA_BASE_URL}/message/interactive/buttons`;
+
 
 async function javnaSendImage({
   to,
@@ -1599,10 +1598,11 @@ async function javnaSendOtpTemplate({
 
 
 
-async function javnaSendActionButtons({
+async function javnaSendCallToAction({
   to,
   body,
-  buttons = [],
+  buttonText,
+  url,
 }) {
   if (!JAVNA_API_KEY) {
     throw new Error("Missing JAVNA_API_KEY");
@@ -1630,14 +1630,12 @@ async function javnaSendActionButtons({
     to: toNumber,
     content: {
       bodyText: String(body || ""),
-      buttons: buttons.map((b) => ({
-        id: String(b.id || ""),
-        title: String(b.title || ""),
-      })),
+      displayText: String(buttonText || ""),
+      url: String(url || ""),
     },
   };
 
-  const r = await fetch(JAVNA_SEND_BUTTONS_URL, {
+  const r = await fetch(JAVNA_SEND_CTA_URL, {
     method: "POST",
     headers,
     body: JSON.stringify(payload),
@@ -1647,7 +1645,7 @@ async function javnaSendActionButtons({
 
   if (!r.ok) {
     throw new Error(
-      `Javna buttons failed (${r.status}): ${txt}`
+      `Javna CTA failed (${r.status}): ${txt}`
     );
   }
 
@@ -5831,13 +5829,6 @@ const useImageCards =
   enrichedResults.length <= 3;
 
 if (useImageCards) {
-  await javnaSendText({
-    to: from,
-    body:
-      lang === "ar"
-        ? `🔎 نتائج البحث: "${effectiveQuery}"`
-        : `🔎 Search results: "${effectiveQuery}"`,
-  }).catch(console.error);
 
   for (let i = 0; i < enrichedResults.length; i++) {
     const item = enrichedResults[i];
@@ -5871,18 +5862,60 @@ if (useImageCards) {
   caption,
 });
 
-await javnaSendCallToAction({
-  to: from,
-  body:
-    lang === "ar"
-      ? "🟢 تواصل مباشرة عبر واتساب"
-      : "🟢 Contact directly via WhatsApp",
-  buttonText:
-    lang === "ar" ? "واتساب" : "WhatsApp",
-  url: item.trackedLink,
-}).catch((err) => {
-  console.error("JAVNA_CTA_ERROR:", err);
-});
+if (item.trackedLink) {
+  await javnaSendCallToAction({
+    to: from,
+    body:
+      lang === "ar"
+        ? "🟢 تواصل مباشرة عبر واتساب"
+        : "🟢 Contact directly via WhatsApp",
+
+    buttonText:
+      lang === "ar"
+        ? "واتساب"
+        : "WhatsApp",
+
+    url: item.trackedLink,
+  }).catch((err) => {
+    console.error("JAVNA_CTA_ERROR:", err);
+  });
+}
+   const mapsUrl =
+  item.maps_url ||
+  item.mapsUrl ||
+  item.location_url ||
+  item.locationUrl ||
+  item.mapLink ||
+  item.map_link ||
+  (
+    item.latitude && item.longitude
+      ? `https://www.google.com/maps?q=${item.latitude},${item.longitude}`
+      : ""
+  ) ||
+  (
+    item.lat && item.lng
+      ? `https://www.google.com/maps?q=${item.lat},${item.lng}`
+      : ""
+  );
+
+if (mapsUrl) {
+  await javnaSendCallToAction({
+    to: from,
+    body:
+      lang === "ar"
+        ? "📍 فتح الموقع والاتجاهات"
+        : "📍 Open location & directions",
+
+    buttonText:
+      lang === "ar"
+        ? "الموقع"
+        : "Location",
+
+    url: mapsUrl,
+  }).catch((err) => {
+    console.error("JAVNA_MAP_CTA_ERROR:", err);
+  });
+}
     }
 
   return;
