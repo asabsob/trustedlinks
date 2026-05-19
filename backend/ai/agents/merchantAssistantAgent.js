@@ -1,4 +1,3 @@
-```js
 import { runSafeAI } from "../gateway/aiGateway.js";
 
 export async function merchantAssistantAgent({
@@ -265,4 +264,3 @@ ${question || "Explain this page generally"}
     },
   });
 }
-```
