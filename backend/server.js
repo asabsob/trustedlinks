@@ -5896,7 +5896,6 @@ if (useImageCards) {
   console.error("JAVNA_BUTTONS_ERROR:", err);
 });
     }
-  }
 
   return;
 }
