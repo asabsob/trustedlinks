@@ -103,10 +103,11 @@ const aiResult = await merchantAssistantAgent({
       });
     }
 
-    return res.json({
-      success: true,
-      message: aiResult.result,
-    });
+   return res.json({
+  success: true,
+  message: aiResult.result,
+  insights: buildMerchantInsights({ business, reports }),
+});
   } catch (error) {
     console.error("MERCHANT_AI_ROUTE_ERROR", error);
 
@@ -116,5 +117,51 @@ const aiResult = await merchantAssistantAgent({
     });
   }
 });
+
+function buildMerchantInsights({ business, reports }) {
+  const insights = [];
+
+  if (!business?.description && !business?.description_ar) {
+    insights.push({
+      type: "warning",
+      title: "الوصف ناقص",
+      text: "أضف وصفًا واضحًا لنشاطك لتحسين الظهور في البحث.",
+    });
+  }
+
+  if (!business?.mapLink && !business?.latitude && !business?.longitude) {
+    insights.push({
+      type: "warning",
+      title: "الموقع غير مكتمل",
+      text: "إضافة الموقع تساعدك على الظهور في نتائج البحث القريبة.",
+    });
+  }
+
+  if (Number(reports?.nearby_starts || 0) > 0) {
+    insights.push({
+      type: "success",
+      title: "ظهور محلي جيد",
+      text: "لديك طلبات من البحث القريب، وهذا مؤشر جيد لموقع النشاط.",
+    });
+  }
+
+  if (Number(reports?.category_starts || 0) > Number(reports?.direct_starts || 0)) {
+    insights.push({
+      type: "opportunity",
+      title: "فرصة تحسين الكلمات",
+      text: "طلبات الفئة أعلى من المباشرة، حسّن الكلمات المفتاحية لزيادة الظهور.",
+    });
+  }
+
+  if (Number(business?.wallet_balance || 0) < 5) {
+    insights.push({
+      type: "wallet",
+      title: "الرصيد منخفض",
+      text: "اشحن الرصيد لتجنب توقف استقبال العملاء المحتملين.",
+    });
+  }
+
+  return insights.slice(0, 4);
+}
 
 export default router;
