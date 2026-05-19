@@ -95,9 +95,11 @@ function getLocationText(item = {}, lang = "ar") {
   const areaText = getAreaText(item, lang);
   if (!areaText) return "";
 
-  return isArabicLang(lang)
-    ? `📍 الموقع: ${areaText}`
-    : `📍 Location: ${areaText}`;
+  if (isArabicLang(lang)) {
+    return `📍 الموقع: \u200E${areaText}\u200E`;
+  }
+
+  return `📍 Location: ${areaText}`;
 }
 
 function getDistanceLine(item = {}, lang = "ar") {
@@ -171,7 +173,11 @@ lines.push(
     : "🟢 TrustedLinks"
 );
 
-lines.push(`🏪 ${name}`);
+lines.push(
+  isArabicLang(lang)
+    ? `🏪 ${name}`
+    : `🏪 ${name}`
+);
 
   if (includeCategory) {
     const categoryLine = getCategoryText(item, lang);
