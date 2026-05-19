@@ -5862,6 +5862,9 @@ await javnaSendImage({
   caption,
 });
 
+await new Promise((resolve) => setTimeout(resolve, 1200));
+     
+      
 await new Promise((r) => setTimeout(r, 500));
 
 if (item.trackedLink) {
