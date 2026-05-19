@@ -105,9 +105,34 @@ async function askAI(customQuestion = "") {
         </button>
       </div>
 
+      <div style={{ marginTop: 18, marginBottom: 14 }}>
+  <button
+    type="button"
+    onClick={() =>
+      askAI(
+        isAr
+          ? "ماذا أفعل في هذه الصفحة؟"
+          : "What can I do on this page?"
+      )
+    }
+    disabled={loading}
+    style={{
+      ...quickActionBtnStyle,
+      background: "#16a34a",
+      color: "#fff",
+      border: "none",
+      padding: "10px 18px",
+      fontWeight: 800,
+    }}
+  >
+    {isAr
+      ? "✨ ماذا أفعل في هذه الصفحة؟"
+      : "✨ What can I do on this page?"}
+  </button>
+</div>
+
       <div style={quickActionsStyle}>
   {[
-    isAr ? "ماذا أفعل في هذه الصفحة؟" : "What can I do on this page?",
     isAr ? "اشرح الأداء" : "Explain performance",
     isAr ? "كيف أزيد العملاء؟" : "How can I get more customers?",
     isAr ? "لماذا الليدز منخفضة؟" : "Why are leads low?",
@@ -206,9 +231,10 @@ const answerStyle = {
 
 const quickActionsStyle = {
   marginTop: 18,
-  display: "flex",
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, max-content))",
   gap: 10,
-  flexWrap: "wrap",
+  alignItems: "center",
 };
 
 const quickActionBtnStyle = {
