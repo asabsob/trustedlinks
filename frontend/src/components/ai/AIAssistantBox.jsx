@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Bot, Sparkles } from "lucide-react";
+import AIInsightCards from "./AIInsightCards";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL ||
@@ -13,6 +14,7 @@ export default function AIAssistantBox({
   const isAr = lang === "ar";
   const [loading, setLoading] = useState(false);
   const [answer, setAnswer] = useState("");
+  const [insights, setInsights] = useState([]);
 
 async function askAI(customQuestion = "") {
   try {
@@ -48,6 +50,7 @@ async function askAI(customQuestion = "") {
     }
 
     setAnswer(data.message || "");
+    setInsights(data.insights || []);
   } catch (err) {
     console.error("AI Assistant Error:", err);
     setAnswer(
@@ -121,6 +124,8 @@ async function askAI(customQuestion = "") {
     </button>
   ))}
 </div>
+
+      <AIInsightCards insights={insights} lang={lang} />
 
       {answer && <div style={answerStyle}>{answer}</div>}
     </section>
