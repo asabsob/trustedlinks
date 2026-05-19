@@ -22,6 +22,7 @@ router.post("/merchant/assistant", requireUser, async (req, res) => {
   try {
     const language = req.body.language || "ar";
     const pageContext = req.body.pageContext || "dashboard";
+    const question = req.body.question || "";
 
     // =========================================================================
     // Load business
@@ -88,12 +89,13 @@ router.post("/merchant/assistant", requireUser, async (req, res) => {
     // Run AI Assistant
     // =========================================================================
 
-    const aiResult = await merchantAssistantAgent({
-      business,
-      reports,
-      pageContext,
-      language,
-    });
+const aiResult = await merchantAssistantAgent({
+  business,
+  reports,
+  pageContext,
+  language,
+  question,
+});
 
     if (!aiResult.success) {
       return res.status(500).json({
