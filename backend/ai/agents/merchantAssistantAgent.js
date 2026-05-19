@@ -1,3 +1,4 @@
+```js
 import { runSafeAI } from "../gateway/aiGateway.js";
 
 export async function merchantAssistantAgent({
@@ -7,29 +8,52 @@ export async function merchantAssistantAgent({
   language = "ar",
   question = "",
 }) {
+  // ===========================================================================
+  // Missing Data Detection
+  // ===========================================================================
+
   const missingData = {
-    missingDescription: !business?.description && !business?.description_ar,
-    missingWhatsapp: !business?.whatsapp,
+    missingDescription:
+      !business?.description && !business?.description_ar,
+
+    missingWhatsapp:
+      !business?.whatsapp,
+
     missingLocation:
-      !business?.latitude && !business?.longitude && !business?.mapLink,
-    missingCategory: !business?.category,
+      !business?.latitude &&
+      !business?.longitude &&
+      !business?.mapLink,
+
+    missingCategory:
+      !business?.category,
+
     missingKeywords:
-      !Array.isArray(business?.keywords) || business.keywords.length === 0,
+      !Array.isArray(business?.keywords) ||
+      business.keywords.length === 0,
+
     missingArabicKeywords:
       !Array.isArray(business?.keywords_ar) ||
       business.keywords_ar.length === 0,
   };
+
+  // ===========================================================================
+  // Normalize Question
+  // ===========================================================================
 
   const q = String(question || "").toLowerCase();
 
   let focusedContext = {};
   let taskPrompt = "";
 
-if (
-  q.includes("الرصيد") ||
-  q.includes("wallet")
-) {
-  taskPrompt = `
+  // ===========================================================================
+  // Wallet Intent
+  // ===========================================================================
+
+  if (
+    q.includes("الرصيد") ||
+    q.includes("wallet")
+  ) {
+    taskPrompt = `
 Explain the merchant wallet balance.
 
 Focus on:
@@ -39,15 +63,25 @@ Focus on:
 - Recharge recommendation
 - Keep answer short
 `;
-}
 
-else if (
-  q.includes("العملاء") ||
-  q.includes("ليدز") ||
-  q.includes("more customers") ||
-  q.includes("customers")
-) {
-  taskPrompt = `
+    focusedContext = {
+      wallet_balance: business?.wallet_balance,
+      sponsored_balance: business?.sponsored_balance,
+      wallet_currency: business?.wallet_currency,
+    };
+  }
+
+  // ===========================================================================
+  // Customer Growth Intent
+  // ===========================================================================
+
+  else if (
+    q.includes("العملاء") ||
+    q.includes("ليدز") ||
+    q.includes("more customers") ||
+    q.includes("customers")
+  ) {
+    taskPrompt = `
 Analyze customer acquisition opportunities.
 
 Focus on:
@@ -58,14 +92,35 @@ Focus on:
 - Nearby search optimization
 - Give practical marketing advice
 `;
-}
 
-else if (
-  q.includes("منخفضة") ||
-  q.includes("low") ||
-  q.includes("ضعيف")
-) {
-  taskPrompt = `
+    focusedContext = {
+      directLeads: reports?.direct_starts,
+      categoryLeads: reports?.category_starts,
+      nearbyLeads: reports?.nearby_starts,
+      totalLeads: reports?.total_billed_conversations,
+
+      description: business?.description,
+      description_ar: business?.description_ar,
+
+      keywords: business?.keywords,
+      keywords_ar: business?.keywords_ar,
+
+      category: business?.category,
+
+      missingData,
+    };
+  }
+
+  // ===========================================================================
+  // Low Leads Intent
+  // ===========================================================================
+
+  else if (
+    q.includes("منخفضة") ||
+    q.includes("low") ||
+    q.includes("ضعيف")
+  ) {
+    taskPrompt = `
 Analyze why lead generation may be low.
 
 Focus on:
@@ -76,15 +131,33 @@ Focus on:
 - Search optimization
 - Competition possibility
 `;
-}
 
-else if (
-  q.includes("البحث") ||
-  q.includes("الظهور") ||
-  q.includes("search") ||
-  q.includes("visibility")
-) {
-  taskPrompt = `
+    focusedContext = {
+      directLeads: reports?.direct_starts,
+      categoryLeads: reports?.category_starts,
+      nearbyLeads: reports?.nearby_starts,
+
+      missingData,
+
+      keywords: business?.keywords,
+      keywords_ar: business?.keywords_ar,
+
+      description: business?.description,
+      description_ar: business?.description_ar,
+    };
+  }
+
+  // ===========================================================================
+  // Search Visibility Intent
+  // ===========================================================================
+
+  else if (
+    q.includes("البحث") ||
+    q.includes("الظهور") ||
+    q.includes("search") ||
+    q.includes("visibility")
+  ) {
+    taskPrompt = `
 Explain how to improve search visibility.
 
 Focus on:
@@ -94,10 +167,26 @@ Focus on:
 - Nearby visibility
 - Arabic and English optimization
 `;
-}
 
-else {
-  taskPrompt = `
+    focusedContext = {
+      category: business?.category,
+
+      description: business?.description,
+      description_ar: business?.description_ar,
+
+      keywords: business?.keywords,
+      keywords_ar: business?.keywords_ar,
+
+      missingData,
+    };
+  }
+
+  // ===========================================================================
+  // Default Dashboard Intent
+  // ===========================================================================
+
+  else {
+    taskPrompt = `
 Explain the merchant dashboard.
 
 Focus on:
@@ -107,57 +196,60 @@ Focus on:
 - Performance
 - Recommendations
 `;
-}
 
-  if (q.includes("الرصيد") || q.includes("wallet")) {
-  focusedContext = {
-    wallet_balance: business?.wallet_balance,
-    sponsored_balance: business?.sponsored_balance,
-    wallet_currency: business?.wallet_currency,
-  };
-}
+    focusedContext = {
+      business: {
+        name: business?.name,
+        name_ar: business?.name_ar,
 
-else if (
-  q.includes("العملاء") ||
-  q.includes("ليدز") ||
-  q.includes("customers")
-) {
-  focusedContext = {
-    directLeads: reports?.direct_starts,
-    categoryLeads: reports?.category_starts,
-    nearbyLeads: reports?.nearby_starts,
-    totalLeads: reports?.total_billed_conversations,
-  };
-}
+        category: business?.category,
+        status: business?.status,
 
-else if (
-  q.includes("البحث") ||
-  q.includes("الظهور") ||
-  q.includes("visibility")
-) {
-  focusedContext = {
-    description: business?.description,
-    description_ar: business?.description_ar,
-    keywords: business?.keywords,
-    keywords_ar: business?.keywords_ar,
-    category: business?.category,
-    missingData,
-  };
-}
+        wallet_balance: business?.wallet_balance,
+        sponsored_balance: business?.sponsored_balance,
+        wallet_currency: business?.wallet_currency,
 
-else {
-  focusedContext = {
-    business,
-    reports,
-    missingData,
-  };
-}
-  
-return runSafeAI({
-  role: "merchant",
-  language,
+        description: business?.description,
+        description_ar: business?.description_ar,
 
-  task: `
+        keywords: business?.keywords,
+        keywords_ar: business?.keywords_ar,
+      },
+
+      reports: {
+        totalLeads:
+          reports?.total_billed_conversations,
+
+        directLeads:
+          reports?.direct_starts,
+
+        categoryLeads:
+          reports?.category_starts,
+
+        nearbyLeads:
+          reports?.nearby_starts,
+
+        spending:
+          reports?.estimated_revenue,
+
+        currency:
+          reports?.currency,
+      },
+
+      missingData,
+    };
+  }
+
+  // ===========================================================================
+  // Run AI
+  // ===========================================================================
+
+  return runSafeAI({
+    role: "merchant",
+
+    language,
+
+    task: `
 ${taskPrompt}
 
 Page context:
@@ -167,8 +259,10 @@ Merchant question:
 ${question || "Explain this page generally"}
 `,
 
-  input: {
-    pageContext,
-    focusedContext,
-  },
-});
+    input: {
+      pageContext,
+      focusedContext,
+    },
+  });
+}
+```
