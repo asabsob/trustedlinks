@@ -290,8 +290,6 @@ export default function Reports({ lang = "en" }) {
               {chartData[chartData.length - 1]?.date || "-"}
             </p>
           </div>
-
-          <AIAssistantBox lang={lang} pageContext="reports" />
           
           <div className="flex flex-wrap gap-2">
             <RangeButton active={range === "7d"} onClick={() => setRange("7d")} label={labels.week} />
@@ -299,6 +297,11 @@ export default function Reports({ lang = "en" }) {
             <RangeButton active={range === "90d"} onClick={() => setRange("90d")} label={labels.quarter} />
           </div>
         </div>
+
+        <AIAssistantBox
+  lang={lang}
+  pageContext="reports"
+/>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
           <SummaryCard label={tr("directLeads")} value={directStarts} />
