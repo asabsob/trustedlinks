@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import WhatsAppVerify from "../components/WhatsAppVerify";
 import LocationPicker from "../components/LocationPicker";
+import AIAssistantBox from "../components/ai/AIAssistantBox";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE ||
@@ -581,6 +582,8 @@ export default function ManageLinks({ lang = "en" }) {
         <h1 style={heroTitle}>{t.title}</h1>
         <p style={heroSubtitle}>{t.desc}</p>
       </section>
+
+      <AIAssistantBox lang={lang} pageContext="manage_links" />
 
       {feedback.text ? (
         <div style={feedback.type === "success" ? successBox : errorBox}>
