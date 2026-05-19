@@ -5474,7 +5474,7 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
     const incomingLocation = body?.data?.location || null;
     const incomingText = String(body?.data?.text?.text || body?.data?.text || "").trim();
 
-      // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // Interactive Button Handling
 // ---------------------------------------------------------------------------
 const buttonReply =
@@ -5483,49 +5483,53 @@ const buttonReply =
 
 if (
   buttonReply === "واتساب" ||
-  buttonReply.toLowerCase() === "whatsapp"
-) {
-
-  const session = await getSearchSession(from);
-
-  const item = session?.results?.[0];
-
-  if (item?.trackedLink) {
-
-    return javnaSendText({
-      to: from,
-      body: item.trackedLink,
-    }).catch(console.error);
-
-  }
-}
-
-if (
+  buttonReply.toLowerCase() === "whatsapp" ||
   buttonReply === "الموقع" ||
   buttonReply.toLowerCase() === "location"
 ) {
+  const sessionResults =
+    conversationDecision?.session?.lastResults ||
+    conversationDecision?.session?.last_results ||
+    conversationDecision?.session?.results ||
+    [];
 
-  const session = await getSearchSession(from);
+  const item = Array.isArray(sessionResults)
+    ? sessionResults[0]
+    : null;
 
-  const item = session?.results?.[0];
+  if (!item) {
+    return javnaSendText({
+      to: from,
+      body:
+        lang === "ar"
+          ? "لم أجد آخر نتيجة. اكتب اسم النشاط مرة أخرى."
+          : "I could not find the last result. Please search again.",
+    }).catch(console.error);
+  }
+
+  if (
+    buttonReply === "واتساب" ||
+    buttonReply.toLowerCase() === "whatsapp"
+  ) {
+    return javnaSendText({
+      to: from,
+      body: item.trackedLink || item.whatsappLink || "",
+    }).catch(console.error);
+  }
 
   const mapsUrl =
-    item?.mapLink ||
-    item?.map_link ||
+    item.mapLink ||
+    item.map_link ||
     (
-      item?.latitude && item?.longitude
+      item.latitude && item.longitude
         ? `https://www.google.com/maps?q=${item.latitude},${item.longitude}`
         : ""
     );
 
-  if (mapsUrl) {
-
-    return javnaSendText({
-      to: from,
-      body: mapsUrl,
-    }).catch(console.error);
-
-  }
+  return javnaSendText({
+    to: from,
+    body: mapsUrl,
+  }).catch(console.error);
 }
 
     const lang = detectLanguage(incomingText);
