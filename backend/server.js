@@ -5474,63 +5474,6 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
     const incomingLocation = body?.data?.location || null;
     const incomingText = String(body?.data?.text?.text || body?.data?.text || "").trim();
 
-// ---------------------------------------------------------------------------
-// Interactive Button Handling
-// ---------------------------------------------------------------------------
-const buttonReply =
-  body?.data?.interactive?.button_reply?.title ||
-  incomingText;
-
-if (
-  buttonReply === "واتساب" ||
-  buttonReply.toLowerCase() === "whatsapp" ||
-  buttonReply === "الموقع" ||
-  buttonReply.toLowerCase() === "location"
-) {
-  const sessionResults =
-    conversationDecision?.session?.lastResults ||
-    conversationDecision?.session?.last_results ||
-    conversationDecision?.session?.results ||
-    [];
-
-  const item = Array.isArray(sessionResults)
-    ? sessionResults[0]
-    : null;
-
-  if (!item) {
-    return javnaSendText({
-      to: from,
-      body:
-        lang === "ar"
-          ? "لم أجد آخر نتيجة. اكتب اسم النشاط مرة أخرى."
-          : "I could not find the last result. Please search again.",
-    }).catch(console.error);
-  }
-
-  if (
-    buttonReply === "واتساب" ||
-    buttonReply.toLowerCase() === "whatsapp"
-  ) {
-    return javnaSendText({
-      to: from,
-      body: item.trackedLink || item.whatsappLink || "",
-    }).catch(console.error);
-  }
-
-  const mapsUrl =
-    item.mapLink ||
-    item.map_link ||
-    (
-      item.latitude && item.longitude
-        ? `https://www.google.com/maps?q=${item.latitude},${item.longitude}`
-        : ""
-    );
-
-  return javnaSendText({
-    to: from,
-    body: mapsUrl,
-  }).catch(console.error);
-}
 
     const lang = detectLanguage(incomingText);
     const normalizedQuery = normalizeSearchText(incomingText);
@@ -5928,24 +5871,17 @@ if (useImageCards) {
   caption,
 });
 
-await javnaSendActionButtons({
+await javnaSendCallToAction({
   to: from,
   body:
     lang === "ar"
-      ? "اختر الإجراء المناسب:"
-      : "Choose an action:",
-  buttons: [
-    {
-      id: `chat_${item.id}`,
-      title: lang === "ar" ? "واتساب" : "WhatsApp",
-    },
-    {
-      id: `map_${item.id}`,
-      title: lang === "ar" ? "الموقع" : "Location",
-    },
-  ],
+      ? "🟢 تواصل مباشرة عبر واتساب"
+      : "🟢 Contact directly via WhatsApp",
+  buttonText:
+    lang === "ar" ? "واتساب" : "WhatsApp",
+  url: item.trackedLink,
 }).catch((err) => {
-  console.error("JAVNA_BUTTONS_ERROR:", err);
+  console.error("JAVNA_CTA_ERROR:", err);
 });
     }
 
