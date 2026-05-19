@@ -1415,7 +1415,7 @@ const JAVNA_BASE_URL = "https://whatsapp.api.javna.com/whatsapp/v1.0";
 const JAVNA_SEND_TEXT_URL = `${JAVNA_BASE_URL}/message/text`;
 const JAVNA_SEND_AUTH_TEMPLATE_URL = `${JAVNA_BASE_URL}/message/template/authentication`;
 const JAVNA_SEND_IMAGE_URL =  `${JAVNA_BASE_URL}/message/image`;
-const JAVNA_SEND_INTERACTIVE_URL =
+const JAVNA_SEND_CTA_URL =
   `${JAVNA_BASE_URL}/message/interactive/callToAction`;
 const JAVNA_SEND_BUTTONS_URL =
   `${JAVNA_BASE_URL}/message/interactive/buttons`;
