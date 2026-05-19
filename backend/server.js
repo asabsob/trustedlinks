@@ -5854,7 +5854,7 @@ if (useImageCards) {
       continue;
     }
 
-   await javnaSendImage({
+ await javnaSendImage({
   to: from,
   customId:
     item.custom_id ||
@@ -5869,18 +5869,15 @@ if (item.trackedLink) {
       lang === "ar"
         ? "🟢 تواصل مباشرة عبر واتساب"
         : "🟢 Contact directly via WhatsApp",
-
     buttonText:
-      lang === "ar"
-        ? "واتساب"
-        : "WhatsApp",
-
+      lang === "ar" ? "واتساب" : "WhatsApp",
     url: item.trackedLink,
   }).catch((err) => {
     console.error("JAVNA_CTA_ERROR:", err);
   });
 }
-   const mapsUrl =
+
+const mapsUrl =
   item.maps_url ||
   item.mapsUrl ||
   item.location_url ||
@@ -5905,12 +5902,8 @@ if (mapsUrl) {
       lang === "ar"
         ? "📍 فتح الموقع والاتجاهات"
         : "📍 Open location & directions",
-
     buttonText:
-      lang === "ar"
-        ? "الموقع"
-        : "Location",
-
+      lang === "ar" ? "الموقع" : "Location",
     url: mapsUrl,
   }).catch((err) => {
     console.error("JAVNA_MAP_CTA_ERROR:", err);
