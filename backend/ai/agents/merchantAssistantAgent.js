@@ -9,6 +9,7 @@ export async function merchantAssistantAgent({
   reports,
   pageContext = "dashboard",
   language = "ar",
+  question = "",
 }) {
   const missingData = {
     missingDescription: !business?.description && !business?.description_ar,
@@ -32,6 +33,9 @@ export async function merchantAssistantAgent({
 Explain the merchant page and provide practical recommendations.
 
 Page context: ${pageContext}
+
+Merchant question:
+${question || "Explain this page generally"}
 
 Focus on:
 - Explain current page
