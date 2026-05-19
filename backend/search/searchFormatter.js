@@ -245,14 +245,6 @@ export function formatSearchResults({
     lines.push("");
   });
 
-  if (results.length > 1) {
-    lines.push(
-      isArabicLang(lang)
-        ? "📌 أرسل رقم النتيجة لفتح رابطها."
-        : "📌 Send the result number to open its link."
-    );
-    lines.push("");
-  }
 
   lines.push("━━━━━━━━━━━━");
   lines.push(getFooterHint(lang));
@@ -295,15 +287,6 @@ export function formatNearestResults(results = [], lang = "ar", categoryQuery = 
     );
     lines.push("");
   });
-
-  if (results.length > 1) {
-    lines.push(
-      isArabicLang(lang)
-        ? "📌 أرسل رقم النتيجة لفتح رابطها."
-        : "📌 Send the result number to open its link."
-    );
-    lines.push("");
-  }
 
   lines.push("━━━━━━━━━━━━");
   lines.push(getFooterHint(lang));
