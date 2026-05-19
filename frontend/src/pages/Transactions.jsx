@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import AIAssistantBox from "../components/ai/AIAssistantBox";
 const API_BASE =
   import.meta.env.VITE_API_BASE ||
   "https://trustedlinks-backend-production.up.railway.app";
@@ -113,6 +114,8 @@ export default function Transactions({ lang = "en" }) {
           <h1 className="text-2xl font-bold text-slate-900 md:text-3xl">{t.title}</h1>
           <p className="mt-2 text-sm text-slate-600 md:text-base">{t.subtitle}</p>
         </div>
+
+        <AIAssistantBox lang={lang} pageContext="transactions" />
 
         {message && (
           <div className="mb-6 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-700 shadow-sm">
