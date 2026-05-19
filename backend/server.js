@@ -5870,45 +5870,31 @@ if (useImageCards) {
       caption,
     });
 
-    await javnaSendCallToAction({
-      to: from,
-      body:
-        lang === "ar"
-          ? "🟢 تواصل مباشرة عبر واتساب"
-          : "🟢 Contact directly via WhatsApp",
-      buttonText:
+ await javnaSendActionButtons({
+  to: from,
+  body:
+    lang === "ar"
+      ? "اختر الإجراء المناسب:"
+      : "Choose an action:",
+  buttons: [
+    {
+      id: `chat_${item.id}`,
+      title:
         lang === "ar"
           ? "واتساب"
           : "WhatsApp",
-      url: item.trackedLink,
-    }).catch((err) => {
-      console.error("JAVNA_CTA_ERROR:", err);
-    });
-
-    const mapsUrl =
-      item.mapLink ||
-      item.map_link ||
-      (
-        item.latitude && item.longitude
-          ? `https://www.google.com/maps?q=${item.latitude},${item.longitude}`
-          : ""
-      );
-
-    if (mapsUrl) {
-      await javnaSendCallToAction({
-        to: from,
-        body:
-          lang === "ar"
-            ? "📍 فتح الموقع والاتجاهات"
-            : "📍 Open location & directions",
-        buttonText:
-          lang === "ar"
-            ? "الموقع"
-            : "Location",
-        url: mapsUrl,
-      }).catch((err) => {
-        console.error("JAVNA_MAP_CTA_ERROR:", err);
-      });
+    },
+    {
+      id: `map_${item.id}`,
+      title:
+        lang === "ar"
+          ? "الموقع"
+          : "Location",
+    },
+  ],
+}).catch((err) => {
+  console.error("JAVNA_BUTTONS_ERROR:", err);
+});
     }
   }
 
