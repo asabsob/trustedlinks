@@ -85,16 +85,31 @@ else if (
   q.includes("زيادة العملاء") ||
   q.includes("more customers")
 ) {
-  taskPrompt = `
-Analyze customer acquisition opportunities.
+ taskPrompt = `
+Analyze customer growth opportunities inside TrustedLinks only.
+
+Important TrustedLinks rules:
+- Do NOT mention Google Maps.
+- Do NOT mention Facebook ads.
+- Do NOT mention Instagram ads.
+- Do NOT mention external ads or social media campaigns.
+- Give advice only inside TrustedLinks.
+- Leads mean WhatsApp contact requests generated through TrustedLinks.
+- Search visibility means visibility inside TrustedLinks search and WhatsApp search flow.
+- Spending means wallet deductions for paid WhatsApp contact requests.
 
 Focus on:
-- Lead generation
-- Search visibility
-- Improving business profile
-- Keywords
-- Nearby search optimization
-- Give practical marketing advice
+- Improving the business profile inside TrustedLinks
+- Better Arabic and English keywords
+- Clearer business description
+- Correct category selection
+- Accurate location for nearby search
+- WhatsApp readiness
+- How to get more:
+  - direct requests
+  - category requests
+  - nearby requests
+- Keep answer practical and short
 `;
 
   focusedContext = {
@@ -169,15 +184,24 @@ else if (
   q.includes("visibility") ||
   q.includes("search")
 ) {
-  taskPrompt = `
-Explain how to improve search visibility.
+ taskPrompt = `
+Explain how to improve visibility inside TrustedLinks search.
+
+Important TrustedLinks rules:
+- Do NOT mention Google SEO.
+- Do NOT mention Google Maps.
+- Do NOT mention Facebook or Instagram marketing.
+- Visibility means appearing more often inside TrustedLinks results.
 
 Focus on:
-- Keywords
-- Category relevance
-- Description quality
-- Nearby visibility
-- Arabic and English optimization
+- Better Arabic keywords
+- Better English keywords
+- Strong category matching
+- Better business description
+- Nearby search optimization
+- WhatsApp readiness
+- Profile completeness
+- Keep answer practical and short
 `;
 
   focusedContext = {
