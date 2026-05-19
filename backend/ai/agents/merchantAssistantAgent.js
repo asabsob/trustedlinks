@@ -108,28 +108,67 @@ Focus on:
 - Recommendations
 `;
 }
-  return runSafeAI({
-    role: "merchant",
-    language,
- task: taskPrompt,
 
-Page context: ${pageContext}
+  if (q.includes("الرصيد") || q.includes("wallet")) {
+  focusedContext = {
+    wallet_balance: business?.wallet_balance,
+    sponsored_balance: business?.sponsored_balance,
+    wallet_currency: business?.wallet_currency,
+  };
+}
+
+else if (
+  q.includes("العملاء") ||
+  q.includes("ليدز") ||
+  q.includes("customers")
+) {
+  focusedContext = {
+    directLeads: reports?.direct_starts,
+    categoryLeads: reports?.category_starts,
+    nearbyLeads: reports?.nearby_starts,
+    totalLeads: reports?.total_billed_conversations,
+  };
+}
+
+else if (
+  q.includes("البحث") ||
+  q.includes("الظهور") ||
+  q.includes("visibility")
+) {
+  focusedContext = {
+    description: business?.description,
+    description_ar: business?.description_ar,
+    keywords: business?.keywords,
+    keywords_ar: business?.keywords_ar,
+    category: business?.category,
+    missingData,
+  };
+}
+
+else {
+  focusedContext = {
+    business,
+    reports,
+    missingData,
+  };
+}
+  
+return runSafeAI({
+  role: "merchant",
+  language,
+
+  task: `
+${taskPrompt}
+
+Page context:
+${pageContext}
 
 Merchant question:
 ${question || "Explain this page generally"}
-
-Focus on:
-- Explain current page
-- Explain KPIs
-- Explain wallet/leads/reports if available
-- Detect missing business data
-- Suggest visibility improvements
-- Suggest search optimization
-- Keep response short and practical
 `,
-    input: {
-      pageContext,
-      focusedContext,
-    },
-  });
-}
+
+  input: {
+    pageContext,
+    focusedContext,
+  },
+});
