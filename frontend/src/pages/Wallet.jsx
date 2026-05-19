@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import AIAssistantBox from "../components/ai/AIAssistantBox";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE ||
@@ -375,6 +376,8 @@ const res = await fetch(`${API_BASE}/api/payments/confirm-topup-order`, {
           <p className="mt-2 text-sm text-slate-600 md:text-base">{t.subtitle}</p>
         </div>
 
+        <AIAssistantBox lang={lang} pageContext="wallet" />
+        
         {(status === "low" || status === "out") && (
           <div
             className={`mb-6 rounded-xl border p-4 text-sm shadow-sm ${
