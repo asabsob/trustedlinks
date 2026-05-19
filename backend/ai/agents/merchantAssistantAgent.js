@@ -47,9 +47,7 @@ export async function merchantAssistantAgent({
   // ===========================================================================
   // Intent
   // ===========================================================================
-
-
-  if (
+if (
   q.includes("ماذا أفعل") ||
   q.includes("هذه الصفحة") ||
   q.includes("استخدم") ||
@@ -74,43 +72,13 @@ Focus on:
     pageGuide: getPageGuideContext(pageContext, language),
   };
 }
-  // ===========================================================================
-  // Wallet Intent
-  // ===========================================================================
 
-  if (
-    q.includes("الرصيد") ||
-    q.includes("wallet")
-  ) {
-    taskPrompt = `
-Explain the merchant wallet balance.
-
-Focus on:
-- Current balance
-- Sponsored balance
-- Low balance risk
-- Recharge recommendation
-- Keep answer short
-`;
-
-    focusedContext = {
-      wallet_balance: business?.wallet_balance,
-      sponsored_balance: business?.sponsored_balance,
-      wallet_currency: business?.wallet_currency,
-    };
-  }
-
-  // ===========================================================================
-  // Customer Growth Intent
-  // ===========================================================================
-
-  else if (
-    q.includes("العملاء") ||
-    q.includes("ليدز") ||
-    q.includes("more customers") ||
-    q.includes("customers")
-  ) {
-    taskPrompt = `
+else if (
+  q.includes("كيف أزيد") ||
+  q.includes("زيادة العملاء") ||
+  q.includes("more customers")
+) {
+  taskPrompt = `
 Analyze customer acquisition opportunities.
 
 Focus on:
@@ -122,34 +90,49 @@ Focus on:
 - Give practical marketing advice
 `;
 
-    focusedContext = {
-      directLeads: reports?.direct_starts,
-      categoryLeads: reports?.category_starts,
-      nearbyLeads: reports?.nearby_starts,
-      totalLeads: reports?.total_billed_conversations,
+  focusedContext = {
+    directLeads: reports?.direct_starts,
+    categoryLeads: reports?.category_starts,
+    nearbyLeads: reports?.nearby_starts,
 
-      description: business?.description,
-      description_ar: business?.description_ar,
+    description: business?.description,
+    description_ar: business?.description_ar,
 
-      keywords: business?.keywords,
-      keywords_ar: business?.keywords_ar,
+    keywords: business?.keywords,
+    keywords_ar: business?.keywords_ar,
 
-      category: business?.category,
+    category: business?.category,
 
-      missingData,
-    };
-  }
+    missingData,
+  };
+}
 
-  // ===========================================================================
-  // Low Leads Intent
-  // ===========================================================================
+else if (
+  q.includes("اشرح الأداء") ||
+  q.includes("performance")
+) {
+  taskPrompt = `
+Explain the merchant performance metrics.
 
-  else if (
-    q.includes("منخفضة") ||
-    q.includes("low") ||
-    q.includes("ضعيف")
-  ) {
-    taskPrompt = `
+Focus on:
+- Direct leads
+- Category leads
+- Nearby leads
+- Overall performance
+- Business growth insights
+`;
+
+  focusedContext = {
+    reports,
+    businessName: business?.name,
+  };
+}
+
+else if (
+  q.includes("لماذا الليدز منخفضة") ||
+  q.includes("low leads")
+) {
+  taskPrompt = `
 Analyze why lead generation may be low.
 
 Focus on:
@@ -161,32 +144,25 @@ Focus on:
 - Competition possibility
 `;
 
-    focusedContext = {
-      directLeads: reports?.direct_starts,
-      categoryLeads: reports?.category_starts,
-      nearbyLeads: reports?.nearby_starts,
+  focusedContext = {
+    reports,
+    missingData,
 
-      missingData,
+    keywords: business?.keywords,
+    keywords_ar: business?.keywords_ar,
 
-      keywords: business?.keywords,
-      keywords_ar: business?.keywords_ar,
+    description: business?.description,
+    description_ar: business?.description_ar,
+  };
+}
 
-      description: business?.description,
-      description_ar: business?.description_ar,
-    };
-  }
-
-  // ===========================================================================
-  // Search Visibility Intent
-  // ===========================================================================
-
-  else if (
-    q.includes("البحث") ||
-    q.includes("الظهور") ||
-    q.includes("search") ||
-    q.includes("visibility")
-  ) {
-    taskPrompt = `
+else if (
+  q.includes("البحث") ||
+  q.includes("الظهور") ||
+  q.includes("visibility") ||
+  q.includes("search")
+) {
+  taskPrompt = `
 Explain how to improve search visibility.
 
 Focus on:
@@ -197,19 +173,41 @@ Focus on:
 - Arabic and English optimization
 `;
 
-    focusedContext = {
-      category: business?.category,
+  focusedContext = {
+    category: business?.category,
 
-      description: business?.description,
-      description_ar: business?.description_ar,
+    description: business?.description,
+    description_ar: business?.description_ar,
 
-      keywords: business?.keywords,
-      keywords_ar: business?.keywords_ar,
+    keywords: business?.keywords,
+    keywords_ar: business?.keywords_ar,
 
-      missingData,
-    };
-  }
+    missingData,
+  };
+}
 
+else if (
+  q.includes("الرصيد") ||
+  q.includes("wallet")
+) {
+  taskPrompt = `
+Explain the merchant wallet balance.
+
+Focus on:
+- Current balance
+- Sponsored balance
+- Low balance risk
+- Recharge recommendation
+- Keep answer short
+`;
+
+  focusedContext = {
+    wallet_balance: business?.wallet_balance,
+    sponsored_balance: business?.sponsored_balance,
+    wallet_currency: business?.wallet_currency,
+  };
+}
+ 
   // ===========================================================================
   // Default Dashboard Intent
   // ===========================================================================
