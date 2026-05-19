@@ -14,51 +14,52 @@ export default function AIAssistantBox({
   const [loading, setLoading] = useState(false);
   const [answer, setAnswer] = useState("");
 
-  async function askAI() {
-    try {
-      setLoading(true);
-      setAnswer("");
+async function askAI(customQuestion = "") {
+  try {
+    setLoading(true);
+    setAnswer("");
 
-      const token =
-        localStorage.getItem("token") ||
-        localStorage.getItem("trustedlinks_token");
+    const token =
+      localStorage.getItem("token") ||
+      localStorage.getItem("trustedlinks_token");
 
-      if (!token) {
-        setAnswer(isAr ? "يرجى تسجيل الدخول أولًا." : "Please login first.");
-        return;
-      }
-
-      const res = await fetch(`${API_BASE}/api/ai/merchant/assistant`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          language: lang,
-          pageContext,
-        }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        throw new Error(data.error || "AI failed");
-      }
-
-      setAnswer(data.message || "");
-    } catch (err) {
-      console.error("AI Assistant Error:", err);
-      setAnswer(
-        isAr
-          ? "تعذر تشغيل المساعد الذكي حاليًا. حاول مرة أخرى."
-          : "AI Assistant failed. Please try again."
-      );
-    } finally {
-      setLoading(false);
+    if (!token) {
+      setAnswer(isAr ? "يرجى تسجيل الدخول أولًا." : "Please login first.");
+      return;
     }
-  }
 
+    const res = await fetch(`${API_BASE}/api/ai/merchant/assistant`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        language: lang,
+        pageContext,
+        question: customQuestion,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(data.error || "AI failed");
+    }
+
+    setAnswer(data.message || "");
+  } catch (err) {
+    console.error("AI Assistant Error:", err);
+    setAnswer(
+      isAr
+        ? "تعذر تشغيل المساعد الذكي حاليًا. حاول مرة أخرى."
+        : "AI Assistant failed. Please try again."
+    );
+  } finally {
+    setLoading(false);
+  }
+}
+  
   return (
     <section style={boxStyle}>
       <div style={topRowStyle}>
@@ -100,6 +101,26 @@ export default function AIAssistantBox({
             : "Explain this page"}
         </button>
       </div>
+
+      <div style={quickActionsStyle}>
+  {[
+    isAr ? "اشرح الأداء" : "Explain performance",
+    isAr ? "كيف أزيد العملاء؟" : "How can I get more customers?",
+    isAr ? "لماذا الليدز منخفضة؟" : "Why are leads low?",
+    isAr ? "كيف أظهر أكثر في البحث؟" : "How can I appear more in search?",
+    isAr ? "اشرح الرصيد" : "Explain wallet balance",
+  ].map((q) => (
+    <button
+      key={q}
+      type="button"
+      onClick={() => askAI(q)}
+      disabled={loading}
+      style={quickActionBtnStyle}
+    >
+      {q}
+    </button>
+  ))}
+</div>
 
       {answer && <div style={answerStyle}>{answer}</div>}
     </section>
@@ -175,4 +196,22 @@ const answerStyle = {
   fontSize: 14,
   lineHeight: 2,
   color: "#374151",
+};
+
+const quickActionsStyle = {
+  marginTop: 18,
+  display: "flex",
+  gap: 10,
+  flexWrap: "wrap",
+};
+
+const quickActionBtnStyle = {
+  border: "1px solid #bbf7d0",
+  background: "#fff",
+  color: "#166534",
+  borderRadius: 999,
+  padding: "8px 12px",
+  fontSize: 13,
+  fontWeight: 700,
+  cursor: "pointer",
 };
