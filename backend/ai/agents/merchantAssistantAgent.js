@@ -23,72 +23,95 @@ export async function merchantAssistantAgent({
   const q = String(question || "").toLowerCase();
 
   let focusedContext = {};
+  let taskPrompt = "";
 
-  if (q.includes("الرصيد") || q.includes("wallet")) {
-    focusedContext = {
-      wallet_balance: business?.wallet_balance,
-      sponsored_balance: business?.sponsored_balance,
-      wallet_currency: business?.wallet_currency,
-      wallet_status: business?.wallet_status,
-    };
-  } else if (
-    q.includes("العملاء") ||
-    q.includes("ليدز") ||
-    q.includes("leads")
-  ) {
-    focusedContext = {
-      directLeads: reports?.direct_starts,
-      categoryLeads: reports?.category_starts,
-      nearbyLeads: reports?.nearby_starts,
-      totalLeads: reports?.total_billed_conversations,
-    };
-  } else if (
-    q.includes("البحث") ||
-    q.includes("الظهور") ||
-    q.includes("visibility") ||
-    q.includes("search")
-  ) {
-    focusedContext = {
-      description: business?.description,
-      description_ar: business?.description_ar,
-      keywords: business?.keywords,
-      keywords_ar: business?.keywords_ar,
-      category: business?.category,
-      status: business?.status,
-      missingData,
-    };
-  } else {
-    focusedContext = {
-      business: {
-        name: business?.name,
-        name_ar: business?.name_ar,
-        category: business?.category,
-        status: business?.status,
-        wallet_balance: business?.wallet_balance,
-        sponsored_balance: business?.sponsored_balance,
-        wallet_currency: business?.wallet_currency,
-        description: business?.description,
-        description_ar: business?.description_ar,
-        keywords: business?.keywords,
-        keywords_ar: business?.keywords_ar,
-      },
-      reports: {
-        totalLeads: reports?.total_billed_conversations,
-        directLeads: reports?.direct_starts,
-        categoryLeads: reports?.category_starts,
-        nearbyLeads: reports?.nearby_starts,
-        spending: reports?.estimated_revenue,
-        currency: reports?.currency,
-      },
-      missingData,
-    };
-  }
+if (
+  q.includes("الرصيد") ||
+  q.includes("wallet")
+) {
+  taskPrompt = `
+Explain the merchant wallet balance.
 
+Focus on:
+- Current balance
+- Sponsored balance
+- Low balance risk
+- Recharge recommendation
+- Keep answer short
+`;
+}
+
+else if (
+  q.includes("العملاء") ||
+  q.includes("ليدز") ||
+  q.includes("more customers") ||
+  q.includes("customers")
+) {
+  taskPrompt = `
+Analyze customer acquisition opportunities.
+
+Focus on:
+- Lead generation
+- Search visibility
+- Improving business profile
+- Keywords
+- Nearby search optimization
+- Give practical marketing advice
+`;
+}
+
+else if (
+  q.includes("منخفضة") ||
+  q.includes("low") ||
+  q.includes("ضعيف")
+) {
+  taskPrompt = `
+Analyze why lead generation may be low.
+
+Focus on:
+- Missing business data
+- Weak keywords
+- Missing location
+- Category visibility
+- Search optimization
+- Competition possibility
+`;
+}
+
+else if (
+  q.includes("البحث") ||
+  q.includes("الظهور") ||
+  q.includes("search") ||
+  q.includes("visibility")
+) {
+  taskPrompt = `
+Explain how to improve search visibility.
+
+Focus on:
+- Keywords
+- Category relevance
+- Description quality
+- Nearby visibility
+- Arabic and English optimization
+`;
+}
+
+else {
+  taskPrompt = `
+Explain the merchant dashboard.
+
+Focus on:
+- KPIs
+- Wallet
+- Leads
+- Performance
+- Recommendations
+`;
+}
   return runSafeAI({
     role: "merchant",
     language,
-    task: `
-Explain the merchant page and provide practical recommendations.
+ task: taskPrompt,
 
 Page context: ${pageContext}
 
