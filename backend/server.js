@@ -5474,6 +5474,60 @@ app.post("/webhooks/javna/whatsapp", async (req, res) => {
     const incomingLocation = body?.data?.location || null;
     const incomingText = String(body?.data?.text?.text || body?.data?.text || "").trim();
 
+      // ---------------------------------------------------------------------------
+// Interactive Button Handling
+// ---------------------------------------------------------------------------
+const buttonReply =
+  body?.data?.interactive?.button_reply?.title ||
+  incomingText;
+
+if (
+  buttonReply === "واتساب" ||
+  buttonReply.toLowerCase() === "whatsapp"
+) {
+
+  const session = await getSearchSession(from);
+
+  const item = session?.results?.[0];
+
+  if (item?.trackedLink) {
+
+    return javnaSendText({
+      to: from,
+      body: item.trackedLink,
+    }).catch(console.error);
+
+  }
+}
+
+if (
+  buttonReply === "الموقع" ||
+  buttonReply.toLowerCase() === "location"
+) {
+
+  const session = await getSearchSession(from);
+
+  const item = session?.results?.[0];
+
+  const mapsUrl =
+    item?.mapLink ||
+    item?.map_link ||
+    (
+      item?.latitude && item?.longitude
+        ? `https://www.google.com/maps?q=${item.latitude},${item.longitude}`
+        : ""
+    );
+
+  if (mapsUrl) {
+
+    return javnaSendText({
+      to: from,
+      body: mapsUrl,
+    }).catch(console.error);
+
+  }
+}
+
     const lang = detectLanguage(incomingText);
     const normalizedQuery = normalizeSearchText(incomingText);
 
@@ -5862,15 +5916,15 @@ if (useImageCards) {
       continue;
     }
 
-    await javnaSendImage({
-      to: from,
-      customId:
-        item.custom_id ||
-        item.customId,
-      caption,
-    });
+   await javnaSendImage({
+  to: from,
+  customId:
+    item.custom_id ||
+    item.customId,
+  caption,
+});
 
- await javnaSendActionButtons({
+await javnaSendActionButtons({
   to: from,
   body:
     lang === "ar"
@@ -5879,17 +5933,11 @@ if (useImageCards) {
   buttons: [
     {
       id: `chat_${item.id}`,
-      title:
-        lang === "ar"
-          ? "واتساب"
-          : "WhatsApp",
+      title: lang === "ar" ? "واتساب" : "WhatsApp",
     },
     {
       id: `map_${item.id}`,
-      title:
-        lang === "ar"
-          ? "الموقع"
-          : "Location",
+      title: lang === "ar" ? "الموقع" : "Location",
     },
   ],
 }).catch((err) => {
