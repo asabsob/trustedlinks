@@ -18,6 +18,8 @@ import {
 } from "recharts";
 import { getText, getCategoryLabel } from "../i18n";
 
+import AIAssistantBox from "../components/ai/AIAssistantBox";
+
 const API_BASE =
   import.meta.env.VITE_API_BASE ||
   "https://trustedlinks-backend-production.up.railway.app";
@@ -289,6 +291,8 @@ export default function Reports({ lang = "en" }) {
             </p>
           </div>
 
+          <AIAssistantBox lang={lang} pageContext="reports" />
+          
           <div className="flex flex-wrap gap-2">
             <RangeButton active={range === "7d"} onClick={() => setRange("7d")} label={labels.week} />
             <RangeButton active={range === "30d"} onClick={() => setRange("30d")} label={labels.month} />
