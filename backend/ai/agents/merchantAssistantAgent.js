@@ -45,6 +45,36 @@ export async function merchantAssistantAgent({
   let taskPrompt = "";
 
   // ===========================================================================
+  // Intent
+  // ===========================================================================
+
+
+  if (
+  q.includes("ماذا أفعل") ||
+  q.includes("هذه الصفحة") ||
+  q.includes("استخدم") ||
+  q.includes("what can i do") ||
+  q.includes("how to use")
+) {
+  taskPrompt = `
+Act as a product guide for the merchant dashboard.
+
+Explain this page step by step.
+
+Focus on:
+- What this page is for
+- What the merchant can do here
+- Which buttons or sections matter
+- What action to take next
+- Keep it simple and practical
+`;
+
+  focusedContext = {
+    pageContext,
+    pageGuide: getPageGuideContext(pageContext, language),
+  };
+}
+  // ===========================================================================
   // Wallet Intent
   // ===========================================================================
 
@@ -263,4 +293,141 @@ ${question || "Explain this page generally"}
       focusedContext,
     },
   });
+}
+
+function getPageGuideContext(pageContext, language = "ar") {
+  const isAr = language === "ar";
+
+  const guides = {
+    business_dashboard: {
+      ar: {
+        pageName: "لوحة تحكم النشاط",
+        purpose: "متابعة أداء النشاط، الرصيد، الليدز، وحالة الحساب.",
+        actions: [
+          "راجع إجمالي الرصيد.",
+          "تابع عدد الليدز المباشرة ومن الفئة والقريبة.",
+          "راقب حالة الرصيد إذا كان منخفضًا.",
+          "استخدم زر الشحن عند الحاجة.",
+          "راجع تفاصيل النشاط وتأكد من اكتمالها.",
+        ],
+      },
+      en: {
+        pageName: "Business Dashboard",
+        purpose: "Track business performance, wallet, leads, and account status.",
+        actions: [
+          "Review your total balance.",
+          "Check direct, category, and nearby leads.",
+          "Watch low-balance warnings.",
+          "Recharge when needed.",
+          "Review business details and complete missing information.",
+        ],
+      },
+    },
+
+    manage_links: {
+      ar: {
+        pageName: "إدارة معلومات النشاط",
+        purpose: "تعديل بيانات النشاط وتحسين ظهوره في البحث.",
+        actions: [
+          "عدّل اسم النشاط والوصف.",
+          "أضف كلمات مفتاحية عربية وإنجليزية.",
+          "تأكد من اختيار الفئة الصحيحة.",
+          "حدّث موقع النشاط على الخريطة.",
+          "وثّق رقم واتساب.",
+          "استخدم AI Optimization لتحسين الوصف والكلمات المفتاحية.",
+          "بعد تطبيق اقتراحات AI اضغط حفظ التغييرات.",
+        ],
+      },
+      en: {
+        pageName: "Manage Business Information",
+        purpose: "Edit your business profile and improve search visibility.",
+        actions: [
+          "Edit business name and description.",
+          "Add Arabic and English keywords.",
+          "Choose the correct category.",
+          "Update map location.",
+          "Verify WhatsApp number.",
+          "Use AI Optimization to improve description and keywords.",
+          "After applying AI suggestions, click Save Changes.",
+        ],
+      },
+    },
+
+    reports: {
+      ar: {
+        pageName: "تقارير الأداء",
+        purpose: "فهم مصادر الليدز والإنفاق واتجاهات الأداء.",
+        actions: [
+          "راجع عدد الليدز حسب المصدر.",
+          "تابع الإنفاق خلال الفترة.",
+          "قارن الأداء بين 7 و30 و90 يوم.",
+          "راقب أقوى مصدر لليدز.",
+          "استخدم التحليلات لتحسين ميزانية النشاط.",
+        ],
+      },
+      en: {
+        pageName: "Performance Reports",
+        purpose: "Understand lead sources, spending, and performance trends.",
+        actions: [
+          "Review leads by source.",
+          "Track spending over time.",
+          "Compare 7, 30, and 90 day periods.",
+          "Identify your strongest lead source.",
+          "Use insights to improve your budget.",
+        ],
+      },
+    },
+
+    wallet: {
+      ar: {
+        pageName: "المحفظة",
+        purpose: "إدارة الرصيد وشحن الحساب ومراجعة آخر الحركات.",
+        actions: [
+          "راجع الرصيد الحالي.",
+          "تابع حالة الحساب.",
+          "اشحن الرصيد عند انخفاضه.",
+          "راجع آخر الحركات.",
+          "تأكد من الرصيد الترويجي إن وجد.",
+        ],
+      },
+      en: {
+        pageName: "Wallet",
+        purpose: "Manage balance, top-ups, and recent activity.",
+        actions: [
+          "Review current balance.",
+          "Check account status.",
+          "Top up when balance is low.",
+          "Review recent transactions.",
+          "Check sponsored credit if available.",
+        ],
+      },
+    },
+
+    transactions: {
+      ar: {
+        pageName: "كشف الحركات",
+        purpose: "مراجعة كل الخصومات والإيداعات على حساب النشاط.",
+        actions: [
+          "راجع نوع الحركة.",
+          "تأكد من مبلغ الخصم أو الإيداع.",
+          "افهم سبب الحركة.",
+          "استخدم الفلاتر لعرض الإيداعات أو الخصومات فقط.",
+        ],
+      },
+      en: {
+        pageName: "Transactions",
+        purpose: "Review all credits and debits for your business.",
+        actions: [
+          "Review transaction type.",
+          "Check debit or credit amount.",
+          "Understand the transaction reason.",
+          "Use filters to show credits or debits only.",
+        ],
+      },
+    },
+  };
+
+  const guide = guides[pageContext] || guides.business_dashboard;
+
+  return isAr ? guide.ar : guide.en;
 }
