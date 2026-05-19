@@ -1599,13 +1599,11 @@ async function javnaSendOtpTemplate({
 
 
 
-async function javnaSendCallToAction({
+async function javnaSendActionButtons({
   to,
   body,
-  buttonText,
-  url,
+  buttons = [],
 }) {
-
   if (!JAVNA_API_KEY) {
     throw new Error("Missing JAVNA_API_KEY");
   }
@@ -1627,30 +1625,29 @@ async function javnaSendCallToAction({
     ? String(to)
     : `+${to}`;
 
- const payload = {
-  from,
-  to: toNumber,
-  content: {
-    bodyText: String(body || ""),
-    displayText: String(buttonText || ""),
-    url: String(url || ""),
-  },
-};
-    
-  const r = await fetch(
-   JAVNA_SEND_CTA_URL,
-    {
-      method: "POST",
-      headers,
-      body: JSON.stringify(payload),
-    }
-  );
+  const payload = {
+    from,
+    to: toNumber,
+    content: {
+      bodyText: String(body || ""),
+      buttons: buttons.map((b) => ({
+        id: String(b.id || ""),
+        title: String(b.title || ""),
+      })),
+    },
+  };
+
+  const r = await fetch(JAVNA_SEND_BUTTONS_URL, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
 
   const txt = await r.text();
 
   if (!r.ok) {
     throw new Error(
-      `Javna CTA failed (${r.status}): ${txt}`
+      `Javna buttons failed (${r.status}): ${txt}`
     );
   }
 
