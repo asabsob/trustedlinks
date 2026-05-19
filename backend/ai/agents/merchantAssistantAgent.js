@@ -55,16 +55,23 @@ if (
   q.includes("how to use")
 ) {
   taskPrompt = `
-Act as a product guide for the merchant dashboard.
+Act as a TrustedLinks merchant product guide.
 
-Explain this page step by step.
+Important rules:
+- Do NOT mention Facebook ads.
+- Do NOT mention Google ads.
+- Do NOT mention external ad campaigns.
+- Leads mean WhatsApp contact requests generated inside TrustedLinks.
+- Spending means wallet deductions for paid WhatsApp contact requests.
+- Explain the page using TrustedLinks terminology only.
 
-Focus on:
+Explain:
 - What this page is for
 - What the merchant can do here
-- Which buttons or sections matter
+- Which sections matter
 - What action to take next
-- Keep it simple and practical
+
+Keep it practical and easy to understand.
 `;
 
   focusedContext = {
@@ -351,30 +358,52 @@ function getPageGuideContext(pageContext, language = "ar") {
       },
     },
 
-    reports: {
-      ar: {
-        pageName: "تقارير الأداء",
-        purpose: "فهم مصادر الليدز والإنفاق واتجاهات الأداء.",
-        actions: [
-          "راجع عدد الليدز حسب المصدر.",
-          "تابع الإنفاق خلال الفترة.",
-          "قارن الأداء بين 7 و30 و90 يوم.",
-          "راقب أقوى مصدر لليدز.",
-          "استخدم التحليلات لتحسين ميزانية النشاط.",
-        ],
-      },
-      en: {
-        pageName: "Performance Reports",
-        purpose: "Understand lead sources, spending, and performance trends.",
-        actions: [
-          "Review leads by source.",
-          "Track spending over time.",
-          "Compare 7, 30, and 90 day periods.",
-          "Identify your strongest lead source.",
-          "Use insights to improve your budget.",
-        ],
-      },
+ reports: {
+  ar: {
+    pageName: "تقارير أداء TrustedLinks",
+    purpose:
+      "هذه الصفحة مخصصة لفهم أداء نشاطك داخل منصة TrustedLinks من خلال طلبات التواصل عبر واتساب، مصادر البحث داخل المنصة، والخصومات من المحفظة.",
+    actions: [
+      "راجع عدد طلبات التواصل المباشرة عندما يبحث العميل عن اسم نشاطك داخل TrustedLinks.",
+      "راجع طلبات الفئة عندما يبحث العميل عن نوع الخدمة أو المنتج داخل المنصة.",
+      "راجع الطلبات القريبة عندما يبحث العميل عن نشاط قريب من موقعه.",
+      "تابع الإنفاق، وهو المبلغ الذي يتم خصمه من المحفظة عند فتح العملاء لرابط واتساب الخاص بنشاطك.",
+      "قارن الأداء بين آخر 7 أو 30 أو 90 يوم.",
+      "راقب أقوى مصدر للطلبات لتحسين وصف نشاطك والكلمات المفتاحية داخل TrustedLinks.",
+    ],
+    importantTerms: {
+      directLeads: "طلبات مباشرة عندما يبحث العميل عن اسم النشاط.",
+      categoryLeads: "طلبات ناتجة عن البحث حسب الفئة أو نوع الخدمة.",
+      nearbyLeads: "طلبات ناتجة عن البحث القريب حسب موقع العميل.",
+      spending:
+        "مبلغ يتم خصمه من المحفظة مقابل طلبات التواصل المدفوعة داخل TrustedLinks.",
     },
+  },
+
+  en: {
+    pageName: "TrustedLinks Performance Reports",
+    purpose:
+      "This page helps merchants understand their performance inside TrustedLinks through WhatsApp contact requests, search sources, and wallet deductions.",
+    actions: [
+      "Review direct requests when customers search for your business name inside TrustedLinks.",
+      "Review category requests when customers search by product or service type.",
+      "Review nearby requests when customers search for businesses near their location.",
+      "Track spending, which represents wallet deductions when customers open your WhatsApp contact link.",
+      "Compare performance across the last 7, 30, or 90 days.",
+      "Monitor your strongest request source to improve your description and keywords inside TrustedLinks.",
+    ],
+    importantTerms: {
+      directLeads:
+        "Requests generated when customers search for your business name.",
+      categoryLeads:
+        "Requests generated from category or service searches.",
+      nearbyLeads:
+        "Requests generated from nearby/location-based searches.",
+      spending:
+        "Wallet deductions for paid WhatsApp contact requests inside TrustedLinks.",
+    },
+  },
+},
 
     wallet: {
       ar: {
