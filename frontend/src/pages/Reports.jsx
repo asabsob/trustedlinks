@@ -298,9 +298,18 @@ export default function Reports({ lang = "en" }) {
           </div>
         </div>
 
-        <AIAssistantBox
+     <AIAssistantBox
   lang={lang}
   pageContext="reports"
+  liveContext={{
+    directLeads: directStarts,
+    categoryLeads: categoryStarts,
+    nearbyLeads: nearbyStarts,
+    totalLeads,
+    spending,
+    strongestIntent,
+    performanceScore,
+  }}
 />
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
