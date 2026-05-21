@@ -60,6 +60,36 @@ export function requireUser(req, res, next) {
   }
 }
 
+// Admin auth
+export function requireAdmin(req, res, next) {
+  try {
+    const token = readBearerToken(req);
+
+    if (!token) {
+      return res.status(401).json({ error: "Missing token" });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    if (!decoded?.id) {
+      return res.status(401).json({ error: "Invalid token payload" });
+    }
+
+    if (decoded.role !== "admin") {
+      return res.status(403).json({ error: "Admin access only" });
+    }
+
+    req.adminId = decoded.id;
+    req.admin = decoded;
+    req.user = decoded;
+
+    next();
+  } catch (e) {
+    console.error("ADMIN AUTH ERROR:", e);
+    return res.status(401).json({ error: "Invalid token" });
+  }
+}
+
 // Campaign manager auth
 export function requireCampaignManager(req, res, next) {
   try {
