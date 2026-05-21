@@ -3,21 +3,32 @@
 // ============================================================================
 
 import express from "express";
+
 import { merchantAssistantAgent } from "../../ai/agents/merchantAssistantAgent.js";
+import { buildMerchantAIInsights } from "../../ai/insights/buildMerchantAIInsights.js";
+
 import { requireUser } from "../../middleware/auth.js";
 import { getBusinessByOwnerUserId } from "../../services/pg/businesses.js";
+import { logAIEvent } from "../../services/ai/logAIEvent.js";
+
 import supabase from "../../db/postgres.js";
-import { buildMerchantAIInsights }
-from "../../ai/insights/buildMerchantAIInsights.js";
 
 const router = express.Router();
 
+// ============================================================================
+// Merchant AI Assistant
+// ============================================================================
+
 router.post("/merchant/assistant", requireUser, async (req, res) => {
+  const language = req.body.language || "ar";
+  const pageContext = req.body.pageContext || "dashboard";
+  const question = req.body.question || "";
+  const liveContext = req.body.liveContext || {};
+
   try {
-    const language = req.body.language || "ar";
-    const pageContext = req.body.pageContext || "dashboard";
-    const question = req.body.question || "";
-    const liveContext = req.body.liveContext || {};
+    // =========================================================================
+    // Load business
+    // =========================================================================
 
     const business = await getBusinessByOwnerUserId(String(req.user.id));
 
@@ -26,6 +37,10 @@ router.post("/merchant/assistant", requireUser, async (req, res) => {
         error: "Business not found",
       });
     }
+
+    // =========================================================================
+    // Load reports
+    // =========================================================================
 
     const { data: leadClicks } = await supabase
       .from("lead_clicks")
@@ -61,6 +76,10 @@ router.post("/merchant/assistant", requireUser, async (req, res) => {
       currency: business.wallet_currency || "JOD",
     };
 
+    // =========================================================================
+    // Run AI Assistant
+    // =========================================================================
+
     const aiResult = await merchantAssistantAgent({
       business,
       reports,
@@ -71,22 +90,74 @@ router.post("/merchant/assistant", requireUser, async (req, res) => {
     });
 
     if (!aiResult.success) {
+      await logAIEvent({
+        type: "merchant_ai",
+        level: "error",
+        source: "merchant_assistant",
+        action: question || "general",
+        status: "failed",
+        message: aiResult.error || "AI failed",
+        meta: {
+          businessId: business.id,
+          pageContext,
+        },
+      });
+
       return res.status(500).json({
         error: aiResult.error || "AI failed",
       });
     }
 
+    // =========================================================================
+    // Build Insights
+    // =========================================================================
+
+    const insights = buildMerchantAIInsights({
+      business,
+      reports,
+      liveContext,
+    });
+
+    // =========================================================================
+    // Log AI Event
+    // =========================================================================
+
+    await logAIEvent({
+      type: "merchant_ai",
+      level: "info",
+      source: "merchant_assistant",
+      action: question || "general",
+      status: "success",
+      message: "Merchant AI request completed",
+      meta: {
+        businessId: business.id,
+        pageContext,
+      },
+    });
+
+    // =========================================================================
+    // Response
+    // =========================================================================
+
     return res.json({
       success: true,
       message: aiResult.result,
-     insights: buildMerchantAIInsights({
-  business,
-  reports,
-  liveContext,
-}),
+      insights,
     });
   } catch (error) {
     console.error("MERCHANT_AI_ROUTE_ERROR", error);
+
+    await logAIEvent({
+      type: "merchant_ai",
+      level: "error",
+      source: "merchant_assistant",
+      action: question || "general",
+      status: "failed",
+      message: error.message,
+      meta: {
+        pageContext,
+      },
+    });
 
     return res.status(500).json({
       error: "Merchant AI assistant failed",
@@ -94,54 +165,5 @@ router.post("/merchant/assistant", requireUser, async (req, res) => {
     });
   }
 });
-
-function buildMerchantInsights({ business, reports }) {
-  const insights = [];
-
-  if (!business?.description && !business?.description_ar) {
-    insights.push({
-      type: "warning",
-      title: "الوصف ناقص",
-      text: "أضف وصفًا واضحًا لنشاطك لتحسين الظهور في البحث.",
-    });
-  }
-
-  if (!business?.mapLink && !business?.latitude && !business?.longitude) {
-    insights.push({
-      type: "warning",
-      title: "الموقع غير مكتمل",
-      text: "إضافة الموقع تساعدك على الظهور في نتائج البحث القريبة.",
-    });
-  }
-
-  if (Number(reports?.nearby_starts || 0) > 0) {
-    insights.push({
-      type: "success",
-      title: "ظهور محلي جيد",
-      text: "لديك طلبات من البحث القريب، وهذا مؤشر جيد لموقع النشاط.",
-    });
-  }
-
-  if (
-    Number(reports?.category_starts || 0) >
-    Number(reports?.direct_starts || 0)
-  ) {
-    insights.push({
-      type: "opportunity",
-      title: "فرصة تحسين الكلمات",
-      text: "طلبات الفئة أعلى من المباشرة، حسّن الكلمات المفتاحية لزيادة الظهور.",
-    });
-  }
-
-  if (Number(business?.wallet_balance || 0) < 5) {
-    insights.push({
-      type: "wallet",
-      title: "الرصيد منخفض",
-      text: "اشحن الرصيد لتجنب توقف استقبال العملاء المحتملين.",
-    });
-  }
-
-  return insights.slice(0, 4);
-}
 
 export default router;
