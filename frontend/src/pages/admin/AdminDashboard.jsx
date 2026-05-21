@@ -22,6 +22,7 @@ import {
 } from "recharts";
 import { useLang } from "../../context/LangContext.jsx";
 import { useAdminAuth } from "../../context/AdminAuthContext.jsx";
+import AIOperationsOverview from "../../components/admin/AIOperationsOverview";
 
 const API_BASE = import.meta.env.VITE_API_BASE;
 const COLORS = ["#22c55e", "#f59e0b", "#ef4444", "#3b82f6"];
@@ -103,6 +104,8 @@ export default function AdminDashboard() {
         <Card icon={ShieldAlert} val={data.fraud.pendingCharges} label="Pending" />
         <Card icon={TrendingUp} val={data.fraud.duplicateNoChargeToday} label="Duplicate" />
       </div>
+
+      <AIOperationsOverview lang={lang} />
 
       {/* CHARTS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
