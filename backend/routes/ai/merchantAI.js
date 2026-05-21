@@ -164,4 +164,15 @@ function buildMerchantInsights({ business, reports }) {
   return insights.slice(0, 4);
 }
 
+const liveContext = req.body.liveContext || {};
+
+const aiResult = await merchantAssistantAgent({
+  business,
+  reports,
+  pageContext,
+  language,
+  question,
+  liveContext,
+});
+
 export default router;
