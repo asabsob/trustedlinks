@@ -3,20 +3,12 @@
 // ============================================================================
 
 import express from "express";
-
 import { merchantAssistantAgent } from "../../ai/agents/merchantAssistantAgent.js";
-
 import { requireUser } from "../../middleware/auth.js";
-
 import { getBusinessByOwnerUserId } from "../../services/pg/businesses.js";
-
 import supabase from "../../db/postgres.js";
 
 const router = express.Router();
-
-// ============================================================================
-// Merchant AI Assistant
-// ============================================================================
 
 router.post("/merchant/assistant", requireUser, async (req, res) => {
   try {
@@ -25,32 +17,13 @@ router.post("/merchant/assistant", requireUser, async (req, res) => {
     const question = req.body.question || "";
     const liveContext = req.body.liveContext || {};
 
-const aiResult = await merchantAssistantAgent({
-  business,
-  reports,
-  pageContext,
-  language,
-  question,
-  liveContext,
-});
-
-    // =========================================================================
-    // Load business
-    // =========================================================================
-
-    const business = await getBusinessByOwnerUserId(
-      String(req.user.id)
-    );
+    const business = await getBusinessByOwnerUserId(String(req.user.id));
 
     if (!business) {
       return res.status(404).json({
         error: "Business not found",
       });
     }
-
-    // =========================================================================
-    // Load reports
-    // =========================================================================
 
     const { data: leadClicks } = await supabase
       .from("lead_clicks")
@@ -61,9 +34,7 @@ const aiResult = await merchantAssistantAgent({
         created_at
       `)
       .eq("business_id", business.id)
-      .order("created_at", {
-        ascending: false,
-      })
+      .order("created_at", { ascending: false })
       .limit(100);
 
     const reports = {
@@ -71,19 +42,13 @@ const aiResult = await merchantAssistantAgent({
         leadClicks?.filter((x) => x.billing_applied)?.length || 0,
 
       direct_starts:
-        leadClicks?.filter(
-          (x) => x.intent_type === "direct"
-        )?.length || 0,
+        leadClicks?.filter((x) => x.intent_type === "direct")?.length || 0,
 
       category_starts:
-        leadClicks?.filter(
-          (x) => x.intent_type === "category"
-        )?.length || 0,
+        leadClicks?.filter((x) => x.intent_type === "category")?.length || 0,
 
       nearby_starts:
-        leadClicks?.filter(
-          (x) => x.intent_type === "nearby"
-        )?.length || 0,
+        leadClicks?.filter((x) => x.intent_type === "nearby")?.length || 0,
 
       estimated_revenue:
         leadClicks?.reduce(
@@ -91,21 +56,17 @@ const aiResult = await merchantAssistantAgent({
           0
         ) || 0,
 
-      currency:
-        business.wallet_currency || "JOD",
+      currency: business.wallet_currency || "JOD",
     };
 
-    // =========================================================================
-    // Run AI Assistant
-    // =========================================================================
-
-const aiResult = await merchantAssistantAgent({
-  business,
-  reports,
-  pageContext,
-  language,
-  question,
-});
+    const aiResult = await merchantAssistantAgent({
+      business,
+      reports,
+      pageContext,
+      language,
+      question,
+      liveContext,
+    });
 
     if (!aiResult.success) {
       return res.status(500).json({
@@ -113,11 +74,11 @@ const aiResult = await merchantAssistantAgent({
       });
     }
 
-   return res.json({
-  success: true,
-  message: aiResult.result,
-  insights: buildMerchantInsights({ business, reports }),
-});
+    return res.json({
+      success: true,
+      message: aiResult.result,
+      insights: buildMerchantInsights({ business, reports }),
+    });
   } catch (error) {
     console.error("MERCHANT_AI_ROUTE_ERROR", error);
 
@@ -155,7 +116,10 @@ function buildMerchantInsights({ business, reports }) {
     });
   }
 
-  if (Number(reports?.category_starts || 0) > Number(reports?.direct_starts || 0)) {
+  if (
+    Number(reports?.category_starts || 0) >
+    Number(reports?.direct_starts || 0)
+  ) {
     insights.push({
       type: "opportunity",
       title: "فرصة تحسين الكلمات",
@@ -173,7 +137,5 @@ function buildMerchantInsights({ business, reports }) {
 
   return insights.slice(0, 4);
 }
-
-
 
 export default router;
