@@ -10,6 +10,7 @@ const API_BASE =
 export default function AIAssistantBox({
   lang = "ar",
   pageContext = "dashboard",
+  liveContext = {},
 }) {
   const isAr = lang === "ar";
   const [loading, setLoading] = useState(false);
@@ -36,12 +37,12 @@ async function askAI(customQuestion = "") {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({
-        language: lang,
-        pageContext,
-        question: customQuestion,
-      }),
-    });
+     body: JSON.stringify({
+  language: lang,
+  pageContext,
+  question: customQuestion,
+  liveContext,
+}),
 
     const data = await res.json().catch(() => ({}));
 
