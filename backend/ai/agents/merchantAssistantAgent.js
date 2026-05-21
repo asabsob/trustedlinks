@@ -6,6 +6,7 @@ export async function merchantAssistantAgent({
   pageContext = "dashboard",
   language = "ar",
   question = "",
+  liveContext = {},
 }) {
   // ===========================================================================
   // Missing Data Detection
