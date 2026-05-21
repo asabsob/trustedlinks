@@ -7,6 +7,8 @@ import { merchantAssistantAgent } from "../../ai/agents/merchantAssistantAgent.j
 import { requireUser } from "../../middleware/auth.js";
 import { getBusinessByOwnerUserId } from "../../services/pg/businesses.js";
 import supabase from "../../db/postgres.js";
+import { buildMerchantAIInsights }
+from "../../ai/insights/buildMerchantAIInsights.js";
 
 const router = express.Router();
 
@@ -77,7 +79,11 @@ router.post("/merchant/assistant", requireUser, async (req, res) => {
     return res.json({
       success: true,
       message: aiResult.result,
-      insights: buildMerchantInsights({ business, reports }),
+     insights: buildMerchantAIInsights({
+  business,
+  reports,
+  liveContext,
+}),
     });
   } catch (error) {
     console.error("MERCHANT_AI_ROUTE_ERROR", error);
