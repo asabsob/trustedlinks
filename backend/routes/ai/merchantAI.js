@@ -23,6 +23,16 @@ router.post("/merchant/assistant", requireUser, async (req, res) => {
     const language = req.body.language || "ar";
     const pageContext = req.body.pageContext || "dashboard";
     const question = req.body.question || "";
+    const liveContext = req.body.liveContext || {};
+
+const aiResult = await merchantAssistantAgent({
+  business,
+  reports,
+  pageContext,
+  language,
+  question,
+  liveContext,
+});
 
     // =========================================================================
     // Load business
@@ -164,15 +174,6 @@ function buildMerchantInsights({ business, reports }) {
   return insights.slice(0, 4);
 }
 
-const liveContext = req.body.liveContext || {};
 
-const aiResult = await merchantAssistantAgent({
-  business,
-  reports,
-  pageContext,
-  language,
-  question,
-  liveContext,
-});
 
 export default router;
