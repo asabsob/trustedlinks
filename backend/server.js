@@ -17,6 +17,7 @@ import supabase from "./db/postgres.js";
 
 import multer from "multer";
 
+import adminAIRoutes from "./routes/ai/adminAI.js";
 
 import { searchBusinesses } from "./search/searchService.js";
 import { normalizeSearchText } from "./search/textNormalizer.js";
@@ -284,6 +285,8 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
+
+app.use("/api/ai", adminAIRoutes);
 
 const isProd = process.env.NODE_ENV === "production";
 
