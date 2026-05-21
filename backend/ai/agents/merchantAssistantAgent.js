@@ -317,10 +317,11 @@ Merchant question:
 ${question || "Explain this page generally"}
 `,
 
-    input: {
-      pageContext,
-      focusedContext,
-    },
+   input: {
+  pageContext,
+  focusedContext,
+  liveContext,
+},
   });
 }
 
