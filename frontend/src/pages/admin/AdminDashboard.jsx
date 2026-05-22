@@ -24,7 +24,11 @@ import { useLang } from "../../context/LangContext.jsx";
 import { useAdminAuth } from "../../context/AdminAuthContext.jsx";
 import AIOperationsOverview from "../../components/admin/AIOperationsOverview";
 
-const API_BASE = import.meta.env.VITE_API_BASE;
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.VITE_API_BASE ||
+  "https://trustedlinks-backend-production.up.railway.app";
+
 const COLORS = ["#22c55e", "#f59e0b", "#ef4444", "#3b82f6"];
 
 export default function AdminDashboard() {
@@ -107,6 +111,10 @@ export default function AdminDashboard() {
 
     <div className="mt-2">
   <AIOperationsOverview lang={lang} />
+</div>
+
+      <div className="rounded-2xl bg-blue-100 p-4 font-bold text-blue-900">
+  AI OPERATIONS LOADED
 </div>
 
       {/* AI STATUS BAR */}
