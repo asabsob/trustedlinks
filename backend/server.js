@@ -6658,12 +6658,13 @@ process.on("unhandledRejection", (reason) => {
   console.error("UNHANDLED_REJECTION:", reason);
 });
 
+// Operations logger must come before final error response
+app.use(operationErrorLogger);
+
 app.use((err, _req, res, _next) => {
   console.error("UNHANDLED ERROR:", err);
   return res.status(500).json({ error: "Internal server error" });
 });
-
-app.use(operationErrorLogger);
 
 // ---------------------------------------------------------------------------
 // Start
