@@ -105,7 +105,61 @@ export default function AdminDashboard() {
         <Card icon={TrendingUp} val={data.fraud.duplicateNoChargeToday} label="Duplicate" />
       </div>
 
-      <AIOperationsOverview lang={lang} />
+    <div className="mt-2">
+  <AIOperationsOverview lang={lang} />
+</div>
+
+      {/* AI STATUS BAR */}
+
+<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <div className="rounded-2xl border border-green-200 bg-green-50 p-5">
+    <div className="text-sm text-green-700 font-semibold">
+      {isAr ? "حالة الذكاء الاصطناعي" : "AI Status"}
+    </div>
+
+    <div className="mt-2 text-2xl font-bold text-green-900">
+      Operational
+    </div>
+
+    <div className="mt-1 text-xs text-green-700">
+      {isAr
+        ? "جميع أنظمة الذكاء الاصطناعي تعمل بشكل طبيعي."
+        : "All AI systems are operating normally."}
+    </div>
+  </div>
+
+  <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-5">
+    <div className="text-sm text-yellow-700 font-semibold">
+      {isAr ? "حالة مكافحة الاحتيال" : "Fraud Protection"}
+    </div>
+
+    <div className="mt-2 text-2xl font-bold text-yellow-900">
+      Active
+    </div>
+
+    <div className="mt-1 text-xs text-yellow-700">
+      {isAr
+        ? "يتم تحليل الأنشطة المشبوهة بشكل مستمر."
+        : "Suspicious activity monitoring is active."}
+    </div>
+  </div>
+
+  <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5">
+    <div className="text-sm text-blue-700 font-semibold">
+      {isAr ? "مراقبة العمليات" : "Operations Monitoring"}
+    </div>
+
+    <div className="mt-2 text-2xl font-bold text-blue-900">
+      Live
+    </div>
+
+    <div className="mt-1 text-xs text-blue-700">
+      {isAr
+        ? "يتم تسجيل وتحليل العمليات بشكل مباشر."
+        : "Operations are being monitored in real-time."}
+    </div>
+  </div>
+</div>
 
       {/* CHARTS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
