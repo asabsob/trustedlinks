@@ -1,10 +1,19 @@
 import express from "express";
+
 import supabase from "../../db/postgres.js";
 import { requireAdmin } from "../../middleware/auth.js";
+
 import { buildSystemHealthInsights } from "../../ai/operations/buildSystemHealthInsights.js";
 import { buildAdminOpsSummary } from "../../ai/operations/buildAdminOpsSummary.js";
+import { generateDailyAISummary } from "../../ai/operations/generateDailyAISummary.js";
+
+import { buildAIFraudInsights } from "../../services/antiFraud/aiFraudInsights.js";
 
 const router = express.Router();
+
+// ============================================================================
+// Admin AI - System Health
+// ============================================================================
 
 router.get("/admin/system-health", requireAdmin, async (req, res) => {
   try {
@@ -17,7 +26,15 @@ router.get("/admin/system-health", requireAdmin, async (req, res) => {
 
     const { data: leadClicks } = await supabase
       .from("lead_clicks")
-      .select("id,business_id,billing_applied,billing_amount,intent_type,created_at")
+      .select(`
+        id,
+        business_id,
+        billing_applied,
+        billing_amount,
+        intent_type,
+        user_phone_hash,
+        created_at
+      `)
       .order("created_at", { ascending: false })
       .limit(500);
 
@@ -35,13 +52,19 @@ router.get("/admin/system-health", requireAdmin, async (req, res) => {
       recentTransactions: transactions?.length || 0,
     };
 
-    const alerts = buildSystemHealthInsights({
+    const systemAlerts = buildSystemHealthInsights({
       businesses: businesses || [],
       leadClicks: leadClicks || [],
       transactions: transactions || [],
       aiLogs: [],
       webhookStats: {},
     });
+
+    const fraudAlerts = buildAIFraudInsights({
+      leadClicks: leadClicks || [],
+    });
+
+    const alerts = [...systemAlerts, ...fraudAlerts];
 
     const aiSummary = await buildAdminOpsSummary({
       alerts,
@@ -60,6 +83,29 @@ router.get("/admin/system-health", requireAdmin, async (req, res) => {
 
     return res.status(500).json({
       error: "Admin AI system health failed",
+      details: error.message,
+    });
+  }
+});
+
+// ============================================================================
+// Admin AI - Daily Summary
+// ============================================================================
+
+router.get("/admin/daily-summary", requireAdmin, async (req, res) => {
+  try {
+    const language = req.query.language || "ar";
+
+    const result = await generateDailyAISummary({
+      language,
+    });
+
+    return res.json(result);
+  } catch (error) {
+    console.error("ADMIN_DAILY_AI_SUMMARY_ERROR", error);
+
+    return res.status(500).json({
+      error: "Admin daily AI summary failed",
       details: error.message,
     });
   }
