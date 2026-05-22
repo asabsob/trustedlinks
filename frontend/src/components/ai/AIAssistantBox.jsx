@@ -31,20 +31,21 @@ async function askAI(customQuestion = "") {
       return;
     }
 
-    const res = await fetch(`${API_BASE}/api/ai/merchant/assistant`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-     body: JSON.stringify({
-  language: lang,
-  pageContext,
-  question: customQuestion,
-  liveContext,
-}),
+  const res = await fetch(`${API_BASE}/api/ai/merchant/assistant`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  },
+  body: JSON.stringify({
+    language: lang,
+    pageContext,
+    question: customQuestion,
+    liveContext,
+  }),
+});
 
-    const data = await res.json().catch(() => ({}));
+const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
       throw new Error(data.error || "AI failed");
