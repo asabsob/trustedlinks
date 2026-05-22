@@ -1688,8 +1688,7 @@ async function javnaSendCallToAction({
 
   const txt = await r.text();
 
-  if (!r.ok) {
-
+if (!r.ok) {
   await logOperationEvent({
     type: "whatsapp",
     level: "error",
@@ -1702,16 +1701,20 @@ async function javnaSendCallToAction({
     },
   });
 
-  try {
-    return JSON.parse(txt);
-  } catch {
-    return {
-      ok: true,
-      raw: txt,
-    };
-  }
+  throw new Error(
+    `Javna CTA failed (${r.status}): ${txt}`
+  );
 }
 
+try {
+  return JSON.parse(txt);
+} catch {
+  return {
+    ok: true,
+    raw: txt,
+  };
+}
+    
 // ============================================================================
 // Health
 // ============================================================================
