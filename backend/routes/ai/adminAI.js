@@ -3,6 +3,8 @@ import supabase from "../../db/postgres.js";
 import { requireAdmin } from "../../middleware/auth.js";
 import { buildSystemHealthInsights } from "../../ai/operations/buildSystemHealthInsights.js";
 import { buildAdminOpsSummary } from "../../ai/operations/buildAdminOpsSummary.js";
+import { generateDailyAISummary }
+from "../../ai/operations/generateDailyAISummary.js";
 
 const router = express.Router();
 
@@ -63,5 +65,32 @@ router.get("/admin/system-health", requireAdmin, async (req, res) => {
     });
   }
 });
+
+router.get(
+  "/admin/daily-summary",
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const language =
+        req.query.language || "ar";
+
+      const result =
+        await generateDailyAISummary({
+          language,
+        });
+
+      return res.json(result);
+    } catch (error) {
+      console.error(
+        "ADMIN_DAILY_AI_SUMMARY_ERROR",
+        error
+      );
+
+      return res.status(500).json({
+        error: error.message,
+      });
+    }
+  }
+);
 
 export default router;
