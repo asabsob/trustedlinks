@@ -143,6 +143,10 @@ import {
   MESSAGE_TYPES,
 } from "./services/conversationOrchestrator.js";
 
+import {
+  logOperationEvent,
+  operationErrorLogger,
+} from "./middleware/operationLogger.js";
 
 function hash(value = "") {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
@@ -1479,11 +1483,24 @@ if (!customId) {
 
   const txt = await r.text();
 
-  if (!r.ok) {
-    throw new Error(
-      `Javna image send failed (${r.status}): ${txt}`
-    );
-  }
+if (!r.ok) {
+
+  await logOperationEvent({
+    type: "whatsapp",
+    level: "error",
+    source: "javna",
+    action: "send_image",
+    status: "failed",
+    message: `Javna image failed (${r.status})`,
+    meta: {
+      statusCode: r.status,
+    },
+  });
+
+  throw new Error(
+    `Javna image send failed (${r.status}): ${txt}`
+  );
+}
 
   try {
     return JSON.parse(txt);
@@ -1520,10 +1537,22 @@ async function javnaSendText({ to, body }) {
 
   const txt = await r.text();
 
-  if (!r.ok) {
-    throw new Error(`Javna send failed (${r.status}): ${txt}`);
-  }
+ if (!r.ok) {
 
+  await logOperationEvent({
+    type: "whatsapp",
+    level: "error",
+    source: "javna",
+    action: "send_text",
+    status: "failed",
+    message: `Javna send failed (${r.status})`,
+    meta: {
+      statusCode: r.status,
+    },
+  });
+
+  throw new Error(`Javna send failed (${r.status}): ${txt}`);
+}
   try {
     return JSON.parse(txt);
   } catch {
@@ -1590,11 +1619,24 @@ async function javnaSendOtpTemplate({
 
   const txt = await r.text();
 
-  if (!r.ok) {
-    throw new Error(
-      `Javna auth template failed (${r.status}): ${txt}`
-    );
-  }
+ if (!r.ok) {
+
+  await logOperationEvent({
+    type: "whatsapp",
+    level: "error",
+    source: "javna",
+    action: "send_otp_template",
+    status: "failed",
+    message: `OTP template failed (${r.status})`,
+    meta: {
+      statusCode: r.status,
+    },
+  });
+
+  throw new Error(
+    `Javna auth template failed (${r.status}): ${txt}`
+  );
+}
 
   return JSON.parse(txt);
 }
@@ -1647,10 +1689,18 @@ async function javnaSendCallToAction({
   const txt = await r.text();
 
   if (!r.ok) {
-    throw new Error(
-      `Javna CTA failed (${r.status}): ${txt}`
-    );
-  }
+
+  await logOperationEvent({
+    type: "whatsapp",
+    level: "error",
+    source: "javna",
+    action: "send_cta",
+    status: "failed",
+    message: `CTA failed (${r.status})`,
+    meta: {
+      statusCode: r.status,
+    },
+  });
 
   try {
     return JSON.parse(txt);
@@ -5730,30 +5780,56 @@ console.log("INTENT_DEBUG", {
   intentType,
 });
 
-   // Search Fast - TEMP PERFORMANCE TEST
+ // Search Fast - TEMP PERFORMANCE TEST
 const t0 = Date.now();
 
 const searchTimerId = `SEARCH_TOTAL_${Date.now()}_${Math.random()}`;
 console.time(searchTimerId);
 
 console.time("searchBusinessesFast");
+
+const searchStart = Date.now();
+
 const searchData = await searchBusinesses({
   query: effectiveQuery,
   lang,
   intentType,
   isNearby: nearbyIntent?.isNearby || false,
 });
+
+const durationMs = Date.now() - searchStart;
+
 console.timeEnd("searchBusinessesFast");
 
-    console.log("SEARCH_RESULT_DEBUG", {
+if (durationMs > 3000) {
+  await logOperationEvent({
+    type: "performance",
+    level: "warning",
+    source: "search",
+    action: "search_businesses",
+    status: "slow",
+    message: `Search took ${durationMs}ms`,
+    meta: {
+      durationMs,
+      intentType,
+      isNearby: nearbyIntent?.isNearby || false,
+      query: normalizeQueryForStorage(effectiveQuery),
+    },
+  });
+}
+
+console.log("SEARCH_RESULT_DEBUG", {
   query: effectiveQuery,
   mode: searchData?.mode,
   totalMatched: searchData?.totalMatched,
   resultCount: searchData?.results?.length,
-  firstResult: searchData?.results?.[0]?.name || searchData?.results?.[0]?.name_ar || null,
+  firstResult:
+    searchData?.results?.[0]?.name ||
+    searchData?.results?.[0]?.name_ar ||
+    null,
 });
 
-    // Learn failed searches
+// Learn failed searches
 if (
   searchData?.mode === "results" &&
   Number(searchData?.totalMatched || 0) === 0
@@ -6586,6 +6662,8 @@ app.use((err, _req, res, _next) => {
   console.error("UNHANDLED ERROR:", err);
   return res.status(500).json({ error: "Internal server error" });
 });
+
+app.use(operationErrorLogger);
 
 // ---------------------------------------------------------------------------
 // Start
