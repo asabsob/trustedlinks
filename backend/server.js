@@ -44,7 +44,6 @@ from "./services/ops/createOrUpdateIncident.js";
 
 import opsRoutes from "./routes/ops.routes.js";
 
-app.use("/", opsRoutes);
 
 import {
   getUserById,
@@ -244,6 +243,9 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
 
 const app = express();
 app.set("trust proxy", 1);
+
+app.use("/", opsRoutes);
+
 
 const upload = multer({
   storage: multer.memoryStorage(),
