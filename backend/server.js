@@ -39,6 +39,9 @@ import platformAnalyticsRoutes from "./routes/platformAnalyticsRoutes.js";
 import merchantAIRoutes from "./routes/ai/merchantAI.js";
 import { sendOpsAlert } from "./services/ops/sendOpsAlert.js";
 
+import { createOrUpdateIncident }
+from "./services/ops/createOrUpdateIncident.js";
+
 import {
   getUserById,
   getUserByEmail,
@@ -5851,6 +5854,23 @@ if (durationMs > 3000) {
       query: normalizeQueryForStorage(effectiveQuery),
     },
   });
+
+    await createOrUpdateIncident({
+  incidentKey: "slow_search",
+
+  title: "Search latency increased",
+
+  type: "performance",
+
+  severity: "warning",
+
+  source: "search",
+
+  meta: {
+    durationMs,
+    intentType,
+  },
+});
 
   await sendOpsAlert({
     subject: "Slow Search Detected",
