@@ -5335,53 +5335,33 @@ await new Promise((resolve) => setTimeout(resolve, 1200));
       
 await new Promise((r) => setTimeout(r, 500));
 
-if (item.trackedLink) {
-  await javnaSendCallToAction({
-    to: from,
-    body:
-      lang === "ar"
-        ? "🟢 تواصل مباشرة عبر واتساب"
-        : "🟢 Contact directly via WhatsApp",
+await javnaSendButtons({
+  to: from,
 
-    buttonText:
-      lang === "ar"
-        ? "واتساب"
-        : "WhatsApp",
+  body:
+    lang === "ar"
+      ? "اختر الإجراء المناسب"
+      : "Choose an action",
 
-    url: item.trackedLink,
-  }).catch((err) => {
-    console.error("JAVNA_CTA_ERROR:", err);
-  });
-}
-
-await new Promise((r) => setTimeout(r, 400));
-
-const mapsUrl =
-  item.maps_url ||
-  item.mapsUrl ||
-  item.location_url ||
-  item.locationUrl ||
-  item.mapLink ||
-  item.map_link;
-
-if (mapsUrl) {
-  await javnaSendCallToAction({
-    to: from,
-    body:
-      lang === "ar"
-        ? "📍 فتح الموقع والاتجاهات"
-        : "📍 Open location & directions",
-
-    buttonText:
-      lang === "ar"
-        ? "الموقع"
-        : "Location",
-
-    url: mapsUrl,
-  }).catch((err) => {
-    console.error("JAVNA_MAP_CTA_ERROR:", err);
-  });
-}
+  buttons: [
+    {
+      id: `whatsapp:${item.id}`,
+      title:
+        lang === "ar"
+          ? "واتساب"
+          : "WhatsApp",
+    },
+    {
+      id: `location:${item.id}`,
+      title:
+        lang === "ar"
+          ? "الموقع"
+          : "Location",
+    },
+  ],
+}).catch((err) => {
+  console.error("JAVNA_BUTTONS_ERROR:", err);
+});
   }
 
   return;
