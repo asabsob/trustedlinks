@@ -1,6 +1,9 @@
 // ---------------------------------------------------------------------------
 // JAVNA Config
 // ---------------------------------------------------------------------------
+import { logOperationEvent }
+from "../ops/logOperationEvent.js";
+
 const JAVNA_API_KEY = (process.env.JAVNA_API_KEY || "").trim();
 const JAVNA_FROM = (process.env.JAVNA_FROM || "").trim();
 const JAVNA_BASE_URL = "https://whatsapp.api.javna.com/whatsapp/v1.0";
@@ -10,6 +13,9 @@ const JAVNA_SEND_IMAGE_URL =  `${JAVNA_BASE_URL}/message/image`;
 const JAVNA_SEND_CTA_URL =
   `${JAVNA_BASE_URL}/message/interactive/callToAction`;
 
+const FRONTEND_BASE_URL =
+  process.env.FRONTEND_BASE_URL ||
+  "https://trustedlinks.net";
 
 async function javnaSendImage({
   to,
@@ -300,3 +306,10 @@ try {
   };
 }
 }
+
+export {
+  javnaSendText,
+  javnaSendImage,
+  javnaSendOtpTemplate,
+  javnaSendCallToAction,
+};
