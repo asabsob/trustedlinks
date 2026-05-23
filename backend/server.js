@@ -6088,5 +6088,7 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log(`✅ Trusted Links API running on port ${PORT}`);
   console.log("FRONTEND_BASE_URL:", FRONTEND_BASE_URL);
   console.log("API_BASE_URL:", API_BASE_URL);
-  console.log(`JAVNA_API_KEY: ${JAVNA_API_KEY ? "Loaded ✅" : "Missing ❌"}`);
+ console.log(
+  `JAVNA_API_KEY: ${process.env.JAVNA_API_KEY ? "Loaded ✅" : "Missing ❌"}`
+);
 });
