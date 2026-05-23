@@ -5323,6 +5323,7 @@ if (useImageCards) {
 
 await javnaSendImage({
   to: from,
+  imageUrl: logoUrl,
   customId:
     item.custom_id ||
     item.customId,
