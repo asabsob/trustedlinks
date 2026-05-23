@@ -42,6 +42,10 @@ import { sendOpsAlert } from "./services/ops/sendOpsAlert.js";
 import { createOrUpdateIncident }
 from "./services/ops/createOrUpdateIncident.js";
 
+import opsRoutes from "./routes/ops.routes.js";
+
+app.use("/", opsRoutes);
+
 import {
   getUserById,
   getUserByEmail,
@@ -293,6 +297,8 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
+
+app.use("/", opsRoutes);
 
 app.use("/api/ai", adminAIRoutes);
 
@@ -1722,19 +1728,6 @@ try {
 // ============================================================================
 // Health
 // ============================================================================
-app.get("/", (_req, res) => res.status(200).send("OK"));
-app.get("/healthz", (_req, res) => res.status(200).json({ ok: true }));
-app.get("/api/test", (_req, res) =>
-  res.json({ ok: true, message: "✅ Backend is reachable" })
-);
-app.get("/api/health", (_req, res) => {
-  res.json({
-    ok: true,
-    javnaKeyLoaded: Boolean(process.env.JAVNA_API_KEY),
-    resendKeyLoaded: Boolean(process.env.RESEND_API_KEY),
-    mailFrom: process.env.MAIL_FROM || null,
-  });
-});
 
 app.get("/test-double-deduct", async (req, res) => {
   try {
@@ -1766,39 +1759,6 @@ app.get("/test-double-deduct", async (req, res) => {
     return res.status(500).json({
       ok: false,
       error: error.message,
-    });
-  }
-});
-// ============================================================================
-//   health
-// ============================================================================
-
-app.get("/api/ops/health", async (_req, res) => {
-  try {
-    const startedAt = process.uptime();
-
-    const { error } = await supabase  
-      .from("businesses")
-      .select("id", { count: "exact", head: true })
-      .limit(1);
-
-    const dbOk = !error;
-
-    return res.status(dbOk ? 200 : 503).json({
-      ok: dbOk,
-      service: "trustedlinks-backend",
-      status: dbOk ? "healthy" : "degraded",
-      uptimeSeconds: Math.round(startedAt),
-      database: dbOk ? "connected" : "error",
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    return res.status(503).json({
-      ok: false,
-      service: "trustedlinks-backend",
-      status: "down",
-      error: "health_check_failed",
-      timestamp: new Date().toISOString(),
     });
   }
 });
