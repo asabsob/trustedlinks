@@ -4,6 +4,22 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+function safeParseAIJson(text = "") {
+  const cleaned = String(text || "")
+    .replace(/```json/gi, "")
+    .replace(/```/g, "")
+    .trim();
+
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+
+  if (start === -1 || end === -1) {
+    throw new Error("No JSON object found in AI response");
+  }
+
+  return JSON.parse(cleaned.slice(start, end + 1));
+}
+
 export async function translateBusinessContent({
   description = "",
   keywords = [],
@@ -21,6 +37,8 @@ Rules:
 - Keep marketing tone
 - Keep keywords relevant for search
 - Do NOT translate brand names
+- Return valid JSON only
+- Do not wrap JSON in markdown
 
 Input:
 Description: ${description}
@@ -38,15 +56,12 @@ Return JSON:
 
     const res = await client.chat.completions.create({
       model: "gpt-4o-mini",
-      temperature: 0.3,
+      temperature: 0.2,
       messages: [{ role: "user", content: prompt }],
     });
 
     const text = res.choices?.[0]?.message?.content || "{}";
-
-    const parsed = JSON.parse(text);
-
-    return parsed;
+    return safeParseAIJson(text);
   } catch (e) {
     console.error("translation error:", e);
     return null;
