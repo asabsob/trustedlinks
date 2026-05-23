@@ -23,6 +23,7 @@ import {
 import { useLang } from "../../context/LangContext.jsx";
 import { useAdminAuth } from "../../context/AdminAuthContext.jsx";
 import AIOperationsOverview from "../../components/admin/AIOperationsOverview";
+import AISystemMap from "../../components/admin/AISystemMap";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL ||
@@ -111,6 +112,7 @@ export default function AdminDashboard() {
 
     <div className="mt-2">
   <AIOperationsOverview lang={lang} />
+      <AISystemMap lang={lang} />
 </div>
 
       <div className="rounded-2xl bg-blue-100 p-4 font-bold text-blue-900">
