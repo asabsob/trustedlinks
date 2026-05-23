@@ -19,6 +19,7 @@ const FRONTEND_BASE_URL =
 async function javnaSendImage({
   to,
   customId,
+  imageUrl = "",
   caption = "",
 }) {
   if (!JAVNA_API_KEY) {
@@ -29,8 +30,18 @@ async function javnaSendImage({
     throw new Error("Missing JAVNA_FROM");
   }
 
-if (!customId) {
-  console.log("MISSING_CUSTOM_ID_FOR_IMAGE", { customId });
+  const finalImageUrl =
+  imageUrl ||
+  (customId
+    ? `${FRONTEND_BASE_URL}/media/logo/${customId}`
+    : "");
+
+if (!finalImageUrl || !/^https?:\/\//i.test(finalImageUrl)) {
+  console.log("MISSING_IMAGE_URL_FOR_IMAGE", {
+    customId,
+    imageUrl,
+  });
+
   return javnaSendText({
     to,
     body: caption,
@@ -50,14 +61,12 @@ if (!customId) {
     ? String(to)
     : `+${to}`;
 
-  const imageUrl =
-    `${FRONTEND_BASE_URL}/media/logo/${customId}`;
 
   const payload = {
     from,
     to: toNumber,
    content: {
-  mediaUrl: imageUrl,
+  mediaUrl: finalImageUrl,
   caption: String(caption || " "),
     },
   };
