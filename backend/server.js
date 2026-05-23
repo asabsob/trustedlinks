@@ -37,6 +37,7 @@ import fundingCodeRoutes from "./routes/fundingCodeRoutes.js";
 import platformAnalyticsRoutes from "./routes/platformAnalyticsRoutes.js";
 
 import merchantAIRoutes from "./routes/ai/merchantAI.js";
+import { sendOpsAlert } from "./services/ops/sendOpsAlert.js";
 
 import {
   getUserById,
@@ -5835,6 +5836,7 @@ const durationMs = Date.now() - searchStart;
 console.timeEnd("searchBusinessesFast");
 
 if (durationMs > 3000) {
+
   await logOperationEvent({
     type: "performance",
     level: "warning",
@@ -5847,6 +5849,20 @@ if (durationMs > 3000) {
       intentType,
       isNearby: nearbyIntent?.isNearby || false,
       query: normalizeQueryForStorage(effectiveQuery),
+    },
+  });
+
+  await sendOpsAlert({
+    subject: "Slow Search Detected",
+
+    severity: "warning",
+
+    message: `Search latency reached ${durationMs}ms`,
+
+    meta: {
+      query: normalizeQueryForStorage(effectiveQuery),
+      durationMs,
+      intentType,
     },
   });
 }
