@@ -253,9 +253,6 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
 const app = express();
 app.set("trust proxy", 1);
 
-
-app.use("/api/whatsapp", whatsappOtpRoutes);
-
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -309,9 +306,12 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 
-app.use("/", opsRoutes);
-
-app.use("/api/ai", adminAIRoutes);
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -340,6 +340,9 @@ app.use(
     skip: (req) => req.path === "/healthz",
   })
 );
+
+app.use("/", opsRoutes);
+app.use("/api/ai", adminAIRoutes);
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -424,6 +427,8 @@ app.use("/api/auth/reset-password", authLimiter);
 
 app.use("/api/whatsapp/request-otp", otpLimiter);
 app.use("/api/whatsapp/verify-otp", otpLimiter);
+app.use("/api/whatsapp", whatsappOtpRoutes);
+
 
 app.use("/api/admin/login", adminLimiter);
 
