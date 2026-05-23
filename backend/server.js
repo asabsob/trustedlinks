@@ -253,7 +253,6 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
 const app = express();
 app.set("trust proxy", 1);
 
-app.use("/", opsRoutes);
 
 app.use("/api/whatsapp", whatsappOtpRoutes);
 
