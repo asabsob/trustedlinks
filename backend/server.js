@@ -51,8 +51,8 @@ import {
   javnaSendImage,
   javnaSendOtpTemplate,
   javnaSendCallToAction,
+  javnaSendButtons,
 } from "./services/whatsapp/javnaClient.js";
-
 
 import {
   getUserById,
