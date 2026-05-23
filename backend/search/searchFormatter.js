@@ -76,8 +76,8 @@ function getCategoryText(item = {}, lang = "ar") {
   if (!translated.length) return "";
 
   return isArabicLang(lang)
-    ? `🧵 التصنيف: ${translated.join("، ")}`
-    : `🧵 Category: ${translated.join(", ")}`;
+    ? ` التصنيف: ${translated.join("، ")}`
+    : ` Category: ${translated.join(", ")}`;
 }
 
 function getAreaText(item = {}, lang = "ar") {
@@ -118,8 +118,8 @@ function getChatLine(item = {}, lang = "ar", options = {}) {
   if (!showLink) return "";
 
   return isArabicLang(lang)
-    ? `🟢 تواصل مباشر عبر واتساب`
-    : `🟢 Direct WhatsApp Contact`;
+    ? ` تواصل مباشر عبر واتساب`
+    : `Direct WhatsApp Contact`;
 }
 
 function getMapLink(item = {}) {
@@ -140,20 +140,20 @@ function getDirectionsLine(item = {}, lang = "ar") {
   if (!link) return "";
 
   return isArabicLang(lang)
-    ? `🌐 الموقع والاتجاهات`
-    : `🌐 Website & Directions`;
+    ? `الموقع والاتجاهات`
+    : ` Website & Directions`;
 }
 
 function getIntentHeader(intent = "category", query = "", lang = "ar") {
   return isArabicLang(lang)
-  ? `🔎 نتائج البحث: "${query}"`
-  : `🔎 Search results: "${query}"`
+  ? ` نتائج البحث: "${query}"`
+  : `Search results: "${query}"`
 }
 
 function getFooterHint(lang = "ar") {
   return isArabicLang(lang)
-    ? `💡 أرسل بحثًا آخر\nمثال: قهوة، مطعم، أقرب صيدلية`
-    : `💡 Send another search\nExample: coffee, restaurant, nearest pharmacy`;
+    ? ` أرسل بحثًا آخر\nمثال: قهوة، مطعم، أقرب صيدلية`
+    : ` Send another search\nExample: coffee, restaurant, nearest pharmacy`;
 }
 
 export function formatBusinessBlock(item = {}, index = 0, lang = "ar", options = {}) {
@@ -175,8 +175,8 @@ lines.push(
 
 lines.push(
   isArabicLang(lang)
-    ? `🏪 ${name}`
-    : `🏪 ${name}`
+    ? ` ${name}`
+    : ` ${name}`
 );
 
   if (includeCategory) {
@@ -274,11 +274,11 @@ export function formatNearestResults(results = [], lang = "ar", categoryQuery = 
   lines.push(
     isArabicLang(lang)
       ? categoryQuery
-        ? `📍 أقرب النتائج لـ "${categoryQuery}"`
-        : "📍 أقرب النتائج"
+        ? ` أقرب النتائج لـ "${categoryQuery}"`
+        : " أقرب النتائج"
       : categoryQuery
-      ? `📍 Nearest results for "${categoryQuery}"`
-      : "📍 Nearest results"
+      ? ` Nearest results for "${categoryQuery}"`
+      : " Nearest results"
   );
   lines.push("");
 
