@@ -1,8 +1,7 @@
 // ---------------------------------------------------------------------------
 // JAVNA Config
 // ---------------------------------------------------------------------------
-import { logOperationEvent }
-from "../ops/logOperationEvent.js";
+import { logOperationEvent } from "../../middleware/operationLogger.js";
 
 const JAVNA_API_KEY = (process.env.JAVNA_API_KEY || "").trim();
 const JAVNA_FROM = (process.env.JAVNA_FROM || "").trim();
