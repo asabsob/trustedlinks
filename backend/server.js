@@ -1766,8 +1766,38 @@ app.get("/test-double-deduct", async (req, res) => {
   }
 });
 // ============================================================================
-// AUTH (Signup/Login + Email + Reset Password)
+//   health
 // ============================================================================
+
+app.get("/api/ops/health", async (_req, res) => {
+  try {
+    const startedAt = process.uptime();
+
+    const { error } = await supabase  
+      .from("businesses")
+      .select("id", { count: "exact", head: true })
+      .limit(1);
+
+    const dbOk = !error;
+
+    return res.status(dbOk ? 200 : 503).json({
+      ok: dbOk,
+      service: "trustedlinks-backend",
+      status: dbOk ? "healthy" : "degraded",
+      uptimeSeconds: Math.round(startedAt),
+      database: dbOk ? "connected" : "error",
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    return res.status(503).json({
+      ok: false,
+      service: "trustedlinks-backend",
+      status: "down",
+      error: "health_check_failed",
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
 
 // =========================
 // SIGNUP
