@@ -315,9 +315,60 @@ try {
 }
 }
 
+const JAVNA_SEND_BUTTONS_URL =
+  `${JAVNA_BASE_URL}/message/interactive/buttons`;
+
+async function javnaSendButtons({
+  to,
+  body,
+  buttons = [],
+}) {
+  if (!JAVNA_API_KEY) throw new Error("Missing JAVNA_API_KEY");
+  if (!JAVNA_FROM) throw new Error("Missing JAVNA_FROM");
+
+  const headers = {
+    "Content-Type": "application/json",
+    "X-API-Key": JAVNA_API_KEY,
+  };
+
+  const from = JAVNA_FROM.startsWith("+") ? JAVNA_FROM : `+${JAVNA_FROM}`;
+  const toNumber = String(to || "").startsWith("+") ? String(to) : `+${to}`;
+
+  const payload = {
+    from,
+    to: toNumber,
+    content: {
+      bodyText: String(body || ""),
+      buttons: buttons.map((button) => ({
+        id: String(button.id),
+        title: String(button.title),
+      })),
+    },
+  };
+
+  const r = await fetch(JAVNA_SEND_BUTTONS_URL, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  const txt = await r.text();
+
+  if (!r.ok) {
+    throw new Error(`Javna buttons failed (${r.status}): ${txt}`);
+  }
+
+  try {
+    return JSON.parse(txt);
+  } catch {
+    return { ok: true, raw: txt };
+  }
+}
+
 export {
   javnaSendText,
   javnaSendImage,
   javnaSendOtpTemplate,
   javnaSendCallToAction,
+  javnaSendButtons,
 };
