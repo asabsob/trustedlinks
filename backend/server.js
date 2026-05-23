@@ -103,6 +103,8 @@ import {
 
 import { createBusinessEvent } from "./services/pg/businessEvents.js";
 
+import { sendEmail } from "./services/email.js";
+
 import {
   createLeadToken,
   getLeadTokenById,
@@ -1405,39 +1407,6 @@ app.use(
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// ---------------------------------------------------------------------------
-// Email (Resend)
-// ---------------------------------------------------------------------------
-async function sendEmail({ to, subject, html, text }) {
-  const key = (process.env.RESEND_API_KEY || "").trim();
-  const from = (process.env.MAIL_FROM || "").trim();
-
-  if (!key) throw new Error("Missing RESEND_API_KEY");
-  if (!from) throw new Error("Missing MAIL_FROM");
-
-  const r = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from,
-      to,
-      subject,
-      html,
-      text,
-    }),
-  });
-
-  const data = await r.json().catch(() => ({}));
-
-  if (!r.ok) {
-    throw new Error(`Resend failed (${r.status}): ${JSON.stringify(data)}`);
-  }
-
-  return data;
-}
 
 
 // ============================================================================
