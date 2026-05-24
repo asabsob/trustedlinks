@@ -4,6 +4,10 @@ import { getBusinessByOwnerUserId } from "../services/pg/businesses.js";
 
 const router = express.Router();
 
+router.options("*", (_req, res) => {
+  res.sendStatus(204);
+});
+
 function getBusinessPricing(business = {}) {
   const countryCode = String(
     business.countryCode ||
