@@ -268,7 +268,7 @@ app.use(express.urlencoded({ extended: true, limit: "200kb" }));
 app.use(helmet());
 app.use(morgan("dev"));
 
-app.use("/api/business", businessRoutes);
+
 
 const PORT = process.env.PORT || 5175;
 const allowedOrigins = [
@@ -309,6 +309,8 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
+
+app.use("/api/business", businessRoutes);
 
 app.use((req, res, next) => {
   if (req.method === "OPTIONS") {
