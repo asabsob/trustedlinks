@@ -45,6 +45,7 @@ from "./services/ops/createOrUpdateIncident.js";
 import opsRoutes from "./routes/ops.routes.js";
 
 import whatsappOtpRoutes from "./routes/whatsappOtp.routes.js";
+import businessRoutes from "./routes/business.routes.js";
 
 import {
   javnaSendText,
@@ -266,6 +267,8 @@ app.use(express.urlencoded({ extended: true, limit: "200kb" }));
 
 app.use(helmet());
 app.use(morgan("dev"));
+
+app.use("/api/business", businessRoutes);
 
 const PORT = process.env.PORT || 5175;
 const allowedOrigins = [
@@ -2278,85 +2281,7 @@ app.post("/api/payments/confirm-topup-order", requireUser, async (req, res) => {
 // USER BUSINESS
 // ============================================================================
 
-// =========================
-// GET CURRENT USER BUSINESS
-// =========================
 
-app.get("/api/business/me", requireUser, async (req, res) => {
-  try {
-    const business = await getBusinessByOwnerUserId(String(req.user.id));
-
-    if (!business) {
-      return res.status(404).json({ error: "Business not found" });
-    }
-
-    const pricing = getBusinessPricing(business);
-
-    const walletBalance = Number(business?.wallet?.balance ?? 0);
-
-    const sponsoredBalance = Number(
-      business?.sponsoredBalance ??
-      business?.sponsored_balance ??
-      0
-    );
-
-    const currency =
-      business?.wallet?.currency ||
-      business?.walletCurrency ||
-      business?.wallet_currency ||
-      pricing.currency ||
-      "JOD";
-
-    const formatted = {
-      ...business,
-
-      wallet_balance: walletBalance,
-      wallet_currency: currency,
-      wallet_status: business?.wallet?.status || "active",
-
-      sponsored_balance: sponsoredBalance,
-      sponsored_campaign_name:
-        business?.sponsoredCampaignName ??
-        business?.sponsored_campaign_name ??
-        null,
-
-      sponsored_status:
-        business?.sponsoredStatus ??
-        business?.sponsored_status ??
-        "none",
-
-      sponsored_credit_expires_at:
-        business?.sponsoredCreditExpiresAt ??
-        business?.sponsored_credit_expires_at ??
-        null,
-
-      total_available_balance: walletBalance + sponsoredBalance,
-
-      pricing: {
-        currency,
-        direct: pricing.direct,
-        category: pricing.category,
-        nearby: pricing.nearby,
-      },
-
-      logo:
-        business.logo ||
-        (business.mediaLink &&
-        /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(String(business.mediaLink))
-          ? business.mediaLink
-          : null),
-
-      whatsappLink: business.whatsapp
-        ? `https://wa.me/${String(business.whatsapp).replace(/\D/g, "")}`
-        : null,
-    };
-
-    return res.json(formatted);
-  } catch (e) {
-    console.error("business/me error:", e);
-    return res.status(500).json({ error: "Failed to load business" });
-  }
-});
 // =========================
 // UPDATE CURRENT USER BUSINESS
 // =========================
