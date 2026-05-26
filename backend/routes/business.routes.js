@@ -6,6 +6,10 @@ import {
   updateBusinessByOwnerUserId,
 } from "../services/pg/businesses.js";
 
+import {
+  getCurrentBusiness,
+} from "../controllers/business.controller.js";
+
 import { translateBusinessContent } from "../services/ai/translateBusiness.js";
 import { listBusinessTransactions } from "../services/pg/businessWallet.js";
 import supabase from "../db/postgres.js";
@@ -77,7 +81,7 @@ function getBusinessPricing(business = {}) {
   };
 }
 
-router.get("/me", requireUser, async (req, res) => {
+router.get("/me", requireUser, getCurrentBusiness);
   try {
     const business = await getBusinessByOwnerUserId(String(req.user.id));
 
