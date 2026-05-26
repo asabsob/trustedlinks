@@ -2557,49 +2557,6 @@ app.get("/api/business/balance/:businessId", requireUser, async (req, res) => {
   }
 });
 
-// =========================
-// BUSINESS TRANSACTIONS
-// =========================
-app.get("/api/business/transactions/:businessId", requireUser, async (req, res) => {
-  try {
-    const { businessId } = req.params;
-    const limit = Math.min(Number(req.query.limit || 10), 100);
-
-    const business = await getBusinessById(businessId);
-    if (!business) {
-      return res.status(404).json({ error: "Business not found" });
-    }
-
-    if (
-      business.ownerUserId &&
-      String(business.ownerUserId) !== String(req.user.id)
-    ) {
-      return res.status(403).json({ error: "Unauthorized" });
-    }
-
-    const transactions = await listBusinessTransactions(business.id, limit);
-
-    return res.json({
-      ok: true,
-      transactions: transactions.map((tx) => ({
-        id: String(tx.id),
-        type: tx.type,
-        amount: tx.amount,
-        currency: tx.currency || "USD",
-        reason: tx.reason || "",
-        eventType: tx.eventType || "",
-        reference: tx.reference || "",
-        status: tx.status || "completed",
-        balanceBefore: Number(tx.balanceBefore || 0),
-        balanceAfter: Number(tx.balanceAfter || 0),
-        date: tx.createdAt,
-      })),
-    });
-  } catch (e) {
-    console.error("business transactions error:", e?.message, e);
-    return res.status(500).json({ error: "Failed to load business transactions" });
-  }
-});
 
 // =========================
 // DIRECT BUSINESS TOPUP
