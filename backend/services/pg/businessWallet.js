@@ -187,3 +187,33 @@ export async function deductBusinessWallet({
     currency,
   };
 }
+
+export async function listBusinessTransactions(
+  businessId,
+  limit = 10
+) {
+  const { data, error } = await supabase
+    .from("transactions")
+    .select("*")
+    .eq("business_id", businessId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    throw error;
+  }
+
+  return (data || []).map((row) => ({
+    id: row.id,
+    type: row.type,
+    amount: Number(row.amount || 0),
+    currency: row.currency,
+    reason: row.reason,
+    eventType: row.event_type,
+    reference: row.reference,
+    status: row.status,
+    balanceBefore: row.balance_before,
+    balanceAfter: row.balance_after,
+    createdAt: row.created_at,
+  }));
+}
