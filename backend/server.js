@@ -1942,66 +1942,6 @@ app.post("/api/payments/create-topup-order", requireUser, async (req, res) => {
   }
 });
 
-// =========================
-// MANUAL BUSINESS WALLET TOPUP
-// =========================
-app.post("/api/business/topup", requireUser, async (req, res) => {
-  try {
-    const businessId = String(req.body?.businessId || "").trim();
-    const amount = Number(req.body?.amount || 0);
-
-    if (!businessId) {
-      return res.status(400).json({
-        ok: false,
-        error: "businessId required",
-      });
-    }
-
-    if (!amount || amount <= 0) {
-      return res.status(400).json({
-        ok: false,
-        error: "Invalid amount",
-      });
-    }
-
-    const business = await getBusinessById(businessId);
-    if (!business) {
-      return res.status(404).json({
-        ok: false,
-        error: "Business not found",
-      });
-    }
-
-    if (
-      business.ownerUserId &&
-      String(business.ownerUserId) !== String(req.user.id)
-    ) {
-      return res.status(403).json({
-        ok: false,
-        error: "Unauthorized business",
-      });
-    }
-
-    const result = await topupBusinessWallet({
-      businessId,
-      amount,
-      note: "Manual topup",
-    });
-
-    return res.json({
-      ok: true,
-      balance: result.balanceAfter,
-      currency: result.currency || "USD",
-      transaction: result.transaction || null,
-    });
-  } catch (e) {
-    console.error("business topup error:", e);
-    return res.status(400).json({
-      ok: false,
-      error: e.message || "Failed to top up business wallet",
-    });
-  }
-});
 
 // =========================
 // GET BUSINESS TOPUP ORDER
@@ -2236,68 +2176,6 @@ app.post("/api/payments/confirm-topup-order", requireUser, async (req, res) => {
     });
   }
 });
-
-// =========================
-// AI OPTIMIZE BUSINESS PROFILE
-// =========================
-app.post("/api/business/ai-optimize", requireUser, async (req, res) => {
-  try {
-    const business = await getBusinessByOwnerUserId(String(req.user.id));
-
-    if (!business) {
-      return res.status(404).json({ error: "Business not found" });
-    }
-
-    const {
-      topSearchKeywords = [],
-      lowConversionKeywords = [],
-      correctionNotes = "",
-      lang = "en",
-    } = req.body || {};
-
-    const result = await optimizeBusinessProfile({
-      businessName: business.name || "",
-      businessNameAr: business.name_ar || "",
-      category: Array.isArray(business.category)
-        ? business.category.join(", ")
-        : toSafeCategoryValue(business.category),
-      description:
-        lang === "ar"
-          ? business.description_ar || business.description || ""
-          : business.description || "",
-      keywords:
-        lang === "ar"
-          ? Array.isArray(business.keywords_ar) && business.keywords_ar.length
-            ? business.keywords_ar
-            : Array.isArray(business.keywords)
-            ? business.keywords
-            : []
-          : Array.isArray(business.keywords)
-          ? business.keywords
-          : [],
-      topSearchKeywords,
-      lowConversionKeywords,
-      locationText: business.locationText || "",
-      countryName: business.countryName || "",
-      correctionNotes,
-      lang,
-    });
-
-    return res.json({
-      ok: true,
-      businessId: String(business.id),
-      result,
-    });
-  } catch (e) {
-    console.error("ai optimize error:", {
-  message: err.message,
-  status: err.status,
-  type: err.type,
-});
-  }
-});
-
-
 
 
 // ============================================================================
