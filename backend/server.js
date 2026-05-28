@@ -7,6 +7,8 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 
+import app from "./app.js";
+
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import geolib from "geolib";
@@ -310,7 +312,6 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 
-app.use("/api/business", businessRoutes);
 
 app.use((req, res, next) => {
   if (req.method === "OPTIONS") {
