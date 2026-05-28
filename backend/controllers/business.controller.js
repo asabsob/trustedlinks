@@ -12,6 +12,7 @@ import { optimizeBusinessProfile } from "../services/aiOptimizer.js";
 
 import supabase from "../db/postgres.js";
 
+import { creditWalletBalance } from "../services/billing/walletCredit.js";
 
 function getBusinessPricing(business = {}) {
   const countryCode = String(
@@ -524,5 +525,89 @@ export async function applyBusinessAIOptimization(req, res) {
       ok: false,
       error: "Update failed",
     });
+  }
+}
+
+export async function getBusinessBalance(req, res) {
+  try {
+    const business = await getBusinessByOwnerUserId(String(req.user.id));
+
+    if (!business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+
+    if (String(business.id) !== String(req.params.businessId)) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    const balance = Number(business.wallet?.balance || 0);
+    const currency = business.wallet?.currency || "USD";
+
+    let status = "active";
+    if (balance <= 0) status = "out";
+    else if (balance < 5) status = "low";
+
+    return res.json({
+      ok: true,
+      wallet: { balance, currency, status },
+    });
+  } catch (e) {
+    console.error("business balance error:", e);
+    return res.status(500).json({ error: "Failed to load business balance" });
+  }
+}
+
+export async function directBusinessTopup(req, res) {
+  try {
+    const amount = Number(req.body?.amount || 0);
+    const businessId = String(req.body?.businessId || "").trim();
+
+    if (!businessId) {
+      return res.status(400).json({ error: "businessId required" });
+    }
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ error: "Invalid amount" });
+    }
+
+    const business = await getBusinessById(businessId);
+
+    if (!business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+
+    if (
+      business.ownerUserId &&
+      String(business.ownerUserId) !== String(req.user.id)
+    ) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    const result = await creditWalletBalance({
+      businessId: business.id,
+      amount,
+      reason: "Wallet top up",
+      reference: `topup_${Date.now()}`,
+    });
+
+    if (!result.ok) {
+      return res.status(400).json({
+        error: result.error || "Top up failed",
+      });
+    }
+
+    let status = "active";
+    if (result.balanceAfter <= 0) status = "out";
+    else if (result.balanceAfter < 5) status = "low";
+
+    return res.json({
+      ok: true,
+      balance: result.balanceAfter,
+      currency: result.currency || "USD",
+      status,
+    });
+  } catch (e) {
+    console.error("topup error:", e);
+    return res.status(500).json({ error: "Top up failed" });
   }
 }
