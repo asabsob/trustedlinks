@@ -8,6 +8,7 @@ import {
 
 import {
   getCurrentBusiness,
+  getBusinessReports,
 } from "../controllers/business.controller.js";
 
 import { translateBusinessContent } from "../services/ai/translateBusiness.js";
