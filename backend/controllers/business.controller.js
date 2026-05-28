@@ -7,7 +7,7 @@ import { listBusinessTransactions } from "../services/pg/businessWallet.js";
 
 import supabase from "../db/postgres.js";
 
-import { listBusinessTransactions } from "../services/pg/businessWallet.js";
+
 function getBusinessPricing(business = {}) {
   const countryCode = String(
     business.countryCode ||
