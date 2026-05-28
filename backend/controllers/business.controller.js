@@ -8,6 +8,8 @@ import { translateBusinessContent } from "../services/ai/translateBusiness.js";
 
 import { listBusinessTransactions } from "../services/pg/businessWallet.js";
 
+import { optimizeBusinessProfile } from "../services/aiOptimizer.js";
+
 import supabase from "../db/postgres.js";
 
 
@@ -450,6 +452,76 @@ export async function updateCurrentBusiness(req, res) {
     console.error("update business error:", e);
 
     return res.status(500).json({
+      error: "Update failed",
+    });
+  }
+}
+
+export async function applyBusinessAIOptimization(req, res) {
+  try {
+    const business = await getBusinessByOwnerUserId(String(req.user.id));
+
+    if (!business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+
+    const {
+      description = "",
+      keywords = [],
+      description_ar = "",
+      keywords_ar = [],
+      lang = "en",
+    } = req.body || {};
+
+    const payload = {};
+
+    if (lang === "ar") {
+      payload.description_ar = String(description_ar || description || "").trim();
+
+      payload.keywords_ar = Array.isArray(keywords_ar)
+        ? keywords_ar.map((k) => String(k).trim()).filter(Boolean)
+        : Array.isArray(keywords)
+        ? keywords.map((k) => String(k).trim()).filter(Boolean)
+        : [];
+    } else {
+      payload.description = String(description || "").trim();
+
+      payload.keywords = Array.isArray(keywords)
+        ? keywords.map((k) => String(k).trim()).filter(Boolean)
+        : [];
+    }
+
+    const updated = await updateBusinessByOwnerUserId(
+      String(req.user.id),
+      payload
+    );
+
+    const formatted = {
+      ...updated,
+
+      logo:
+        updated.logo ||
+        (updated.mediaLink &&
+        /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(
+          String(updated.mediaLink)
+        )
+          ? updated.mediaLink
+          : ""),
+
+      whatsappLink: updated.whatsapp
+        ? `https://wa.me/${String(updated.whatsapp).replace(/\D/g, "")}`
+        : "",
+    };
+
+    return res.json({
+      ok: true,
+      business: formatted,
+    });
+  } catch (e) {
+    console.error("apply ai optimization error:", e);
+
+    return res.status(500).json({
+      ok: false,
       error: "Update failed",
     });
   }
