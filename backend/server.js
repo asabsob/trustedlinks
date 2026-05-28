@@ -2340,6 +2340,62 @@ app.post("/api/business/ai-optimize", requireUser, async (req, res) => {
 });
 
 
+// =========================
+// DIRECT BUSINESS TOPUP
+// =========================
+app.post("/api/topup", requireUser, async (req, res) => {
+  try {
+    const amount = Number(req.body?.amount || 0);
+    const businessId = String(req.body?.businessId || "").trim();
+
+    if (!businessId) {
+      return res.status(400).json({ error: "businessId required" });
+    }
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ error: "Invalid amount" });
+    }
+
+    const business = await getBusinessById(businessId);
+    if (!business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+
+    if (
+      business.ownerUserId &&
+      String(business.ownerUserId) !== String(req.user.id)
+    ) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    const result = await creditWalletBalance({
+      businessId: business.id,
+      amount,
+      reason: "Wallet top up",
+      reference: `topup_${Date.now()}`,
+    });
+
+    if (!result.ok) {
+      return res.status(400).json({
+        error: result.error || "Top up failed",
+      });
+    }
+
+    let status = "active";
+    if (result.balanceAfter <= 0) status = "out";
+    else if (result.balanceAfter < 5) status = "low";
+
+    return res.json({
+      ok: true,
+      balance: result.balanceAfter,
+      currency: result.currency || "USD",
+      status,
+    });
+  } catch (e) {
+    console.error("topup error:", e);
+    return res.status(500).json({ error: "Top up failed" });
+  }
+});
 
 // ============================================================================
 // PUBLIC SEARCH + PUBLIC business endpoints
