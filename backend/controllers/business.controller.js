@@ -12,7 +12,6 @@ import { optimizeBusinessProfile } from "../services/aiOptimizer.js";
 
 import supabase from "../db/postgres.js";
 
-import { creditWalletBalance } from "../services/billing/walletCredit.js";
 
 function getBusinessPricing(business = {}) {
   const countryCode = String(
