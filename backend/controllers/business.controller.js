@@ -6,8 +6,6 @@ import {
 
 import { translateBusinessContent } from "../services/ai/translateBusiness.js";
 
-import { listBusinessTransactions } from "../services/pg/businessWallet.js";
-
 import { optimizeBusinessProfile } from "../services/aiOptimizer.js";
 
 import supabase from "../db/postgres.js";
