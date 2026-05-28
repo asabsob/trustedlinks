@@ -10,6 +10,7 @@ import {
   getCurrentBusiness,
   getBusinessReports,
   getBusinessTransactions,
+  updateCurrentBusiness,
 } from "../controllers/business.controller.js";
 
 import { translateBusinessContent } from "../services/ai/translateBusiness.js";
@@ -89,129 +90,8 @@ router.get("/reports", requireUser, getBusinessReports);
 
 router.get("/transactions/:businessId", requireUser, getBusinessTransactions);
 
-router.put("/update", requireUser, async (req, res) => {
-  try {
-    const existing = await getBusinessByOwnerUserId(String(req.user.id));
+router.put("/update", requireUser, updateCurrentBusiness);
 
-    if (!existing) {
-      return res.status(404).json({ error: "Business not found" });
-    }
 
-    const payload = {
-      name: req.body.name,
-      name_ar: req.body.name_ar,
-      description: req.body.description,
-      description_ar: req.body.description_ar,
-      keywords: Array.isArray(req.body.keywords) ? req.body.keywords : [],
-      keywords_ar: Array.isArray(req.body.keywords_ar)
-        ? req.body.keywords_ar
-        : [],
-      category: Array.isArray(req.body.category) ? req.body.category : [],
-      whatsapp: req.body.whatsapp,
-      mediaLink: req.body.mediaLink || "",
-      logo: req.body.logo || "",
-      locationText: req.body.locationText || "",
-      countryCode: req.body.countryCode || "",
-      countryName: req.body.countryName || "",
-    };
-
-    const lang = String(req.body?.lang || "en").toLowerCase();
-
-    if (lang === "ar") {
-      const sourceDescription = String(payload.description_ar || "").trim();
-
-      const sourceKeywords = Array.isArray(payload.keywords_ar)
-        ? payload.keywords_ar.map((k) => String(k).trim()).filter(Boolean)
-        : [];
-
-      if (sourceDescription || sourceKeywords.length) {
-        const translated = await translateBusinessContent({
-          description: sourceDescription,
-          keywords: sourceKeywords,
-          sourceLang: "ar",
-        });
-
-        if (translated) {
-          payload.description_ar =
-            translated.description_ar || sourceDescription;
-
-          payload.description =
-            translated.description_en || payload.description || "";
-
-          payload.keywords_ar = Array.isArray(translated.keywords_ar)
-            ? translated.keywords_ar
-            : sourceKeywords;
-
-          payload.keywords = Array.isArray(translated.keywords_en)
-            ? translated.keywords_en
-            : payload.keywords || [];
-        }
-      }
-    } else {
-      const sourceDescription = String(payload.description || "").trim();
-
-      const sourceKeywords = Array.isArray(payload.keywords)
-        ? payload.keywords.map((k) => String(k).trim()).filter(Boolean)
-        : [];
-
-      if (sourceDescription || sourceKeywords.length) {
-        const translated = await translateBusinessContent({
-          description: sourceDescription,
-          keywords: sourceKeywords,
-          sourceLang: "en",
-        });
-
-        if (translated) {
-          payload.description =
-            translated.description_en || sourceDescription;
-
-          payload.description_ar =
-            translated.description_ar || payload.description_ar || "";
-
-          payload.keywords = Array.isArray(translated.keywords_en)
-            ? translated.keywords_en
-            : sourceKeywords;
-
-          payload.keywords_ar = Array.isArray(translated.keywords_ar)
-            ? translated.keywords_ar
-            : payload.keywords_ar || [];
-        }
-      }
-    }
-
-    const updated = await updateBusinessByOwnerUserId(
-      String(req.user.id),
-      payload
-    );
-
-    const formatted = {
-      ...updated,
-
-      logo:
-        updated.logo ||
-        (updated.mediaLink &&
-        /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(
-          String(updated.mediaLink)
-        )
-          ? updated.mediaLink
-          : ""),
-
-      whatsappLink: updated.whatsapp
-        ? `https://wa.me/${String(updated.whatsapp).replace(/\D/g, "")}`
-        : "",
-    };
-
-    return res.json({
-      ok: true,
-      business: formatted,
-    });
-  } catch (e) {
-    console.error("update business error:", e);
-
-    return res.status(500).json({
-      error: "Update failed",
-    });
-  }
-});
 
 export default router;
