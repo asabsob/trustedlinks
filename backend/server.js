@@ -268,7 +268,7 @@ app.use(express.urlencoded({ extended: true, limit: "200kb" }));
 app.use(helmet());
 app.use(morgan("dev"));
 
-
+app.use("/api/business", businessRoutes);
 
 const PORT = process.env.PORT || 5175;
 const allowedOrigins = [
