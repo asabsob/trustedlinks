@@ -12,6 +12,11 @@ import { optimizeBusinessProfile } from "../services/aiOptimizer.js";
 
 import supabase from "../db/postgres.js";
 
+import {
+  listBusinessTransactions,
+  creditWalletBalance,
+} from "../services/pg/businessWallet.js";
+
 
 function getBusinessPricing(business = {}) {
   const countryCode = String(
