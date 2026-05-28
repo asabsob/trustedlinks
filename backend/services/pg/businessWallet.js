@@ -217,3 +217,38 @@ export async function listBusinessTransactions(
     createdAt: row.created_at,
   }));
 }
+
+export async function creditWalletBalance({
+  businessId,
+  amount,
+  reason = "Wallet top up",
+  reference = "",
+  notes = "",
+  meta = {},
+}) {
+  try {
+    if (!businessId) {
+      return { ok: false, error: "businessId required" };
+    }
+
+    const result = await topupBusinessWallet({
+      businessId,
+      amount: Number(amount),
+      note: reason || notes || "Wallet top up",
+      meta: {
+        ...meta,
+        reference,
+      },
+    });
+
+    return {
+      ok: true,
+      balanceBefore: result.balanceBefore,
+      balanceAfter: result.balanceAfter,
+      currency: result.currency || "USD",
+    };
+  } catch (e) {
+    console.error("creditWalletBalance error:", e);
+    return { ok: false, error: "Failed to credit wallet" };
+  }
+}
