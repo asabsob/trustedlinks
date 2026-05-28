@@ -98,4 +98,6 @@ router.post("/apply-ai-optimization", requireUser, applyBusinessAIOptimization);
 
 router.get("/balance/:businessId", requireUser, getBusinessBalance);
 
+router.post("/topup", requireUser, directBusinessTopup);
+
 export default router;
