@@ -12,6 +12,7 @@ import {
   getBusinessTransactions,
   updateCurrentBusiness,
   applyBusinessAIOptimization,
+  getBusinessBalance,
 } from "../controllers/business.controller.js";
 
 import { translateBusinessContent } from "../services/ai/translateBusiness.js";
@@ -95,5 +96,6 @@ router.put("/update", requireUser, updateCurrentBusiness);
 
 router.post("/apply-ai-optimization", requireUser, applyBusinessAIOptimization);
 
+router.get("/balance/:businessId", requireUser, getBusinessBalance);
 
 export default router;
