@@ -176,6 +176,8 @@ import publicBusinessRoutes from "./routes/publicBusiness.routes.js";
 
 import meRoutes from "./routes/me.routes.js";
 
+import analyticsRoutes from "./routes/analytics.routes.js";
+
 function hash(value = "") {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
 }
@@ -325,6 +327,9 @@ app.use("/api/businesses", publicBusinessRoutes);
 app.use("/api/business", publicBusinessRoutes);
 
 app.use("/api/me", meRoutes);
+
+app.use("/api", analyticsRoutes);
+
 
 app.use((req, res, next) => {
   if (req.method === "OPTIONS") {
@@ -1626,37 +1631,6 @@ async function pushEvent(businessId, field) {
 
   return incrementBusinessEventField(businessId, mappedField);
 }
-
-// =========================
-// VIEW (no charge)
-// =========================
-app.post("/api/track-view", async (req, res) => {
-  try {
-    const { businessId } = req.body || {};
-
-    if (!businessId) {
-      return res.status(400).json({ error: "businessId required" });
-    }
-
-    const info = await getBusinessOwnerInfo(businessId);
-    if (!info) return res.status(404).json({ error: "Business not found" });
-
-    await pushEvent(businessId, "views");
-
-    await logBusinessEvent({
-      businessId: info.businessId,
-      ownerUserId: info.ownerUserId,
-      type: "view",
-      source: "business_details_page",
-    });
-
-    return res.json({ ok: true, charged: false });
-  } catch (e) {
-    console.error("track-view error:", e);
-    return res.status(500).json({ error: "Failed" });
-  }
-});
-
 
 async function createNotification({
   audienceType = "admin",
