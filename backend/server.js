@@ -174,6 +174,8 @@ import searchRoutes from "./routes/search.routes.js";
 
 import publicBusinessRoutes from "./routes/publicBusiness.routes.js";
 
+import meRoutes from "./routes/me.routes.js";
+
 function hash(value = "") {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
 }
@@ -322,6 +324,7 @@ app.use("/api/business", businessRoutes);
 app.use("/api/businesses", publicBusinessRoutes);
 app.use("/api/business", publicBusinessRoutes);
 
+app.use("/api/me", meRoutes);
 
 app.use((req, res, next) => {
   if (req.method === "OPTIONS") {
@@ -1597,28 +1600,6 @@ app.post(
   }
 );
 
-// =========================
-// CURRENT USER
-// =========================
-app.get("/api/me", requireUser, async (req, res) => {
-  try {
-    const user = await getUserById(req.user.id);
-
-    if (!user) return res.status(404).json({ error: "User not found" });
-
-    return res.json({
-      ok: true,
-      id: user.id,
-      email: user.email,
-      walletBalance: user.walletBalance ?? 0,
-      currency: user.currency || "USD",
-      subscriptionPlan: user.subscriptionPlan || null,
-    });
-  } catch (e) {
-    console.error("/api/me error:", e);
-    return res.status(500).json({ error: "Failed" });
-  }
-});
 
 // ============================================================================
 // TRACKING (Core Monetization)
