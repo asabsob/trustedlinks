@@ -4,6 +4,8 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { nanoid } from "nanoid";
 
+import { sendEmail } from "../utils/sendEmail.js";
+
 import {
   getUserByEmail,
   createUser,
@@ -30,6 +32,9 @@ import { requireAuth } from "../middleware/auth.js";
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
+
+const FRONTEND_BASE_URL =
+  process.env.FRONTEND_BASE_URL || "https://trustedlinks.net";
 
 // =========================
 // Helpers
