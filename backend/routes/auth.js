@@ -185,7 +185,7 @@ router.post("/resend-verification", async (req, res) => {
 // =========================
 // FORGOT PASSWORD
 // =========================
-app.post("/api/auth/forgot-password", async (req, res) => {
+router.post("/forgot-password", async (req, res) => {
   try {
     const emailNorm = String(req.body?.email || "")
       .toLowerCase()
