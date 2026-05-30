@@ -1588,36 +1588,6 @@ app.post(
 
 
 // =========================
-// VERIFY EMAIL
-// =========================
-app.get("/api/auth/verify-email", async (req, res) => {
-  try {
-    const { email, token } = req.query || {};
-    if (!email || !token) return res.status(400).send("Missing email/token");
-
-    const emailNorm = String(email).toLowerCase().trim();
-
-    const existingUser = await getUserByEmail(emailNorm);
-    if (!existingUser) return res.status(404).send("User not found");
-
-    if (existingUser.emailVerified) {
-      return res.redirect(`${FRONTEND_BASE_URL}/login?verified=1`);
-    }
-
-    const verifiedUser = await verifyUserEmail(emailNorm, token);
-    if (!verifiedUser) {
-      return res.status(401).send("Invalid token");
-    }
-
-    return res.redirect(`${FRONTEND_BASE_URL}/login?verified=1`);
-  } catch (e) {
-    console.error("verify-email error", e);
-    return res.status(500).send("Verification failed");
-  }
-});
-
-
-// =========================
 // RESEND VERIFICATION
 // =========================
 app.post("/api/auth/resend-verification", async (req, res) => {
