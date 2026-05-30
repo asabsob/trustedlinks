@@ -233,27 +233,52 @@ router.post("/forgot-password", async (req, res) => {
 // =========================
 router.post("/reset-password", async (req, res) => {
   try {
-    const { email, token, newPassword } = req.body;
+    const { email, token, newPassword } = req.body || {};
 
-    const user = await getUserByEmail(email);
+    const user = await getUserByEmail(
+      String(email).toLowerCase().trim()
+    );
 
-    if (!user || user.resetToken !== token) {
-      return res.status(400).json({ error: "Invalid token" });
+    if (!user) {
+      return res.status(404).json({
+        error: "User not found",
+      });
+    }
+
+    if (!user.resetToken || !user.resetTokenExpiresAt) {
+      return res.status(400).json({
+        error: "Invalid token",
+      });
+    }
+
+    if (user.resetToken !== token) {
+      return res.status(401).json({
+        error: "Invalid token",
+      });
     }
 
     if (new Date(user.resetTokenExpiresAt) < new Date()) {
-      return res.status(400).json({ error: "Expired token" });
+      return res.status(410).json({
+        error: "Expired token",
+      });
     }
 
     const hash = await bcrypt.hash(newPassword, 10);
+
     await updateUserPassword(user.id, hash);
 
-    res.json({ ok: true });
+    return res.json({
+      ok: true,
+    });
+
   } catch (e) {
-    res.status(500).json({ error: "Failed" });
+    console.error("reset-password error", e);
+
+    return res.status(500).json({
+      error: "Failed",
+    });
   }
 });
-
 // =========================
 // GET CURRENT USER
 // =========================
