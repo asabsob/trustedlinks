@@ -14,6 +14,18 @@ const router = express.Router();
 
 router.post("/create-topup-order", requireUser, async (req, res) => {
   try {
+
+      const FREE_TOPUP_ENABLED =
+      process.env.FREE_TOPUP_ENABLED === "true";
+
+    if (!FREE_TOPUP_ENABLED) {
+      return res.status(403).json({
+        ok: false,
+        error: "Free top-up is currently disabled",
+        reason: "FREE_TOPUP_DISABLED",
+      });
+    }
+
   
     const amount = Number(req.body?.amount || 0);
     const businessId = String(req.body?.businessId || "").trim();
