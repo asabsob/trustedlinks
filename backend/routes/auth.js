@@ -36,6 +36,10 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const FRONTEND_BASE_URL =
   process.env.FRONTEND_BASE_URL || "https://trustedlinks.net";
 
+const API_BASE_URL =
+  process.env.API_BASE_URL ||
+  "https://trustedlinks-backend-production.up.railway.app";
+
 // =========================
 // Helpers
 // =========================
@@ -195,17 +199,44 @@ router.get("/verify-email", async (req, res) => {
 // =========================
 router.post("/resend-verification", async (req, res) => {
   try {
-    const { email } = req.body;
+    const emailNorm = String(req.body?.email || "")
+      .toLowerCase()
+      .trim();
 
-    const user = await getUserByEmail(email);
-    if (!user) return res.status(404).json({ error: "Not found" });
+    const user = await getUserByEmail(emailNorm);
 
-    const token = nanoid(32);
-    await setVerifyToken(user.id, token);
+    if (!user) {
+      return res.status(404).json({
+        error: "Email not found",
+      });
+    }
 
-    res.json({ ok: true });
+    if (user.emailVerified) {
+      return res.json({ ok: true });
+    }
+
+    const verifyToken = user.verifyToken || nanoid(32);
+
+    await setVerifyToken(user.id, verifyToken);
+
+    const verifyUrl =
+      `${API_BASE_URL}/api/auth/verify-email` +
+      `?email=${encodeURIComponent(emailNorm)}` +
+      `&token=${encodeURIComponent(verifyToken)}`;
+
+    await sendEmail({
+      to: emailNorm,
+      subject: "Verify your email",
+      html: `<p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
+    });
+
+    return res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: "Failed" });
+    console.error("resend-verification error:", e);
+
+    return res.status(500).json({
+      error: "Failed",
+    });
   }
 });
 
