@@ -18,11 +18,98 @@ import {
 import { topupBusinessWallet } from "../services/pg/businessWallet.js";
 
 import {
-  beginIdempotentRequest,
+  buildRequestHash,
+  getIdempotencyRecord,
+  createIdempotencyRecord,
   completeIdempotencyRecord,
-} from "../services/antiFraud/idempotency.js";
+} from "../services/pg/idempotency.js";
 
 const router = express.Router();
+
+async function beginIdempotentRequest({
+  req,
+  scope,
+  payload,
+  ttlHours = 24,
+}) {
+  const idempotencyKey = req.headers["idempotency-key"];
+
+  if (!idempotencyKey) {
+    return {
+      ok: false,
+      type: "missing_key",
+      response: {
+        status: 400,
+        body: {
+          ok: false,
+          error: "Missing Idempotency-Key header",
+          reason: "MISSING_IDEMPOTENCY_KEY",
+        },
+      },
+    };
+  }
+
+  const requestHash = buildRequestHash(payload || {});
+  const existing = await getIdempotencyRecord(scope, idempotencyKey);
+
+  if (existing) {
+    if (existing.requestHash && existing.requestHash !== requestHash) {
+      return {
+        ok: false,
+        type: "hash_mismatch",
+        response: {
+          status: 409,
+          body: {
+            ok: false,
+            error: "Idempotency-Key was already used with different payload.",
+            reason: "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD",
+          },
+        },
+      };
+    }
+
+    if (existing.status === "completed") {
+      return {
+        ok: false,
+        type: "replay",
+        response: {
+          status: existing.responseCode || 200,
+          body: existing.responseBody || {
+            ok: true,
+            replayed: true,
+          },
+        },
+      };
+    }
+
+    return {
+      ok: false,
+      type: "still_processing",
+      response: {
+        status: 409,
+        body: {
+          ok: false,
+          error: "Request with this Idempotency-Key is already processing.",
+          reason: "IDEMPOTENT_REQUEST_IN_PROGRESS",
+        },
+      },
+    };
+  }
+
+  await createIdempotencyRecord({
+    scope,
+    idempotencyKey,
+    requestHash,
+    ttlHours,
+  });
+
+  return {
+    ok: true,
+    idempotencyKey,
+    scope,
+    requestHash,
+  };
+}
 
 router.post("/create-topup-order", requireUser, async (req, res) => {
   try {
