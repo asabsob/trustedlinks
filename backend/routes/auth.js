@@ -185,26 +185,49 @@ router.post("/resend-verification", async (req, res) => {
 // =========================
 // FORGOT PASSWORD
 // =========================
-router.post("/forgot-password", async (req, res) => {
+app.post("/api/auth/forgot-password", async (req, res) => {
   try {
-    const email = req.body.email?.toLowerCase();
+    const emailNorm = String(req.body?.email || "")
+      .toLowerCase()
+      .trim();
 
-    const user = await getUserByEmail(email);
+    if (!emailNorm) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    const user = await getUserByEmail(emailNorm);
+
+    // لا نكشف إذا الإيميل موجود أو لا
     if (!user) {
       return res.json({ ok: true });
     }
 
-    const token = nanoid(40);
-    const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
-    await setResetToken(user.id, token, expires);
+    await setResetToken(user.id, resetToken, expiresAt);
 
-    res.json({ ok: true });
+    const resetUrl = `${FRONTEND_BASE_URL}/reset-password?email=${encodeURIComponent(
+      emailNorm
+    )}&token=${encodeURIComponent(resetToken)}`;
+
+    await sendEmail({
+      to: emailNorm,
+      subject: "Reset your Trusted Links password",
+      html: `
+        <p>You requested to reset your password.</p>
+        <p><a href="${resetUrl}">Reset Password</a></p>
+        <p>This link expires in 30 minutes.</p>
+      `,
+      text: `Reset your password: ${resetUrl}`,
+    });
+
+    return res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: "Failed" });
+    console.error("forgot-password error:", e);
+    return res.status(500).json({ error: "Failed" });
   }
 });
-
 // =========================
 // RESET PASSWORD
 // =========================
