@@ -56,24 +56,81 @@ function signUserToken(userId) {
 // =========================
 // SIGNUP
 // =========================
+function detectCurrencyByCountry({ countryCode = "", whatsapp = "" }) {
+  const cc = String(countryCode || "").toUpperCase();
+  const phone = String(whatsapp || "").replace(/\D/g, "");
+
+  if (cc === "JO" || phone.startsWith("962")) return "JOD";
+  if (cc === "SA" || phone.startsWith("966")) return "SAR";
+  if (cc === "AE" || phone.startsWith("971")) return "AED";
+  if (cc === "QA" || phone.startsWith("974")) return "QAR";
+  if (cc === "KW" || phone.startsWith("965")) return "KWD";
+  if (cc === "OM" || phone.startsWith("968")) return "OMR";
+  if (cc === "BH" || phone.startsWith("973")) return "BHD";
+
+  return "USD";
+}
+
+function getBusinessPricing(business = {}) {
+  const countryCode = String(
+    business.countryCode || business.country_code || ""
+  ).toUpperCase();
+
+  const phone = String(business.whatsapp || "").replace(/\D/g, "");
+
+  if (countryCode === "JO" || phone.startsWith("962")) {
+    return { currency: "JOD", direct: 0.2, category: 0.25, nearby: 0.3 };
+  }
+
+  if (countryCode === "QA" || phone.startsWith("974")) {
+    return { currency: "QAR", direct: 1, category: 1.25, nearby: 1.5 };
+  }
+
+  if (countryCode === "SA" || phone.startsWith("966")) {
+    return { currency: "SAR", direct: 1, category: 1.25, nearby: 1.5 };
+  }
+
+  if (countryCode === "AE" || phone.startsWith("971")) {
+    return { currency: "AED", direct: 1, category: 1.25, nearby: 1.5 };
+  }
+
+  return { currency: "USD", direct: 0.25, category: 0.3, nearby: 0.4 };
+}
+
 router.post("/signup", async (req, res) => {
   try {
-    const { email, password, business } = req.body;
+    const { email, password, business } = req.body || {};
 
-    if (!email || !password || !business) {
-      return res.status(400).json({ error: "Missing required fields" });
+    if (!email || !password) {
+      return res.status(400).json({
+        error: "Email and password are required",
+      });
     }
 
-    const emailNorm = email.trim().toLowerCase();
+    if (!business) {
+      return res.status(400).json({
+        error: "Business data is required",
+      });
+    }
+
+    const emailNorm = String(email).trim().toLowerCase();
 
     const existingUser = await getUserByEmail(emailNorm);
+
     if (existingUser) {
-      return res.status(409).json({ error: "Email already exists" });
+      return res.status(409).json({
+        error: "Email already exists",
+      });
     }
 
-    const existingBusiness = await getBusinessByWhatsapp(business.whatsapp);
+    const existingBusiness = await getBusinessByWhatsapp(
+      business.whatsapp
+    );
+
     if (existingBusiness) {
-      return res.status(409).json({ error: "WhatsApp already registered" });
+      return res.status(409).json({
+        error: "This WhatsApp number is already registered",
+      });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -82,14 +139,81 @@ router.post("/signup", async (req, res) => {
     const user = await createUser({
       email: emailNorm,
       passwordHash,
-      verifyToken,
       emailVerified: false,
+      verifyToken,
+      walletBalance: 5,
+      currency: "USD",
+      freeCreditGranted: true,
+    });
+
+    const pricing = getBusinessPricing({
+      countryCode: business.countryCode,
+      whatsapp: business.whatsapp,
     });
 
     const createdBusiness = await createBusiness({
       ownerUserId: user.id,
-      ...business,
+      name: business.name || "",
+      name_ar: business.name_ar || "",
+      description: business.description || "",
+      description_ar: business.description_ar || "",
+      category: Array.isArray(business.category)
+        ? business.category
+        : [],
+      keywords: Array.isArray(business.keywords)
+        ? business.keywords
+        : [],
+      keywords_ar: Array.isArray(business.keywords_ar)
+        ? business.keywords_ar
+        : [],
+      whatsapp: business.whatsapp || "",
+      status: "Active",
+      latitude:
+        typeof business.latitude === "number"
+          ? business.latitude
+          : null,
+      longitude:
+        typeof business.longitude === "number"
+          ? business.longitude
+          : null,
+      mapLink: business.mapLink || "",
+      mediaLink: business.mediaLink || "",
+      logo: business.logo || "",
+      locationText: business.locationText || "",
+      countryCode: business.countryCode || "",
+      countryName: business.countryName || "",
+      customId: business.customId || "",
+
+      walletBalance: 5,
+      walletCurrency: detectCurrencyByCountry({
+        countryCode: business.countryCode,
+        whatsapp: business.whatsapp,
+      }),
+      walletStatus: "active",
+      walletAllowNegative: true,
+      walletNegativeLimit: -5,
+      walletLowBalanceThreshold: 5,
+
+      planName: "standard",
+      billingDirectIntentCost: pricing.direct,
+      billingCategoryIntentCost: pricing.category,
+      billingNearbyIntentCost: pricing.nearby,
     });
+
+    const verifyUrl =
+      `${API_BASE_URL}/api/auth/verify-email` +
+      `?email=${encodeURIComponent(emailNorm)}` +
+      `&token=${encodeURIComponent(verifyToken)}`;
+
+    try {
+      await sendEmail({
+        to: emailNorm,
+        subject: "Verify your email",
+        html: `<p>Verify your email:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
+      });
+    } catch (mailErr) {
+      console.error("signup email error:", mailErr);
+    }
 
     return res.status(201).json({
       ok: true,
@@ -98,7 +222,10 @@ router.post("/signup", async (req, res) => {
     });
   } catch (e) {
     console.error("signup error:", e);
-    res.status(500).json({ error: "Signup failed" });
+
+    return res.status(500).json({
+      error: "Signup failed",
+    });
   }
 });
 
