@@ -15,8 +15,6 @@ import { nanoid } from "nanoid";
     
 import supabase from "./db/postgres.js";
 
-import multer from "multer";
-
 import adminAIRoutes from "./routes/ai/adminAI.js";
 
 import { searchBusinesses } from "./search/searchService.js";
@@ -178,6 +176,10 @@ import meRoutes from "./routes/me.routes.js";
 
 import analyticsRoutes from "./routes/analytics.routes.js";
 
+import uploadRoutes from "./routes/upload.routes.js";
+
+
+
 function hash(value = "") {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
 }
@@ -267,12 +269,6 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
 const app = express();
 app.set("trust proxy", 1);
 
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 5 * 1024 * 1024,
-  },
-});
 
 app.use(express.json({ limit: "200kb" }));
 app.use(express.urlencoded({ extended: true, limit: "200kb" }));
@@ -330,6 +326,7 @@ app.use("/api/me", meRoutes);
 
 app.use("/api", analyticsRoutes);
 
+app.use("/api/upload", uploadRoutes);
 
 app.use((req, res, next) => {
   if (req.method === "OPTIONS") {
@@ -1433,178 +1430,6 @@ app.get("/test-double-deduct", async (req, res) => {
     });
   }
 });
-
-// =========================
-// SIGNUP
-// =========================
-app.post("/api/auth/signup", async (req, res) => {
-  try {
-    const { email, password, business } = req.body || {};
-
-    if (!email || !password) {
-      return res.status(400).json({ error: "Email and password are required" });
-    }
-
-    if (!business) {
-      return res.status(400).json({ error: "Business data is required" });
-    }
-
-    const emailNorm = String(email).trim().toLowerCase();
-
-    const existingUser = await getUserByEmail(emailNorm);
-    if (existingUser) {
-      return res.status(409).json({ error: "Email already exists" });
-    }
-
-    const existingBusiness = await getBusinessByWhatsapp(business.whatsapp);
-    if (existingBusiness) {
-      return res
-        .status(409)
-        .json({ error: "This WhatsApp number is already registered" });
-    }
-
-    const passwordHash = await bcrypt.hash(password, 10);
-    const verifyToken = crypto.randomBytes(32).toString("hex");
-
-    const user = await createUser({
-      email: emailNorm,
-      passwordHash,
-      emailVerified: false,
-      verifyToken,
-      walletBalance: 5,
-      currency: "USD",
-      freeCreditGranted: true,
-    });
-
-    const createdBusiness = await createBusiness({
-      ownerUserId: user.id,
-      name: business.name || "",
-      name_ar: business.name_ar || "",
-      description: business.description || "",
-      description_ar: business.description_ar || "",
-      category: Array.isArray(business.category) ? business.category : [],
-      keywords: Array.isArray(business.keywords) ? business.keywords : [],
-      keywords_ar: Array.isArray(business.keywords_ar)
-        ? business.keywords_ar
-        : [],
-      whatsapp: business.whatsapp || "",
-      status: "Active",
-      latitude: typeof business.latitude === "number" ? business.latitude : null,
-      longitude:
-        typeof business.longitude === "number" ? business.longitude : null,
-      mapLink: business.mapLink || "",
-      mediaLink: business.mediaLink || "",
-      logo: business.logo || "",
-      locationText: business.locationText || "",
-      countryCode: business.countryCode || "",
-      countryName: business.countryName || "",
-      customId: business.customId || "",
-
-      // Wallet (Business)
-      walletBalance: 5,
-     walletCurrency: detectCurrencyByCountry({
-  countryCode: business.countryCode,
-  whatsapp: business.whatsapp,
-}),
-      walletStatus: "active",
-     walletAllowNegative: true,
-      walletNegativeLimit: -5,
-      walletLowBalanceThreshold: 5,
-      
-     planName: "standard",
-billingDirectIntentCost: getBusinessPricing({
-  countryCode: business.countryCode,
-  whatsapp: business.whatsapp,
-}).direct,
-
-billingCategoryIntentCost: getBusinessPricing({
-  countryCode: business.countryCode,
-  whatsapp: business.whatsapp,
-}).category,
-
-billingNearbyIntentCost: getBusinessPricing({
-  countryCode: business.countryCode,
-  whatsapp: business.whatsapp,
-}).nearby,
-      });
-    
-    const verifyUrl =
-      `${API_BASE_URL}/api/auth/verify-email` +
-      `?email=${encodeURIComponent(emailNorm)}` +
-      `&token=${encodeURIComponent(verifyToken)}`;
-
-    try {
-      await sendEmail({
-        to: emailNorm,
-        subject: "Verify your email",
-        html: `<p>Verify your email:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
-      });
-    } catch (mailErr) {
-      console.error("signup email error:", mailErr);
-    }
-
-    return res.status(201).json({
-      ok: true,
-      userId: user.id,
-      businessId: createdBusiness.id,
-    });
-  } catch (e) {
-    console.error("signup error:", e);
-    return res.status(500).json({ error: "Signup failed" });
-  }
-});
-
-app.post(
-  "/api/upload/logo",
-  upload.single("logo"),
-  async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({
-          error: "Logo file is required",
-        });
-      }
-
-      const file = req.file;
-
-      const ext =
-        file.originalname.split(".").pop() || "jpg";
-
-      const fileName =
-        `logos/${Date.now()}-${Math.random()
-          .toString(36)
-          .slice(2)}.${ext}`;
-
-      const { error: uploadError } = await supabase
-        .storage
-        .from("business-media")
-        .upload(fileName, file.buffer, {
-          contentType: file.mimetype,
-          upsert: false,
-        });
-
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      const { data } = supabase.storage
-        .from("business-media")
-        .getPublicUrl(fileName);
-
-      return res.json({
-        success: true,
-        logoUrl: data.publicUrl,
-      });
-    } catch (err) {
-      console.error("LOGO_UPLOAD_ERROR", err);
-
-      return res.status(500).json({
-        error: "Failed to upload logo",
-      });
-    }
-  }
-);
-
 
 // ============================================================================
 // TRACKING (Core Monetization)
