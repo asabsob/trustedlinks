@@ -170,6 +170,7 @@ import authRoutes from "./routes/auth.js";
 
 import paymentsRoutes from "./routes/payments.routes.js";
 
+import searchRoutes from "./routes/search.routes.js";
 
 function hash(value = "") {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
@@ -431,7 +432,7 @@ const searchLimiter = rateLimit({
 
 app.use("/api", apiLimiter);
 
-
+app.use("/api/search", searchLimiter, searchRoutes);
 
 app.use("/api/auth/login", authLimiter);
 app.use("/api/auth/signup", authLimiter);
@@ -1617,31 +1618,6 @@ app.get("/api/me", requireUser, async (req, res) => {
 // ============================================================================
 // PUBLIC SEARCH + PUBLIC business endpoints
 // ============================================================================
-
-// =========================
-// SEARCH API
-// =========================
-app.get("/api/search", searchLimiter, async (req, res) => {
-  try {
-    const {
-      query = "",
-      lang = "ar",
-    } = req.query;
-
-    const searchData = await searchBusinesses({
-      query: String(query || "").trim(),
-      lang: String(lang || "ar").trim(),
-    });
-
-    return res.json(searchData);
-  } catch (e) {
-    console.error("/api/search error", e);
-    return res.status(500).json({
-      ok: false,
-      error: "Failed to search",
-    });
-  }
-});
 
 // =========================
 // LIST BUSINESSES
