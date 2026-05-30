@@ -172,6 +172,8 @@ import paymentsRoutes from "./routes/payments.routes.js";
 
 import searchRoutes from "./routes/search.routes.js";
 
+import publicBusinessRoutes from "./routes/publicBusiness.routes.js";
+
 function hash(value = "") {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
 }
@@ -316,6 +318,9 @@ app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 
 app.use("/api/business", businessRoutes);
+
+app.use("/api/businesses", publicBusinessRoutes);
+app.use("/api/business", publicBusinessRoutes);
 
 
 app.use((req, res, next) => {
