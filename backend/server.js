@@ -166,6 +166,8 @@ import {
   operationErrorLogger,
 } from "./middleware/operationLogger.js";
 
+import authRoutes from "./routes/auth.js";
+
 function hash(value = "") {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
 }
@@ -426,10 +428,14 @@ const searchLimiter = rateLimit({
 
 app.use("/api", apiLimiter);
 
+
+
 app.use("/api/auth/login", authLimiter);
 app.use("/api/auth/signup", authLimiter);
 app.use("/api/auth/resend-verification", authLimiter);
 app.use("/api/auth/reset-password", authLimiter);
+
+app.use("/api/auth", authRoutes);
 
 app.use("/api/whatsapp/request-otp", otpLimiter);
 app.use("/api/whatsapp/verify-otp", otpLimiter);
@@ -1580,45 +1586,6 @@ app.post(
   }
 );
 
-// =========================
-// LOGIN
-// =========================
-app.post("/api/auth/login", async (req, res) => {
-  try {
-    const { email, password } = req.body || {};
-    const emailNorm = String(email || "").toLowerCase().trim();
-
-    const user = await getUserByEmail(emailNorm);
-    if (!user) {
-      return res.status(401).json({ error: "Invalid credentials" });
-    }
-
-    const ok = await bcrypt.compare(String(password), user.passwordHash);
-    if (!ok) {
-      return res.status(401).json({ error: "Invalid credentials" });
-    }
-
-    if (!user.emailVerified) {
-      return res.status(403).json({
-        error: "Email not verified",
-        code: "EMAIL_NOT_VERIFIED",
-      });
-    }
-
-    const token = signUserToken(String(user.id));
-
-    return res.json({
-      ok: true,
-      token,
-      email: user.email,
-      walletBalance: user.walletBalance,
-      currency: user.currency,
-    });
-  } catch (e) {
-    console.error("login error", e);
-    return res.status(500).json({ error: "Internal server error" });
-  }
-});
 
 // =========================
 // VERIFY EMAIL
