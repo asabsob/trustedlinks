@@ -6,6 +6,9 @@ import { nanoid } from "nanoid";
 
 import { sendEmail } from "../services/email.js";
 
+import { createUser, getUserByEmail } from "../services/pg/users.js";
+
+
 import {
   getUserByEmail,
   createUser,
