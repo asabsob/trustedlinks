@@ -98,28 +98,43 @@ router.post("/signup", async (req, res) => {
 // =========================
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body || {};
+    const emailNorm = String(email || "").toLowerCase().trim();
 
-    const user = await getUserByEmail(email);
-    if (!user) return res.status(401).json({ error: "Invalid credentials" });
+    const user = await getUserByEmail(emailNorm);
 
-    const ok = await bcrypt.compare(password, user.passwordHash);
-    if (!ok) return res.status(401).json({ error: "Invalid credentials" });
-
-    if (!user.emailVerified) {
-      return res.status(403).json({ error: "Email not verified" });
+    if (!user) {
+      return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    const token = signUserToken(user.id);
+    const ok = await bcrypt.compare(String(password), user.passwordHash);
 
-    res.json({
+    if (!ok) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    if (!user.emailVerified) {
+      return res.status(403).json({
+        error: "Email not verified",
+        code: "EMAIL_NOT_VERIFIED",
+      });
+    }
+
+    const token = signUserToken(String(user.id));
+
+    return res.json({
       ok: true,
       token,
+      email: user.email,
       walletBalance: user.walletBalance,
+      currency: user.currency,
     });
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: "Login failed" });
+    console.error("login error", e);
+
+    return res.status(500).json({
+      error: "Internal server error",
+    });
   }
 });
 
