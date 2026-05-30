@@ -1652,37 +1652,6 @@ app.post("/api/auth/resend-verification", async (req, res) => {
   }
 });
 
-// =========================
-// RESET PASSWORD
-// =========================
-app.post("/api/auth/reset-password", async (req, res) => {
-  try {
-    const { email, token, newPassword } = req.body || {};
-
-    const user = await getUserByEmail(String(email).toLowerCase().trim());
-    if (!user) return res.status(404).json({ error: "User not found" });
-
-    if (!user.resetToken || !user.resetTokenExpiresAt) {
-      return res.status(400).json({ error: "Invalid token" });
-    }
-
-    if (user.resetToken !== token) {
-      return res.status(401).json({ error: "Invalid token" });
-    }
-
-    if (new Date(user.resetTokenExpiresAt) < new Date()) {
-      return res.status(410).json({ error: "Expired token" });
-    }
-
-    const hash = await bcrypt.hash(newPassword, 10);
-    await updateUserPassword(user.id, hash);
-
-    return res.json({ ok: true });
-  } catch (e) {
-    console.error("reset-password error", e);
-    return res.status(500).json({ error: "Failed" });
-  }
-});
 
 // =========================
 // CURRENT USER
