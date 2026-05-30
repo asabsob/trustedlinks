@@ -148,18 +148,45 @@ router.post("/login", async (req, res) => {
 // =========================
 router.get("/verify-email", async (req, res) => {
   try {
-    const { email, token } = req.query;
+    const { email, token } = req.query || {};
 
-    const user = await verifyUserEmail(email, token);
-
-    if (!user) {
-      return res.status(400).send("Invalid token");
+    if (!email || !token) {
+      return res.status(400).send("Missing email/token");
     }
 
-    res.send("Email verified ✅");
+    const emailNorm = String(email).toLowerCase().trim();
+
+    const existingUser = await getUserByEmail(emailNorm);
+
+    if (!existingUser) {
+      return res.status(404).send("User not found");
+    }
+
+    if (existingUser.emailVerified) {
+      return res.redirect(
+        `${FRONTEND_BASE_URL}/login?verified=1`
+      );
+    }
+
+    const verifiedUser = await verifyUserEmail(
+      emailNorm,
+      token
+    );
+
+    if (!verifiedUser) {
+      return res.status(401).send("Invalid token");
+    }
+
+    return res.redirect(
+      `${FRONTEND_BASE_URL}/login?verified=1`
+    );
+
   } catch (e) {
-    console.error(e);
-    res.status(500).send("Verification failed");
+    console.error("verify-email error", e);
+
+    return res.status(500).send(
+      "Verification failed"
+    );
   }
 });
 
