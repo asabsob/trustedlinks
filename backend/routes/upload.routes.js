@@ -1,6 +1,6 @@
 import express from "express";
 import multer from "multer";
-import { supabase } from "../config/supabase.js";
+import supabase from "../db/postgres.js";
 
 const router = express.Router();
 
