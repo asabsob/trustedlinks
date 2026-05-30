@@ -482,7 +482,27 @@ const res = await fetch(`${API_BASE}/api/payments/confirm-topup-order`, {
               </div>
             </div>
 
-    
+    <div className="mt-6 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
+  {lang === "ar"
+    ? "سيتم تفعيل خيارات الشحن التجاري قريباً."
+    : "Commercial recharge options will be available soon."}
+</div>
+
+</div>
+
+{!isSponsoredTenant ? (
+  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <h3 className="mb-2 text-lg font-semibold text-slate-900">
+      {lang === "ar" ? "الشحن غير متاح حالياً" : "Top-up unavailable"}
+    </h3>
+
+    <p className="text-sm text-slate-600 leading-7">
+      {lang === "ar"
+        ? "رصيد البداية المجاني هو 5 فقط. سيتم تفعيل خيارات الشحن التجاري قريباً."
+        : "The free starting balance is 5 only. Commercial recharge options will be available soon."}
+    </p>
+  </div>
+) : (
   <div className="rounded-2xl border border-green-200 bg-green-50 p-6 shadow-sm">
     <h3 className="text-lg font-semibold text-green-800">
       {lang === "ar" ? "رصيد برعاية المول" : "Mall Sponsored Balance"}
