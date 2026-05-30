@@ -4,7 +4,7 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { nanoid } from "nanoid";
 
-import { sendEmail } from "../utils/sendEmail.js";
+import { sendEmail } from "../services/email.js";
 
 import {
   getUserByEmail,
