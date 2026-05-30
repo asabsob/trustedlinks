@@ -1586,43 +1586,6 @@ app.post(
   }
 );
 
-
-// =========================
-// RESEND VERIFICATION
-// =========================
-app.post("/api/auth/resend-verification", async (req, res) => {
-  try {
-    const emailNorm = String(req.body?.email || "").toLowerCase().trim();
-
-    const user = await getUserByEmail(emailNorm);
-    if (!user) return res.status(404).json({ error: "Email not found" });
-
-    if (user.emailVerified) {
-      return res.json({ ok: true });
-    }
-
-    const verifyToken = user.verifyToken || nanoid(32);
-    await setVerifyToken(user.id, verifyToken);
-
-    const verifyUrl =
-      `${API_BASE_URL}/api/auth/verify-email` +
-      `?email=${encodeURIComponent(emailNorm)}` +
-      `&token=${encodeURIComponent(verifyToken)}`;
-
-    await sendEmail({
-      to: emailNorm,
-      subject: "Verify your email",
-      html: `<p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
-    });
-
-    return res.json({ ok: true });
-  } catch (e) {
-    console.error("resend-verification error:", e);
-    return res.status(500).json({ error: "Failed" });
-  }
-});
-
-
 // =========================
 // CURRENT USER
 // =========================
