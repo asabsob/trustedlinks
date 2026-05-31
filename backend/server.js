@@ -1240,7 +1240,9 @@ async function deductWalletBalance({
       return { ok: true, skipped: true, reason: "No charge for this event" };
     }
 
-    const campaignDeduct = await tryDeductFromCampaign({
+console.log("BEFORE_CAMPAIGN_DEDUCT", { businessId, amount, finalIntentType });
+
+const campaignDeduct = await tryDeductFromCampaign({
   businessId,
   amount,
   intentType: finalIntentType,
@@ -1251,22 +1253,28 @@ async function deductWalletBalance({
   },
 });
 
+console.log("AFTER_CAMPAIGN_DEDUCT", campaignDeduct);
+      
 if (campaignDeduct.ok) {
   return campaignDeduct;
 }
 
-    const result = await deductBusinessWallet({
-      businessId,
-      amount,
-      eventType: `conversation_start_${finalIntentType}`,
-      note: reason,
-      meta: {
-        ...meta,
-        reference,
-        ownerUserId,
-        intentType: finalIntentType,
-      },
-    });
+  console.log("BEFORE_WALLET_DEDUCT", { businessId, amount });
+
+const result = await deductBusinessWallet({
+  businessId,
+  amount,
+  eventType: `conversation_start_${finalIntentType}`,
+  note: reason,
+  meta: {
+    ...meta,
+    reference,
+    ownerUserId,
+    intentType: finalIntentType,
+  },
+});
+
+console.log("AFTER_WALLET_DEDUCT", result);
     
   if (
   Number(result.balanceAfter) > 0 &&
