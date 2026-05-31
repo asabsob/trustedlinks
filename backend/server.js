@@ -3936,8 +3936,6 @@ app.get("/l/:token", async (req, res) => {
       return res.status(400).send("Invalid lead token");
     }
 
-    console.log("LEAD_TEST_START", { tokenId });
-
     const tokenRow = await getLeadTokenById(tokenId);
 
     if (!tokenRow) {
@@ -3963,11 +3961,6 @@ app.get("/l/:token", async (req, res) => {
   String(tokenRow.intent_type || tokenRow.intentType || "category").trim() ||
   "category";
 
-    console.log("LEAD_TEST_TOKEN_LOADED", {
-      tokenId,
-      businessId,
-      intentType,
-    });
 
     const rawBusinessPhone =
       tokenRow.business_phone ||
@@ -4274,12 +4267,6 @@ return res.send(`
 
     const existingLock = await findActiveChargeLock(chargeKey);
 
-    console.log("LEAD_TEST_EXISTING_LOCK", {
-      tokenId,
-      existingLock: !!existingLock,
-      lockId: existingLock?.id || null,
-    });
-
     let actionTaken = risk.action;
     let charged = false;
 
@@ -4364,14 +4351,6 @@ return res.send(`
     return res.send(redirectHtml);
   }
 
-  console.log("LEAD_TEST_DEDUCT_ATTEMPT", {
-    tokenId,
-    businessId,
-    intentType,
-  });
-
-       console.log("DEDUCT_FUNCTION_TYPE", typeof deductWalletBalance);
-
       const billingResult = await deductWalletBalance({
         ownerUserId: "",
         businessId,
@@ -4383,16 +4362,6 @@ return res.send(`
           ip,
           fingerprint,
         },
-      });
-
-      console.log("LEAD_TEST_DEDUCT_RESULT", {
-        tokenId,
-        ok: billingResult?.ok,
-        amount: billingResult?.amount,
-        balanceBefore: billingResult?.balanceBefore,
-        balanceAfter: billingResult?.balanceAfter,
-        error: billingResult?.error || null,
-        insufficient: billingResult?.insufficient || false,
       });
 
       if (!billingResult?.ok && !billingResult?.skipped) {
@@ -4432,12 +4401,6 @@ return res.send(`
         expires_at: expiresAt,
       });
 
-      console.log("LEAD_TEST_CREATE_LOCK_RESULT", {
-        tokenId,
-        created: !!chargeLock,
-        lockId: chargeLock?.id || null,
-      });
-
       charged = true;
     }
 
@@ -4467,12 +4430,6 @@ return res.send(`
       })
       .eq("id", tokenId);
 
-    console.log("LEAD_TEST_DONE", {
-      tokenId,
-      charged,
-      duplicateSkipped: !!existingLock,
-      actionTaken: existingLock ? "allow_duplicate_no_charge" : actionTaken,
-    });
 
     return res.send(redirectHtml);
   } catch (error) {
