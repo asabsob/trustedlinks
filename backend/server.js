@@ -178,7 +178,7 @@ import analyticsRoutes from "./routes/analytics.routes.js";
 
 import uploadRoutes from "./routes/upload.routes.js";
 
-
+import mediaRoutes from "./routes/media.routes.js";
 
 function hash(value = "") {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
@@ -327,6 +327,8 @@ app.use("/api/me", meRoutes);
 app.use("/api", analyticsRoutes);
 
 app.use("/api/upload", uploadRoutes);
+
+app.use("/media", mediaRoutes);
 
 app.use((req, res, next) => {
   if (req.method === "OPTIONS") {
