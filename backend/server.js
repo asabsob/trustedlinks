@@ -4370,6 +4370,8 @@ return res.send(`
     intentType,
   });
 
+       console.log("DEDUCT_FUNCTION_TYPE", typeof deductWalletBalance);
+
       const billingResult = await deductWalletBalance({
         ownerUserId: "",
         businessId,
