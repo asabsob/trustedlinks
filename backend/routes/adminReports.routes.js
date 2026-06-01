@@ -1,7 +1,7 @@
 import express from "express";
 import supabase from "../db/postgres.js";
 
-import { requireAdmin } from "../middleware/adminAuth.js";
+import { requireAdmin } from "../middleware/auth.js";
 
 import {
   listAllUsers,
