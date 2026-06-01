@@ -758,9 +758,6 @@ function detectCurrencyByCountry({ countryCode = "", whatsapp = "" }) {
 // AUTH MIDDLEWARE
 // =========================
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-
 function requireUser(req, res, next) {
   try {
     const token = readBearer(req);
@@ -2898,7 +2895,7 @@ app.post("/api/admin/ai-summary", requireAdmin, async (_req, res) => {
 // =========================
 let ADMIN_SETTINGS = {
   theme: "light",
-  email: ADMIN_EMAIL,
+ email: process.env.ADMIN_EMAIL || "",
 };
 
 app.get("/api/admin/settings", requireAdmin, async (_req, res) => {
