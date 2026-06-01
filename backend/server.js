@@ -182,6 +182,8 @@ import mediaRoutes from "./routes/media.routes.js";
 
 import leadRoutes from "./routes/lead.routes.js";
 
+import adminRoutes from "./routes/admin.routes.js";
+
 function hash(value = "") {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
 }
@@ -333,6 +335,8 @@ app.use("/api/upload", uploadRoutes);
 app.use("/media", mediaRoutes);
 
 app.use("/", leadRoutes);
+
+app.use("/api/admin", adminRoutes);
 
 app.use((req, res, next) => {
   if (req.method === "OPTIONS") {
@@ -735,19 +739,6 @@ function signUserToken(userId) {
   return jwt.sign({ id: userId, role: "user" }, JWT_SECRET, { expiresIn: "7d" });
 }
 
-function signAdminToken(email) {
-  return jwt.sign({ email, role: "admin" }, JWT_SECRET, { expiresIn: "1d" });
-}
-
-function readBearer(req) {
-  const h = req.headers.authorization || "";
-  const m = h.match(/^Bearer\s+(.+)$/i);
-  return m ? m[1] : "";
-}
-
-function safeString(v) {
-  return String(v || "").trim().slice(0, 500);
-}
 
 function detectCurrencyByCountry({ countryCode = "", whatsapp = "" }) {
   const cc = String(countryCode || "").toUpperCase();
@@ -1601,12 +1592,6 @@ async function getUnreadNotificationCount({
 // Admin Auth + Admin endpoints (Supabase Clean Version)
 // ============================================================================
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-
-if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
-  throw new Error("Missing admin credentials");
-}
 
 function getAutoApprovalDecision(pendingCharge) {
   const score = Number(pendingCharge?.risk_score || 0);
@@ -1622,47 +1607,7 @@ function getAutoApprovalDecision(pendingCharge) {
   return { autoApprove: false, autoReject: false, reason: "medium_risk_manual_review" };
 }
 
-// =========================
-// ADMIN LOGIN
-// =========================
-app.post("/api/admin/login", async (req, res) => {
-  try {
-    const { email, password } = req.body || {};
 
-    if (
-      String(email || "").trim().toLowerCase() !==
-      String(ADMIN_EMAIL).trim().toLowerCase()
-    ) {
-      return res.status(401).json({ error: "Invalid credentials" });
-    }
-
-    const passOk = ADMIN_PASSWORD.startsWith("$2")
-      ? await bcrypt.compare(String(password), ADMIN_PASSWORD)
-      : String(password) === String(ADMIN_PASSWORD);
-
-    if (!passOk) {
-      return res.status(401).json({ error: "Invalid credentials" });
-    }
-
-    const token = signAdminToken(email);
-
-    return res.json({ ok: true, token });
-  } catch (e) {
-    console.error("admin login error:", e);
-    return res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// =========================
-// ADMIN ME
-// =========================
-app.get("/api/admin/me", requireAdmin, async (req, res) => {
-  return res.json({
-    ok: true,
-    email: req.admin.email,
-    role: "admin",
-  });
-});
 
 // =========================
 // ADMIN STATS
