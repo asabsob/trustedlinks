@@ -758,6 +758,9 @@ function detectCurrencyByCountry({ countryCode = "", whatsapp = "" }) {
 // AUTH MIDDLEWARE
 // =========================
 
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+
 function requireUser(req, res, next) {
   try {
     const token = readBearer(req);
