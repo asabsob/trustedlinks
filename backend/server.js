@@ -186,6 +186,9 @@ import adminRoutes from "./routes/admin.routes.js";
 
 import adminFraudRoutes from "./routes/adminFraud.routes.js";
 
+import adminReportsRoutes from "./routes/adminReports.routes.js";
+
+
 
 function hash(value = "") {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
@@ -342,6 +345,8 @@ app.use("/", leadRoutes);
 app.use("/api/admin", adminRoutes);
 
 app.use("/api/admin/fraud", adminFraudRoutes);
+
+app.use("/api/admin", adminReportsRoutes);
 
 app.use((req, res, next) => {
   if (req.method === "OPTIONS") {
