@@ -10,6 +10,14 @@ import {
   listAllBusinesses,
 } from "../services/pg/businesses.js";
 
+import {
+  createNotification,
+  listNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  getUnreadNotificationCount,
+} from "../services/notifications.js";
+
 const router = express.Router();
 
 async function updateBusinessStatus(id, status) {
@@ -297,6 +305,136 @@ router.post("/businesses/:id/suspend", requireAdmin, async (req, res) => {
   } catch (e) {
     console.error("suspend business error:", e);
     return res.status(500).json({ error: "Failed" });
+  }
+});
+
+router.get("/notifications", requireAdmin, async (req, res) => {
+  try {
+    const status = String(req.query.status || "").trim();
+    const limit = Number(req.query.limit || 50);
+
+    const notifications = await listNotifications({
+      audienceType: "admin",
+      audienceId: null,
+      status,
+      limit,
+    });
+
+    const unreadCount = await getUnreadNotificationCount({
+      audienceType: "admin",
+      audienceId: null,
+    });
+
+    return res.json({
+      ok: true,
+      notifications,
+      unreadCount,
+    });
+  } catch (e) {
+    console.error("admin notifications list error:", e);
+    return res.status(500).json({
+      error: "Failed to load notifications",
+    });
+  }
+});
+
+router.post("/notifications", requireAdmin, async (req, res) => {
+  try {
+    const {
+      title = "Admin",
+      message,
+      type = "system",
+      priority = "normal",
+      actionLabel = null,
+      actionUrl = null,
+      channel = "dashboard",
+    } = req.body || {};
+
+    const notification = await createNotification({
+      audienceType: "admin",
+      audienceId: null,
+      title,
+      message,
+      type,
+      priority,
+      actionLabel,
+      actionUrl,
+      channel,
+      meta: {
+        createdBy: req.admin?.email || "admin",
+      },
+    });
+
+    return res.json({
+      ok: true,
+      notification,
+    });
+  } catch (e) {
+    console.error("admin notification create error:", e);
+    return res.status(500).json({
+      error: e.message || "Failed to send notification",
+    });
+  }
+});
+
+router.post("/notifications/:id/read", requireAdmin, async (req, res) => {
+  try {
+    const id = String(req.params.id || "").trim();
+
+    if (!id) {
+      return res.status(400).json({
+        error: "Notification id required",
+      });
+    }
+
+    const notification = await markNotificationRead(id);
+
+    return res.json({
+      ok: true,
+      notification,
+    });
+  } catch (e) {
+    console.error("admin notification read error:", e);
+    return res.status(500).json({
+      error: "Failed to mark notification as read",
+    });
+  }
+});
+
+router.post("/notifications/read-all", requireAdmin, async (_req, res) => {
+  try {
+    await markAllNotificationsRead({
+      audienceType: "admin",
+      audienceId: null,
+    });
+
+    return res.json({
+      ok: true,
+    });
+  } catch (e) {
+    console.error("admin notifications read-all error:", e);
+    return res.status(500).json({
+      error: "Failed to mark all as read",
+    });
+  }
+});
+
+router.get("/notifications/unread-count", requireAdmin, async (_req, res) => {
+  try {
+    const unreadCount = await getUnreadNotificationCount({
+      audienceType: "admin",
+      audienceId: null,
+    });
+
+    return res.json({
+      ok: true,
+      unreadCount,
+    });
+  } catch (e) {
+    console.error("admin notifications unread count error:", e);
+    return res.status(500).json({
+      error: "Failed to load unread count",
+    });
   }
 });
 
