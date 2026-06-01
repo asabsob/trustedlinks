@@ -13,10 +13,6 @@ import {
 
 const router = express.Router();
 
-let ADMIN_SETTINGS = {
-  theme: "light",
-  email: process.env.ADMIN_EMAIL || "",
-};
 
 // =========================
 // ADMIN REVENUE
