@@ -8,10 +8,27 @@ import { listAllUsers } from "../services/pg/users.js";
 
 import {
   listAllBusinesses,
-  updateBusinessStatus,
 } from "../services/pg/businesses.js";
 
 const router = express.Router();
+
+async function updateBusinessStatus(id, status) {
+  const { data, error } = await supabase
+    .from("businesses")
+    .update({
+      status,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .select("*")
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
