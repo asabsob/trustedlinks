@@ -21,7 +21,7 @@ let ADMIN_SETTINGS = {
 // =========================
 // ADMIN REVENUE
 // =========================
-router.get("/api/admin/revenue", requireAdmin, async (_req, res) => {
+router.get("/revenue", requireAdmin, async (_req, res) => {
   try {
     const [
       businessesRes,
@@ -273,7 +273,7 @@ router.get("/api/admin/revenue", requireAdmin, async (_req, res) => {
 // =========================
 // ADMIN INSIGHTS
 // =========================
-router.get("/api/admin/insights", requireAdmin, async (_req, res) => {
+router.get("/insights", requireAdmin, async (_req, res) => {
   try {
     const [
       statsRes,
@@ -418,7 +418,7 @@ router.get("/api/admin/insights", requireAdmin, async (_req, res) => {
 // =========================
 // ADMIN AI SUMMARY
 // =========================
-router.post("/api/admin/ai-summary", requireAdmin, async (_req, res) => {
+router.post("/ai-summary", requireAdmin, async (_req, res) => {
   try {
     const [
       { data: businesses },
@@ -504,11 +504,11 @@ let ADMIN_SETTINGS = {
  email: process.env.ADMIN_EMAIL || "",
 };
 
-app.get("/api/admin/settings", requireAdmin, async (_req, res) => {
+router.get("/settings", requireAdmin, async (_req, res) => {
   return res.json({ ok: true, settings: ADMIN_SETTINGS });
 });
 
-app.post("/api/admin/settings", requireAdmin, async (req, res) => {
+router.post("/settings", requireAdmin, async (req, res) => {
   ADMIN_SETTINGS = { ...ADMIN_SETTINGS, ...(req.body || {}) };
   return res.json({ ok: true, settings: ADMIN_SETTINGS });
 });
