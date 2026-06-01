@@ -186,7 +186,6 @@ import adminRoutes from "./routes/admin.routes.js";
 
 import {
   createNotification,
-  emitNotification,
 } from "./services/notifications.js";
 
 function hash(value = "") {
