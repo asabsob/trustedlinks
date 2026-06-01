@@ -35,6 +35,177 @@ import { createLeadToken } from "../services/pg/leadTokens.js";
 
 const router = express.Router();
 
+
+// ============================================================================
+// WhatsApp Helpers - Compact Production Version
+// ============================================================================
+
+function detectLanguage(text = "") {
+  return /[\u0600-\u06FF]/.test(String(text || "")) ? "ar" : "en";
+}
+
+function isGreeting(text = "") {
+  return /^(hi|hello|hey|مرحبا|اهلا|أهلا|هلا|سلام)$/i.test(
+    String(text || "").trim()
+  );
+}
+
+function isHelpCommand(text = "") {
+  return /^(help|start|مساعدة|ابدأ)$/i.test(String(text || "").trim());
+}
+
+function isThanks(text = "") {
+  return /^(thanks|thank you|شكرا|شكرًا)$/i.test(String(text || "").trim());
+}
+
+function getWelcomeMessage(lang = "ar") {
+  return lang === "ar"
+    ? "مرحبًا بك في TrustedLinks 👋\n\nاكتب اسم شركة أو نوع نشاط للبحث.\n\nمثال:\n• مطعم\n• قهوة\n• صيدلية\n• أقرب مطعم"
+    : "Welcome to TrustedLinks 👋\n\nType a business name or category to search.\n\nExample:\n• restaurant\n• coffee\n• pharmacy\n• nearest restaurant";
+}
+
+function normalizeNearbyText(text = "") {
+  return String(text || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ة/g, "ه")
+    .replace(/ى/g, "ي")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parseNearbyIntent(text = "", session = {}) {
+  const raw = String(text || "").trim();
+  const q = normalizeNearbyText(raw);
+
+  if (!q) {
+    return { isNearby: false, categoryQuery: "", source: "empty" };
+  }
+
+  const nearbySignals = [
+    "اقرب",
+    "قريب",
+    "قريبه",
+    "قريب مني",
+    "قريبه مني",
+    "حولي",
+    "حولينا",
+    "جنب",
+    "جنبي",
+    "جنبنا",
+    "بالقرب",
+    "بالقرب مني",
+    "ناحيتي",
+    "بجانبي",
+    "وين اقرب",
+    "هات الاقرب",
+    "الاقرب",
+    "في المنطقه",
+    "بالمنطقه",
+    "داخل المول",
+    "في المول",
+    "نفس المول",
+    "near me",
+    "nearest",
+    "closest",
+    "nearby",
+    "around me",
+    "around us",
+    "close to me",
+    "near",
+    "in the mall",
+    "inside mall",
+    "inside the mall",
+  ];
+
+  const contextualNearbyAnswers = [
+    "قريب",
+    "قريبه",
+    "اقرب",
+    "الاقرب",
+    "حولي",
+    "حولينا",
+    "جنبنا",
+    "جنب",
+    "داخل المول",
+    "في المول",
+    "near",
+    "nearby",
+    "nearest",
+    "closest",
+  ];
+
+  const hasNearbySignal = nearbySignals.some((signal) =>
+    q.includes(normalizeNearbyText(signal))
+  );
+
+  const isContextNearby =
+    session?.state === "awaiting_refinement" &&
+    contextualNearbyAnswers.includes(q);
+
+  if (!hasNearbySignal && !isContextNearby) {
+    return { isNearby: false, categoryQuery: "", source: "none" };
+  }
+
+  let categoryQuery = q;
+
+  const cleanupPatterns = [
+    /وين اقرب/g,
+    /هات الاقرب/g,
+    /الاقرب/g,
+    /اقرب/g,
+    /قريب مني/g,
+    /قريبه مني/g,
+    /قريب/g,
+    /قريبه/g,
+    /مني/g,
+    /حولي/g,
+    /حولينا/g,
+    /جنبنا/g,
+    /جنبي/g,
+    /جنب/g,
+    /بالقرب مني/g,
+    /بالقرب/g,
+    /ناحيتي/g,
+    /بجانبي/g,
+    /في المنطقه/g,
+    /بالمنطقه/g,
+    /داخل المول/g,
+    /في المول/g,
+    /نفس المول/g,
+    /near me/g,
+    /nearest/g,
+    /closest/g,
+    /nearby/g,
+    /around me/g,
+    /around us/g,
+    /close to me/g,
+    /inside the mall/g,
+    /inside mall/g,
+    /in the mall/g,
+    /near/g,
+  ];
+
+  cleanupPatterns.forEach((pattern) => {
+    categoryQuery = categoryQuery.replace(pattern, " ");
+  });
+
+  categoryQuery = categoryQuery.replace(/\s+/g, " ").trim();
+
+  if (!categoryQuery && session?.last_query) {
+    categoryQuery = session.last_query;
+  }
+
+  return {
+    isNearby: true,
+    categoryQuery,
+    source: isContextNearby ? "conversation_context" : "rules",
+  };
+}
+
+
 // ============================================================================
 // WhatsApp Webhook - Production Fast Version
 // ============================================================================
