@@ -184,9 +184,6 @@ import leadRoutes from "./routes/lead.routes.js";
 
 import adminRoutes from "./routes/admin.routes.js";
 
-import {
-  createNotification,
-} from "./services/notifications.js";
 
 function hash(value = "") {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
