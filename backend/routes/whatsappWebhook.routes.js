@@ -35,10 +35,243 @@ import { createLeadToken } from "../services/pg/leadTokens.js";
 
 const router = express.Router();
 
+async function enrichTopResultWithTrackedLink({
+  items = [],
+  query = "",
+  userPhone = "",
+  intentType = "category",
+}) {
+  const finalIntentType = intentType || "category";
+  const safeItems = Array.isArray(items) ? items : [];
 
-// ============================================================================
-// WhatsApp Helpers - Compact Production Version
-// ============================================================================
+  if (!safeItems.length) return [];
+
+  const enriched = [];
+
+  for (const item of safeItems) {
+    let trackedLink = null;
+
+    try {
+      if (item?.id && item?.whatsapp) {
+        trackedLink = await createLeadTrackedLink({
+          businessId: item.id,
+          phone: item.whatsapp,
+          query,
+          userPhone,
+          intentType: finalIntentType,
+        });
+      }
+    } catch (err) {
+      console.error("TRACKED_LINK_CREATE_ERROR", {
+        businessId: item?.id,
+        error: err.message,
+      });
+    }
+
+    enriched.push({
+      ...item,
+      trackedLink,
+    });
+  }
+
+  return enriched;
+}
+
+// =========================
+// MEMORY (instead of Mongo sessions)
+// =========================
+const PENDING_NEARBY_REQUESTS = new Map();
+const PENDING_REFINEMENT_REQUESTS = new Map();
+
+// =========================
+// HELPERS
+// =========================
+
+function cleanDigits(v = "") {
+  return String(v).replace(/\D/g, "");
+}
+
+// =========================
+// NEARBY MEMORY (NO MONGO)
+// =========================
+
+function setPendingNearby(from, data = {}) {
+  PENDING_NEARBY_REQUESTS.set(from, {
+    category: data.category || "",
+    rawQuery: data.rawQuery || "",
+    createdAt: Date.now(),
+  });
+}
+
+function getPendingNearby(from) {
+  const item = PENDING_NEARBY_REQUESTS.get(from);
+  if (!item) return null;
+
+  if (Date.now() - item.createdAt > 10 * 60 * 1000) {
+    PENDING_NEARBY_REQUESTS.delete(from);
+    return null;
+  }
+
+  return item;
+}
+
+function clearPendingNearby(from) {
+  PENDING_NEARBY_REQUESTS.delete(from);
+}
+
+// =========================
+// REFINEMENT MEMORY
+// =========================
+
+function getRefinementQuestions(lang = "ar") {
+  return [
+    {
+      key: "preference",
+      text:
+        lang === "ar"
+          ? "ماذا تفضل بالتحديد؟"
+          : "What exactly do you prefer?",
+    },
+    {
+      key: "area",
+      text:
+        lang === "ar"
+          ? "في أي منطقة؟"
+          : "Which area?",
+    },
+    {
+      key: "priority",
+      text:
+        lang === "ar"
+          ? "هل تريد خيارًا اقتصاديًا أم الأفضل تقييمًا؟"
+          : "Do you want a budget option or top-rated?",
+    },
+  ];
+}
+
+function setPendingRefinement(from, data = {}) {
+  PENDING_REFINEMENT_REQUESTS.set(from, {
+    query: data.query || "",
+    lang: data.lang || "ar",
+    answers: {
+      preference: data.answers?.preference || "",
+      area: data.answers?.area || "",
+      priority: data.answers?.priority || "",
+    },
+    step: Number(data.step || 0),
+    createdAt: Date.now(),
+  });
+}
+
+function getPendingRefinement(from) {
+  const item = PENDING_REFINEMENT_REQUESTS.get(from);
+  if (!item) return null;
+
+  if (Date.now() - item.createdAt > 15 * 60 * 1000) {
+    PENDING_REFINEMENT_REQUESTS.delete(from);
+    return null;
+  }
+
+  return item;
+}
+
+function clearPendingRefinement(from) {
+  PENDING_REFINEMENT_REQUESTS.delete(from);
+}
+
+function getCurrentRefinementQuestion(session) {
+  if (!session) return null;
+
+  const questions = getRefinementQuestions(session.lang || "ar");
+  return questions[session.step] || null;
+}
+
+function saveRefinementAnswer(session, answer = "") {
+  if (!session) return null;
+
+  const questions = getRefinementQuestions(session.lang || "ar");
+  const currentQuestion = questions[session.step];
+
+  if (!currentQuestion) return session;
+
+  const cleanAnswer = String(answer || "").trim();
+
+  const nextAnswers = {
+    ...session.answers,
+    [currentQuestion.key]: cleanAnswer,
+  };
+
+  return {
+    ...session,
+    answers: nextAnswers,
+    step: session.step + 1,
+    createdAt: Date.now(),
+  };
+}
+
+function isRefinementComplete(session) {
+  if (!session) return false;
+  return (
+    String(session.answers?.preference || "").trim() &&
+    String(session.answers?.area || "").trim() &&
+    String(session.answers?.priority || "").trim()
+  );
+}
+
+function formatSingleRefinementQuestion(session) {
+  const question = getCurrentRefinementQuestion(session);
+  const lang = session?.lang || "ar";
+
+  if (!question) {
+    return lang === "ar"
+      ? "شكرًا، سأعرض لك النتائج الآن."
+      : "Thanks, I’ll show you the results now.";
+  }
+
+  return `${session.step + 1}) ${question.text}`;
+}
+
+async function createLeadTrackedLink({
+  businessId = "",
+  phone = "",
+  query = "",
+  userPhone = "",
+  intentType = "category",
+}) {
+  const finalIntentType = intentType || "category";
+
+  const safePhone = String(phone || "").replace(/\D/g, "");
+  const safeBusinessId = String(businessId || "").trim();
+  const safeUserPhone = String(userPhone || "").replace(/\D/g, "");
+  const safeQuery = String(query || "").trim();
+
+  if (!safePhone || !safeBusinessId) return "";
+
+  const token = await createLeadToken({
+    businessId: safeBusinessId,
+    businessPhone: safePhone,
+    userPhone: safeUserPhone,
+    query: safeQuery,
+    intentType: finalIntentType,
+  });
+
+  const tokenId = token?.id || token?._id?.toString();
+  const baseUrl = (process.env.FRONTEND_BASE_URL || "https://trustedlinks.net")
+    .trim()
+    .replace(/\/+$/, "");
+
+  if (!tokenId || !baseUrl) {
+    console.error("Failed to create tracked link", {
+      hasToken: !!token,
+      tokenId,
+      baseUrl,
+      businessId: safeBusinessId,
+    });
+    return "";
+  }
+
+  return `${baseUrl}/l/${tokenId}`;
+}
 
 function detectLanguage(text = "") {
   return /[\u0600-\u06FF]/.test(String(text || "")) ? "ar" : "en";
@@ -74,6 +307,201 @@ function normalizeNearbyText(text = "") {
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function parseNearbyIntent(text = "", session = {}) {
+  const raw = String(text || "").trim();
+  const q = normalizeNearbyText(raw);
+
+  if (!q) {
+    return { isNearby: false, categoryQuery: "", source: "empty" };
+  }
+
+  const nearbySignals = [
+    "اقرب",
+    "قريب",
+    "قريبه",
+    "قريب مني",
+    "قريبه مني",
+    "حولي",
+    "حولينا",
+    "جنب",
+    "جنبي",
+    "جنبنا",
+    "بالقرب",
+    "بالقرب مني",
+    "ناحيتي",
+    "بجانبي",
+    "وين اقرب",
+    "هات الاقرب",
+    "الاقرب",
+    "في المنطقه",
+    "بالمنطقه",
+    "داخل المول",
+    "في المول",
+    "نفس المول",
+    "near me",
+    "nearest",
+    "closest",
+    "nearby",
+    "around me",
+    "around us",
+    "close to me",
+    "near",
+    "in the mall",
+    "inside mall",
+    "inside the mall",
+  ];
+
+  const contextualNearbyAnswers = [
+    "قريب",
+    "قريبه",
+    "اقرب",
+    "الاقرب",
+    "حولي",
+    "حولينا",
+    "جنبنا",
+    "جنب",
+    "داخل المول",
+    "في المول",
+    "near",
+    "nearby",
+    "nearest",
+    "closest",
+  ];
+
+  const hasNearbySignal = nearbySignals.some((signal) =>
+    q.includes(normalizeNearbyText(signal))
+  );
+
+  const isContextNearby =
+    session?.state === "awaiting_refinement" &&
+    contextualNearbyAnswers.includes(q);
+
+  if (!hasNearbySignal && !isContextNearby) {
+    return { isNearby: false, categoryQuery: "", source: "none" };
+  }
+
+  let categoryQuery = q;
+
+  const cleanupPatterns = [
+    /وين اقرب/g,
+    /هات الاقرب/g,
+    /الاقرب/g,
+    /اقرب/g,
+    /قريب مني/g,
+    /قريبه مني/g,
+    /قريب/g,
+    /قريبه/g,
+    /مني/g,
+    /حولي/g,
+    /حولينا/g,
+    /جنبنا/g,
+    /جنبي/g,
+    /جنب/g,
+    /بالقرب مني/g,
+    /بالقرب/g,
+    /ناحيتي/g,
+    /بجانبي/g,
+    /في المنطقه/g,
+    /بالمنطقه/g,
+    /داخل المول/g,
+    /في المول/g,
+    /نفس المول/g,
+    /near me/g,
+    /nearest/g,
+    /closest/g,
+    /nearby/g,
+    /around me/g,
+    /around us/g,
+    /close to me/g,
+    /inside the mall/g,
+    /inside mall/g,
+    /in the mall/g,
+    /near/g,
+  ];
+
+  cleanupPatterns.forEach((pattern) => {
+    categoryQuery = categoryQuery.replace(pattern, " ");
+  });
+
+  categoryQuery = categoryQuery.replace(/\s+/g, " ").trim();
+
+  if (!categoryQuery && session?.last_query) {
+    categoryQuery = session.last_query;
+  }
+
+  return {
+    isNearby: true,
+    categoryQuery,
+    source: isContextNearby ? "conversation_context" : "rules",
+  };
+}
+
+async function enrichTopOnly({
+  results = [],
+  query = "",
+  userPhone = "",
+  intentType = "category",
+}) {
+  if (!Array.isArray(results) || results.length === 0) return [];
+
+  const finalIntentType = intentType || "category";
+
+  console.log("ENRICH_INTENT_DEBUG", {
+    query,
+    intentType,
+    finalIntentType,
+    resultCount: results.length,
+  });
+
+  const resultsToEnrich = results.slice(0, 4);
+
+  const enrichedResults = await enrichTopResultWithTrackedLink({
+    items: resultsToEnrich,
+    query,
+    userPhone,
+    intentType: finalIntentType,
+  });
+
+  return enrichedResults;
+}
+
+function normalizeIntentType(intentData = {}, query = "") {
+  const q = String(query || "").trim().toLowerCase();
+
+  // nearby intent
+  if (
+    intentData?.isNearby ||
+    intentData?.intent === "nearby" ||
+    q.includes("near me") ||
+    q.includes("قريب") ||
+    q.includes("قريبة") ||
+    q.includes("حولي") ||
+    q.includes("جنب")
+  ) {
+    return "nearby";
+  }
+
+  // direct business / brand search
+  if (
+    intentData?.intent === "brand" ||
+    intentData?.isBrandSearch === true
+  ) {
+    return "direct";
+  }
+
+  // category search
+  if (intentData?.intent === "category") {
+    return "category";
+  }
+
+  // smart fallback
+  if (q.split(" ").length <= 2) {
+    return "direct";
+  }
+
+  return "category";
 }
 
 function parseNearbyIntent(text = "", session = {}) {
