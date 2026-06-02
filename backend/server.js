@@ -172,15 +172,6 @@ import adminReportsRoutes from "./routes/adminReports.routes.js";
 
 import whatsappWebhookRoutes from "./routes/whatsappWebhook.routes.js";
 
-import {
-  getBusinessPricing,
-  getConversationStartPrice,
-  tryDeductFromCampaign,
-  deductWalletBalance,
-  logBusinessEvent,
-} from "./services/billing.service.js";
-
-
 
 function hash(value = "") {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
