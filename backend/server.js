@@ -9,8 +9,6 @@ import dotenv from "dotenv";
 
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
-import geolib from "geolib";
-import { nanoid } from "nanoid";
 
     
 import supabase from "./db/postgres.js";
@@ -35,12 +33,6 @@ import opsRoutes from "./routes/ops.routes.js";
 import whatsappOtpRoutes from "./routes/whatsappOtp.routes.js";
 import businessRoutes from "./routes/business.routes.js";
 
-import {
-  javnaSendText,
-  javnaSendImage,
-  javnaSendOtpTemplate,
-  javnaSendCallToAction,
-} from "./services/whatsapp/javnaClient.js";
 
 import {
   getUserById,
