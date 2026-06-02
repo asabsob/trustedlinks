@@ -633,7 +633,97 @@ function parseNearbyIntent(text = "", session = {}) {
   };
 }
 
+async function sendBusinessCards({
+  to,
+  results = [],
+  lang = "ar",
+  includeDistance = false,
+}) {
+  for (let i = 0; i < results.length; i++) {
+    const item = results[i];
 
+    const logoUrl =
+      item.logo_url ||
+      item.logoUrl ||
+      item.logo;
+
+    const caption = formatBusinessBlock(
+      item,
+      i,
+      lang,
+      {
+        includeCategory: true,
+        includeDistance,
+        showLink: false,
+        showDirections: false,
+      }
+    );
+
+    if (logoUrl && /^https?:\/\//i.test(logoUrl)) {
+      await javnaSendImage({
+        to,
+        imageUrl: logoUrl,
+        customId:
+          item.custom_id ||
+          item.customId,
+        caption,
+      }).catch(console.error);
+    } else {
+      await javnaSendText({
+        to,
+        body: caption,
+      }).catch(console.error);
+    }
+
+    await new Promise((r) => setTimeout(r, 500));
+
+    if (item.trackedLink) {
+      await javnaSendCallToAction({
+        to,
+        body:
+          lang === "ar"
+            ? "تواصل مباشرة عبر واتساب"
+            : "Contact directly via WhatsApp",
+
+        buttonText:
+          lang === "ar"
+            ? "واتساب"
+            : "WhatsApp",
+
+        url: item.trackedLink,
+      }).catch(console.error);
+    }
+
+    await new Promise((r) => setTimeout(r, 400));
+
+    const mapsUrl =
+      item.maps_url ||
+      item.mapsUrl ||
+      item.location_url ||
+      item.locationUrl ||
+      item.mapLink ||
+      item.map_link;
+
+    if (mapsUrl) {
+      await javnaSendCallToAction({
+        to,
+        body:
+          lang === "ar"
+            ? "فتح الموقع والاتجاهات"
+            : "Open location & directions",
+
+        buttonText:
+          lang === "ar"
+            ? "الموقع"
+            : "Location",
+
+        url: mapsUrl,
+      }).catch(console.error);
+    }
+
+    await new Promise((r) => setTimeout(r, 400));
+  }
+}
 // ============================================================================
 // WhatsApp Webhook - Production Fast Version
 // ============================================================================
@@ -709,18 +799,15 @@ console.log("CONVERSATION_DECISION_DEBUG", {
 
       clearPendingNearby(from);
 
-      const reply = formatNearestResults(
-        enrichedResults,
-        lang,
-        categoryQuery || pendingNearby?.rawQuery || ""
-      );
+     await sendBusinessCards({
+  to: from,
+  results: enrichedResults,
+  lang,
+  includeDistance: true,
+});
 
-      return javnaSendText({
-        to: from,
-        body: reply,
-      }).catch(console.error);
-    }
-
+return;
+      
     // Empty Text
     if (!normalizedQuery) {
       return javnaSendText({
@@ -1056,111 +1143,14 @@ const enrichedResults = await enrichTopOnly({
     searchData?.mode === "refinement_required",
 });
 
-const imageCardResults = enrichedResults.filter((item) => {
-  const logoUrl =
-    item.logo_url ||
-    item.logoUrl ||
-    item.logo;
-
-  return logoUrl && /^https?:\/\//i.test(logoUrl);
-});
-
-const useImageCards =
-  imageCardResults.length > 0 &&
-  enrichedResults.length <= 3;
-
-if (useImageCards) {
-
-  for (let i = 0; i < enrichedResults.length; i++) {
-    const item = enrichedResults[i];
-
-    const logoUrl =
-      item.logo_url ||
-      item.logoUrl ||
-      item.logo;
-
-    const caption = formatBusinessBlock(item, i, lang, {
-      includeCategory: true,
-      includeDistance: false,
-      showLink: false,
-      showDirections: false,
-    });
-
-    if (!logoUrl || !/^https?:\/\//i.test(logoUrl)) {
-      await javnaSendText({
-        to: from,
-        body: caption,
-      }).catch(console.error);
-
-      continue;
-    }
-
-await javnaSendImage({
+await sendBusinessCards({
   to: from,
-  imageUrl: logoUrl,
-  customId:
-    item.custom_id ||
-    item.customId,
-  caption,
+  results: enrichedResults,
+  lang,
+  includeDistance: false,
 });
 
-await new Promise((resolve) => setTimeout(resolve, 1200));
-     
-      
-await new Promise((r) => setTimeout(r, 500));
-
-if (item.trackedLink) {
-  await javnaSendCallToAction({
-    to: from,
-    body:
-      lang === "ar"
-        ? "تواصل مباشرة عبر واتساب"
-        : "Contact directly via WhatsApp",
-
-    buttonText:
-      lang === "ar"
-        ? "واتساب"
-        : "WhatsApp",
-
-    url: item.trackedLink,
-  }).catch((err) => {
-    console.error("JAVNA_CTA_ERROR:", err);
-  });
-}
-
-await new Promise((r) => setTimeout(r, 400));
-
-const mapsUrl =
-  item.maps_url ||
-  item.mapsUrl ||
-  item.location_url ||
-  item.locationUrl ||
-  item.mapLink ||
-  item.map_link;
-
-if (mapsUrl) {
-  await javnaSendCallToAction({
-    to: from,
-    body:
-      lang === "ar"
-        ? "فتح الموقع والاتجاهات"
-        : "Open location & directions",
-
-    buttonText:
-      lang === "ar"
-        ? "الموقع"
-        : "Location",
-
-    url: mapsUrl,
-  }).catch((err) => {
-    console.error("JAVNA_MAP_CTA_ERROR:", err);
-  });
-}
-
-        }
-
-  return;
-}
+return;
       
 console.timeEnd(enrichTimer);
       
