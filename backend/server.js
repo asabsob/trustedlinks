@@ -783,31 +783,6 @@ async function getUserOr404(userId, res) {
   return user;
 }
 
-
-// =========================
-// Business Activity Log
-// =========================
-async function logBusinessEvent({
-  businessId,
-  ownerUserId,
-  type,
-  source = "",
-  meta = {},
-}) {
-  try {
-    await createBusinessEvent({
-      businessId,
-      ownerUserId: String(ownerUserId || ""),
-      type,
-      source,
-      meta,
-    });
-  } catch (e) {
-    console.error("logBusinessEvent error:", e);
-  }
-}
-
-
 // =========================
 // Business Owner Info
 // =========================
