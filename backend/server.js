@@ -188,6 +188,8 @@ import adminFraudRoutes from "./routes/adminFraud.routes.js";
 
 import adminReportsRoutes from "./routes/adminReports.routes.js";
 
+import whatsappWebhookRoutes from "./routes/whatsappWebhook.routes.js";
+
 
 
 function hash(value = "") {
@@ -347,6 +349,8 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/admin/fraud", adminFraudRoutes);
 
 app.use("/api/admin", adminReportsRoutes);
+
+app.use("/webhooks/javna/whatsapp", whatsappWebhookRoutes);
 
 app.use((req, res, next) => {
   if (req.method === "OPTIONS") {
