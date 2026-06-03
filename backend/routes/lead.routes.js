@@ -32,6 +32,8 @@ import {
 
 import { renderLeadConsentPage } from "../services/leadConsent.service.js";
 
+import { renderWhatsAppRedirectPage } from "../services/leadRedirect.service.js";
+
 const router = express.Router();
 
 router.post("/api/create-lead", async (req, res) => {
@@ -154,21 +156,10 @@ router.get("/l/:token", async (req, res) => {
       message
     )}`;
 
-    const redirectHtml = `
-      <html>
-        <head>
-          <meta http-equiv="refresh" content="0; url=${waUrl}" />
-          <script>
-            setTimeout(function() {
-              window.location.href = "${fallbackUrl}";
-            }, 500);
-          </script>
-        </head>
-        <body>
-          Redirecting to WhatsApp...
-        </body>
-      </html>
-    `;
+  const redirectHtml = renderWhatsAppRedirectPage({
+  waUrl,
+  fallbackUrl,
+});
 
     const ip =
       req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
