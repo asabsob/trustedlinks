@@ -3,31 +3,7 @@ import { getBusinessById } from "./pg/businesses.js";
 import { deductBusinessWallet } from "./pg/businessWallet.js";
 import { createBusinessEvent } from "./pg/businessEvents.js";
 
-export function getBusinessPricing(business = {}) {
-  const countryCode = String(
-    business.countryCode || business.country_code || ""
-  ).toUpperCase();
-
-  const phone = String(business.whatsapp || "").replace(/\D/g, "");
-
-  if (countryCode === "JO" || phone.startsWith("962")) {
-    return { currency: "JOD", direct: 0.2, category: 0.25, nearby: 0.3 };
-  }
-
-  if (countryCode === "QA" || phone.startsWith("974")) {
-    return { currency: "QAR", direct: 1, category: 1.25, nearby: 1.5 };
-  }
-
-  if (countryCode === "SA" || phone.startsWith("966")) {
-    return { currency: "SAR", direct: 1, category: 1.25, nearby: 1.5 };
-  }
-
-  if (countryCode === "AE" || phone.startsWith("971")) {
-    return { currency: "AED", direct: 1, category: 1.25, nearby: 1.5 };
-  }
-
-  return { currency: "USD", direct: 0.25, category: 0.3, nearby: 0.4 };
-}
+import { getBusinessPricing } from "../utils/getBusinessPricing.js";
 
 export function getConversationStartPrice(business, intentType) {
   const type = intentType || "category";
