@@ -72,4 +72,76 @@ export async function emitNotification({
 }) {
   if (!message) return;
 
-  const finalKey = dedupKey || `${type}:${meta.business
+  const finalKey = dedupKey || `${type}:${meta.businessId || "global"}`;
+  const okToSend = await shouldSendNotification({ key: finalKey });
+
+  if (!okToSend) return;
+
+  await createNotification({
+    audienceType,
+    audienceId,
+    type,
+    priority,
+    title,
+    message,
+    actionLabel,
+    actionUrl,
+    meta: {
+      ...meta,
+      dedupKey: finalKey,
+    },
+  });
+}
+
+export async function notifyFraudBlocked({
+  businessId,
+  tokenId,
+  intentType,
+  risk,
+}) {
+  const score = Number(risk.score || 0);
+  const level = String(risk.riskLevel || "").toLowerCase();
+
+  if (score < 80 && !["high", "critical"].includes(level)) return;
+
+  await emitNotification({
+    type: "fraud",
+    priority: level === "critical" ? "critical" : "high",
+    title: "Fraud attempt blocked",
+    message: `Blocked ${intentType} lead (risk ${score}).`,
+    actionLabel: "Open fraud center",
+    actionUrl: "/admin/fraud",
+    meta: {
+      businessId,
+      tokenId,
+      intentType,
+      riskScore: score,
+      riskLevel: level,
+      reasonCodes: risk.reasonCodes || [],
+    },
+    dedupKey: `block:${businessId}:${tokenId}`,
+  });
+}
+
+export async function notifyPendingCharge({
+  businessId,
+  tokenId,
+  risk,
+}) {
+  await emitNotification({
+    type: "fraud",
+    priority: "high",
+    title: "Pending charge created",
+    message: `Charge held for review (risk ${risk.score}).`,
+    actionLabel: "Open fraud queue",
+    actionUrl: "/admin/fraud",
+    meta: {
+      businessId,
+      tokenId,
+      riskScore: Number(risk.score || 0),
+      riskLevel: risk.riskLevel,
+      reasonCodes: risk.reasonCodes || [],
+    },
+    dedupKey: `hold:${businessId}:${tokenId}`,
+  });
+}
