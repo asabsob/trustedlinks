@@ -365,8 +365,6 @@ export default function Dashboard({ lang = "en" }) {
   <StatCard title={tr("spending") || "Spending"} value={spendingText} />
 </section>
 
-      </section>
-
 <PricingPlanCard
   business={business}
   currency={currency}
