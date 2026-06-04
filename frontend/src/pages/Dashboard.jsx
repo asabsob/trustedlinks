@@ -1,7 +1,3 @@
-// ============================================================================
-// Trusted Links - Business Dashboard
-// ============================================================================
-
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getText, getCategoryLabel } from "../i18n";
@@ -59,10 +55,7 @@ export default function Dashboard({ lang = "en" }) {
         const bizData = await bizRes.json().catch(() => null);
         const repData = await repRes.json().catch(() => null);
 
-        if (!meRes.ok) {
-          throw new Error(meData?.error || "Auth failed");
-        }
-
+        if (!meRes.ok) throw new Error(meData?.error || "Auth failed");
         if (cancelled) return;
 
         setBusiness(bizRes.ok ? bizData : null);
@@ -89,7 +82,6 @@ export default function Dashboard({ lang = "en" }) {
 
   const businessName = useMemo(() => {
     if (!business) return tr("yourBusiness") || "Your Business";
-
     return isAr
       ? business.name_ar || business.name || tr("yourBusiness")
       : business.name || business.name_ar || tr("yourBusiness");
@@ -101,7 +93,6 @@ export default function Dashboard({ lang = "en" }) {
 
   const descriptionText = useMemo(() => {
     if (!business) return tr("notAvailable") || "-";
-
     return isAr
       ? business.description_ar || business.description || tr("notAvailable")
       : business.description || business.description_ar || tr("notAvailable");
@@ -109,27 +100,24 @@ export default function Dashboard({ lang = "en" }) {
 
   const paidBalance = Number(business?.wallet_balance || 0);
   const sponsoredBalance = Number(business?.sponsored_balance || 0);
-  const currency = business?.wallet_currency || "JOD";
+  const currency = business?.wallet_currency || business?.pricing?.currency || "JOD";
   const totalBalance = paidBalance + sponsoredBalance;
+
+  const walletStatus = useMemo(() => {
+    if (totalBalance <= 0) return "out";
+    if (totalBalance < 5) return "low";
+    return "active";
+  }, [totalBalance]);
 
   const walletText = isAr
     ? `${currency} ${totalBalance.toFixed(2)}`
     : `${totalBalance.toFixed(2)} ${currency}`;
 
-  const sponsoredText =
-    sponsoredBalance > 0
-      ? isAr
-        ? `${currency} ${sponsoredBalance.toFixed(2)}`
-        : `${sponsoredBalance.toFixed(2)} ${currency}`
-      : null;
-
-  const walletStatus = useMemo(() => {
-    if (!business) return "active";
-
-    if (totalBalance <= 0) return "out";
-    if (totalBalance < 5) return "low";
-    return "active";
-  }, [business, totalBalance]);
+  const spendingText = useMemo(() => {
+    const amount = Number(reports?.estimated_revenue ?? 0).toFixed(2);
+    const reportCurrency = reports?.currency || currency || "JOD";
+    return isAr ? `${reportCurrency} ${amount}` : `${amount} ${reportCurrency}`;
+  }, [reports, isAr, currency]);
 
   const shortMapLink = useMemo(() => {
     if (!business?.mapLink) return null;
@@ -141,9 +129,9 @@ export default function Dashboard({ lang = "en" }) {
     }
   }, [business]);
 
- const showSponsorshipCard =
-  import.meta.env.VITE_SPONSORED_CAMPAIGN_ENABLED === "true";
-  
+  const showSponsorshipCard =
+    import.meta.env.VITE_SPONSORED_CAMPAIGN_ENABLED === "true";
+
   async function handleClaimSponsorship() {
     if (!campaignCode) return;
 
@@ -182,18 +170,12 @@ export default function Dashboard({ lang = "en" }) {
 
       setCampaignCode("");
       window.location.reload();
-    } catch (err) {
+    } catch {
       setClaimMessage(isAr ? "حدث خطأ غير متوقع" : "Something went wrong");
     } finally {
       setClaimLoading(false);
     }
   }
-
-  const spendingText = useMemo(() => {
-    const amount = Number(reports?.estimated_revenue ?? 0).toFixed(2);
-    const reportCurrency = reports?.currency || currency || "JOD";
-    return isAr ? `${reportCurrency} ${amount}` : `${amount} ${reportCurrency}`;
-  }, [reports, isAr, currency]);
 
   if (loading) {
     return (
@@ -222,242 +204,142 @@ export default function Dashboard({ lang = "en" }) {
 
   return (
     <div style={pageWrap(isAr)}>
-      <section style={heroCard}>
-        <div>
+      <section style={topLayout}>
+        <div style={welcomeCard}>
           <div style={heroBadge}>{tr("businessDashboard") || "Business Dashboard"}</div>
-
           <h1 style={heroTitle}>
             {tr("welcomeBack") || "Welcome back"} {businessName}
           </h1>
-
           <p style={heroSubtitle}>
-            {tr("dashboardSubtitle") ||
-              "Manage your business profile, wallet, and performance from one place."}
+            {isAr
+              ? "تابع الرصيد، العملاء المحتملين، التسعير، وأداء نشاطك من مكان واحد."
+              : "Track wallet, leads, pricing, and business performance from one place."}
           </p>
         </div>
-     
+
+        <WalletCard
+          isAr={isAr}
+          walletText={walletText}
+          walletStatus={walletStatus}
+          onRecharge={() => navigate("/wallet")}
+        />
       </section>
 
-<AIAssistantBox
-  lang={lang}
-  pageContext="business_dashboard"
-/>
-
-      {showSponsorshipCard && (
-        <section style={sponsorshipCard}>
-          <div style={sponsorshipTop}>
-            <div>
-              <div style={sponsorshipLabel}>
-                {sponsoredText
-                  ? isAr
-                    ? "حملة رعاية مفعّلة"
-                    : "Sponsored Campaign Active"
-                  : isAr
-                  ? "تفعيل رصيد الرعاية"
-                  : "Claim Sponsorship Credit"}
-              </div>
-
-              <h3 style={sponsorshipTitle}>
-                {business?.sponsored_campaign_name || "Campaign Sponsorship"}
-              </h3>
-
-              {sponsoredText && <div style={sponsorshipAmount}>{sponsoredText}</div>}
-            </div>
-
-            <div style={{ fontSize: 44 }}>🎁</div>
-          </div>
-
-          <div style={claimRow}>
-            <input
-              value={campaignCode}
-              onChange={(e) => setCampaignCode(e.target.value)}
-              placeholder={isAr ? "إضافة كود رعاية" : "Add sponsorship code"}
-              style={claimInput}
-            />
-
-            <button
-              type="button"
-              onClick={handleClaimSponsorship}
-              disabled={!campaignCode || claimLoading}
-              style={{
-                ...claimButton,
-                opacity: !campaignCode || claimLoading ? 0.65 : 1,
-                cursor: !campaignCode || claimLoading ? "not-allowed" : "pointer",
-              }}
-            >
-              {claimLoading
-                ? isAr
-                  ? "جاري التفعيل..."
-                  : "Applying..."
-                : isAr
-                ? "تفعيل"
-                : "Apply"}
-            </button>
-          </div>
-
-          {claimMessage && <div style={claimMessageStyle}>{claimMessage}</div>}
-        </section>
-      )}
-
       {walletStatus !== "active" && (
-        <div
-          style={{
-            background: walletStatus === "out" ? "#fef2f2" : "#fff7ed",
-            border: `1px solid ${walletStatus === "out" ? "#fecaca" : "#fed7aa"}`,
-            borderRadius: 16,
-            padding: "16px",
-            marginBottom: 18,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: 10,
-          }}
-        >
-          <div>
-            <strong style={{ color: walletStatus === "out" ? "#b91c1c" : "#c2410c" }}>
-              {walletStatus === "out"
-                ? tr("noBalanceAvailable") || "No balance available"
-                : tr("lowBalanceWarning") || "Low balance"}
-            </strong>
-
-            <div style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>
-              {walletStatus === "out"
-                ? tr("notReceivingLeads") || "Your business may stop receiving leads."
-                : tr("balanceAlmostFinished") || "Your balance is almost finished."}
-            </div>
-          </div>
-
-          <button onClick={() => navigate("/wallet")} style={primaryBtn}>
-            {tr("rechargeNow") || "Recharge Now"}
-          </button>
-        </div>
+        <WarningCard
+          isAr={isAr}
+          walletStatus={walletStatus}
+          onRecharge={() => navigate("/wallet")}
+        />
       )}
 
-     <section style={statsGrid}>
-  <StatCard
-    title={isAr ? "إجمالي الرصيد" : "Total Balance"}
-    value={walletText}
-    subtitle={
-      sponsoredText
-        ? isAr
-          ? `رصيد الرعاية: ${sponsoredText}`
-          : `Sponsored Credit: ${sponsoredText}`
-        : walletStatus === "out"
-        ? tr("outOfBalance") || "Out of balance"
-        : walletStatus === "low"
-        ? tr("lowBalance") || "Low balance"
-        : tr("active") || "Active"
-    }
-    highlight={
-      walletStatus === "out"
-        ? "#ef4444"
-        : walletStatus === "low"
-        ? "#f59e0b"
-        : "#16a34a"
-    }
-  />
+      <section style={aiSection}>
+        <AIAssistantBox lang={lang} pageContext="business_dashboard" />
+      </section>
 
-  <StatCard title={tr("directLeads") || "Direct Leads"} value={reports?.direct_starts ?? 0} />
-  <StatCard title={tr("categoryLeads") || "Category Leads"} value={reports?.category_starts ?? 0} />
-  <StatCard title={tr("nearbyLeads") || "Nearby Leads"} value={reports?.nearby_starts ?? 0} />
+      <section style={kpiGrid}>
+        <StatCard title={isAr ? "إجمالي العملاء" : "Total Leads"} value={reports?.total_billed_conversations ?? 0} />
+        <StatCard title={tr("directLeads") || "Direct Leads"} value={reports?.direct_starts ?? 0} />
+        <StatCard title={tr("categoryLeads") || "Category Leads"} value={reports?.category_starts ?? 0} />
+        <StatCard title={tr("nearbyLeads") || "Nearby Leads"} value={reports?.nearby_starts ?? 0} />
+        <StatCard title={tr("spending") || "Spending"} value={spendingText} highlight="#0f766e" />
+      </section>
 
-  <StatCard title={tr("spending") || "Spending"} value={spendingText} />
-</section>
-
-<PricingPlanCard
-  business={business}
-  currency={currency}
-  categoryText={categoryText}
-  isAr={isAr}
-/>
-
-<section style={mainGrid}>
-  <div style={panelCard}>
-    <div style={panelHeader}>
-      <h3 style={panelTitle}>{tr("businessDetails") || "Business Details"}</h3>
-      <p style={panelDesc}>
-        {tr("businessDetailsDesc") || "Basic information for your registered business."}
-      </p>
-    </div>
-
-    {business ? (
-      <div style={detailsGrid}>
-        <InfoItem label={tr("businessName") || "Business Name"} value={businessName} isAr={isAr} />
-        <InfoItem label={tr("category") || "Category"} value={categoryText} isAr={isAr} />
-        <InfoItem label={isAr ? "فئة التسعير" : "Pricing Tier"} value={business?.pricing?.tier || "-"} isAr={isAr} />
-        <InfoItem label={tr("whatsapp") || "WhatsApp"} value={business.whatsapp || "-"} isAr={isAr} />
-        <InfoItem label={tr("description") || "Description"} value={descriptionText} fullWidth isAr={isAr} />
-
-        <InfoItem
-          label={tr("map") || "Map"}
-          value={
-            business.mapLink ? (
-              <a href={business.mapLink} target="_blank" rel="noreferrer" style={linkStyle}>
-                {tr("openLocation") || "Open location"} · {shortMapLink}
-              </a>
-            ) : (
-              "-"
-            )
-          }
+      <section style={twoColumnGrid}>
+        <PricingPlanCard
+          business={business}
+          currency={currency}
+          categoryText={categoryText}
           isAr={isAr}
         />
 
-        <InfoItem
-          label={tr("coordinates") || "Coordinates"}
-          value={
-            business.latitude != null && business.longitude != null
-              ? `${business.latitude}, ${business.longitude}`
-              : "-"
-          }
+        {showSponsorshipCard && (
+          <CampaignCard
+            isAr={isAr}
+            campaignCode={campaignCode}
+            setCampaignCode={setCampaignCode}
+            claimLoading={claimLoading}
+            claimMessage={claimMessage}
+            onClaim={handleClaimSponsorship}
+          />
+        )}
+      </section>
+
+      <section style={mainGrid}>
+        <BusinessDetails
           isAr={isAr}
+          tr={tr}
+          business={business}
+          businessName={businessName}
+          categoryText={categoryText}
+          descriptionText={descriptionText}
+          shortMapLink={shortMapLink}
         />
-      </div>
-    ) : (
-      <EmptyState title={tr("noBusinessFound") || "No business found"} text={tr("noBusinessText") || ""} />
-    )}
-  </div>
 
-  <div style={panelCard}>
-    <div style={panelHeader}>
-      <h3 style={panelTitle}>{tr("performanceSummary") || "Performance Summary"}</h3>
-      <p style={panelDesc}>
-        {tr("performanceSummaryDesc") || "Quick overview of paid lead activity for your business."}
-      </p>
+        <PerformanceSummary isAr={isAr} tr={tr} reports={reports} />
+      </section>
     </div>
+  );
+}
 
-    {reports ? (
-      <div style={miniStatsGrid}>
-        <MiniStat title={tr("totalLeads") || "Total Leads"} value={reports.total_billed_conversations ?? 0} />
-        <MiniStat title={tr("directLeads") || "Direct Leads"} value={reports.direct_starts ?? 0} />
-        <MiniStat title={tr("categoryLeads") || "Category Leads"} value={reports.category_starts ?? 0} />
-        <MiniStat title={tr("nearbyLeads") || "Nearby Leads"} value={reports.nearby_starts ?? 0} />
+function WalletCard({ isAr, walletText, walletStatus, onRecharge }) {
+  const isLow = walletStatus !== "active";
+
+  return (
+    <div style={walletCard}>
+      <div>
+        <div style={walletLabel}>{isAr ? "رصيد المحفظة" : "Wallet Balance"}</div>
+        <div style={{ ...walletValue, color: isLow ? "#f59e0b" : "#16a34a" }}>
+          {walletText}
+        </div>
+        <div style={walletHint}>
+          {walletStatus === "out"
+            ? isAr ? "الرصيد منتهي" : "Out of balance"
+            : walletStatus === "low"
+            ? isAr ? "الرصيد منخفض" : "Low balance"
+            : isAr ? "نشط" : "Active"}
+        </div>
       </div>
-    ) : (
-      <EmptyState title={tr("noReportData") || "No report data"} text={tr("noReportText") || ""} />
-    )}
-  </div>
-</section>
-</div>
-);
+
+      <button onClick={onRecharge} style={walletButton}>
+        {isAr ? "إعادة الشحن" : "Recharge"}
+      </button>
+    </div>
+  );
+}
+
+function WarningCard({ isAr, walletStatus, onRecharge }) {
+  return (
+    <div style={warningCard}>
+      <div>
+        <strong style={warningTitle}>
+          {walletStatus === "out"
+            ? isAr ? "لا يوجد رصيد متاح" : "No balance available"
+            : isAr ? "تنبيه انخفاض الرصيد" : "Low balance warning"}
+        </strong>
+        <div style={warningText}>
+          {walletStatus === "out"
+            ? isAr
+              ? "قد يتوقف نشاطك عن استقبال العملاء المحتملين."
+              : "Your business may stop receiving leads."
+            : isAr
+            ? "رصيدك أوشك على النفاد. أعد الشحن للاستمرار باستقبال العملاء."
+            : "Your wallet balance is running low. Recharge to continue receiving leads."}
+        </div>
+      </div>
+
+      <button onClick={onRecharge} style={primaryBtn}>
+        {isAr ? "إعادة الشحن الآن" : "Recharge Now"}
+      </button>
+    </div>
+  );
 }
 
 function StatCard({ title, value, subtitle, highlight = "#111827" }) {
   return (
     <div style={statCard}>
       <div style={statTitle}>{title}</div>
-
-      <div
-        style={{
-          fontSize: "28px",
-          fontWeight: 800,
-          color: highlight,
-          marginBottom: 6,
-        }}
-      >
-        {value}
-      </div>
-
+      <div style={{ ...statValue, color: highlight }}>{value}</div>
       {subtitle ? <div style={statSubtitle}>{subtitle}</div> : null}
     </div>
   );
@@ -468,31 +350,17 @@ function PricingPlanCard({ business, currency, categoryText, isAr }) {
   const finalCurrency = pricing.currency || currency || "JOD";
 
   const rows = [
-    {
-      label: isAr ? "تواصل مباشر" : "Direct Lead",
-      value: pricing.direct,
-    },
-    {
-      label: isAr ? "بحث بالفئة" : "Category Lead",
-      value: pricing.category,
-    },
-    {
-      label: isAr ? "قريب مني" : "Nearby Lead",
-      value: pricing.nearby,
-    },
+    { label: isAr ? "تواصل مباشر" : "Direct Lead", value: pricing.direct },
+    { label: isAr ? "بحث بالفئة" : "Category Lead", value: pricing.category },
+    { label: isAr ? "قريب مني" : "Nearby Lead", value: pricing.nearby },
   ];
 
   return (
     <div style={pricingPlanCard}>
-      <div style={pricingHeader}>
+      <div style={cardTop}>
         <div>
-          <div style={pricingLabel}>
-            {isAr ? "خطة التسعير" : "Pricing Plan"}
-          </div>
-
-          <div style={pricingTitle}>
-            {isAr ? "أسعار العملاء المحتملين" : "Lead Prices"}
-          </div>
+          <div style={sectionEyebrow}>{isAr ? "خطة التسعير" : "Pricing Plan"}</div>
+          <h3 style={sectionTitle}>{isAr ? "أسعار العملاء المحتملين" : "Lead Prices"}</h3>
         </div>
 
         <div style={pricingTierBadge}>
@@ -500,26 +368,150 @@ function PricingPlanCard({ business, currency, categoryText, isAr }) {
         </div>
       </div>
 
-     <div style={pricingMetaRow}>
-  <span>
-    {isAr ? "القطاع:" : "Sector:"} {categoryText || "-"}
-  </span>
-
-  <span>
-    {isAr ? "العملة:" : "Currency:"} {finalCurrency}
-  </span>
-</div>
+      <div style={pricingMetaRow}>
+        <span>{isAr ? "القطاع:" : "Sector:"} {categoryText || "-"}</span>
+        <span>{isAr ? "العملة:" : "Currency:"} {finalCurrency}</span>
+      </div>
 
       <div style={pricingRows}>
         {rows.map((row) => (
           <div key={row.label} style={pricingRow}>
-            <span style={pricingRowLabel}>{row.label}</span>
-            <strong style={pricingRowValue}>
-              {row.value != null ? `${row.value} ${finalCurrency}` : "-"}
-            </strong>
+            <span>{row.label}</span>
+            <strong>{row.value != null ? `${row.value} ${finalCurrency}` : "-"}</strong>
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function CampaignCard({
+  isAr,
+  campaignCode,
+  setCampaignCode,
+  claimLoading,
+  claimMessage,
+  onClaim,
+}) {
+  return (
+    <div style={campaignCard}>
+      <div style={cardTop}>
+        <div>
+          <div style={sectionEyebrow}>
+            {isAr ? "رصيد الرعاية" : "Sponsored Credit"}
+          </div>
+          <h3 style={sectionTitle}>
+            {isAr ? "تفعيل حملة رعاية" : "Claim Sponsorship"}
+          </h3>
+        </div>
+        <div style={{ fontSize: 32 }}>🎁</div>
+      </div>
+
+      <div style={claimRow}>
+        <input
+          value={campaignCode}
+          onChange={(e) => setCampaignCode(e.target.value)}
+          placeholder={isAr ? "أدخل كود الرعاية" : "Enter sponsorship code"}
+          style={claimInput}
+        />
+        <button
+          type="button"
+          onClick={onClaim}
+          disabled={!campaignCode || claimLoading}
+          style={{
+            ...primaryBtn,
+            opacity: !campaignCode || claimLoading ? 0.65 : 1,
+          }}
+        >
+          {claimLoading ? (isAr ? "جاري..." : "Applying...") : isAr ? "تفعيل" : "Apply"}
+        </button>
+      </div>
+
+      {claimMessage && <div style={claimMessageStyle}>{claimMessage}</div>}
+    </div>
+  );
+}
+
+function BusinessDetails({
+  isAr,
+  tr,
+  business,
+  businessName,
+  categoryText,
+  descriptionText,
+  shortMapLink,
+}) {
+  return (
+    <div style={panelCard}>
+      <PanelHeader
+        title={tr("businessDetails") || "Business Details"}
+        desc={tr("businessDetailsDesc") || "Basic information for your registered business."}
+      />
+
+      {business ? (
+        <div style={detailsGrid}>
+          <InfoItem label={tr("businessName") || "Business Name"} value={businessName} isAr={isAr} />
+          <InfoItem label={tr("category") || "Category"} value={categoryText} isAr={isAr} />
+          <InfoItem label={isAr ? "فئة التسعير" : "Pricing Tier"} value={business?.pricing?.tier || "-"} isAr={isAr} />
+          <InfoItem label={tr("whatsapp") || "WhatsApp"} value={business.whatsapp || "-"} isAr={isAr} />
+          <InfoItem label={tr("description") || "Description"} value={descriptionText} fullWidth isAr={isAr} />
+
+          <InfoItem
+            label={tr("map") || "Map"}
+            value={
+              business.mapLink ? (
+                <a href={business.mapLink} target="_blank" rel="noreferrer" style={linkStyle}>
+                  {tr("openLocation") || "Open location"} · {shortMapLink}
+                </a>
+              ) : "-"
+            }
+            isAr={isAr}
+          />
+
+          <InfoItem
+            label={tr("coordinates") || "Coordinates"}
+            value={
+              business.latitude != null && business.longitude != null
+                ? `${business.latitude}, ${business.longitude}`
+                : "-"
+            }
+            isAr={isAr}
+          />
+        </div>
+      ) : (
+        <EmptyState title={tr("noBusinessFound") || "No business found"} text={tr("noBusinessText") || ""} />
+      )}
+    </div>
+  );
+}
+
+function PerformanceSummary({ tr, reports }) {
+  return (
+    <div style={panelCard}>
+      <PanelHeader
+        title={tr("performanceSummary") || "Performance Summary"}
+        desc={tr("performanceSummaryDesc") || "Quick overview of paid lead activity for your business."}
+      />
+
+      {reports ? (
+        <div style={miniStatsGrid}>
+          <MiniStat title={tr("totalLeads") || "Total Leads"} value={reports.total_billed_conversations ?? 0} />
+          <MiniStat title={tr("directLeads") || "Direct Leads"} value={reports.direct_starts ?? 0} />
+          <MiniStat title={tr("categoryLeads") || "Category Leads"} value={reports.category_starts ?? 0} />
+          <MiniStat title={tr("nearbyLeads") || "Nearby Leads"} value={reports.nearby_starts ?? 0} />
+        </div>
+      ) : (
+        <EmptyState title={tr("noReportData") || "No report data"} text={tr("noReportText") || ""} />
+      )}
+    </div>
+  );
+}
+
+function PanelHeader({ title, desc }) {
+  return (
+    <div style={panelHeader}>
+      <h3 style={panelTitle}>{title}</h3>
+      <p style={panelDesc}>{desc}</p>
     </div>
   );
 }
@@ -559,20 +551,26 @@ function EmptyState({ title, text }) {
 
 const pageWrap = (isAr) => ({
   padding: "24px",
-  maxWidth: "1280px",
+  maxWidth: "1180px",
   margin: "0 auto",
   direction: isAr ? "rtl" : "ltr",
   textAlign: isAr ? "right" : "left",
   fontFamily: "Tajawal, Inter, system-ui, sans-serif",
 });
 
-const heroCard = {
+const topLayout = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1.8fr) minmax(280px, 0.9fr)",
+  gap: "18px",
+  marginBottom: "18px",
+};
+
+const welcomeCard = {
   background: "linear-gradient(135deg, #16a34a 0%, #34d399 100%)",
   color: "#fff",
-  borderRadius: "20px",
-  padding: "28px",
-  marginBottom: "22px",
-  boxShadow: "0 10px 30px rgba(22, 163, 74, 0.18)",
+  borderRadius: "24px",
+  padding: "30px",
+  boxShadow: "0 12px 32px rgba(22,163,74,0.18)",
 };
 
 const heroBadge = {
@@ -581,173 +579,278 @@ const heroBadge = {
   border: "1px solid rgba(255,255,255,0.25)",
   padding: "6px 12px",
   borderRadius: "999px",
-  fontSize: "13px",
-  fontWeight: 700,
-  marginBottom: "14px",
+  fontSize: 13,
+  fontWeight: 800,
+  marginBottom: 14,
 };
 
 const heroTitle = {
-  margin: "0 0 8px",
-  fontSize: "clamp(26px, 4vw, 34px)",
-  fontWeight: 800,
-  lineHeight: 1.35,
+  margin: "0 0 10px",
+  fontSize: "clamp(28px, 4vw, 38px)",
+  fontWeight: 900,
 };
 
 const heroSubtitle = {
   margin: 0,
-  maxWidth: "720px",
-  lineHeight: 1.7,
-  color: "rgba(255,255,255,0.95)",
+  lineHeight: 1.8,
+  color: "rgba(255,255,255,0.94)",
 };
 
-const sponsorshipCard = {
-  background: "linear-gradient(135deg, #111827 0%, #16a34a 100%)",
+const walletCard = {
+  background: "#fff",
+  border: "1px solid #e5e7eb",
+  borderRadius: "24px",
+  padding: "24px",
+  boxShadow: "0 8px 22px rgba(15,23,42,0.05)",
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "space-between",
+  gap: 18,
+};
+
+const walletLabel = {
+  color: "#6b7280",
+  fontSize: 14,
+  fontWeight: 800,
+  marginBottom: 8,
+};
+
+const walletValue = {
+  fontSize: 34,
+  fontWeight: 900,
+};
+
+const walletHint = {
+  color: "#6b7280",
+  fontSize: 13,
+  marginTop: 6,
+};
+
+const walletButton = {
+  background: "#16a34a",
   color: "#fff",
-  borderRadius: "20px",
-  padding: "22px",
-  marginBottom: "22px",
-  boxShadow: "0 10px 28px rgba(22, 163, 74, 0.18)",
+  border: "none",
+  borderRadius: 14,
+  padding: "12px 16px",
+  fontWeight: 800,
+  cursor: "pointer",
 };
 
-const sponsorshipTop = {
+const warningCard = {
+  background: "#fff7ed",
+  border: "1px solid #fed7aa",
+  borderRadius: 18,
+  padding: "16px",
+  marginBottom: 18,
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  gap: "20px",
+  gap: 12,
   flexWrap: "wrap",
 };
 
-const sponsorshipLabel = {
-  fontSize: 13,
-  opacity: 0.85,
-  marginBottom: 6,
+const warningTitle = {
+  color: "#c2410c",
 };
 
-const sponsorshipTitle = {
-  margin: 0,
-  fontSize: 24,
+const warningText = {
+  color: "#6b7280",
+  fontSize: 14,
+  marginTop: 4,
 };
 
-const sponsorshipAmount = {
-  marginTop: 10,
-  fontSize: 18,
+const aiSection = {
+  marginBottom: 18,
+};
+
+const kpiGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+  gap: 14,
+  marginBottom: 18,
+};
+
+const statCard = {
+  background: "#fff",
+  borderRadius: 18,
+  padding: 20,
+  border: "1px solid #e5e7eb",
+  boxShadow: "0 6px 18px rgba(15,23,42,0.04)",
+};
+
+const statTitle = {
+  color: "#6b7280",
+  fontSize: 14,
+  marginBottom: 10,
   fontWeight: 700,
 };
 
-const claimRow = {
-  marginTop: "18px",
+const statValue = {
+  fontSize: 28,
+  fontWeight: 900,
+  marginBottom: 6,
+};
+
+const statSubtitle = {
+  color: "#9ca3af",
+  fontSize: 13,
+};
+
+const twoColumnGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+  gap: 18,
+  marginBottom: 18,
+};
+
+const pricingPlanCard = {
+  background: "linear-gradient(135deg, #064e3b 0%, #16a34a 100%)",
+  color: "#fff",
+  borderRadius: 22,
+  padding: 24,
+  boxShadow: "0 10px 28px rgba(22,163,74,0.18)",
+};
+
+const campaignCard = {
+  background: "#fff",
+  border: "1px solid #dcfce7",
+  borderRadius: 22,
+  padding: 24,
+  boxShadow: "0 8px 22px rgba(15,23,42,0.04)",
+};
+
+const cardTop = {
   display: "flex",
-  gap: "10px",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: 12,
+  marginBottom: 16,
+};
+
+const sectionEyebrow = {
+  fontSize: 13,
+  fontWeight: 800,
+  opacity: 0.82,
+  marginBottom: 5,
+};
+
+const sectionTitle = {
+  margin: 0,
+  fontSize: 21,
+  fontWeight: 900,
+};
+
+const pricingTierBadge = {
+  background: "rgba(255,255,255,0.18)",
+  border: "1px solid rgba(255,255,255,0.28)",
+  borderRadius: 999,
+  padding: "7px 12px",
+  fontSize: 13,
+  fontWeight: 900,
+};
+
+const pricingMetaRow = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 10,
+  color: "rgba(255,255,255,0.9)",
+  fontSize: 13,
+  marginBottom: 14,
+};
+
+const pricingRows = {
+  display: "grid",
+  gap: 9,
+};
+
+const pricingRow = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 12,
+  background: "rgba(255,255,255,0.12)",
+  border: "1px solid rgba(255,255,255,0.16)",
+  borderRadius: 13,
+  padding: "11px 13px",
+  fontSize: 14,
+};
+
+const claimRow = {
+  display: "flex",
+  gap: 10,
   flexWrap: "wrap",
 };
 
 const claimInput = {
   flex: 1,
-  minWidth: "220px",
+  minWidth: 200,
   padding: "12px 14px",
-  borderRadius: "12px",
-  border: "none",
+  borderRadius: 13,
+  border: "1px solid #e5e7eb",
   outline: "none",
-  fontSize: "15px",
-  color: "#111827",
-  background: "#fff",
-};
-
-const claimButton = {
-  background: "#fff",
-  color: "#16a34a",
-  border: "none",
-  borderRadius: "12px",
-  padding: "12px 18px",
-  fontWeight: 700,
-};
-
-const claimMessageStyle = {
-  marginTop: 14,
-  color: "#fff",
   fontSize: 14,
 };
 
-const statsGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
-  gap: "16px",
-  marginBottom: "22px",
-};
-
-const statCard = {
-  background: "#fff",
-  borderRadius: "18px",
-  padding: "20px",
-  border: "1px solid #e5e7eb",
-  boxShadow: "0 6px 18px rgba(15, 23, 42, 0.04)",
-};
-
-const statTitle = {
-  color: "#6b7280",
-  fontSize: "14px",
-  marginBottom: "10px",
-  fontWeight: 600,
-};
-
-const statSubtitle = {
-  color: "#9ca3af",
-  fontSize: "13px",
+const claimMessageStyle = {
+  marginTop: 12,
+  color: "#166534",
+  fontSize: 14,
+  fontWeight: 700,
 };
 
 const mainGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-  gap: "18px",
+  gap: 18,
 };
 
 const panelCard = {
   background: "#fff",
-  borderRadius: "18px",
-  padding: "22px",
+  borderRadius: 22,
+  padding: 24,
   border: "1px solid #e5e7eb",
-  boxShadow: "0 6px 18px rgba(15, 23, 42, 0.04)",
+  boxShadow: "0 8px 22px rgba(15,23,42,0.04)",
 };
 
 const panelHeader = {
-  marginBottom: "16px",
+  marginBottom: 16,
 };
 
 const panelTitle = {
   margin: "0 0 6px",
-  fontSize: "20px",
+  fontSize: 20,
   color: "#111827",
 };
 
 const panelDesc = {
   margin: 0,
   color: "#6b7280",
-  fontSize: "14px",
+  fontSize: 14,
   lineHeight: 1.7,
 };
 
 const detailsGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: "14px",
+  gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+  gap: 14,
 };
 
 const infoItemCard = {
   background: "#f9fafb",
   border: "1px solid #eef2f7",
-  borderRadius: "14px",
+  borderRadius: 15,
   padding: "14px 16px",
 };
 
 const infoLabel = {
-  fontSize: "13px",
+  fontSize: 13,
   color: "#6b7280",
-  marginBottom: "8px",
-  fontWeight: 700,
+  marginBottom: 8,
+  fontWeight: 800,
 };
 
 const infoValue = {
-  fontSize: "15px",
+  fontSize: 15,
   color: "#111827",
   lineHeight: 1.8,
   wordBreak: "break-word",
@@ -755,36 +858,36 @@ const infoValue = {
 
 const miniStatsGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-  gap: "14px",
+  gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))",
+  gap: 14,
 };
 
 const miniStatCard = {
   background: "#f0fdf4",
   border: "1px solid #dcfce7",
-  borderRadius: "14px",
-  padding: "18px",
+  borderRadius: 15,
+  padding: 18,
   textAlign: "center",
 };
 
 const miniStatTitle = {
   color: "#166534",
-  fontSize: "14px",
-  marginBottom: "8px",
-  fontWeight: 600,
+  fontSize: 14,
+  marginBottom: 8,
+  fontWeight: 800,
 };
 
 const miniStatValue = {
   color: "#111827",
-  fontSize: "26px",
-  fontWeight: 800,
+  fontSize: 26,
+  fontWeight: 900,
 };
 
 const emptyStateCard = {
   background: "#f9fafb",
   border: "1px dashed #d1d5db",
-  borderRadius: "16px",
-  padding: "24px",
+  borderRadius: 16,
+  padding: 24,
 };
 
 const loadingCard = {
@@ -793,23 +896,22 @@ const loadingCard = {
   flexDirection: "column",
   alignItems: "center",
   justifyContent: "center",
-  gap: "14px",
+  gap: 14,
   color: "#374151",
 };
 
 const errorCard = {
-  maxWidth: "720px",
+  maxWidth: 720,
   margin: "60px auto",
   background: "#fff",
   border: "1px solid #fee2e2",
-  borderRadius: "18px",
-  padding: "24px",
-  boxShadow: "0 8px 24px rgba(239, 68, 68, 0.08)",
+  borderRadius: 18,
+  padding: 24,
 };
 
 const spinnerStyle = {
-  width: "34px",
-  height: "34px",
+  width: 34,
+  height: 34,
   border: "4px solid #dcfce7",
   borderTop: "4px solid #16a34a",
   borderRadius: "50%",
@@ -819,88 +921,14 @@ const primaryBtn = {
   background: "#16a34a",
   color: "#fff",
   border: "none",
-  borderRadius: "10px",
-  padding: "10px 16px",
-  fontWeight: 700,
+  borderRadius: 12,
+  padding: "11px 16px",
+  fontWeight: 800,
   cursor: "pointer",
 };
 
 const linkStyle = {
   color: "#16a34a",
-  fontWeight: 700,
+  fontWeight: 800,
   textDecoration: "none",
-};
-
-const pricingPlanCard = {
-  background: "linear-gradient(135deg, #064e3b 0%, #16a34a 100%)",
-  color: "#fff",
-  borderRadius: "20px",
-  padding: "24px",
-  marginBottom: "22px",
-  boxShadow: "0 10px 28px rgba(22,163,74,0.18)",
-};
-
-const pricingHeader = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "flex-start",
-  gap: "12px",
-  marginBottom: "14px",
-};
-
-const pricingLabel = {
-  fontSize: "13px",
-  opacity: 0.85,
-  fontWeight: 700,
-  marginBottom: "4px",
-};
-
-const pricingTitle = {
-  fontSize: "20px",
-  fontWeight: 800,
-};
-
-const pricingTierBadge = {
-  background: "rgba(255,255,255,0.18)",
-  border: "1px solid rgba(255,255,255,0.28)",
-  borderRadius: "999px",
-  padding: "7px 12px",
-  fontSize: "13px",
-  fontWeight: 800,
-  whiteSpace: "nowrap",
-};
-
-const pricingMetaRow = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: "10px",
-  color: "rgba(255,255,255,0.9)",
-  fontSize: "13px",
-  marginBottom: "14px",
-};
-
-const pricingRows = {
-  display: "grid",
-  gap: "8px",
-};
-
-const pricingRow = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: "12px",
-  background: "rgba(255,255,255,0.12)",
-  border: "1px solid rgba(255,255,255,0.16)",
-  borderRadius: "12px",
-  padding: "10px 12px",
-};
-
-const pricingRowLabel = {
-  fontSize: "14px",
-  opacity: 0.95,
-};
-
-const pricingRowValue = {
-  fontSize: "15px",
-  whiteSpace: "nowrap",
 };
