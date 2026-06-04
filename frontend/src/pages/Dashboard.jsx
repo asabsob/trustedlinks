@@ -442,6 +442,27 @@ export default function Dashboard({ lang = "en" }) {
 );
 }
 
+function StatCard({ title, value, subtitle, highlight = "#111827" }) {
+  return (
+    <div style={statCard}>
+      <div style={statTitle}>{title}</div>
+
+      <div
+        style={{
+          fontSize: "28px",
+          fontWeight: 800,
+          color: highlight,
+          marginBottom: 6,
+        }}
+      >
+        {value}
+      </div>
+
+      {subtitle ? <div style={statSubtitle}>{subtitle}</div> : null}
+    </div>
+  );
+}
+
 function PricingPlanCard({ business, currency, categoryText, isAr }) {
   const pricing = business?.pricing || {};
   const finalCurrency = pricing.currency || currency || "JOD";
