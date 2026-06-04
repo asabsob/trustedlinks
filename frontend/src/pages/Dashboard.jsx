@@ -373,75 +373,73 @@ export default function Dashboard({ lang = "en" }) {
 />
 
 <section style={mainGrid}>
-          
-      <section style={mainGrid}>
-        <div style={panelCard}>
-          <div style={panelHeader}>
-            <h3 style={panelTitle}>{tr("businessDetails") || "Business Details"}</h3>
-            <p style={panelDesc}>
-              {tr("businessDetailsDesc") || "Basic information for your registered business."}
-            </p>
-          </div>
-
-          {business ? (
-            <div style={detailsGrid}>
-              <InfoItem label={tr("businessName") || "Business Name"} value={businessName} isAr={isAr} />
-              <InfoItem label={tr("category") || "Category"} value={categoryText} isAr={isAr} />
-              <InfoItem label={isAr ? "فئة التسعير" : "Pricing Tier"} value={business?.pricing?.tier || "-"} isAr={isAr} />
-              <InfoItem label={tr("whatsapp") || "WhatsApp"} value={business.whatsapp || "-"} isAr={isAr} />
-              <InfoItem label={tr("description") || "Description"} value={descriptionText} fullWidth isAr={isAr} />
-
-              <InfoItem
-                label={tr("map") || "Map"}
-                value={
-                  business.mapLink ? (
-                    <a href={business.mapLink} target="_blank" rel="noreferrer" style={linkStyle}>
-                      {tr("openLocation") || "Open location"} · {shortMapLink}
-                    </a>
-                  ) : (
-                    "-"
-                  )
-                }
-                isAr={isAr}
-              />
-
-              <InfoItem
-                label={tr("coordinates") || "Coordinates"}
-                value={
-                  business.latitude != null && business.longitude != null
-                    ? `${business.latitude}, ${business.longitude}`
-                    : "-"
-                }
-                isAr={isAr}
-              />
-            </div>
-          ) : (
-            <EmptyState title={tr("noBusinessFound") || "No business found"} text={tr("noBusinessText") || ""} />
-          )}
-        </div>
-
-        <div style={panelCard}>
-          <div style={panelHeader}>
-            <h3 style={panelTitle}>{tr("performanceSummary") || "Performance Summary"}</h3>
-            <p style={panelDesc}>
-              {tr("performanceSummaryDesc") || "Quick overview of paid lead activity for your business."}
-            </p>
-          </div>
-
-          {reports ? (
-            <div style={miniStatsGrid}>
-              <MiniStat title={tr("totalLeads") || "Total Leads"} value={reports.total_billed_conversations ?? 0} />
-              <MiniStat title={tr("directLeads") || "Direct Leads"} value={reports.direct_starts ?? 0} />
-              <MiniStat title={tr("categoryLeads") || "Category Leads"} value={reports.category_starts ?? 0} />
-              <MiniStat title={tr("nearbyLeads") || "Nearby Leads"} value={reports.nearby_starts ?? 0} />
-            </div>
-          ) : (
-            <EmptyState title={tr("noReportData") || "No report data"} text={tr("noReportText") || ""} />
-          )}
-        </div>
-      </section>
+  <div style={panelCard}>
+    <div style={panelHeader}>
+      <h3 style={panelTitle}>{tr("businessDetails") || "Business Details"}</h3>
+      <p style={panelDesc}>
+        {tr("businessDetailsDesc") || "Basic information for your registered business."}
+      </p>
     </div>
-  );
+
+    {business ? (
+      <div style={detailsGrid}>
+        <InfoItem label={tr("businessName") || "Business Name"} value={businessName} isAr={isAr} />
+        <InfoItem label={tr("category") || "Category"} value={categoryText} isAr={isAr} />
+        <InfoItem label={isAr ? "فئة التسعير" : "Pricing Tier"} value={business?.pricing?.tier || "-"} isAr={isAr} />
+        <InfoItem label={tr("whatsapp") || "WhatsApp"} value={business.whatsapp || "-"} isAr={isAr} />
+        <InfoItem label={tr("description") || "Description"} value={descriptionText} fullWidth isAr={isAr} />
+
+        <InfoItem
+          label={tr("map") || "Map"}
+          value={
+            business.mapLink ? (
+              <a href={business.mapLink} target="_blank" rel="noreferrer" style={linkStyle}>
+                {tr("openLocation") || "Open location"} · {shortMapLink}
+              </a>
+            ) : (
+              "-"
+            )
+          }
+          isAr={isAr}
+        />
+
+        <InfoItem
+          label={tr("coordinates") || "Coordinates"}
+          value={
+            business.latitude != null && business.longitude != null
+              ? `${business.latitude}, ${business.longitude}`
+              : "-"
+          }
+          isAr={isAr}
+        />
+      </div>
+    ) : (
+      <EmptyState title={tr("noBusinessFound") || "No business found"} text={tr("noBusinessText") || ""} />
+    )}
+  </div>
+
+  <div style={panelCard}>
+    <div style={panelHeader}>
+      <h3 style={panelTitle}>{tr("performanceSummary") || "Performance Summary"}</h3>
+      <p style={panelDesc}>
+        {tr("performanceSummaryDesc") || "Quick overview of paid lead activity for your business."}
+      </p>
+    </div>
+
+    {reports ? (
+      <div style={miniStatsGrid}>
+        <MiniStat title={tr("totalLeads") || "Total Leads"} value={reports.total_billed_conversations ?? 0} />
+        <MiniStat title={tr("directLeads") || "Direct Leads"} value={reports.direct_starts ?? 0} />
+        <MiniStat title={tr("categoryLeads") || "Category Leads"} value={reports.category_starts ?? 0} />
+        <MiniStat title={tr("nearbyLeads") || "Nearby Leads"} value={reports.nearby_starts ?? 0} />
+      </div>
+    ) : (
+      <EmptyState title={tr("noReportData") || "No report data"} text={tr("noReportText") || ""} />
+    )}
+  </div>
+</section>
+</div>
+);
 }
 
 function PricingPlanCard({ business, currency, categoryText, isAr }) {
