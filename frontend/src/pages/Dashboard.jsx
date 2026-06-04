@@ -356,15 +356,37 @@ export default function Dashboard({ lang = "en" }) {
         <StatCard title={tr("categoryLeads") || "Category Leads"} value={reports?.category_starts ?? 0} />
         <StatCard title={tr("nearbyLeads") || "Nearby Leads"} value={reports?.nearby_starts ?? 0} />
 
-        <StatCard
-          title={isAr ? "سعر المحادثة المباشرة" : "Direct Conversation Price"}
-          value={
-            business?.pricing?.direct
-              ? `${business.pricing.direct} ${business.pricing.currency || currency}`
-              : "-"
-          }
-        />
+      <StatCard
+  title={isAr ? "سعر التواصل المباشر" : "Direct Lead Price"}
+  value={
+    business?.pricing?.direct != null
+      ? `${business.pricing.direct} ${business.pricing.currency || currency}`
+      : "-"
+  }
+/>
 
+<StatCard
+  title={isAr ? "سعر البحث بالفئة" : "Category Lead Price"}
+  value={
+    business?.pricing?.category != null
+      ? `${business.pricing.category} ${business.pricing.currency || currency}`
+      : "-"
+  }
+/>
+
+<StatCard
+  title={isAr ? "سعر القريب مني" : "Nearby Lead Price"}
+  value={
+    business?.pricing?.nearby != null
+      ? `${business.pricing.nearby} ${business.pricing.currency || currency}`
+      : "-"
+  }
+  subtitle={
+    business?.pricing?.tier
+      ? `${isAr ? "الفئة" : "Tier"} ${business.pricing.tier}`
+      : undefined
+  }
+/>
         <StatCard title={tr("spending") || "Spending"} value={spendingText} />
       </section>
 
@@ -381,6 +403,7 @@ export default function Dashboard({ lang = "en" }) {
             <div style={detailsGrid}>
               <InfoItem label={tr("businessName") || "Business Name"} value={businessName} isAr={isAr} />
               <InfoItem label={tr("category") || "Category"} value={categoryText} isAr={isAr} />
+              <InfoItem label={isAr ? "فئة التسعير" : "Pricing Tier"} value={business?.pricing?.tier || "-"} isAr={isAr} />
               <InfoItem label={tr("whatsapp") || "WhatsApp"} value={business.whatsapp || "-"} isAr={isAr} />
               <InfoItem label={tr("description") || "Description"} value={descriptionText} fullWidth isAr={isAr} />
 
