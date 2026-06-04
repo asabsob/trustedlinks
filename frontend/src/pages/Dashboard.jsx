@@ -362,15 +362,19 @@ export default function Dashboard({ lang = "en" }) {
   <StatCard title={tr("categoryLeads") || "Category Leads"} value={reports?.category_starts ?? 0} />
   <StatCard title={tr("nearbyLeads") || "Nearby Leads"} value={reports?.nearby_starts ?? 0} />
 
-  <PricingPlanCard
-    business={business}
-    currency={currency}
-    categoryText={categoryText}
-    isAr={isAr}
-  />
-
   <StatCard title={tr("spending") || "Spending"} value={spendingText} />
 </section>
+
+      </section>
+
+<PricingPlanCard
+  business={business}
+  currency={currency}
+  categoryText={categoryText}
+  isAr={isAr}
+/>
+
+<section style={mainGrid}>
           
       <section style={mainGrid}>
         <div style={panelCard}>
@@ -479,10 +483,15 @@ function PricingPlanCard({ business, currency, categoryText, isAr }) {
         </div>
       </div>
 
-      <div style={pricingMetaRow}>
-        <span>{categoryText || "-"}</span>
-        <span>{finalCurrency}</span>
-      </div>
+     <div style={pricingMetaRow}>
+  <span>
+    {isAr ? "القطاع:" : "Sector:"} {categoryText || "-"}
+  </span>
+
+  <span>
+    {isAr ? "العملة:" : "Currency:"} {finalCurrency}
+  </span>
+</div>
 
       <div style={pricingRows}>
         {rows.map((row) => (
@@ -808,10 +817,10 @@ const linkStyle = {
 const pricingPlanCard = {
   background: "linear-gradient(135deg, #064e3b 0%, #16a34a 100%)",
   color: "#fff",
-  borderRadius: "18px",
-  padding: "20px",
-  boxShadow: "0 8px 24px rgba(22, 163, 74, 0.18)",
-  gridColumn: "span 2",
+  borderRadius: "20px",
+  padding: "24px",
+  marginBottom: "22px",
+  boxShadow: "0 10px 28px rgba(22,163,74,0.18)",
 };
 
 const pricingHeader = {
