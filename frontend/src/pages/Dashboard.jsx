@@ -334,62 +334,44 @@ export default function Dashboard({ lang = "en" }) {
         </div>
       )}
 
-      <section style={statsGrid}>
-        <StatCard
-          title={isAr ? "إجمالي الرصيد" : "Total Balance"}
-          value={walletText}
-          subtitle={
-            sponsoredText
-              ? isAr
-                ? `رصيد الرعاية: ${sponsoredText}`
-                : `Sponsored Credit: ${sponsoredText}`
-              : walletStatus === "out"
-              ? tr("outOfBalance") || "Out of balance"
-              : walletStatus === "low"
-              ? tr("lowBalance") || "Low balance"
-              : tr("active") || "Active"
-          }
-          highlight={walletStatus === "out" ? "#ef4444" : walletStatus === "low" ? "#f59e0b" : "#16a34a"}
-        />
+     <section style={statsGrid}>
+  <StatCard
+    title={isAr ? "إجمالي الرصيد" : "Total Balance"}
+    value={walletText}
+    subtitle={
+      sponsoredText
+        ? isAr
+          ? `رصيد الرعاية: ${sponsoredText}`
+          : `Sponsored Credit: ${sponsoredText}`
+        : walletStatus === "out"
+        ? tr("outOfBalance") || "Out of balance"
+        : walletStatus === "low"
+        ? tr("lowBalance") || "Low balance"
+        : tr("active") || "Active"
+    }
+    highlight={
+      walletStatus === "out"
+        ? "#ef4444"
+        : walletStatus === "low"
+        ? "#f59e0b"
+        : "#16a34a"
+    }
+  />
 
-        <StatCard title={tr("directLeads") || "Direct Leads"} value={reports?.direct_starts ?? 0} />
-        <StatCard title={tr("categoryLeads") || "Category Leads"} value={reports?.category_starts ?? 0} />
-        <StatCard title={tr("nearbyLeads") || "Nearby Leads"} value={reports?.nearby_starts ?? 0} />
+  <StatCard title={tr("directLeads") || "Direct Leads"} value={reports?.direct_starts ?? 0} />
+  <StatCard title={tr("categoryLeads") || "Category Leads"} value={reports?.category_starts ?? 0} />
+  <StatCard title={tr("nearbyLeads") || "Nearby Leads"} value={reports?.nearby_starts ?? 0} />
 
-      <StatCard
-  title={isAr ? "سعر التواصل المباشر" : "Direct Lead Price"}
-  value={
-    business?.pricing?.direct != null
-      ? `${business.pricing.direct} ${business.pricing.currency || currency}`
-      : "-"
-  }
-/>
+  <PricingPlanCard
+    business={business}
+    currency={currency}
+    categoryText={categoryText}
+    isAr={isAr}
+  />
 
-<StatCard
-  title={isAr ? "سعر البحث بالفئة" : "Category Lead Price"}
-  value={
-    business?.pricing?.category != null
-      ? `${business.pricing.category} ${business.pricing.currency || currency}`
-      : "-"
-  }
-/>
-
-<StatCard
-  title={isAr ? "سعر القريب مني" : "Nearby Lead Price"}
-  value={
-    business?.pricing?.nearby != null
-      ? `${business.pricing.nearby} ${business.pricing.currency || currency}`
-      : "-"
-  }
-  subtitle={
-    business?.pricing?.tier
-      ? `${isAr ? "الفئة" : "Tier"} ${business.pricing.tier}`
-      : undefined
-  }
-/>
-        <StatCard title={tr("spending") || "Spending"} value={spendingText} />
-      </section>
-
+  <StatCard title={tr("spending") || "Spending"} value={spendingText} />
+</section>
+          
       <section style={mainGrid}>
         <div style={panelCard}>
           <div style={panelHeader}>
@@ -460,14 +442,58 @@ export default function Dashboard({ lang = "en" }) {
   );
 }
 
-function StatCard({ title, value, subtitle, highlight = "#111827" }) {
+function PricingPlanCard({ business, currency, categoryText, isAr }) {
+  const pricing = business?.pricing || {};
+  const finalCurrency = pricing.currency || currency || "JOD";
+
+  const rows = [
+    {
+      label: isAr ? "تواصل مباشر" : "Direct Lead",
+      value: pricing.direct,
+    },
+    {
+      label: isAr ? "بحث بالفئة" : "Category Lead",
+      value: pricing.category,
+    },
+    {
+      label: isAr ? "قريب مني" : "Nearby Lead",
+      value: pricing.nearby,
+    },
+  ];
+
   return (
-    <div style={statCard}>
-      <div style={statTitle}>{title}</div>
-      <div style={{ fontSize: "28px", fontWeight: 800, color: highlight, marginBottom: 6 }}>
-        {value}
+    <div style={pricingPlanCard}>
+      <div style={pricingHeader}>
+        <div>
+          <div style={pricingLabel}>
+            {isAr ? "خطة التسعير" : "Pricing Plan"}
+          </div>
+
+          <div style={pricingTitle}>
+            {isAr ? "أسعار العملاء المحتملين" : "Lead Prices"}
+          </div>
+        </div>
+
+        <div style={pricingTierBadge}>
+          {isAr ? "الفئة" : "Tier"} {pricing.tier || "-"}
+        </div>
       </div>
-      {subtitle ? <div style={statSubtitle}>{subtitle}</div> : null}
+
+      <div style={pricingMetaRow}>
+        <span>{categoryText || "-"}</span>
+        <span>{finalCurrency}</span>
+      </div>
+
+      <div style={pricingRows}>
+        {rows.map((row) => (
+          <div key={row.label} style={pricingRow}>
+            <span style={pricingRowLabel}>{row.label}</span>
+            <strong style={pricingRowValue}>
+              {row.value != null ? `${row.value} ${finalCurrency}` : "-"}
+            </strong>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -777,4 +803,78 @@ const linkStyle = {
   color: "#16a34a",
   fontWeight: 700,
   textDecoration: "none",
+};
+
+const pricingPlanCard = {
+  background: "linear-gradient(135deg, #064e3b 0%, #16a34a 100%)",
+  color: "#fff",
+  borderRadius: "18px",
+  padding: "20px",
+  boxShadow: "0 8px 24px rgba(22, 163, 74, 0.18)",
+  gridColumn: "span 2",
+};
+
+const pricingHeader = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: "12px",
+  marginBottom: "14px",
+};
+
+const pricingLabel = {
+  fontSize: "13px",
+  opacity: 0.85,
+  fontWeight: 700,
+  marginBottom: "4px",
+};
+
+const pricingTitle = {
+  fontSize: "20px",
+  fontWeight: 800,
+};
+
+const pricingTierBadge = {
+  background: "rgba(255,255,255,0.18)",
+  border: "1px solid rgba(255,255,255,0.28)",
+  borderRadius: "999px",
+  padding: "7px 12px",
+  fontSize: "13px",
+  fontWeight: 800,
+  whiteSpace: "nowrap",
+};
+
+const pricingMetaRow = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: "10px",
+  color: "rgba(255,255,255,0.9)",
+  fontSize: "13px",
+  marginBottom: "14px",
+};
+
+const pricingRows = {
+  display: "grid",
+  gap: "8px",
+};
+
+const pricingRow = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "12px",
+  background: "rgba(255,255,255,0.12)",
+  border: "1px solid rgba(255,255,255,0.16)",
+  borderRadius: "12px",
+  padding: "10px 12px",
+};
+
+const pricingRowLabel = {
+  fontSize: "14px",
+  opacity: 0.95,
+};
+
+const pricingRowValue = {
+  fontSize: "15px",
+  whiteSpace: "nowrap",
 };
