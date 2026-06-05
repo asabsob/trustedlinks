@@ -202,86 +202,104 @@ export default function Dashboard({ lang = "en" }) {
     );
   }
 
-  return (
-    <div style={pageWrap(isAr)}>
-      <section style={topLayout}>
-        <div style={welcomeCard}>
-          <div style={heroBadge}>{tr("businessDashboard") || "Business Dashboard"}</div>
-          <h1 style={heroTitle}>
-            {tr("welcomeBack") || "Welcome back"} {businessName}
-          </h1>
-          <p style={heroSubtitle}>
-            {isAr
-              ? "تابع الرصيد، العملاء المحتملين، التسعير، وأداء نشاطك من مكان واحد."
-              : "Track wallet, leads, pricing, and business performance from one place."}
-          </p>
+return (
+  <div style={pageWrap(isAr)}>
+    {/* 1. Welcome + Wallet */}
+    <section style={topLayout}>
+      <div style={welcomeCard}>
+        <div style={heroBadge}>
+          {tr("businessDashboard") || "Business Dashboard"}
         </div>
 
-        <WalletCard
+        <h1 style={heroTitle}>
+          {tr("welcomeBack") || "Welcome back"} {businessName}
+        </h1>
+
+        <p style={heroSubtitle}>
+          {isAr
+            ? "تابع الرصيد، العملاء المحتملين، التسعير، وأداء نشاطك من مكان واحد."
+            : "Track wallet, leads, pricing, and business performance from one place."}
+        </p>
+      </div>
+
+      <WalletCard
+        isAr={isAr}
+        walletText={walletText}
+        walletStatus={walletStatus}
+        onRecharge={() => navigate("/wallet")}
+      />
+    </section>
+
+    {/* 2. Sponsorship */}
+    {showSponsorshipCard && (
+      <section style={{ marginBottom: 18 }}>
+        <CampaignCard
           isAr={isAr}
-          walletText={walletText}
-          walletStatus={walletStatus}
-          onRecharge={() => navigate("/wallet")}
+          campaignCode={campaignCode}
+          setCampaignCode={setCampaignCode}
+          claimLoading={claimLoading}
+          claimMessage={claimMessage}
+          onClaim={handleClaimSponsorship}
         />
       </section>
+    )}
 
-      {walletStatus !== "active" && (
-        <WarningCard
-          isAr={isAr}
-          walletStatus={walletStatus}
-          onRecharge={() => navigate("/wallet")}
-        />
-      )}
+    {/* 3. AI Assistant */}
+    <section style={aiSection}>
+      <AIAssistantBox lang={lang} pageContext="business_dashboard" />
+    </section>
 
-      <section style={aiSection}>
-        <AIAssistantBox lang={lang} pageContext="business_dashboard" />
-      </section>
+    {/* 4. KPIs */}
+    <section style={kpiGrid}>
+      <StatCard
+        title={isAr ? "إجمالي العملاء" : "Total Leads"}
+        value={reports?.total_billed_conversations ?? 0}
+      />
+      <StatCard
+        title={tr("directLeads") || "Direct Leads"}
+        value={reports?.direct_starts ?? 0}
+      />
+      <StatCard
+        title={tr("categoryLeads") || "Category Leads"}
+        value={reports?.category_starts ?? 0}
+      />
+      <StatCard
+        title={tr("nearbyLeads") || "Nearby Leads"}
+        value={reports?.nearby_starts ?? 0}
+      />
+      <StatCard
+        title={tr("spending") || "Spending"}
+        value={spendingText}
+        highlight="#0f766e"
+      />
+    </section>
 
-      <section style={kpiGrid}>
-        <StatCard title={isAr ? "إجمالي العملاء" : "Total Leads"} value={reports?.total_billed_conversations ?? 0} />
-        <StatCard title={tr("directLeads") || "Direct Leads"} value={reports?.direct_starts ?? 0} />
-        <StatCard title={tr("categoryLeads") || "Category Leads"} value={reports?.category_starts ?? 0} />
-        <StatCard title={tr("nearbyLeads") || "Nearby Leads"} value={reports?.nearby_starts ?? 0} />
-        <StatCard title={tr("spending") || "Spending"} value={spendingText} highlight="#0f766e" />
-      </section>
+    {/* 5. Pricing */}
+    <section style={{ marginBottom: 18 }}>
+      <PricingPlanCard
+        business={business}
+        currency={currency}
+        categoryText={categoryText}
+        isAr={isAr}
+      />
+    </section>
 
-      <section style={twoColumnGrid}>
-        <PricingPlanCard
-          business={business}
-          currency={currency}
-          categoryText={categoryText}
-          isAr={isAr}
-        />
+    {/* 6. Details + Performance */}
+    <section style={mainGrid}>
+      <BusinessDetails
+        isAr={isAr}
+        tr={tr}
+        business={business}
+        businessName={businessName}
+        categoryText={categoryText}
+        descriptionText={descriptionText}
+        shortMapLink={shortMapLink}
+      />
 
-        {showSponsorshipCard && (
-          <CampaignCard
-            isAr={isAr}
-            campaignCode={campaignCode}
-            setCampaignCode={setCampaignCode}
-            claimLoading={claimLoading}
-            claimMessage={claimMessage}
-            onClaim={handleClaimSponsorship}
-          />
-        )}
-      </section>
-
-      <section style={mainGrid}>
-        <BusinessDetails
-          isAr={isAr}
-          tr={tr}
-          business={business}
-          businessName={businessName}
-          categoryText={categoryText}
-          descriptionText={descriptionText}
-          shortMapLink={shortMapLink}
-        />
-
-        <PerformanceSummary isAr={isAr} tr={tr} reports={reports} />
-      </section>
-    </div>
-  );
-}
-
+      <PerformanceSummary isAr={isAr} tr={tr} reports={reports} />
+    </section>
+  </div>
+);
 function WalletCard({ isAr, walletText, walletStatus, onRecharge }) {
   const isLow = walletStatus !== "active";
 
