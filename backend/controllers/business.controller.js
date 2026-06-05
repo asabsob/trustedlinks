@@ -76,12 +76,14 @@ export async function getCurrentBusiness(req, res) {
       total_available_balance:
         walletBalance + sponsoredBalance,
 
-      pricing: {
-        currency,
-        direct: pricing.direct,
-        category: pricing.category,
-        nearby: pricing.nearby,
-      },
+   pricing: {
+  currency: pricing.currency || currency,
+  tier: pricing.tier || null,
+  categoryKey: pricing.categoryKey || null,
+  direct: pricing.direct,
+  category: pricing.category,
+  nearby: pricing.nearby,
+},
 
       logo:
         business.logo ||
@@ -211,12 +213,14 @@ export async function getBusinessReports(req, res) {
       estimated_revenue: Number(estimatedRevenue.toFixed(2)),
       currency: business.wallet_currency || business.wallet?.currency || "USD",
 
-      pricing: {
-        currency: pricing.currency,
-        direct: pricing.direct,
-        category: pricing.category,
-        nearby: pricing.nearby,
-      },
+     pricing: {
+  currency: pricing.currency || currency,
+  tier: pricing.tier || null,
+  categoryKey: pricing.categoryKey || null,
+  direct: pricing.direct,
+  category: pricing.category,
+  nearby: pricing.nearby,
+},
 
       activity,
       hourly: [],
