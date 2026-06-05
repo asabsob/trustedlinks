@@ -285,23 +285,17 @@ return (
     </section>
 
     {/* 6. Details + Performance */}
-    <section style={mainGrid}>
-      <BusinessDetails
-        isAr={isAr}
-        tr={tr}
-        business={business}
-        businessName={businessName}
-        categoryText={categoryText}
-        descriptionText={descriptionText}
-        shortMapLink={shortMapLink}
-      />
-
-      <PerformanceSummary isAr={isAr} tr={tr} reports={reports} />
-    </section>
-  </div>
-);
-  }
-
+<section style={{ marginBottom: 18 }}>
+  <BusinessDetails
+    isAr={isAr}
+    tr={tr}
+    business={business}
+    businessName={businessName}
+    categoryText={categoryText}
+    descriptionText={descriptionText}
+    shortMapLink={shortMapLink}
+  />
+</section>
   
 function WalletCard({ isAr, walletText, walletStatus, onRecharge }) {
   const isLow = walletStatus !== "active";
@@ -480,42 +474,12 @@ function BusinessDetails({
   );
 }
 
-function PerformanceSummary({ tr, reports }) {
-  return (
-    <div style={panelCard}>
-      <PanelHeader
-        title={tr("performanceSummary") || "Performance Summary"}
-        desc={tr("performanceSummaryDesc") || "Quick overview of paid lead activity for your business."}
-      />
-
-      {reports ? (
-        <div style={miniStatsGrid}>
-          <MiniStat title={tr("totalLeads") || "Total Leads"} value={reports.total_billed_conversations ?? 0} />
-          <MiniStat title={tr("directLeads") || "Direct Leads"} value={reports.direct_starts ?? 0} />
-          <MiniStat title={tr("categoryLeads") || "Category Leads"} value={reports.category_starts ?? 0} />
-          <MiniStat title={tr("nearbyLeads") || "Nearby Leads"} value={reports.nearby_starts ?? 0} />
-        </div>
-      ) : (
-        <EmptyState title={tr("noReportData") || "No report data"} text={tr("noReportText") || ""} />
-      )}
-    </div>
-  );
-}
 
 function PanelHeader({ title, desc }) {
   return (
     <div style={panelHeader}>
       <h3 style={panelTitle}>{title}</h3>
       <p style={panelDesc}>{desc}</p>
-    </div>
-  );
-}
-
-function MiniStat({ title, value }) {
-  return (
-    <div style={miniStatCard}>
-      <div style={miniStatTitle}>{title}</div>
-      <div style={miniStatValue}>{value}</div>
     </div>
   );
 }
@@ -763,11 +727,7 @@ const claimMessageStyle = {
   fontWeight: 700,
 };
 
-const mainGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-  gap: 18,
-};
+
 
 const panelCard = {
   background: "#fff",
@@ -819,33 +779,6 @@ const infoValue = {
   color: "#111827",
   lineHeight: 1.8,
   wordBreak: "break-word",
-};
-
-const miniStatsGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))",
-  gap: 14,
-};
-
-const miniStatCard = {
-  background: "#f0fdf4",
-  border: "1px solid #dcfce7",
-  borderRadius: 15,
-  padding: 18,
-  textAlign: "center",
-};
-
-const miniStatTitle = {
-  color: "#166534",
-  fontSize: 14,
-  marginBottom: 8,
-  fontWeight: 800,
-};
-
-const miniStatValue = {
-  color: "#111827",
-  fontSize: 26,
-  fontWeight: 900,
 };
 
 const emptyStateCard = {
