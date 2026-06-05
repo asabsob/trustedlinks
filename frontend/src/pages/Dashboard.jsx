@@ -283,7 +283,10 @@ return (
         isAr={isAr}
       />
     </section>
-
+  </div>
+);
+}
+    
     {/* 6. Details + Performance */}
 <section style={{ marginBottom: 18 }}>
   <BusinessDetails
