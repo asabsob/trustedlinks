@@ -301,25 +301,36 @@ return (
 }
 
 function WalletCard({ isAr, walletText, walletStatus, onRecharge }) {
-
-function WalletCard({ isAr, walletText, walletStatus, onRecharge }) {
-  
-function WalletCard({ isAr, walletText, walletStatus, onRecharge }) {
   const isLow = walletStatus !== "active";
 
   return (
     <div style={walletCard}>
       <div>
-        <div style={walletLabel}>{isAr ? "رصيد المحفظة" : "Wallet Balance"}</div>
-        <div style={{ ...walletValue, color: isLow ? "#f59e0b" : "#16a34a" }}>
+        <div style={walletLabel}>
+          {isAr ? "رصيد المحفظة" : "Wallet Balance"}
+        </div>
+
+        <div
+          style={{
+            ...walletValue,
+            color: isLow ? "#f59e0b" : "#16a34a",
+          }}
+        >
           {walletText}
         </div>
+
         <div style={walletHint}>
           {walletStatus === "out"
-            ? isAr ? "الرصيد منتهي" : "Out of balance"
+            ? isAr
+              ? "الرصيد منتهي"
+              : "Out of balance"
             : walletStatus === "low"
-            ? isAr ? "الرصيد منخفض" : "Low balance"
-            : isAr ? "نشط" : "Active"}
+            ? isAr
+              ? "الرصيد منخفض"
+              : "Low balance"
+            : isAr
+            ? "نشط"
+            : "Active"}
         </div>
       </div>
 
