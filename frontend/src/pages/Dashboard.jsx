@@ -283,22 +283,24 @@ return (
         isAr={isAr}
       />
     </section>
+
+    {/* 6. Business Details */}
+    <section style={{ marginBottom: 18 }}>
+      <BusinessDetails
+        isAr={isAr}
+        tr={tr}
+        business={business}
+        businessName={businessName}
+        categoryText={categoryText}
+        descriptionText={descriptionText}
+        shortMapLink={shortMapLink}
+      />
+    </section>
   </div>
 );
 }
-    
-    {/* 6. Details + Performance */}
-<section style={{ marginBottom: 18 }}>
-  <BusinessDetails
-    isAr={isAr}
-    tr={tr}
-    business={business}
-    businessName={businessName}
-    categoryText={categoryText}
-    descriptionText={descriptionText}
-    shortMapLink={shortMapLink}
-  />
-</section>
+
+function WalletCard({ isAr, walletText, walletStatus, onRecharge }) {
   
 function WalletCard({ isAr, walletText, walletStatus, onRecharge }) {
   const isLow = walletStatus !== "active";
