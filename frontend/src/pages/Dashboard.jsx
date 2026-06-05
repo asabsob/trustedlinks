@@ -284,7 +284,7 @@ return (
       />
     </section>
 
-    {/* 6. Business Details */}
+      {/* 6. Business Details */}
     <section style={{ marginBottom: 18 }}>
       <BusinessDetails
         isAr={isAr}
@@ -299,6 +299,8 @@ return (
   </div>
 );
 }
+
+function WalletCard({ isAr, walletText, walletStatus, onRecharge }) {
 
 function WalletCard({ isAr, walletText, walletStatus, onRecharge }) {
   
