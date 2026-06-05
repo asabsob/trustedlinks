@@ -300,6 +300,9 @@ return (
     </section>
   </div>
 );
+  }
+
+  
 function WalletCard({ isAr, walletText, walletStatus, onRecharge }) {
   const isLow = walletStatus !== "active";
 
@@ -326,32 +329,6 @@ function WalletCard({ isAr, walletText, walletStatus, onRecharge }) {
   );
 }
 
-function WarningCard({ isAr, walletStatus, onRecharge }) {
-  return (
-    <div style={warningCard}>
-      <div>
-        <strong style={warningTitle}>
-          {walletStatus === "out"
-            ? isAr ? "لا يوجد رصيد متاح" : "No balance available"
-            : isAr ? "تنبيه انخفاض الرصيد" : "Low balance warning"}
-        </strong>
-        <div style={warningText}>
-          {walletStatus === "out"
-            ? isAr
-              ? "قد يتوقف نشاطك عن استقبال العملاء المحتملين."
-              : "Your business may stop receiving leads."
-            : isAr
-            ? "رصيدك أوشك على النفاد. أعد الشحن للاستمرار باستقبال العملاء."
-            : "Your wallet balance is running low. Recharge to continue receiving leads."}
-        </div>
-      </div>
-
-      <button onClick={onRecharge} style={primaryBtn}>
-        {isAr ? "إعادة الشحن الآن" : "Recharge Now"}
-      </button>
-    </div>
-  );
-}
 
 function StatCard({ title, value, subtitle, highlight = "#111827" }) {
   return (
@@ -654,29 +631,6 @@ const walletButton = {
   cursor: "pointer",
 };
 
-const warningCard = {
-  background: "#fff7ed",
-  border: "1px solid #fed7aa",
-  borderRadius: 18,
-  padding: "16px",
-  marginBottom: 18,
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: 12,
-  flexWrap: "wrap",
-};
-
-const warningTitle = {
-  color: "#c2410c",
-};
-
-const warningText = {
-  color: "#6b7280",
-  fontSize: 14,
-  marginTop: 4,
-};
-
 const aiSection = {
   marginBottom: 18,
 };
@@ -712,13 +666,6 @@ const statValue = {
 const statSubtitle = {
   color: "#9ca3af",
   fontSize: 13,
-};
-
-const twoColumnGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-  gap: 18,
-  marginBottom: 18,
 };
 
 const pricingPlanCard = {
