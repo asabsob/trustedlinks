@@ -10,6 +10,7 @@ const API_BASE =
 export default function Dashboard({ lang = "en" }) {
   const navigate = useNavigate();
   const isAr = lang === "ar";
+  const isMobile = window.innerWidth < 768;
   const tr = (key) => getText(lang, key);
 
   const [business, setBusiness] = useState(null);
@@ -205,7 +206,7 @@ export default function Dashboard({ lang = "en" }) {
 return (
   <div style={pageWrap(isAr)}>
     {/* 1. Welcome + Wallet */}
-    <section style={topLayout}>
+  <section style={topLayout(isMobile)}>
       <div style={welcomeCard}>
         <div style={heroBadge}>
           {tr("businessDashboard") || "Business Dashboard"}
@@ -527,20 +528,22 @@ function EmptyState({ title, text }) {
 }
 
 const pageWrap = (isAr) => ({
-  padding: "24px",
+  padding: "16px",
   maxWidth: "1180px",
+  width: "100%",
   margin: "0 auto",
+  overflowX: "hidden",
   direction: isAr ? "rtl" : "ltr",
   textAlign: isAr ? "right" : "left",
   fontFamily: "Tajawal, Inter, system-ui, sans-serif",
 });
 
-const topLayout = {
+const topLayout = (isMobile) => ({
   display: "grid",
-  gridTemplateColumns: "minmax(0, 1.8fr) minmax(280px, 0.9fr)",
+  gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1.8fr) minmax(280px, 0.9fr)",
   gap: "18px",
   marginBottom: "18px",
-};
+});
 
 const welcomeCard = {
   background: "linear-gradient(135deg, #16a34a 0%, #34d399 100%)",
