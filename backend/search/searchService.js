@@ -280,9 +280,9 @@ _matchScore: calculateBusinessScore({
 
 console.log(
   "SEARCH_TOP_RESULTS",
-  matched.slice(0, 5).map((r) => ({
+  matched.slice(0,10).map(r => ({
     name: r.name,
-    score: r._matchScore,
+    score: r._matchScore
   }))
 );
 
