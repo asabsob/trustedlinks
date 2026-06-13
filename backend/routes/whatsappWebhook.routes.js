@@ -446,16 +446,16 @@ router.post("/", async (req, res) => {
       action: conversationDecision.action,
     });
 
-   if (
-  messageType === "text" &&
-  (isGreetingMessage(incomingText) || isHelpCommand(incomingText))
-)
+    if (
+      messageType === "text" &&
+      (isGreetingMessage(incomingText) || isHelpCommand(incomingText))
+    ) {
       return javnaSendText({
         to: from,
         body: getWelcomeMessage(lang),
       }).catch(console.error);
     }
-
+    
     if (messageType === "text" && isThanks(incomingText)) {
       return javnaSendText({
         to: from,
