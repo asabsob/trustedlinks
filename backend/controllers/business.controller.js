@@ -17,7 +17,7 @@ import {
 
 import { getBusinessPricing } from "../utils/getBusinessPricing.js";
 
-
+import { optimizeBusinessProfile } from "../services/aiOptimizer.js";
 
 export async function getCurrentBusiness(req, res) {
   try {
@@ -426,6 +426,14 @@ export async function applyBusinessAIOptimization(req, res) {
       keywords_ar = [],
       lang = "en",
     } = req.body || {};
+
+    const aiResult = await optimizeBusinessProfile({
+  businessName: business.name || business.businessName || "",
+  category: business.category || "",
+  description: description || business.description || "",
+  keywords: keywords?.length ? keywords : business.keywords || [],
+  lang,
+});
 
     const payload = {};
 
