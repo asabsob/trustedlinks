@@ -1,105 +1,41 @@
 import { normalizeSearchText } from "./textNormalizer.js";
 
 export const CATEGORY_DICTIONARY = {
-  RESTAURANT_CAFE: [
-    "مطعم",
-    "مطاعم",
-    "شاورما",
-    "برجر",
-    "بيتزا",
-    "مشاوي",
-    "كباب",
-    "ساندويش",
-    "restaurant",
-    "restaurants",
-    "burger",
-    "pizza",
-    "shawarma",
-    "bbq",
-    "grill",
+  restaurant_cafe: [
+    "مطعم", "مطاعم", "جوعان", "اكل", "أكل", "غداء", "غدا", "عشاء", "عشا",
+    "فطور", "افطار", "شاورما", "برجر", "برغر", "بيتزا", "مشاوي", "كباب",
+    "restaurant", "restaurants", "burger", "pizza", "shawarma", "bbq", "grill",
   ],
 
-  BEVERAGES: [
-    "قهوة",
-    "قهوه",
-    "كوفي",
-    "كافيه",
-    "مشروبات",
-    "عصير",
-    "بابل تي",
-    "coffee",
-    "cafe",
-    "drinks",
-    "bubble tea",
+  beverages: [
+    "قهوة", "قهوه", "كوفي", "كافيه", "مشروبات", "مشاريب", "عصير", "عصائر",
+    "بوبا", "بوبه", "بابل تي", "بوبل تي", "ببل تي",
+    "coffee", "cafe", "drinks", "juice", "bubble tea", "boba", "milk tea",
   ],
 
-  CLOTHING: [
-    "ازياء",
-    "أزياء",
-    "ملابس",
-    "فساتين",
-    "احذية",
-    "أحذية",
-    "شنط",
-    "موضة",
-    "fashion",
-    "clothes",
-    "dresses",
-    "shoes",
-    "bags",
+  clothing: [
+    "ازياء", "أزياء", "ملابس", "فساتين", "احذية", "أحذية", "شنط", "موضة",
+    "fashion", "clothes", "dresses", "shoes", "bags",
   ],
 
-  BEAUTY_SALON: [
-    "صالون",
-    "تجميل",
-    "حلاق",
-    "مكياج",
-    "اظافر",
-    "أظافر",
-    "beauty",
-    "salon",
-    "barber",
-    "nails",
+  beauty_salon: [
+    "صالون", "تجميل", "حلاق", "حلاقة", "مكياج", "ميكب", "اظافر", "أظافر",
+    "نسائي", "رجالي", "beauty", "salon", "barber", "nails", "makeup",
   ],
 
-  MEDICAL_HEALTH: [
-    "عيادة",
-    "عياده",
-    "طبيب",
-    "دكتور",
-    "اسنان",
-    "أسنان",
-    "clinic",
-    "doctor",
-    "dentist",
-    "medical",
+  medical_health: [
+    "عيادة", "عياده", "طبيب", "دكتور", "اسنان", "أسنان", "جلدية", "عيون",
+    "clinic", "doctor", "dentist", "medical", "dermatology",
   ],
 
-  PHARMACY: [
-    "صيدلية",
-    "صيدليه",
-    "دواء",
-    "أدوية",
-    "ادوية",
-    "pharmacy",
-    "medicine",
-    "drugstore",
+  otc_drugs: [
+    "صيدلية", "صيدليه", "دواء", "أدوية", "ادوية",
+    "pharmacy", "medicine", "drugstore",
   ],
 
-  PROFESSIONAL_SERVICES: [
-    "خدمات",
-    "تصميم",
-    "استشارات",
-    "محامي",
-    "محاسبة",
-    "خياطة",
-    "طباعة",
-    "services",
-    "design",
-    "consulting",
-    "lawyer",
-    "accounting",
-    "printing",
+  professional_services: [
+    "خدمات", "تصميم", "استشارات", "محامي", "محاسبة", "خياطة", "طباعة",
+    "services", "design", "consulting", "lawyer", "accounting", "printing",
   ],
 };
 
