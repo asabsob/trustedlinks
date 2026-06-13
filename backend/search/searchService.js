@@ -278,6 +278,17 @@ _matchScore: calculateBusinessScore({
   .filter((item) => item._matchScore > 0)
   .sort((a, b) => b._matchScore - a._matchScore);
 
+  // Relevance gap filter: remove weak generic matches
+if (matched.length > 1) {
+  const topScore = Number(matched[0]?._matchScore || 0);
+
+  if (topScore >= 300) {
+    matched = matched.filter((item) => {
+      return Number(item._matchScore || 0) >= topScore * 0.4;
+    });
+  }
+}
+
 console.log(
   "SEARCH_TOP_RESULTS",
   matched.slice(0,10).map(r => ({
