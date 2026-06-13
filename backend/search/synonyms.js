@@ -1,5 +1,32 @@
 import { normalizeSearchText } from "./textNormalizer.js";
 
+export const GREETING_TERMS = [
+  "مرحبا",
+  "مرحباً",
+  "اهلا",
+  "أهلا",
+  "هلا",
+  "السلام عليكم",
+  "سلام",
+  "شلونك",
+  "كيفك",
+  "كيف الحال",
+  "قوى",
+  "قوي",
+  "علومك",
+  "hi",
+  "hello",
+  "hey",
+  "salam",
+];
+
+export function isGreetingQuery(query = "") {
+  const normalized = normalizeSearchText(query);
+  return GREETING_TERMS.some(
+    (term) => normalized === normalizeSearchText(term)
+  );
+}
+
 export const SEARCH_SYNONYMS = {
   automotive: [
     "Automotive", "سيارات", "سيارة", "سياره", "معرض سيارات", "كراج",
@@ -7,17 +34,19 @@ export const SEARCH_SYNONYMS = {
     "car", "cars", "auto", "garage", "mechanic", "spare parts", "tires",
   ],
 
-  beauty_salon: [
-    "Beauty & Salon", "تجميل وصالون", "صالون", "تجميل", "حلاقة",
-    "اظافر", "أظافر", "مكياج", "شعر", "سبا",
-    "beauty", "salon", "barber", "nails", "spa",
-  ],
+ beauty_salon: [
+  "Beauty & Salon", "تجميل وصالون", "صالون", "تجميل", "حلاقة",
+  "اظافر", "أظافر", "مكياج", "شعر", "سبا", "نسائي", "رجالي",
+  "ميكب", "makeup", "haircut", "hair style",
+  "beauty", "salon", "barber", "nails", "spa",
+],
 
-  clothing: [
-    "Clothing", "ملابس وأزياء", "ملابس", "أزياء", "ازياء", "موضة",
-    "احذية", "أحذية", "شنط",
-    "clothing", "fashion", "clothes", "shoes",
-  ],
+ clothing: [
+  "Clothing", "ملابس وأزياء", "ملابس", "أزياء", "ازياء", "موضة",
+  "احذية", "أحذية", "شنط", "فساتين", "بدلات", "تيشيرت",
+  "بنطلون", "جاكيت", "fashion", "clothing", "clothes",
+  "shoes", "bags", "dress", "suits",
+],
 
   education: [
     "Education", "تعليم", "مدرسة", "مدرسه", "جامعة", "جامعه",
@@ -46,11 +75,13 @@ export const SEARCH_SYNONYMS = {
     "food", "grocery", "supermarket",
   ],
 
-  beverages: [
-    "Beverages", "مشروبات", "مشروب", "مشاريب", "قهوة", "قهوه",
-    "كوفي", "شاي", "عصير", "عصائر", "بابل تي", "بوبل تي",
-    "beverages", "coffee", "cafe", "tea", "juice", "drinks",
-  ],
+ beverages: [
+  "Beverages", "مشروبات", "مشروب", "مشاريب", "قهوة", "قهوه",
+  "كوفي", "شاي", "عصير", "عصائر", "بابل تي", "بوبل تي",
+  "بوبا", "بوبه", "ببل تي", "ببلتي", "Bubble tea", "Boba",
+  "milk tea", "درنكس", "drink", "drinks",
+  "beverages", "coffee", "cafe", "tea", "juice",
+],
 
   public_service: [
     "Public Service", "خدمات عامة", "خدمات عامه", "خدمة عامة",
@@ -90,12 +121,14 @@ export const SEARCH_SYNONYMS = {
     "professional services", "legal", "accounting", "consulting", "marketing",
   ],
 
-  shopping_retail: [
-    "Shopping & Retail", "تسوق وتجزئة", "تسوق وتجزئه",
-    "تسوق", "تجزئة", "تجزئه", "ريتيل", "متجر", "متاجر",
-    "محل", "محلات", "سوق", "مول",
-    "shopping", "retail", "shop", "store", "market", "mall",
-  ],
+ shopping_retail: [
+  "Shopping & Retail", "تسوق وتجزئة", "تسوق وتجزئه",
+  "تسوق", "تجزئة", "تجزئه", "ريتيل", "متجر", "متاجر",
+  "محل", "محلات", "سوق", "مول", "اشتري", "شراء",
+  "تخفيضات", "عروض", "خصومات", "ماركات",
+  "shopping", "retail", "shop", "store", "market", "mall",
+  "offers", "deals", "discounts", "brands",
+],
 
   travel_transport: [
     "Travel & Transportation", "سفر ومواصلات", "سفر", "مواصلات",
@@ -103,12 +136,15 @@ export const SEARCH_SYNONYMS = {
     "travel", "transportation", "transport", "taxi", "flight", "tickets",
   ],
 
-  restaurant_cafe: [
-    "Restaurant / Cafe", "مطعم / مقهى", "مطعم", "مطاعم",
-    "مقهى", "مقهي", "كافيه", "اكل", "أكل", "وجبات",
-    "برغر", "بيتزا", "شاورما", "مشاوي",
-    "restaurant", "cafe", "food", "meal", "burger", "pizza", "shawarma",
-  ],
+ restaurant_cafe: [
+  "Restaurant / Cafe", "مطعم / مقهى", "مطعم", "مطاعم",
+  "مقهى", "مقهي", "كافيه", "اكل", "أكل", "وجبات",
+  "مطععم", "مطام", "مطاعم قريبة", "جوعان", "غداء", "غدا",
+  "عشاء", "عشا", "فطور", "افطار", "سناك", "سناكات",
+  "برغر", "بيرغر", "برجر", "بيتزا", "شاورما", "مشاوي",
+  "restaurant", "restaurants", "cafe", "food", "meal",
+  "burger", "pizza", "shawarma", "breakfast", "lunch", "dinner",
+],
 
   other: [
     "Other", "أخرى", "اخرى", "غير ذلك", "عام", "متنوع",
@@ -145,4 +181,9 @@ export function expandTerms(query = "") {
   }
 
   return [...expanded];
+}
+
+export function expandSearchQuery(query = "") {
+  if (isGreetingQuery(query)) return "";
+  return expandTerms(query).join(" ");
 }
