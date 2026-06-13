@@ -297,31 +297,27 @@ async function enrichTopOnly({
 }
 
 function normalizeIntentType(intentData = {}, query = "") {
-  const q = String(query || "").trim().toLowerCase();
+  if (intentData?.intent === "greeting") {
+    return "greeting";
+  }
 
-  if (
-    intentData?.isNearby ||
-    intentData?.intent === "nearby" ||
-    q.includes("near me") ||
-    q.includes("قريب") ||
-    q.includes("قريبه") ||
-    q.includes("قريبة") ||
-    q.includes("حولي") ||
-    q.includes("جنب")
-  ) {
+  if (intentData?.isNearby) {
     return "nearby";
   }
 
- if (intentData?.intent === "nearby") {
-  return "nearby";
-}
+  if (intentData?.intent === "brand" || intentData?.isBrandSearch === true) {
+    return "direct";
+  }
 
-if (intentData?.intent === "brand") {
-  return "direct";
-}
+  if (intentData?.intent === "category") {
+    return "category";
+  }
 
-return "category";
+  if (intentData?.intent === "discovery") {
+    return "category";
+  }
 
+  return "category";
 }
 
 async function sendBusinessCards({
@@ -639,7 +635,19 @@ router.post("/", async (req, res) => {
   }).catch(console.error);
 }
 
-    const intentType = normalizeIntentType(intentData, incomingText);
+ let intentType = normalizeIntentType(intentData, incomingText);
+
+if (intentData?.intent === "category") {
+  intentType = "category";
+}
+
+if (intentData?.intent === "discovery") {
+  intentType = "category";
+}
+
+if (intentData?.intent === "brand") {
+  intentType = "direct";
+}
 
     console.log("INTENT_DEBUG", {
       query: incomingText,
