@@ -9,24 +9,18 @@ import {
   Settings,
   LogOut,
   Menu,
-  Globe,
 } from "lucide-react";
-import { useState } from "react";
 
-export default function CampaignLayout() {
+export default function CampaignLayout({ lang = "en" }) {
   const navigate = useNavigate();
-
-  const [lang, setLang] = useState(
-    localStorage.getItem("campaign_lang") || "en"
-  );
+  const isAr = lang === "ar";
 
   const owner = JSON.parse(localStorage.getItem("campaign_owner") || "{}");
-
   const token = localStorage.getItem("campaign_token");
 
-if (!token || token === "undefined" || token === "null") {
-  navigate("/campaign/login");
-}
+  if (!token || token === "undefined" || token === "null") {
+    navigate("/campaign/login");
+  }
 
   const t = {
     en: {
@@ -39,31 +33,25 @@ if (!token || token === "undefined" || token === "null") {
       settings: "Settings",
       logout: "Logout",
       search: "Search campaigns...",
-      campaignManagement: "Campaign Management",
-      language: "العربية",
+      campaignManagement: "Partner Network",
+      platform: "Partner Network",
       owner: "Campaign Owner",
     },
     ar: {
       dashboard: "لوحة التحكم",
       campaigns: "الحملات",
-      fundingCodes: "أكواد التمويل",
+      fundingCodes: "أكواد الدعم",
       participants: "المشاركون",
       finance: "المالية",
       analytics: "التحليلات",
       settings: "الإعدادات",
       logout: "تسجيل الخروج",
       search: "ابحث...",
-      campaignManagement: "إدارة الحملات",
-      language: "English",
-      owner: "مالك الحملة",
+      campaignManagement: "شبكة الشركاء",
+      platform: "شبكة الشركاء",
+      owner: "مالك الحساب",
     },
   };
-
-  function toggleLang() {
-    const newLang = lang === "en" ? "ar" : "en";
-    setLang(newLang);
-    localStorage.setItem("campaign_lang", newLang);
-  }
 
   function handleLogout() {
     localStorage.removeItem("campaign_token");
@@ -83,7 +71,7 @@ if (!token || token === "undefined" || token === "null") {
 
   return (
     <div
-      dir={lang === "ar" ? "rtl" : "ltr"}
+      dir={isAr ? "rtl" : "ltr"}
       className="min-h-screen bg-slate-100 flex"
     >
       <aside className="w-[280px] bg-black text-white flex flex-col">
@@ -95,7 +83,7 @@ if (!token || token === "undefined" || token === "null") {
 
             <div>
               <div className="font-bold text-xl">Trusted Links</div>
-              <div className="text-xs text-slate-400">Campaign Platform</div>
+              <div className="text-xs text-slate-400">{t[lang].platform}</div>
             </div>
           </div>
         </div>
@@ -155,26 +143,16 @@ if (!token || token === "undefined" || token === "null") {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <button
-              onClick={toggleLang}
-              className="flex items-center gap-2 border border-slate-200 rounded-xl px-4 py-2 hover:bg-slate-100 transition"
-            >
-              <Globe size={18} />
-              <span className="text-sm font-medium">{t[lang].language}</span>
-            </button>
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-full bg-black text-white flex items-center justify-center font-bold">
+              {owner?.name?.charAt(0) || "C"}
+            </div>
 
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-full bg-black text-white flex items-center justify-center font-bold">
-                {owner?.name?.charAt(0) || "C"}
+            <div className="hidden md:block">
+              <div className="font-semibold text-sm">
+                {owner?.name || "Campaign"}
               </div>
-
-              <div className="hidden md:block">
-                <div className="font-semibold text-sm">
-                  {owner?.name || "Campaign"}
-                </div>
-                <div className="text-xs text-slate-500">{t[lang].owner}</div>
-              </div>
+              <div className="text-xs text-slate-500">{t[lang].owner}</div>
             </div>
           </div>
         </header>
