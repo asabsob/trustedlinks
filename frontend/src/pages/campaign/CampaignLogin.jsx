@@ -7,11 +7,11 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 export default function CampaignLogin({ lang: appLang = "en" }) {
   const navigate = useNavigate();
 
-  const [lang, setLang] = useState(
-    localStorage.getItem("campaign_lang") || appLang
-  );
+export default function CampaignLogin({ lang = "en" }) {
+  const navigate = useNavigate();
 
   const isAr = lang === "ar";
+
 
   const [form, setForm] = useState({
     login: "",
@@ -23,12 +23,6 @@ export default function CampaignLogin({ lang: appLang = "en" }) {
     const [showPassword, setShowPassword] = useState(false);
 
   const t = (en, ar) => (isAr ? ar : en);
-
-  function toggleLang() {
-    const nextLang = lang === "en" ? "ar" : "en";
-    setLang(nextLang);
-    localStorage.setItem("campaign_lang", nextLang);
-  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -69,7 +63,7 @@ export default function CampaignLogin({ lang: appLang = "en" }) {
 
       localStorage.setItem("campaign_token", data.token);
       localStorage.setItem("campaign_owner", JSON.stringify(data.owner));
-      localStorage.setItem("campaign_lang", lang);
+  
 
       navigate("/campaign/dashboard");
     } catch (err) {
@@ -175,15 +169,6 @@ export default function CampaignLogin({ lang: appLang = "en" }) {
                 )}
               </p>
             </div>
-
-            <button
-              type="button"
-              onClick={toggleLang}
-              className="shrink-0 bg-slate-100 hover:bg-slate-200 text-slate-800 px-4 py-2 rounded-xl text-sm font-semibold"
-            >
-              {t("العربية", "English")}
-            </button>
-          </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <Field
