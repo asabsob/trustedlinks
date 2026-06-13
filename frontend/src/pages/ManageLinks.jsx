@@ -965,32 +965,63 @@ export default function ManageLinks({ lang = "en" }) {
               token={token}
               businessName={business?.name || ""}
               currentWhatsapp={business?.whatsapp || ""}
-              onVerified={(result) => {
+             onVerified={async (result) => {
   const newWhatsapp = result?.whatsapp || result?.phone || "";
 
   if (!newWhatsapp) return;
 
-  setBusiness((prev) => ({
-    ...(prev || {}),
-    whatsapp: newWhatsapp,
-  }));
+  try {
+    const res = await fetch(`${API_BASE}/api/business/whatsapp`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        whatsapp: newWhatsapp,
+      }),
+    });
 
-  setForm((prev) => ({
-    ...(prev || {}),
-    whatsapp: newWhatsapp,
-  }));
+    const data = await res.json().catch(() => ({}));
 
-  setOriginalForm((prev) => ({
-    ...(prev || {}),
-    whatsapp: newWhatsapp,
-  }));
+    if (!res.ok) {
+      throw new Error(data?.error || "Failed to update WhatsApp");
+    }
 
-  setFeedback({
-    type: "success",
-    text: isAr
-      ? "✅ تم تحديث رقم واتساب بنجاح."
-      : "✅ WhatsApp number verified successfully.",
-  });
+    const updatedBusiness = data.business || {};
+
+    setBusiness((prev) => ({
+      ...(prev || {}),
+      ...updatedBusiness,
+      whatsapp: newWhatsapp,
+    }));
+
+    setForm((prev) => ({
+      ...(prev || {}),
+      ...updatedBusiness,
+      whatsapp: newWhatsapp,
+    }));
+
+    setOriginalForm((prev) => ({
+      ...(prev || {}),
+      whatsapp: newWhatsapp,
+    }));
+
+    setFeedback({
+      type: "success",
+      text: isAr
+        ? "✅ تم تحديث رقم واتساب وحفظه بنجاح."
+        : "✅ WhatsApp number verified and saved successfully.",
+    });
+  } catch (err) {
+    console.error("WhatsApp save error:", err);
+    setFeedback({
+      type: "error",
+      text: isAr
+        ? "تم التحقق من الرقم، لكن فشل حفظه في النشاط."
+        : "Number verified, but failed to save it to the business.",
+    });
+  }
 }}
             />
           </div>
