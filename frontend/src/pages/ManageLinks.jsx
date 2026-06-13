@@ -966,17 +966,32 @@ export default function ManageLinks({ lang = "en" }) {
               businessName={business?.name || ""}
               currentWhatsapp={business?.whatsapp || ""}
               onVerified={(result) => {
-                setForm((prev) => ({
-                  ...prev,
-                  whatsapp: result?.whatsapp || prev.whatsapp,
-                }));
-                setFeedback({
-                  type: "success",
-                  text: isAr
-                    ? "✅ تم تحديث رقم واتساب بنجاح."
-                    : "✅ WhatsApp number verified successfully.",
-                });
-              }}
+  const newWhatsapp = result?.whatsapp || result?.phone || "";
+
+  if (!newWhatsapp) return;
+
+  setBusiness((prev) => ({
+    ...(prev || {}),
+    whatsapp: newWhatsapp,
+  }));
+
+  setForm((prev) => ({
+    ...(prev || {}),
+    whatsapp: newWhatsapp,
+  }));
+
+  setOriginalForm((prev) => ({
+    ...(prev || {}),
+    whatsapp: newWhatsapp,
+  }));
+
+  setFeedback({
+    type: "success",
+    text: isAr
+      ? "✅ تم تحديث رقم واتساب بنجاح."
+      : "✅ WhatsApp number verified successfully.",
+  });
+}}
             />
           </div>
         </section>
