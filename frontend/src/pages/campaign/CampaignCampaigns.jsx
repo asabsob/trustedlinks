@@ -120,31 +120,66 @@ export default function CampaignCampaigns({ lang = "en" }) {
     return `${Number(value || 0).toFixed(2)} ${currency}`;
   }
 
-  function statusLabel(status) {
-    const labels = {
-      active: t("Active", "نشطة"),
-      paused: t("Paused", "متوقفة"),
-      completed: t("Completed", "مكتملة"),
-      cancelled: t("Cancelled", "ملغية"),
-    };
+function statusLabel(status) {
+  const labels = {
+    pending_approval: t(
+      "Pending Approval",
+      "بانتظار الموافقة"
+    ),
 
-    return labels[status] || status || "-";
-  }
+    active: t(
+      "Active",
+      "نشطة"
+    ),
 
-  function statusClass(status) {
-    switch (status) {
-      case "active":
-        return "bg-green-100 text-green-700";
-      case "paused":
-        return "bg-yellow-100 text-yellow-700";
-      case "completed":
-        return "bg-blue-100 text-blue-700";
-      case "cancelled":
-        return "bg-red-100 text-red-700";
-      default:
-        return "bg-slate-100 text-slate-600";
-    }
+    paused: t(
+      "Paused",
+      "متوقفة"
+    ),
+
+    completed: t(
+      "Completed",
+      "مكتملة"
+    ),
+
+    cancelled: t(
+      "Cancelled",
+      "ملغية"
+    ),
+
+    rejected: t(
+      "Rejected",
+      "مرفوضة"
+    ),
+  };
+
+  return labels[status] || status || "-";
+}
+
+function statusClass(status) {
+  switch (status) {
+    case "pending_approval":
+      return "bg-yellow-100 text-yellow-800";
+
+    case "active":
+      return "bg-green-100 text-green-700";
+
+    case "paused":
+      return "bg-orange-100 text-orange-700";
+
+    case "completed":
+      return "bg-blue-100 text-blue-700";
+
+    case "cancelled":
+      return "bg-red-100 text-red-700";
+
+    case "rejected":
+      return "bg-red-100 text-red-700";
+
+    default:
+      return "bg-slate-100 text-slate-600";
   }
+}
 
   return (
     <div dir={isAr ? "rtl" : "ltr"} className="p-6 bg-slate-50 min-h-screen">
@@ -279,6 +314,15 @@ export default function CampaignCampaigns({ lang = "en" }) {
           </button>
         </form>
       </section>
+
+      {campaigns.some(c => c.status === "pending_approval") && (
+  <div className="mb-6 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-2xl p-4">
+    {t(
+      "One or more campaigns are awaiting admin approval. Funding codes cannot be generated until approval.",
+      "يوجد حملة أو أكثر بانتظار موافقة الإدارة. لا يمكن إنشاء أكواد التمويل قبل الموافقة."
+    )}
+  </div>
+)}
 
       <section className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6">
         <div className="mb-5">
