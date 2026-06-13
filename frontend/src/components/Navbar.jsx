@@ -49,7 +49,7 @@ export default function Navbar({ lang, t, token, toggleLang, handleLogout }) {
               </NavLink>
 
               <NavLink to="/campaign/login" className={navLinkClass}>
-                Partner Network
+                {t.nav.partnerNetwork}
               </NavLink>
             </>
           ) : (
@@ -150,7 +150,7 @@ export default function Navbar({ lang, t, token, toggleLang, handleLogout }) {
                   className={mobileNavLinkClass}
                   onClick={closeMobileMenu}
                 >
-                  Partner Network
+                  {t.nav.partnerNetwork}
                 </NavLink>
               </>
             ) : (
