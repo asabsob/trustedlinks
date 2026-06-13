@@ -5,7 +5,10 @@ import { normalizeSearchText } from "../search/textNormalizer.js";
 import { searchBusinesses } from "../search/searchService.js";
 import { formatBusinessBlock } from "../search/searchFormatter.js";
 import { findNearestBusinesses } from "../search/nearbyService.js";
-import { parseSearchIntent } from "../search/intentDetector.js";
+import {
+  parseSearchIntent,
+  isGreetingMessage,
+} from "../search/intentDetector.js";
 
 import {
   javnaSendText,
@@ -37,11 +40,6 @@ function detectLanguage(text = "") {
   return /[\u0600-\u06FF]/.test(String(text || "")) ? "ar" : "en";
 }
 
-function isGreeting(text = "") {
-  return /^(hi|hello|hey|مرحبا|اهلا|أهلا|هلا|سلام)$/i.test(
-    String(text || "").trim()
-  );
-}
 
 function isHelpCommand(text = "") {
   return /^(help|start|مساعدة|ابدأ)$/i.test(String(text || "").trim());
@@ -314,20 +312,15 @@ function normalizeIntentType(intentData = {}, query = "") {
     return "nearby";
   }
 
-  if (intentData?.intent === "brand" || intentData?.isBrandSearch === true) {
-    return "direct";
-  }
-
-  if (intentData?.intent === "category") {
-    return "category";
-  }
-
-  if (q.split(" ").length <= 2) {
-    return "direct";
-  }
-
-  return "category";
+ if (intentData?.intent === "nearby") {
+  return "nearby";
 }
+
+if (intentData?.intent === "brand") {
+  return "direct";
+}
+
+return "category";
 
 async function sendBusinessCards({
   to,
@@ -453,10 +446,10 @@ router.post("/", async (req, res) => {
       action: conversationDecision.action,
     });
 
-    if (
-      messageType === "text" &&
-      (isGreeting(incomingText) || isHelpCommand(incomingText))
-    ) {
+   if (
+  messageType === "text" &&
+  (isGreetingMessage(incomingText) || isHelpCommand(incomingText))
+)
       return javnaSendText({
         to: from,
         body: getWelcomeMessage(lang),
@@ -636,6 +629,13 @@ router.post("/", async (req, res) => {
     const intentData = parseSearchIntent(effectiveIncomingText);
     const effectiveQuery =
       intentData.categoryQuery || normalizeSearchText(effectiveIncomingText);
+
+  if (intentData.intent === "greeting") {
+  return javnaSendText({
+    to: from,
+    body: getWelcomeMessage(lang),
+  }).catch(console.error);
+}
 
     const intentType = normalizeIntentType(intentData, incomingText);
 
