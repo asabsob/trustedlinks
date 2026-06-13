@@ -96,17 +96,21 @@ router.post("/campaigns", requireCampaignManager, async (req, res) => {
         credit_per_business: Number(creditPerBusiness || 20),
         starts_at: startsAt,
         expires_at: expiresAt,
-        status: "active",
+       status: "pending_approval",
+approval_status: "pending",
+approved_by: null,
+approved_at: null,
       })
       .select("*")
       .single();
 
     if (error) throw error;
 
-    return res.status(201).json({
-      ok: true,
-      campaign,
-    });
+   return res.status(201).json({
+  ok: true,
+  campaign,
+  message: "Campaign submitted for admin approval",
+});
   } catch (err) {
     console.error("CREATE CAMPAIGN ERROR:", err);
     return res.status(500).json({ error: "Failed to create campaign" });
@@ -143,7 +147,13 @@ router.patch("/campaigns/:id/status", requireCampaignManager, async (req, res) =
     const campaignId = req.params.id;
     const { status } = req.body || {};
 
-    const allowed = ["active", "paused", "completed", "cancelled"];
+  const allowed = ["paused", "completed", "cancelled"];
+
+    if (status === "active") {
+  return res.status(403).json({
+    error: "Campaign activation requires admin approval",
+  });
+}
 
     if (!allowed.includes(status)) {
       return res.status(400).json({ error: "Invalid status" });
