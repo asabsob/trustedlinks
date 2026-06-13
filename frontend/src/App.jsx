@@ -80,6 +80,7 @@ export default function App() {
   home: "Home",
   search: "Search",
   register: "Register Business",
+  partnerNetwork: "Partner Network",
   dashboard: "Dashboard",
   wallet: "Wallet",            // 👈 أضف هذا
   transactions: "Transactions",// 👈 أضف هذا
@@ -96,6 +97,7 @@ export default function App() {
   home: "الرئيسية",
   search: "بحث",
   register: "تسجيل نشاط",
+  partnerNetwork: "شبكة الشركاء",
   dashboard: "لوحة التحكم",
   wallet: "المحفظة",        // 👈 أضف هذا
   transactions: "الحركات",  // 👈 أضف هذا
