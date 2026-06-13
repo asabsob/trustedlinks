@@ -1,8 +1,8 @@
-import { expandTerms } from "./synonyms.js";
 import { parseSearchIntent } from "./intentDetector.js";
 import { normalizeSearchText } from "./textNormalizer.js";
 import { listActiveBusinesses } from "../services/pg/businesses.js";
 import { calculateBusinessScore } from "./searchScoring.js";
+import { expandTerms, isGreetingQuery } from "./synonyms.js";
 
 const RESULT_LIMITS = {
   brand: 3,
@@ -212,6 +212,26 @@ export async function searchBusinesses({
 }) {
 
   const safeQuery = String(query || "").trim();
+  if (isGreetingQuery(safeQuery)) {
+  return {
+    ok: true,
+    mode: "greeting",
+    query: safeQuery,
+    effectiveQuery: "",
+    intent: "greeting",
+    intentMeta: {
+      intent: "greeting",
+      confidence: 0.95,
+      reason: "greeting_detected",
+    },
+    totalMatched: 0,
+    results: [],
+    refinement: {
+      enabled: false,
+      answers: null,
+    },
+  };
+}
   const intentData = parseSearchIntent(safeQuery);
 
   const effectiveQuery =
@@ -221,6 +241,12 @@ export async function searchBusinesses({
 
   const terms = expandTerms(effectiveQuery || "");
   const regexList = buildRegexList(terms);
+
+  console.log("SEARCH_TERMS_DEBUG", {
+  safeQuery,
+  effectiveQuery,
+  terms,
+});
 
  const businesses = await listActiveBusinesses();
 
@@ -241,9 +267,9 @@ let matched = searchableBusinesses.filter((item) =>
  matched = matched
   .map((item) => ({
     ...item,
-   _matchScore: calculateBusinessScore({
+ _matchScore: calculateBusinessScore({
   business: item,
-  query: effectiveQuery,
+  query: terms.join(" "),
   intentType,
   isNearby,
 }),
