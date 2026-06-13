@@ -199,60 +199,37 @@ export default function App() {
   }
 />
 
-<Route
-  path="/campaign/login"
-  element={<CampaignLogin lang={lang} />}
-/>
+<Route path="/campaign/login" element={<CampaignLogin lang={lang} />} />
+
+<Route path="/campaign/register" element={<CampaignRegister lang={lang} />} />
 
 <Route
-  path="/campaign/register"
-  element={<CampaignRegister lang={lang} />}
-/>
-
-  <Route
   path="/campaign/forgot-password"
   element={<CampaignForgotPassword lang={lang} />}
 />
 
-        <Route
+<Route
   path="/campaign/reset-password/:token"
   element={<CampaignResetPassword lang={lang} />}
 />
-        
-<Route
-  path="/campaign"
-  element={<CampaignLayout lang={lang} />}
-/>
-  <Route
-    index
-    element={<Navigate to="dashboard" replace />}
-  />
+
+<Route path="/campaign" element={<CampaignLayout lang={lang} />}>
+  <Route index element={<Navigate to="dashboard" replace />} />
 
   <Route path="dashboard" element={<CampaignDashboard lang={lang} />} />
 
   <Route path="campaigns" element={<CampaignCampaigns lang={lang} />} />
-  
+
   <Route path="funding-codes" element={<CampaignFundingCodes lang={lang} />} />
 
   <Route path="participants" element={<CampaignParticipants lang={lang} />} />
 
-<Route
-  path="finance"
-  element={<CampaignFinance lang={lang} />}
-/>
+  <Route path="finance" element={<CampaignFinance lang={lang} />} />
 
-  <Route
-  path="analytics"
-  element={<CampaignAnalytics lang={lang} />}
-/>
+  <Route path="analytics" element={<CampaignAnalytics lang={lang} />} />
 
-  <Route
-  path="settings"
-  element={<CampaignSettings lang={lang} />}
-/>
-  
-</Route>     
-
+  <Route path="settings" element={<CampaignSettings lang={lang} />} />
+</Route>
       
       {/* Admin Login */}
 <Route path="/admin/login" element={<AdminLogin />} />
