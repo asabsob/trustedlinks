@@ -488,6 +488,22 @@ export default function ManageLinks({ lang = "en" }) {
 
       setAiResult(data.result || null);
       setActiveTab("ai");
+      if (data.business) {
+  setBusiness(data.business);
+  setForm((prev) => ({
+    ...prev,
+    ...data.business,
+    keywords: Array.isArray(data.business.keywords) ? data.business.keywords : prev.keywords || [],
+    keywords_ar: Array.isArray(data.business.keywords_ar) ? data.business.keywords_ar : prev.keywords_ar || [],
+  }));
+  setOriginalForm(normalizeFormForCompare(data.business));
+}
+      setFeedback({
+  type: "success",
+  text: isAr
+    ? "✅ تم إنشاء تحسينات الذكاء الاصطناعي بنجاح."
+    : "✅ AI suggestions generated successfully.",
+});
     } catch (err) {
       console.error(err);
       setFeedback({ type: "error", text: t.aiFailed });
