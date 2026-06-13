@@ -17,7 +17,6 @@ import {
 
 import { getBusinessPricing } from "../utils/getBusinessPricing.js";
 
-import { optimizeBusinessProfile } from "../services/aiOptimizer.js";
 
 export async function getCurrentBusiness(req, res) {
   try {
