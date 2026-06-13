@@ -423,33 +423,54 @@ export async function applyBusinessAIOptimization(req, res) {
       keywords = [],
       description_ar = "",
       keywords_ar = [],
+      topSearchKeywords = [],
+      lowConversionKeywords = [],
+      correctionNotes = "",
       lang = "en",
     } = req.body || {};
 
+    const isAr = String(lang).toLowerCase() === "ar";
+
+    const sourceDescription = isAr
+      ? description_ar || description || business.description_ar || business.description || ""
+      : description || business.description || business.description_ar || "";
+
+    const sourceKeywords = isAr
+      ? Array.isArray(keywords_ar) && keywords_ar.length
+        ? keywords_ar
+        : Array.isArray(keywords) && keywords.length
+        ? keywords
+        : business.keywords_ar || business.keywords || []
+      : Array.isArray(keywords) && keywords.length
+      ? keywords
+      : business.keywords || business.keywords_ar || [];
+
     const aiResult = await optimizeBusinessProfile({
-  businessName: business.name || business.businessName || "",
-  category: business.category || "",
-  description: description || business.description || "",
-  keywords: keywords?.length ? keywords : business.keywords || [],
-  lang,
-});
+      businessName: business.name || business.businessName || "",
+      businessNameAr: business.name_ar || business.businessNameAr || "",
+      category: business.category || "",
+      description: sourceDescription,
+      keywords: sourceKeywords,
+      topSearchKeywords,
+      lowConversionKeywords,
+      locationText: business.locationText || business.location_text || "",
+      countryName: business.countryName || business.country_name || "",
+      lang,
+      correctionNotes,
+    });
 
     const payload = {};
 
-    if (lang === "ar") {
-      payload.description_ar = String(description_ar || description || "").trim();
-
-      payload.keywords_ar = Array.isArray(keywords_ar)
-        ? keywords_ar.map((k) => String(k).trim()).filter(Boolean)
-        : Array.isArray(keywords)
-        ? keywords.map((k) => String(k).trim()).filter(Boolean)
-        : [];
+    if (isAr) {
+      payload.description_ar = aiResult.optimizedDescription || sourceDescription;
+      payload.keywords_ar = Array.isArray(aiResult.suggestedKeywords)
+        ? aiResult.suggestedKeywords
+        : sourceKeywords;
     } else {
-      payload.description = String(description || "").trim();
-
-      payload.keywords = Array.isArray(keywords)
-        ? keywords.map((k) => String(k).trim()).filter(Boolean)
-        : [];
+      payload.description = aiResult.optimizedDescription || sourceDescription;
+      payload.keywords = Array.isArray(aiResult.suggestedKeywords)
+        ? aiResult.suggestedKeywords
+        : sourceKeywords;
     }
 
     const updated = await updateBusinessByOwnerUserId(
@@ -459,16 +480,12 @@ export async function applyBusinessAIOptimization(req, res) {
 
     const formatted = {
       ...updated,
-
       logo:
         updated.logo ||
         (updated.mediaLink &&
-        /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(
-          String(updated.mediaLink)
-        )
+        /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(String(updated.mediaLink))
           ? updated.mediaLink
           : ""),
-
       whatsappLink: updated.whatsapp
         ? `https://wa.me/${String(updated.whatsapp).replace(/\D/g, "")}`
         : "",
@@ -476,7 +493,9 @@ export async function applyBusinessAIOptimization(req, res) {
 
     return res.json({
       ok: true,
+      success: true,
       business: formatted,
+      result: aiResult,
     });
   } catch (e) {
     console.error("apply ai optimization error:", e);
