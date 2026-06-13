@@ -232,6 +232,31 @@ for (const word of originalWords) {
     score += 60;
   }
 }
+
+  // Product/specialty intent boost
+const specialtyGroups = [
+  {
+    triggers: ["بوبا", "بوبه", "ببل تي", "ببلتي", "bubble tea", "boba", "milk tea"],
+    requiredMatches: ["bubble tea", "boba", "بوبا", "ببل تي", "بابل تي", "milk tea"],
+    boost: 300,
+  },
+];
+
+for (const group of specialtyGroups) {
+  const userAskedSpecialty = group.triggers.some((term) =>
+    normalizedOriginalQuery.includes(safeNormalize(term))
+  );
+
+  if (!userAskedSpecialty) continue;
+
+  const businessHasSpecialty = group.requiredMatches.some((term) =>
+    originalText.includes(safeNormalize(term))
+  );
+
+  if (businessHasSpecialty) {
+    score += group.boost;
+  }
+}
   // =====================================================
   // Description scoring
   // =====================================================
