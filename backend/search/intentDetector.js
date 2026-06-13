@@ -41,26 +41,23 @@ const CATEGORY_HINTS_AR = [
   "سيارات",
 ];
 
-const CATEGORY_HINTS_EN = [
-  "restaurant",
-  "restaurants",
-  "cafe",
-  "coffee",
-  "pharmacy",
-  "dessert",
-  "sweets",
-  "grill",
-  "bbq",
-  "clothes",
-  "salon",
-  "clinic",
-  "hotel",
-  "market",
-  "grocery",
-  "services",
-  "office",
-  "travel",
   "cars",
+  "retail",
+  "shopping",
+  "fashion",
+  "beauty",
+  "spa",
+  "automotive",
+  "electronics",
+  "beverages",
+  "drinks",
+  "food",
+  "medical",
+  "health",
+  "bank",
+  "finance",
+  "education",
+  "entertainment",
 ];
 
 const DISCOVERY_HINTS_AR = [
@@ -127,12 +124,44 @@ const REMOVE_NEARBY_WORDS = [
   "me",
 ];
 
+const GREETING_HINTS = [
+  "مرحبا",
+  "مرحباً",
+  "اهلا",
+  "أهلا",
+  "اهلين",
+  "هلا",
+  "السلام عليكم",
+  "سلام",
+  "شلونك",
+  "كيفك",
+  "كيف الحال",
+  "قوي",
+  "قوى",
+  "علومك",
+  "hi",
+  "hello",
+  "hey",
+  "salam",
+];
+
 function includesAny(text = "", words = []) {
   return words.some((word) => text.includes(normalizeSearchText(word)));
 }
 
 function getWordCount(text = "") {
   return String(text).trim().split(/\s+/).filter(Boolean).length;
+}
+
+export function isGreetingMessage(text = "") {
+  const normalized = normalizeSearchText(text);
+  const words = getWordCount(normalized);
+
+  if (!normalized || words > 3) return false;
+
+  return GREETING_HINTS.some(
+    (word) => normalized === normalizeSearchText(word)
+  );
 }
 
 function cleanNearbyCategoryQuery(raw = "") {
@@ -274,6 +303,18 @@ export function parseSearchIntent(text = "") {
   const raw = String(text || "").trim();
   const normalized = normalizeSearchText(raw);
 
+    if (isGreetingMessage(raw)) {
+    return {
+      intent: "greeting",
+      confidence: 0.95,
+      reason: "greeting_detected",
+      isNearby: false,
+      categoryQuery: "",
+      normalizedQuery: normalized,
+      needsRefinement: false,
+    };
+  }
+  
   if (!normalized) {
     return {
       intent: "discovery",
