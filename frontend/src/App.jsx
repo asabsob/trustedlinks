@@ -221,8 +221,8 @@ export default function App() {
         
 <Route
   path="/campaign"
-  element={<CampaignLayout />}
->
+  element={<CampaignLayout lang={lang} />}
+/>
   <Route
     index
     element={<Navigate to="dashboard" replace />}
