@@ -496,7 +496,6 @@ export default function ManageLinks({ lang = "en" }) {
     keywords: Array.isArray(data.business.keywords) ? data.business.keywords : prev.keywords || [],
     keywords_ar: Array.isArray(data.business.keywords_ar) ? data.business.keywords_ar : prev.keywords_ar || [],
   }));
-  setOriginalForm(normalizeFormForCompare(data.business));
 }
       setFeedback({
   type: "success",
