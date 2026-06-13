@@ -4,14 +4,9 @@ import { Eye, EyeOff } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 
-export default function CampaignLogin({ lang: appLang = "en" }) {
-  const navigate = useNavigate();
-
 export default function CampaignLogin({ lang = "en" }) {
   const navigate = useNavigate();
-
   const isAr = lang === "ar";
-
 
   const [form, setForm] = useState({
     login: "",
@@ -20,7 +15,7 @@ export default function CampaignLogin({ lang = "en" }) {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-    const [showPassword, setShowPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const t = (en, ar) => (isAr ? ar : en);
 
@@ -43,9 +38,7 @@ export default function CampaignLogin({ lang = "en" }) {
     try {
       const res = await fetch(`${API_BASE}/api/campaign/auth/login`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           login: form.login.trim(),
           password: form.password,
@@ -56,14 +49,12 @@ export default function CampaignLogin({ lang = "en" }) {
 
       if (!res.ok) {
         throw new Error(
-          data.error ||
-            t("Invalid login credentials", "بيانات الدخول غير صحيحة")
+          data.error || t("Invalid login credentials", "بيانات الدخول غير صحيحة")
         );
       }
 
       localStorage.setItem("campaign_token", data.token);
       localStorage.setItem("campaign_owner", JSON.stringify(data.owner));
-  
 
       navigate("/campaign/dashboard");
     } catch (err) {
@@ -82,7 +73,6 @@ export default function CampaignLogin({ lang = "en" }) {
       className="min-h-screen bg-slate-50 flex items-center justify-center p-4"
     >
       <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100">
-        {/* Brand Side */}
         <section className="hidden lg:flex bg-gradient-to-br from-slate-950 to-green-600 text-white p-10 flex-col justify-between">
           <div>
             <div className="flex items-center gap-3 mb-10">
@@ -91,26 +81,24 @@ export default function CampaignLogin({ lang = "en" }) {
               </div>
 
               <div>
-                <div className="text-2xl font-extrabold">
-                  Trusted Links
-                </div>
+                <div className="text-2xl font-extrabold">Trusted Links</div>
                 <div className="text-white/70 text-sm">
-                  Campaign Platform
+                  {t("Partner Network", "شبكة الشركاء")}
                 </div>
               </div>
             </div>
 
             <h1 className="text-4xl font-extrabold leading-tight">
               {t(
-                "Manage sponsorship campaigns with measurable results.",
-                "أدر حملات الرعاية بنتائج قابلة للقياس."
+                "Manage partner growth campaigns with measurable results.",
+                "أدر حملات الشركاء والنمو بنتائج قابلة للقياس."
               )}
             </h1>
 
             <p className="text-white/80 mt-5 leading-8 max-w-md">
               {t(
-                "Create campaigns, generate funding codes, track participants, budgets, and campaign performance from one platform.",
-                "أنشئ الحملات، ولّد أكواد التمويل، وتابع المشاركين والميزانيات وأداء الحملات من منصة واحدة."
+                "Create campaigns, generate funding codes, track participants, budgets, and performance from one platform.",
+                "أنشئ الحملات، ولّد أكواد الدعم، وتابع المشاركين والميزانيات والأداء من منصة واحدة."
               )}
             </p>
           </div>
@@ -119,107 +107,92 @@ export default function CampaignLogin({ lang = "en" }) {
             <div className="bg-white/10 rounded-2xl p-4">
               <div className="text-2xl font-bold">01</div>
               <div className="text-xs text-white/70 mt-1">
-                {t("Campaigns", "حملات")}
+                {t("Campaigns", "الحملات")}
               </div>
             </div>
 
             <div className="bg-white/10 rounded-2xl p-4">
               <div className="text-2xl font-bold">02</div>
               <div className="text-xs text-white/70 mt-1">
-                {t("Funding Codes", "أكواد")}
+                {t("Funding Codes", "أكواد الدعم")}
               </div>
             </div>
 
             <div className="bg-white/10 rounded-2xl p-4">
               <div className="text-2xl font-bold">03</div>
               <div className="text-xs text-white/70 mt-1">
-                {t("Analytics", "تحليلات")}
+                {t("Analytics", "التحليلات")}
               </div>
             </div>
           </div>
         </section>
 
-        {/* Form Side */}
         <section className="p-7 md:p-10">
-          <div className="flex justify-between items-start gap-4 mb-8">
-            <div>
-              <div className="flex lg:hidden items-center gap-3 mb-5">
-                <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white font-bold">
-                  ✓
-                </div>
-
-                <div>
-                  <div className="font-extrabold text-xl">
-                    Trusted Links
-                  </div>
-                  <div className="text-xs text-slate-500">
-                    Campaign Platform
-                  </div>
-                </div>
+          <div className="mb-8">
+            <div className="flex lg:hidden items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white font-bold">
+                ✓
               </div>
 
-              <h2 className="text-3xl font-extrabold text-slate-950">
-                {t("Campaign Login", "تسجيل دخول الحملات")}
-              </h2>
-
-              <p className="text-slate-500 mt-2">
-                {t(
-                  "Access your campaign management dashboard.",
-                  "ادخل إلى لوحة إدارة الحملات الخاصة بك."
-                )}
-              </p>
+              <div>
+                <div className="font-extrabold text-xl">Trusted Links</div>
+                <div className="text-xs text-slate-500">
+                  {t("Partner Network", "شبكة الشركاء")}
+                </div>
+              </div>
             </div>
 
+            <h2 className="text-3xl font-extrabold text-slate-950">
+              {t("Partner Network Login", "تسجيل دخول شبكة الشركاء")}
+            </h2>
+
+            <p className="text-slate-500 mt-2">
+              {t(
+                "Access your partner campaign management dashboard.",
+                "ادخل إلى لوحة إدارة حملات الشركاء."
+              )}
+            </p>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-5">
-            <Field
-              label={t("Email or Username", "البريد الإلكتروني أو اسم المستخدم")}
-            >
+            <Field label={t("Email or Username", "البريد الإلكتروني أو اسم المستخدم")}>
               <input
                 type="text"
                 value={form.login}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    login: e.target.value,
-                  })
-                }
-                placeholder={t("example@email.com", "example@email.com")}
+                onChange={(e) => setForm({ ...form, login: e.target.value })}
+                placeholder="example@email.com"
                 className="w-full border border-slate-200 rounded-xl p-3.5 outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
               />
             </Field>
 
-           <Field label={t("Password", "كلمة المرور")}>
-  <div className="relative">
-    <input
-      type={showPassword ? "text" : "password"}
-      value={form.password}
-      onChange={(e) =>
-        setForm({
-          ...form,
-          password: e.target.value,
-        })
-      }
-      placeholder={t("Enter your password", "أدخل كلمة المرور")}
-      className="w-full border border-slate-200 rounded-xl p-3.5 pe-12 outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-    />
+            <Field label={t("Password", "كلمة المرور")}>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  placeholder={t("Enter your password", "أدخل كلمة المرور")}
+                  className="w-full border border-slate-200 rounded-xl p-3.5 pe-12 outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                />
 
-    <button
-      type="button"
-      onClick={() => setShowPassword(!showPassword)}
-      className="absolute top-1/2 -translate-y-1/2 end-3 text-slate-400 hover:text-slate-700"
-    >
-      {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-    </button>
-  </div>
-</Field>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute top-1/2 -translate-y-1/2 end-3 text-slate-400 hover:text-slate-700"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            </Field>
+
             <div className="text-end">
-  <Link
-    to="/campaign/forgot-password"
-    className="text-sm text-green-600 font-semibold hover:underline"
-  >
-    {t("Forgot password?", "نسيت كلمة المرور؟")}
-  </Link>
-</div>
+              <Link
+                to="/campaign/forgot-password"
+                className="text-sm text-green-600 font-semibold hover:underline"
+              >
+                {t("Forgot password?", "نسيت كلمة المرور؟")}
+              </Link>
+            </div>
 
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 text-sm">
@@ -232,9 +205,7 @@ export default function CampaignLogin({ lang = "en" }) {
               disabled={loading}
               className="w-full bg-green-600 hover:bg-green-700 text-white rounded-xl p-3.5 font-bold transition disabled:opacity-60"
             >
-              {loading
-                ? t("Signing in...", "جاري تسجيل الدخول...")
-                : t("Login", "تسجيل الدخول")}
+              {loading ? t("Signing in...", "جاري تسجيل الدخول...") : t("Login", "تسجيل الدخول")}
             </button>
           </form>
 
@@ -244,14 +215,14 @@ export default function CampaignLogin({ lang = "en" }) {
               to="/campaign/register"
               className="text-green-600 font-bold hover:underline"
             >
-              {t("Create campaign account", "إنشاء حساب حملة")}
+              {t("Create partner account", "إنشاء حساب شريك")}
             </Link>
           </div>
 
           <div className="mt-8 border-t pt-5 text-xs text-slate-400 leading-6">
             {t(
-              "This login is for campaign owners, malls, sponsors, and organizations managing funding campaigns.",
-              "هذا الدخول مخصص لأصحاب الحملات والمولات والرعاة والجهات التي تدير حملات تمويل."
+              "This login is for partner organizations managing growth, sponsorship, and funding campaigns.",
+              "هذا الدخول مخصص للجهات الشريكة التي تدير حملات النمو والرعاية والدعم."
             )}
           </div>
         </section>
@@ -263,9 +234,7 @@ export default function CampaignLogin({ lang = "en" }) {
 function Field({ label, children }) {
   return (
     <label className="block">
-      <div className="text-sm font-semibold text-slate-700 mb-2">
-        {label}
-      </div>
+      <div className="text-sm font-semibold text-slate-700 mb-2">{label}</div>
       {children}
     </label>
   );
