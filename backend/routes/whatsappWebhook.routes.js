@@ -322,6 +322,8 @@ if (intentData?.intent === "brand") {
 
 return "category";
 
+}
+
 async function sendBusinessCards({
   to,
   results = [],
