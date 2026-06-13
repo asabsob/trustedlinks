@@ -107,7 +107,10 @@ router.put("/whatsapp", requireUser, async (req, res) => {
 
     if (error) throw error;
 
-    await supabase.from("audit_logs").insert({
+   try {
+  const { error: auditError } = await supabase
+    .from("audit_logs")
+    .insert({
       event: "business_whatsapp_updated",
       level: "info",
       user_id: userId,
@@ -117,8 +120,14 @@ router.put("/whatsapp", requireUser, async (req, res) => {
         newWhatsapp: whatsapp,
       },
       created_at: new Date().toISOString(),
-    }).catch(() => null);
+    });
 
+  if (auditError) {
+    console.error("business whatsapp audit log error:", auditError);
+  }
+} catch (auditErr) {
+  console.error("business whatsapp audit log error:", auditErr);
+}
     return res.json({
       ok: true,
       business: data,
