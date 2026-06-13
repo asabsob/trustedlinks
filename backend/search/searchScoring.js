@@ -118,11 +118,14 @@ function calculateFieldScore(
 export function calculateBusinessScore({
   business = {},
   query = "",
+  originalQuery = "",
   intentType = "category",
   isNearby = false,
 }) {
   const normalizedQuery =
     safeNormalize(query);
+  const normalizedOriginalQuery = safeNormalize(originalQuery || query);
+const originalWords = splitWords(normalizedOriginalQuery);
 
   if (!normalizedQuery) {
     return 0;
@@ -209,6 +212,26 @@ export function calculateBusinessScore({
       queryWords
     ) * 1.2;
 
+  // Strong boost for exact original user query
+const originalText = [
+  name,
+  nameAr,
+  description,
+  descriptionAr,
+  category,
+  categoryAr,
+  keywords,
+].map(safeNormalize).join(" ");
+
+if (normalizedOriginalQuery && originalText.includes(normalizedOriginalQuery)) {
+  score += 180;
+}
+
+for (const word of originalWords) {
+  if (word.length >= 3 && originalText.includes(word)) {
+    score += 60;
+  }
+}
   // =====================================================
   // Description scoring
   // =====================================================
