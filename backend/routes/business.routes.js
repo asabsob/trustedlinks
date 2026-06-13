@@ -2,8 +2,7 @@ import express from "express";
 import { requireUser } from "../middleware/auth.js";
 import {
   getBusinessByOwnerUserId,
-  getBusinessById,
-  updateBusinessByOwnerUserId,
+  getBusinessByWhatsapp,
 } from "../services/pg/businesses.js";
 
 import {
@@ -43,9 +42,98 @@ router.get("/transactions/:businessId", requireUser, getBusinessTransactions);
 router.put("/update", requireUser, updateCurrentBusiness);
 
 router.post("/apply-ai-optimization", requireUser, applyBusinessAIOptimization);
+router.post("/ai-optimize", requireUser, applyBusinessAIOptimization);
 
 router.get("/balance/:businessId", requireUser, getBusinessBalance);
 
 router.post("/topup", requireUser, directBusinessTopup);
+
+function cleanDigits(v = "") {
+  return String(v).replace(/\D/g, "");
+}
+
+router.put("/whatsapp", requireUser, async (req, res) => {
+  try {
+    const userId = req.user?.id || req.userId || req.user?.userId;
+    const whatsapp = cleanDigits(req.body?.whatsapp || "");
+
+    if (!userId) {
+      return res.status(401).json({
+        ok: false,
+        error: "Unauthorized",
+      });
+    }
+
+    if (!/^\d{10,15}$/.test(whatsapp)) {
+      return res.status(400).json({
+        ok: false,
+        error: "Invalid WhatsApp number",
+      });
+    }
+
+    const currentBusiness = await getBusinessByOwnerUserId(userId);
+
+    if (!currentBusiness?.id) {
+      return res.status(404).json({
+        ok: false,
+        error: "Business not found",
+      });
+    }
+
+    const existingBusiness = await getBusinessByWhatsapp(whatsapp);
+
+    if (
+      existingBusiness?.id &&
+      String(existingBusiness.id) !== String(currentBusiness.id)
+    ) {
+      return res.status(409).json({
+        ok: false,
+        error: "This WhatsApp number is already registered.",
+        reason: "WHATSAPP_ALREADY_REGISTERED",
+      });
+    }
+
+    const oldWhatsapp = currentBusiness.whatsapp || "";
+
+    const { data, error } = await supabase
+      .from("businesses")
+      .update({
+        whatsapp,
+        whatsapp_verified: true,
+        whatsapp_verified_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", currentBusiness.id)
+      .select("*")
+      .maybeSingle();
+
+    if (error) throw error;
+
+    await supabase.from("audit_logs").insert({
+      event: "business_whatsapp_updated",
+      level: "info",
+      user_id: userId,
+      business_id: currentBusiness.id,
+      metadata: {
+        oldWhatsapp,
+        newWhatsapp: whatsapp,
+      },
+      created_at: new Date().toISOString(),
+    }).catch(() => null);
+
+    return res.json({
+      ok: true,
+      business: data,
+      whatsapp,
+    });
+  } catch (err) {
+    console.error("business whatsapp update error:", err);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to update WhatsApp number",
+    });
+  }
+});
 
 export default router;
