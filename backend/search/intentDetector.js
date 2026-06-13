@@ -6,6 +6,8 @@ import {
   detectCategoryKeyword,
 } from "./categoryDictionary.js";
 
+import { expandTerms } from "./synonyms.js";
+
 const BRAND_HINTS_AR = [
   "اسم",
   "فرع",
@@ -351,6 +353,27 @@ export function parseSearchIntent(text = "") {
   const categoryDictionaryMatch =
   detectCategoryKeyword(normalized);
 
+  const expandedTerms = expandTerms(normalized);
+
+const categorySynonymMatched = [
+  "restaurant_cafe",
+  "beverages",
+  "food_grocery",
+  "shopping_retail",
+  "beauty_salon",
+  "clothing",
+  "medical_health",
+  "otc_drugs",
+  "hotel_lodging",
+  "travel_transport",
+  "automotive",
+  "finance",
+  "education",
+  "entertainment",
+  "events",
+  "professional_services",
+].some((key) => expandedTerms.includes(normalizeSearchText(key)));
+
   const brand = detectBrandIntent(normalized);
   const category = detectCategoryIntent(normalized);
   const discovery = detectDiscoveryIntent(normalized, nearby.isNearby);
@@ -359,27 +382,31 @@ export function parseSearchIntent(text = "") {
   let confidence = 0.6;
   let reason = "default_category";
 
-  if (nearby.isNearby) {
-    intent = "discovery";
-    confidence = discovery.confidence || 0.85;
-    reason = discovery.reason || "nearby_search_detected";
-    } else if (categoryDictionaryMatch.matched) {
+if (nearby.isNearby) {
+  intent = "discovery";
+  confidence = discovery.confidence || 0.85;
+  reason = discovery.reason || "nearby_search_detected";
+} else if (categoryDictionaryMatch.matched) {
   intent = "category";
   confidence = 0.9;
   reason = "category_dictionary_match";
-  } else if (brand.matched && brand.confidence >= category.confidence) {
-    intent = "brand";
-    confidence = brand.confidence;
-    reason = brand.reason;
-  } else if (category.matched) {
-    intent = "category";
-    confidence = category.confidence;
-    reason = category.reason;
-  } else if (discovery.matched) {
-    intent = "discovery";
-    confidence = discovery.confidence;
-    reason = discovery.reason;
-  }
+} else if (categorySynonymMatched) {
+  intent = "category";
+  confidence = 0.92;
+  reason = "category_synonym_detected";
+} else if (brand.matched && brand.confidence >= category.confidence) {
+  intent = "brand";
+  confidence = brand.confidence;
+  reason = brand.reason;
+} else if (category.matched) {
+  intent = "category";
+  confidence = category.confidence;
+  reason = category.reason;
+} else if (discovery.matched) {
+  intent = "discovery";
+  confidence = discovery.confidence;
+  reason = discovery.reason;
+}
 
   const needsRefinement = shouldAskRefinement(
     intent,
