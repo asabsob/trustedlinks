@@ -267,9 +267,10 @@ let matched = searchableBusinesses.filter((item) =>
  matched = matched
   .map((item) => ({
     ...item,
- _matchScore: calculateBusinessScore({
+_matchScore: calculateBusinessScore({
   business: item,
   query: terms.join(" "),
+  originalQuery: effectiveQuery,
   intentType,
   isNearby,
 }),
