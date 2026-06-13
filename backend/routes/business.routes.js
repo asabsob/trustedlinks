@@ -97,12 +97,10 @@ router.put("/whatsapp", requireUser, async (req, res) => {
 
     const { data, error } = await supabase
       .from("businesses")
-      .update({
-        whatsapp,
-        whatsapp_verified: true,
-        whatsapp_verified_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
+    .update({
+  whatsapp,
+  updated_at: new Date().toISOString(),
+})
       .eq("id", currentBusiness.id)
       .select("*")
       .maybeSingle();
