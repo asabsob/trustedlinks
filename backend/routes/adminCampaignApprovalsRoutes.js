@@ -39,6 +39,15 @@ router.patch("/campaigns/:id/approve", requireAdmin, async (req, res) => {
 
     if (error) throw error;
 
+    await supabase
+  .from("campaign_approval_logs")
+  .insert({
+    campaign_id: data.id,
+    action: "approved",
+    admin_email: req.admin?.email || null,
+    reason: null,
+  });
+
     return res.json({ ok: true, campaign: data });
   } catch (err) {
     console.error("APPROVE CAMPAIGN ERROR:", err);
@@ -65,6 +74,15 @@ router.patch("/campaigns/:id/reject", requireAdmin, async (req, res) => {
       .single();
 
     if (error) throw error;
+
+    await supabase
+  .from("campaign_approval_logs")
+  .insert({
+    campaign_id: data.id,
+    action: "rejected",
+    admin_email: req.admin?.email || null,
+    reason,
+  });
 
     return res.json({ ok: true, campaign: data });
   } catch (err) {
