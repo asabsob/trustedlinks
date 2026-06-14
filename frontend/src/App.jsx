@@ -28,7 +28,7 @@ import AdminNotifications from "./pages/admin/AdminNotifications.jsx";
 import AdminSettings from "./pages/admin/AdminSettings.jsx";
 import AdminFraud from "./pages/admin/AdminFraud.jsx";
 import AdminInsights from "./pages/admin/AdminInsights.jsx";
-
+import AdminCampaignApprovals from "./pages/admin/AdminCampaignApprovals.jsx";
 /* 🔐 Admin Auth */
 import { useAdminAuth } from "./context/AdminAuthContext.jsx";
 
@@ -251,6 +251,7 @@ export default function App() {
   <Route path="ai-summary" element={<AdminAISummary />} />
   <Route path="fraud" element={<AdminFraud />} />
   <Route path="settings" element={<AdminSettings />} />
+  <Route path="campaign-approvals" element={<AdminCampaignApprovals />} />
 </Route>
         {/* Fallback */} 
         <Route path="*" element={<Navigate to="/" replace />} />
