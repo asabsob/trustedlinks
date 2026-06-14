@@ -56,6 +56,15 @@ router.post(
         });
       }
 
+      if (
+  campaign.status !== "active" ||
+  campaign.approval_status !== "approved"
+) {
+  return res.status(403).json({
+    error: "Campaign must be approved by admin before generating funding codes",
+  });
+}
+
       const code = generateCode(prefix);
 
       const { data: fundingCode, error } = await supabase
