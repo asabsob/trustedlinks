@@ -116,6 +116,18 @@ export default function AdminLayout() {
         label: t("Businesses", "الأنشطة التجارية"),
       },
       {
+  to: "/admin/campaign-approvals",
+  icon: CreditCard,
+  label: t(
+    "Campaign Approvals",
+    "موافقات الحملات"
+  ),
+  badge: t(
+    "Pending",
+    "معلق"
+  ),
+},
+      {
         to: "/admin/revenue",
         icon: CreditCard,
         label: t("Revenue", "الإيرادات"),
