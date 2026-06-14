@@ -11,42 +11,85 @@ export default function AdminCampaignApprovals() {
 
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (token) {
-      loadCampaigns();
-    } else {
-      setLoading(false);
-      setError("Admin token not found. Please login again.");
-    }
+    if (token) loadCampaigns();
   }, [token]);
+
+  const authHeaders = () => {
+    const cleanToken = String(token || "").replace(/^Bearer\s+/i, "");
+    return { Authorization: `Bearer ${cleanToken}` };
+  };
 
   async function loadCampaigns() {
     try {
       setLoading(true);
       setError("");
 
-      const cleanToken = String(token || "").replace(/^Bearer\s+/i, "");
-
       const res = await fetch(`${API_BASE}/api/admin/campaigns/pending`, {
         cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${cleanToken}`,
-        },
+        headers: authHeaders(),
       });
 
       const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to load pending campaigns");
-      }
+      if (!res.ok) throw new Error(data.error || "Failed to load campaigns");
 
       setCampaigns(data.campaigns || []);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function approveCampaign(id) {
+    if (!window.confirm("Approve this campaign?")) return;
+
+    try {
+      setActionLoading(id);
+
+      const res = await fetch(`${API_BASE}/api/admin/campaigns/${id}/approve`, {
+        method: "PATCH",
+        headers: authHeaders(),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to approve campaign");
+
+      await loadCampaigns();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setActionLoading("");
+    }
+  }
+
+  async function rejectCampaign(id) {
+    const reason = window.prompt("Reason for rejection?") || "";
+    if (!window.confirm("Reject this campaign?")) return;
+
+    try {
+      setActionLoading(id);
+
+      const res = await fetch(`${API_BASE}/api/admin/campaigns/${id}/reject`, {
+        method: "PATCH",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ reason }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to reject campaign");
+
+      await loadCampaigns();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setActionLoading("");
     }
   }
 
@@ -74,17 +117,42 @@ export default function AdminCampaignApprovals() {
                 <th className="text-left p-3">Campaign</th>
                 <th className="text-left p-3">Budget</th>
                 <th className="text-left p-3">Status</th>
+                <th className="text-left p-3">Actions</th>
               </tr>
             </thead>
 
             <tbody>
               {campaigns.map((campaign) => (
                 <tr key={campaign.id} className="border-b">
-                  <td className="p-3">{campaign.name}</td>
+                  <td className="p-3 font-semibold">{campaign.name}</td>
+
                   <td className="p-3">
                     {campaign.total_budget} {campaign.currency}
                   </td>
-                  <td className="p-3">{campaign.status}</td>
+
+                  <td className="p-3">
+                    <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-semibold">
+                      Pending Approval
+                    </span>
+                  </td>
+
+                  <td className="p-3 flex gap-2">
+                    <button
+                      onClick={() => approveCampaign(campaign.id)}
+                      disabled={actionLoading === campaign.id}
+                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-50"
+                    >
+                      Approve
+                    </button>
+
+                    <button
+                      onClick={() => rejectCampaign(campaign.id)}
+                      disabled={actionLoading === campaign.id}
+                      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-50"
+                    >
+                      Reject
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
