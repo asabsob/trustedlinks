@@ -71,17 +71,22 @@ export function requireAdmin(req, res, next) {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    if (!decoded?.id) {
-      return res.status(401).json({ error: "Invalid token payload" });
-    }
-
     if (decoded.role !== "admin") {
       return res.status(403).json({ error: "Admin access only" });
     }
 
-    req.adminId = decoded.id;
-    req.admin = decoded;
-    req.user = decoded;
+    const adminId = decoded.id || decoded.adminId || decoded.email;
+
+    if (!adminId) {
+      return res.status(401).json({ error: "Invalid token payload" });
+    }
+
+    req.adminId = adminId;
+    req.admin = {
+      ...decoded,
+      id: adminId,
+    };
+    req.user = req.admin;
 
     next();
   } catch (e) {
