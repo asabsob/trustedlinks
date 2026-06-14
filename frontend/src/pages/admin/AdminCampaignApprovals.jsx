@@ -6,11 +6,19 @@ const API_BASE =
   "https://trustedlinks-backend-production.up.railway.app";
 
 export default function AdminCampaignApprovals() {
-  const { token } = useAdminAuth();
-
+  const { token: contextToken } = useAdminAuth();
+const token = contextToken || localStorage.getItem("admintoken");
+  
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const res = await fetch(`${API_BASE}/api/admin/campaigns/pending`, {
+  cache: "no-store",
+  headers: {
+    Authorization: `Bearer ${cleanToken}`,
+  },
+});
 
   useEffect(() => {
     if (token) loadCampaigns();
