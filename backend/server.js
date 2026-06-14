@@ -40,6 +40,8 @@ import platformAnalyticsRoutes from "./routes/platformAnalyticsRoutes.js";
 
 import { operationErrorLogger } from "./middleware/operationLogger.js";
 
+import adminCampaignApprovalsRoutes from "./routes/adminCampaignApprovalsRoutes.js";
+
 dotenv.config();
 
 console.log("🚀 SERVER VERSION: TEST 1 - SAMEER");
@@ -242,6 +244,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/admin/fraud", adminFraudRoutes);
 app.use("/api/admin", adminReportsRoutes);
 
+app.use("/api/admin", adminCampaignApprovalsRoutes);
 app.use("/api/ai", adminAIRoutes);
 app.use("/api/ai", merchantAIRoutes);
 
