@@ -28,11 +28,11 @@ router.patch("/campaigns/:id/approve", requireAdmin, async (req, res) => {
     const { data, error } = await supabase
       .from("campaigns")
       .update({
-        status: "active",
-        approval_status: "approved",
-        approved_by: adminId,
-        approved_at: new Date().toISOString(),
-      })
+  status: "active",
+  approval_status: "approved",
+  approved_by: null,
+  approved_at: new Date().toISOString(),
+})
       .eq("id", req.params.id)
       .select("*")
       .single();
@@ -53,13 +53,13 @@ router.patch("/campaigns/:id/reject", requireAdmin, async (req, res) => {
 
     const { data, error } = await supabase
       .from("campaigns")
-      .update({
-        status: "rejected",
-        approval_status: "rejected",
-        rejected_by: adminId,
-        rejected_at: new Date().toISOString(),
-        rejection_reason: reason,
-      })
+     .update({
+  status: "rejected",
+  approval_status: "rejected",
+  rejected_by: null,
+  rejected_at: new Date().toISOString(),
+  rejection_reason: reason,
+})
       .eq("id", req.params.id)
       .select("*")
       .single();
