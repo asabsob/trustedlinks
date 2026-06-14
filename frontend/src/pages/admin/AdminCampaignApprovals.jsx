@@ -7,21 +7,19 @@ const API_BASE =
 
 export default function AdminCampaignApprovals() {
   const { token: contextToken } = useAdminAuth();
-const token = contextToken || localStorage.getItem("admintoken");
-  
+  const token = contextToken || localStorage.getItem("admintoken");
+
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const res = await fetch(`${API_BASE}/api/admin/campaigns/pending`, {
-  cache: "no-store",
-  headers: {
-    Authorization: `Bearer ${cleanToken}`,
-  },
-});
-
   useEffect(() => {
-    if (token) loadCampaigns();
+    if (token) {
+      loadCampaigns();
+    } else {
+      setLoading(false);
+      setError("Admin token not found. Please login again.");
+    }
   }, [token]);
 
   async function loadCampaigns() {
@@ -32,6 +30,7 @@ const token = contextToken || localStorage.getItem("admintoken");
       const cleanToken = String(token || "").replace(/^Bearer\s+/i, "");
 
       const res = await fetch(`${API_BASE}/api/admin/campaigns/pending`, {
+        cache: "no-store",
         headers: {
           Authorization: `Bearer ${cleanToken}`,
         },
@@ -63,7 +62,7 @@ const token = contextToken || localStorage.getItem("admintoken");
         </div>
       )}
 
-      {!loading && campaigns.length === 0 && (
+      {!loading && campaigns.length === 0 && !error && (
         <div className="text-gray-500">No pending campaigns.</div>
       )}
 
