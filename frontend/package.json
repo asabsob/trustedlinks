@@ -12,6 +12,7 @@
     "@headlessui/react": "^2.2.9",
     "@heroicons/react": "^2.2.0",
     "@react-spring/web": "^10.0.3",
+    "@sentry/react": "^10.58.0",
     "geolib": "^3.3.14",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.548.0",
