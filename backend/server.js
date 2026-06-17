@@ -9,6 +9,7 @@ import dotenv from "dotenv";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import morgan from "morgan";
+import * as Sentry from "@sentry/node";
 
 import opsRoutes from "./routes/ops.routes.js";
 import authRoutes from "./routes/auth.js";
@@ -44,6 +45,26 @@ import adminCampaignApprovalsRoutes from "./routes/adminCampaignApprovalsRoutes.
 
 dotenv.config();
 
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || "development",
+    release: process.env.npm_package_version || undefined,
+    tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
+    beforeSend(event) {
+      if (event.request) {
+        delete event.request.cookies;
+        delete event.request.headers?.authorization;
+        delete event.request.headers?.cookie;
+      }
+      return event;
+    },
+  });
+
+  console.log("✅ Sentry backend monitoring enabled");
+} else {
+  console.log("ℹ️ Sentry backend monitoring disabled: SENTRY_DSN not set");
+}
 console.log("🚀 SERVER VERSION: TEST 1 - SAMEER");
 console.log("🚀 SERVER VERSION: sponsorship-route-v1 loaded");
 
@@ -265,16 +286,27 @@ app.get("/api/debug/resend", (_req, res) => {
 
 process.on("uncaughtException", (err) => {
   console.error("UNCAUGHT_EXCEPTION:", err);
+  if (process.env.SENTRY_DSN) {
+    Sentry.captureException(err);
+  }
 });
 
 process.on("unhandledRejection", (reason) => {
   console.error("UNHANDLED_REJECTION:", reason);
+  if (process.env.SENTRY_DSN) {
+    Sentry.captureException(reason);
+  }
 });
 
 app.use(operationErrorLogger);
 
 app.use((err, _req, res, _next) => {
   console.error("UNHANDLED ERROR:", err);
+
+  if (process.env.SENTRY_DSN) {
+    Sentry.captureException(err);
+  }
+
   return res.status(500).json({ error: "Internal server error" });
 });
 
