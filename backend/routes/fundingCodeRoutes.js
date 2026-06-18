@@ -267,27 +267,55 @@ router.get("/claims/pending", requireCampaignManager, async (req, res) => {
   try {
     const ownerId = req.campaignOwner.ownerId;
 
-   const { data, error } = await supabase
-  .from("campaign_claims")
-  .select("*")
-  .eq("status", "pending_approval")
-  .order("created_at", { ascending: false });
-    
-    if (error) throw error;
+    const { data: campaigns, error: campaignsError } = await supabase
+      .from("campaigns")
+      .select("id, name")
+      .eq("owner_id", ownerId);
 
-    const claims = (data || []).filter(
-      (claim) => claim.campaigns?.owner_id === ownerId
-    );
+    if (campaignsError) throw campaignsError;
 
- return res.json({
-  ok: true,
-  claims: data || [],
-});
+    const campaignIds = (campaigns || []).map((c) => c.id);
+    const campaignMap = new Map((campaigns || []).map((c) => [c.id, c]));
+
+    if (!campaignIds.length) {
+      return res.json({ ok: true, claims: [] });
+    }
+
+    const { data: claims, error: claimsError } = await supabase
+      .from("campaign_claims")
+      .select("*")
+      .eq("status", "pending_approval")
+      .in("campaign_id", campaignIds)
+      .order("created_at", { ascending: false });
+
+    if (claimsError) throw claimsError;
+
+    const businessIds = [...new Set((claims || []).map((c) => c.business_id))];
+
+    const { data: businesses } = businessIds.length
+      ? await supabase
+          .from("businesses")
+          .select("id, name, name_ar")
+          .in("id", businessIds)
+      : { data: [] };
+
+    const businessMap = new Map((businesses || []).map((b) => [b.id, b]));
+
+    const enrichedClaims = (claims || []).map((claim) => ({
+      ...claim,
+      campaign: campaignMap.get(claim.campaign_id) || null,
+      business: businessMap.get(claim.business_id) || null,
+    }));
+
+    return res.json({
+      ok: true,
+      claims: enrichedClaims,
+    });
   } catch (err) {
-   console.error(
-  "LIST PENDING FUNDING CLAIMS ERROR:",
-  JSON.stringify(err, null, 2)
-);
+    console.error(
+      "LIST PENDING FUNDING CLAIMS ERROR:",
+      JSON.stringify(err, null, 2)
+    );
     return res.status(500).json({
       error: "Failed to load pending claims",
     });
@@ -304,41 +332,46 @@ router.post("/claims/:id/approve", requireCampaignManager, async (req, res) => {
 
     const { data: claim, error: claimError } = await supabase
       .from("campaign_claims")
-      .select(`
-        *,
-        campaigns(id, owner_id),
-        funding_codes(id, used_claims, max_claims)
-      `)
+      .select("*")
       .eq("id", claimId)
       .maybeSingle();
 
     if (claimError) throw claimError;
 
     if (!claim) {
-      return res.status(404).json({
-        error: "Claim not found",
-      });
-    }
-
-    if (claim.campaigns?.owner_id !== ownerId) {
-      return res.status(403).json({
-        error: "Not allowed to approve this claim",
-      });
+      return res.status(404).json({ error: "Claim not found" });
     }
 
     if (claim.status !== "pending_approval") {
-      return res.status(400).json({
-        error: "Claim is not pending approval",
-      });
+      return res.status(400).json({ error: "Claim is not pending approval" });
     }
 
-    if (
-      Number(claim.funding_codes?.used_claims || 0) >=
-      Number(claim.funding_codes?.max_claims || 0)
-    ) {
-      return res.status(400).json({
-        error: "Funding code limit reached",
-      });
+    const { data: campaign, error: campaignError } = await supabase
+      .from("campaigns")
+      .select("id, owner_id")
+      .eq("id", claim.campaign_id)
+      .maybeSingle();
+
+    if (campaignError) throw campaignError;
+
+    if (!campaign || campaign.owner_id !== ownerId) {
+      return res.status(403).json({ error: "Not allowed to approve this claim" });
+    }
+
+    const { data: fundingCode, error: codeError } = await supabase
+      .from("funding_codes")
+      .select("id, used_claims, max_claims")
+      .eq("id", claim.funding_code_id)
+      .maybeSingle();
+
+    if (codeError) throw codeError;
+
+    if (!fundingCode) {
+      return res.status(404).json({ error: "Funding code not found" });
+    }
+
+    if (Number(fundingCode.used_claims || 0) >= Number(fundingCode.max_claims || 0)) {
+      return res.status(400).json({ error: "Funding code limit reached" });
     }
 
     const { data: business, error: businessError } = await supabase
@@ -350,14 +383,11 @@ router.post("/claims/:id/approve", requireCampaignManager, async (req, res) => {
     if (businessError) throw businessError;
 
     if (!business) {
-      return res.status(404).json({
-        error: "Business not found",
-      });
+      return res.status(404).json({ error: "Business not found" });
     }
 
     const newSponsoredBalance =
-      Number(business.sponsored_balance || 0) +
-      Number(claim.claimed_amount || 0);
+      Number(business.sponsored_balance || 0) + Number(claim.claimed_amount || 0);
 
     const { error: businessUpdateError } = await supabase
       .from("businesses")
@@ -369,7 +399,7 @@ router.post("/claims/:id/approve", requireCampaignManager, async (req, res) => {
 
     if (businessUpdateError) throw businessUpdateError;
 
-    const { error: claimUpdateError } = await supabase
+    const { data: updatedClaim, error: claimUpdateError } = await supabase
       .from("campaign_claims")
       .update({
         status: "approved",
@@ -377,14 +407,20 @@ router.post("/claims/:id/approve", requireCampaignManager, async (req, res) => {
         updated_at: new Date().toISOString(),
       })
       .eq("id", claim.id)
-      .eq("status", "pending_approval");
+      .eq("status", "pending_approval")
+      .select("*")
+      .maybeSingle();
 
     if (claimUpdateError) throw claimUpdateError;
+
+    if (!updatedClaim) {
+      return res.status(409).json({ error: "Claim was already processed" });
+    }
 
     const { error: codeUpdateError } = await supabase
       .from("funding_codes")
       .update({
-        used_claims: Number(claim.funding_codes?.used_claims || 0) + 1,
+        used_claims: Number(fundingCode.used_claims || 0) + 1,
       })
       .eq("id", claim.funding_code_id);
 
@@ -397,13 +433,12 @@ router.post("/claims/:id/approve", requireCampaignManager, async (req, res) => {
       balance: newSponsoredBalance,
     });
   } catch (err) {
-    console.error("APPROVE FUNDING CLAIM ERROR:", err);
+    console.error("APPROVE FUNDING CLAIM ERROR:", JSON.stringify(err, null, 2));
     return res.status(500).json({
       error: "Failed to approve funding claim",
     });
   }
 });
-
 // =====================================
 // REJECT FUNDING CLAIM
 // =====================================
@@ -415,34 +450,33 @@ router.post("/claims/:id/reject", requireCampaignManager, async (req, res) => {
 
     const { data: claim, error: claimError } = await supabase
       .from("campaign_claims")
-      .select(`
-        *,
-        campaigns(id, owner_id)
-      `)
+      .select("*")
       .eq("id", claimId)
       .maybeSingle();
 
     if (claimError) throw claimError;
 
     if (!claim) {
-      return res.status(404).json({
-        error: "Claim not found",
-      });
-    }
-
-    if (claim.campaigns?.owner_id !== ownerId) {
-      return res.status(403).json({
-        error: "Not allowed to reject this claim",
-      });
+      return res.status(404).json({ error: "Claim not found" });
     }
 
     if (claim.status !== "pending_approval") {
-      return res.status(400).json({
-        error: "Claim is not pending approval",
-      });
+      return res.status(400).json({ error: "Claim is not pending approval" });
     }
 
-    const { error: updateError } = await supabase
+    const { data: campaign, error: campaignError } = await supabase
+      .from("campaigns")
+      .select("id, owner_id")
+      .eq("id", claim.campaign_id)
+      .maybeSingle();
+
+    if (campaignError) throw campaignError;
+
+    if (!campaign || campaign.owner_id !== ownerId) {
+      return res.status(403).json({ error: "Not allowed to reject this claim" });
+    }
+
+    const { data: updatedClaim, error: updateError } = await supabase
       .from("campaign_claims")
       .update({
         status: "rejected",
@@ -451,20 +485,25 @@ router.post("/claims/:id/reject", requireCampaignManager, async (req, res) => {
         updated_at: new Date().toISOString(),
       })
       .eq("id", claim.id)
-      .eq("status", "pending_approval");
+      .eq("status", "pending_approval")
+      .select("*")
+      .maybeSingle();
 
     if (updateError) throw updateError;
+
+    if (!updatedClaim) {
+      return res.status(409).json({ error: "Claim was already processed" });
+    }
 
     return res.json({
       ok: true,
       message: "Funding claim rejected",
     });
   } catch (err) {
-    console.error("REJECT FUNDING CLAIM ERROR:", err);
+    console.error("REJECT FUNDING CLAIM ERROR:", JSON.stringify(err, null, 2));
     return res.status(500).json({
       error: "Failed to reject funding claim",
     });
   }
 });
-
 export default router;
