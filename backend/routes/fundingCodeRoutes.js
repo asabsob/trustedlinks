@@ -506,4 +506,45 @@ router.post("/claims/:id/reject", requireCampaignManager, async (req, res) => {
     });
   }
 });
+
+router.get("/my-pending", requireUser, async (req, res) => {
+  try {
+    const { data: business, error: businessError } = await supabase
+      .from("businesses")
+      .select("id")
+      .eq("owner_user_id", req.user.id)
+      .maybeSingle();
+
+    if (businessError) throw businessError;
+
+    if (!business) {
+      return res.status(404).json({
+        error: "Business not found",
+      });
+    }
+
+    const { data: claim, error: claimError } = await supabase
+      .from("campaign_claims")
+      .select("*")
+      .eq("business_id", business.id)
+      .eq("status", "pending_approval")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (claimError) throw claimError;
+
+    return res.json({
+      ok: true,
+      claim: claim || null,
+    });
+  } catch (err) {
+    console.error("GET MY PENDING CLAIM ERROR:", err);
+
+    return res.status(500).json({
+      error: "Failed to load pending funding request",
+    });
+  }
+});
+
 export default router;
