@@ -474,8 +474,8 @@ async function rejectClaim(id) {
               {formatDate(claim.created_at)}
             </td>
 
-            <td>
-  {claim.campaigns?.name || "-"}
+      <td>
+  {claim.campaigns?.title || "-"}
 </td>
             
             <td className="flex gap-2">
