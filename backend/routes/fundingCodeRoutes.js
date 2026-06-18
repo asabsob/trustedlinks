@@ -272,7 +272,7 @@ router.get("/claims/pending", requireCampaignManager, async (req, res) => {
       .select(`
         *,
         businesses(id, name, name_ar),
-        campaigns(id, owner_id, title)
+        campaigns(id, owner_id)
       `)
       .eq("status", "pending_approval")
       .order("created_at", { ascending: false });
