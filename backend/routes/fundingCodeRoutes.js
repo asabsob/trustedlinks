@@ -226,56 +226,31 @@ const { data: fundingCode, error: fundingCodeError } = await supabase
       });
     }
 
-    const currentSponsoredBalance = Number(
-      business.sponsored_balance || 0
-    );
-
-    const newBalance =
-      currentSponsoredBalance +
-      Number(fundingCode.credit_amount || 0);
-
     // update business
-    const { error: businessUpdateError } = await supabase
-      .from("businesses")
-      .update({
-        sponsored_balance: newBalance,
-        sponsored_status: "active",
-      })
-      .eq("id", business.id);
-
-    if (businessUpdateError) throw businessUpdateError;
-
-    // insert claim
-    const { error: claimInsertError } = await supabase
+      const { data: pendingClaim, error: claimInsertError } = await supabase
       .from("campaign_claims")
-     .insert({
-  funding_code_id: fundingCode.id,
-  campaign_id: fundingCode.campaign_id,
-  business_id: business.id,
-  code: fundingCode.code,
-  claimed_amount: fundingCode.credit_amount,
-  status: "active",
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-});
+      .insert({
+        funding_code_id: fundingCode.id,
+        campaign_id: fundingCode.campaign_id,
+        business_id: business.id,
+        code: fundingCode.code,
+        claimed_amount: fundingCode.credit_amount,
+        status: "pending_approval",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select("*")
+      .single();
+
     if (claimInsertError) throw claimInsertError;
 
-    // update code usage
-    const { error: usageError } = await supabase
-      .from("funding_codes")
-      .update({
-        used_claims: Number(fundingCode.used_claims || 0) + 1,
-      })
-      .eq("id", fundingCode.id);
-
-    if (usageError) throw usageError;
-
-    return res.json({
+    return res.status(202).json({
       ok: true,
-      message: "Funding code claimed successfully",
-      amount: fundingCode.credit_amount,
-      balance: newBalance,
+      status: "pending_approval",
+      message: "Funding code request submitted and is pending funder approval",
+      claim: pendingClaim,
     });
+
   } catch (err) {
     console.error("CLAIM FUNDING CODE ERROR:", err);
 
