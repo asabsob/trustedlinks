@@ -14,6 +14,8 @@ export default function CampaignFundingCodes({ lang = "en" }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  const [pendingClaims, setPendingClaims] = useState([]);
+  
   const [form, setForm] = useState({
     campaignId: "",
     prefix: "",
@@ -52,7 +54,19 @@ export default function CampaignFundingCodes({ lang = "en" }) {
       if (!codesRes.ok) {
         throw new Error(codesData.error || "Failed to load funding codes");
       }
+const pendingRes = await fetch(
+  `${API_BASE}/api/campaign/funding-codes/claims/pending`,
+  { headers }
+);
 
+      if (pendingRes.ok) {
+  const pendingData = await pendingRes.json();
+  setPendingClaims(pendingData.claims || []);
+}
+
+if (pendingRes.ok) {
+  setPendingClaims(pendingData.claims || []);
+}
       const loadedCampaigns = campaignsData.campaigns || [];
 
       setCampaigns(loadedCampaigns);
@@ -70,7 +84,49 @@ export default function CampaignFundingCodes({ lang = "en" }) {
       setLoading(false);
     }
   }
+async function approveClaim(id) {
+  const res = await fetch(
+    `${API_BASE}/api/campaign/funding-codes/claims/${id}/approve`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
 
+  const data = await res.json();
+
+  if (!res.ok) {
+    setError(data.error || "Approval failed");
+    return;
+  }
+
+  setSuccess("Funding request approved");
+  loadData();
+}
+
+async function rejectClaim(id) {
+  const res = await fetch(
+    `${API_BASE}/api/campaign/funding-codes/claims/${id}/reject`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    setError(data.error || "Rejection failed");
+    return;
+  }
+
+  setSuccess("Funding request rejected");
+  loadData();
+}
   async function generateCode(e) {
     e.preventDefault();
 
@@ -165,6 +221,8 @@ export default function CampaignFundingCodes({ lang = "en" }) {
       return "-";
     }
   }
+
+  
 
   function statusLabel(status) {
     if (status === "active") return t("Active", "نشط");
@@ -381,6 +439,71 @@ export default function CampaignFundingCodes({ lang = "en" }) {
         </form>
       </section>
 
+      <section className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 mb-8">
+  <h2 className="text-xl font-bold mb-4">
+    Pending Funding Requests
+  </h2>
+
+  {pendingClaims.length === 0 ? (
+    <div className="text-slate-500">
+      No pending requests
+    </div>
+  ) : (
+    <table className="w-full">
+      <thead>
+        <tr>
+          <th>Business</th>
+          <th>Code</th>
+          <th>Amount</th>
+          <th>Requested</th>
+          <th>Actions</th>
+          <th>Campaign</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {pendingClaims.map((claim) => (
+          <tr key={claim.id}>
+            <td>
+              {claim.businesses?.name ||
+               claim.businesses?.name_ar ||
+               "-"}
+            </td>
+
+            <td>{claim.code}</td>
+
+            <td>{claim.claimed_amount}</td>
+
+            <td>
+              {formatDate(claim.created_at)}
+            </td>
+
+            <td>
+  {claim.campaigns?.name || "-"}
+</td>
+            
+            <td className="flex gap-2">
+              <button
+                onClick={() => approveClaim(claim.id)}
+                className="bg-green-600 text-white px-3 py-1 rounded"
+              >
+                Approve
+              </button>
+
+              <button
+                onClick={() => rejectClaim(claim.id)}
+                className="bg-red-600 text-white px-3 py-1 rounded"
+              >
+                Reject
+              </button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )}
+</section>
+      
       <section className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6">
         <div className="mb-5">
           <h2 className="text-xl font-bold">
