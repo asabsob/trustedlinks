@@ -63,10 +63,6 @@ const pendingRes = await fetch(
   const pendingData = await pendingRes.json();
   setPendingClaims(pendingData.claims || []);
 }
-
-if (pendingRes.ok) {
-  setPendingClaims(pendingData.claims || []);
-}
       const loadedCampaigns = campaignsData.campaigns || [];
 
       setCampaigns(loadedCampaigns);
@@ -456,8 +452,8 @@ async function rejectClaim(id) {
           <th>Code</th>
           <th>Amount</th>
           <th>Requested</th>
-          <th>Actions</th>
           <th>Campaign</th>
+          
         </tr>
       </thead>
 
