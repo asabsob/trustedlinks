@@ -461,9 +461,7 @@ async function rejectClaim(id) {
         {pendingClaims.map((claim) => (
           <tr key={claim.id}>
             <td>
-              {claim.businesses?.name ||
-               claim.businesses?.name_ar ||
-               "-"}
+              {claim.business?.name || claim.business?.name_ar || claim.business_id || "-"}
             </td>
 
             <td>{claim.code}</td>
@@ -474,7 +472,7 @@ async function rejectClaim(id) {
               {formatDate(claim.created_at)}
             </td>
 
-    <td>{claim.campaign_id || "-"}</td>
+    <td>{claim.campaign?.name || claim.campaign_id || "-"}</td>
             
             <td className="flex gap-2">
               <button
