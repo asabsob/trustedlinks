@@ -446,16 +446,16 @@ async function rejectClaim(id) {
     </div>
   ) : (
     <table className="w-full">
-      <thead>
-        <tr>
-          <th>Business</th>
-          <th>Code</th>
-          <th>Amount</th>
-          <th>Requested</th>
-          <th>Campaign</th>
-          
-        </tr>
-      </thead>
+     <thead>
+  <tr>
+    <th>Business</th>
+    <th>Code</th>
+    <th>Amount</th>
+    <th>Requested</th>
+    <th>Campaign</th>
+    <th>Actions</th>
+  </tr>
+</thead>
 
       <tbody>
         {pendingClaims.map((claim) => (
