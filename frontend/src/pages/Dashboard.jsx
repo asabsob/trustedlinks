@@ -394,7 +394,7 @@ function WalletCard({ isAr, walletText, walletStatus, onRecharge }) {
     <div style={walletCard}>
       <div>
         <div style={walletLabel}>
-          {isAr ? "رصيد المحفظة" : "Wallet Balance"}
+          {isAr ? "الرصيد المتاح" : "Available Balance"}
         </div>
 
         <div
