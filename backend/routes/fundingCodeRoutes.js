@@ -267,28 +267,27 @@ router.get("/claims/pending", requireCampaignManager, async (req, res) => {
   try {
     const ownerId = req.campaignOwner.ownerId;
 
-    const { data, error } = await supabase
-      .from("campaign_claims")
-      .select(`
-        *,
-        businesses(id, name, name_ar),
-        campaigns(id, owner_id)
-      `)
-      .eq("status", "pending_approval")
-      .order("created_at", { ascending: false });
-
+   const { data, error } = await supabase
+  .from("campaign_claims")
+  .select("*")
+  .eq("status", "pending_approval")
+  .order("created_at", { ascending: false });
+    
     if (error) throw error;
 
     const claims = (data || []).filter(
       (claim) => claim.campaigns?.owner_id === ownerId
     );
 
-    return res.json({
-      ok: true,
-      claims,
-    });
+ return res.json({
+  ok: true,
+  claims: data || [],
+});
   } catch (err) {
-    console.error("LIST PENDING FUNDING CLAIMS ERROR:", err);
+   console.error(
+  "LIST PENDING FUNDING CLAIMS ERROR:",
+  JSON.stringify(err, null, 2)
+);
     return res.status(500).json({
       error: "Failed to load pending claims",
     });
