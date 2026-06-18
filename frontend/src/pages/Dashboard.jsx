@@ -67,6 +67,23 @@ export default function Dashboard({ lang = "en" }) {
         if (bizRes.ok && bizData?.id) {
           localStorage.setItem("businessId", bizData.id);
         }
+
+        try {
+  const pendingRes = await fetch(
+    `${API_BASE}/api/campaign/funding-codes/my-pending`,
+    {
+      cache: "no-store",
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+
+  if (pendingRes.ok) {
+    const pendingData = await pendingRes.json();
+    setPendingFunding(pendingData.claim || null);
+  }
+} catch (err) {
+  console.error("Failed loading pending funding", err);
+}
       } catch (e) {
         if (cancelled) return;
         console.error("Dashboard load error:", e);
@@ -259,6 +276,24 @@ return (
         />
       </section>
     )}
+
+    {pendingFunding && (
+  <div style={pendingFundingCard}>
+    <div style={{ fontWeight: 900 }}>
+      ⏳ {isAr ? "بانتظار الموافقة" : "Pending Approval"}
+    </div>
+
+    <div style={{ marginTop: 8 }}>
+      {isAr
+        ? "تم إرسال طلب التمويل وهو بانتظار موافقة الممول."
+        : "Your funding request is waiting for sponsor approval."}
+    </div>
+
+    <div style={{ marginTop: 8, fontWeight: 800 }}>
+      {pendingFunding.claimed_amount} {currency}
+    </div>
+  </div>
+)}
 
     {/* 3. AI Assistant */}
     <section style={aiSection}>
@@ -865,4 +900,13 @@ const linkStyle = {
   color: "#16a34a",
   fontWeight: 800,
   textDecoration: "none",
+};
+
+const pendingFundingCard = {
+  background: "#fff7ed",
+  border: "1px solid #fdba74",
+  borderRadius: 16,
+  padding: 16,
+  marginBottom: 16,
+  color: "#9a3412",
 };
