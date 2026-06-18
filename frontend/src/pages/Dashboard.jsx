@@ -22,6 +22,8 @@ export default function Dashboard({ lang = "en" }) {
   const [claimLoading, setClaimLoading] = useState(false);
   const [claimMessage, setClaimMessage] = useState("");
 
+  const [pendingFunding, setPendingFunding] = useState(null);
+  
   useEffect(() => {
     const token = localStorage.getItem("token");
 
@@ -155,28 +157,41 @@ export default function Dashboard({ lang = "en" }) {
 
       const data = await res.json();
 
-      if (!res.ok) {
-        setClaimMessage(
-          data.error ||
-            (isAr ? "تعذر تفعيل الرصيد الترويجي" : "Unable to claim sponsorship")
-        );
-        return;
-      }
+     if (!res.ok) {
+  setClaimMessage(
+    data.error ||
+      (isAr
+        ? "تعذر إرسال طلب التمويل"
+        : "Unable to submit funding request")
+  );
+  return;
+}
 
-      setClaimMessage(
-        isAr
-          ? `تم تفعيل الرصيد بنجاح: ${data.amount || ""} ${currency}`
-          : `Sponsorship credit activated: ${data.amount || ""} ${currency}`
-      );
+if (data.status === "pending_approval") {
+  setClaimMessage(
+    isAr
+      ? "⏳ تم إرسال طلب التمويل وهو بانتظار موافقة الممول"
+      : "⏳ Funding request submitted and awaiting sponsor approval"
+  );
 
-      setCampaignCode("");
-      window.location.reload();
-    } catch {
-      setClaimMessage(isAr ? "حدث خطأ غير متوقع" : "Something went wrong");
-    } finally {
-      setClaimLoading(false);
-    }
-  }
+  setCampaignCode("");
+  return;
+}
+
+setClaimMessage(
+  isAr
+    ? `تم تفعيل الرصيد بنجاح: ${data.amount || ""} ${currency}`
+    : `Sponsorship credit activated: ${data.amount || ""} ${currency}`
+);
+
+setCampaignCode("");
+window.location.reload();
+} catch {
+  setClaimMessage(isAr ? "حدث خطأ غير متوقع" : "Something went wrong");
+} finally {
+  setClaimLoading(false);
+}
+}
 
   if (loading) {
     return (
