@@ -263,6 +263,42 @@ return (
       />
     </section>
 
+    <div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(3, 1fr)",
+    gap: 12,
+    marginTop: 16,
+  }}
+>
+  <div style={statCard}>
+    <div style={{ fontSize: 12, opacity: 0.7 }}>
+      {isAr ? "الرصيد الممول" : "Sponsored Balance"}
+    </div>
+    <div style={{ fontSize: 24, fontWeight: 700 }}>
+      {sponsoredBalance} {currency}
+    </div>
+  </div>
+
+  <div style={statCard}>
+    <div style={{ fontSize: 12, opacity: 0.7 }}>
+      {isAr ? "الرصيد المدفوع" : "Paid Balance"}
+    </div>
+    <div style={{ fontSize: 24, fontWeight: 700 }}>
+      {paidBalance} {currency}
+    </div>
+  </div>
+
+  <div style={statCard}>
+    <div style={{ fontSize: 12, opacity: 0.7 }}>
+      {isAr ? "إجمالي الرصيد" : "Total Balance"}
+    </div>
+    <div style={{ fontSize: 24, fontWeight: 700 }}>
+      {totalBalance} {currency}
+    </div>
+  </div>
+</div>
+
     {/* 2. Sponsorship */}
     {showSponsorshipCard && (
       <section style={{ marginBottom: 18 }}>
