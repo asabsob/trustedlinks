@@ -14,11 +14,15 @@ router.get("/", async (req, res) => {
       lang: String(lang || "ar").trim(),
     });
 
-    console.log("SEARCH_PERFORMANCE", {
-      query,
-      durationMs: Date.now() - started,
-      resultCount: searchData?.results?.length || 0,
-    });
+   const durationMs = Date.now() - started;
+
+if (durationMs > 1000) {
+  console.log("SLOW_SEARCH", {
+    query,
+    durationMs,
+    resultCount: searchData?.results?.length || 0,
+  });
+}
 
     return res.json(searchData);
   } catch (e) {
