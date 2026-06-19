@@ -220,7 +220,9 @@ const searchLimiter = rateLimit({
   message: { error: "Too many search requests" },
 });
 
+app.use("/api/search", (req, res, next) => next());
 app.use("/api", apiLimiter);
+
 
 app.use("/", opsRoutes);
 
