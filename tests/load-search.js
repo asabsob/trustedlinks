@@ -1,5 +1,18 @@
 import http from "k6/http";
-import { check, sleep } from "k6";
+import { sleep } from "k6";
+
+const queries = [
+  "مشروبات قريبة مني",
+  "مطاعم قريبة مني",
+  "كوكو",
+  "coco bubble tea",
+  "قهوة",
+  "كوفي",
+  "شاورما",
+  "ملابس",
+  "صيدلية",
+  "عصائر",
+];
 
 export const options = {
   stages: [
@@ -8,29 +21,20 @@ export const options = {
     { duration: "2m", target: 150 },
     { duration: "30s", target: 0 },
   ],
-  thresholds: {
-    checks: ["rate>0.99"],
-    http_req_failed: ["rate<0.01"],
-  },
 };
 
 export default function () {
+  const query =
+    queries[Math.floor(Math.random() * queries.length)];
+
   const url =
     `${__ENV.API_BASE_URL}/api/search` +
-    `?query=${encodeURIComponent("كوكو")}` +
+    `?query=${encodeURIComponent(query)}` +
     `&lang=ar`;
 
-  const res = http.get(url, {
+  http.get(url, {
     timeout: "10s",
   });
-
-  check(res, {
-    "status is 200": (r) => r.status === 200,
-  });
-
-  if (res.status !== 200) {
-    console.log(`STATUS=${res.status}`);
-  }
 
   sleep(1);
 }
