@@ -1,5 +1,5 @@
 import http from "k6/http";
-import { sleep } from "k6";
+import { check, sleep } from "k6";
 
 const queries = [
   "مشروبات قريبة مني",
@@ -16,11 +16,16 @@ const queries = [
 
 export const options = {
   stages: [
-    { duration: "30s", target: 20 },
-    { duration: "30s", target: 150 },
-    { duration: "2m", target: 150 },
-    { duration: "30s", target: 0 },
+    { duration: "5m", target: 100 },
+    { duration: "30m", target: 100 },
+    { duration: "5m", target: 0 },
   ],
+
+  thresholds: {
+    checks: ["rate>0.99"],
+    http_req_failed: ["rate<0.01"],
+    http_req_duration: ["p(95)<2000"],
+  },
 };
 
 export default function () {
@@ -32,9 +37,17 @@ export default function () {
     `?query=${encodeURIComponent(query)}` +
     `&lang=ar`;
 
-  http.get(url, {
+  const res = http.get(url, {
     timeout: "10s",
   });
+
+  check(res, {
+    "status is 200": (r) => r.status === 200,
+  });
+
+  if (res.status !== 200) {
+    console.log(`FAILED status=${res.status} query=${query}`);
+  }
 
   sleep(1);
 }
