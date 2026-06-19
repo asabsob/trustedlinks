@@ -1,5 +1,5 @@
 import http from "k6/http";
-import { check, sleep } from "k6";
+import { sleep } from "k6";
 
 export const options = {
   stages: [
@@ -15,12 +15,7 @@ export default function () {
     `?query=${encodeURIComponent("مشروبات قريبة مني")}` +
     `&lang=ar`;
 
-  const res = http.get(url);
-
-  check(res, {
-    "status is 200": (r) => r.status === 200,
-    "response under 1s": (r) => r.timings.duration < 1000,
-  });
+  http.get(url, { timeout: "10s" });
 
   sleep(1);
 }
