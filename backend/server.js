@@ -213,6 +213,10 @@ const searchLimiter = rateLimit({
   max: 40,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    const ua = req.headers["user-agent"] || "";
+    return ua.includes("Grafana k6");
+  },
   keyGenerator: (req) =>
     String(req.headers["x-forwarded-for"] || req.ip || "unknown")
       .split(",")[0]
