@@ -16,10 +16,19 @@ export default function () {
     `?query=${encodeURIComponent("مشروبات قريبة مني")}` +
     `&lang=ar`;
 
-  const res = http.get(url, { timeout: "10s" });
+  const res = http.get(url, {
+    timeout: "10s",
+    redirects: 0,
+  });
 
   if (res.status !== 200) {
-    console.log(`FAILED status=${res.status} body=${String(res.body).slice(0, 200)}`);
+    console.log(
+      `FAILED status=${res.status} body=${String(res.body).slice(0, 200)}`
+    );
+  }
+
+  if (res.status >= 300) {
+    console.log(`STATUS=${res.status}`);
   }
 
   sleep(1);
