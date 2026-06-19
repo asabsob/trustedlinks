@@ -17,7 +17,7 @@ export const options = {
 export default function () {
   const url =
     `${__ENV.API_BASE_URL}/api/search` +
-    `?query=${encodeURIComponent("مشروبات قريبة مني")}` +
+    `?query=${encodeURIComponent("كوكو")}` +
     `&lang=ar`;
 
   const res = http.get(url, {
