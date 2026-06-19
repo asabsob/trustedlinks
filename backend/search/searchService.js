@@ -242,11 +242,25 @@ export async function searchBusinesses({
   const terms = expandTerms(effectiveQuery || "");
   const regexList = buildRegexList(terms);
 
+const DEBUG_SEARCH = process.env.DEBUG_SEARCH === "true";
+
+if (DEBUG_SEARCH) {
   console.log("SEARCH_TERMS_DEBUG", {
-  safeQuery,
-  effectiveQuery,
-  terms,
-});
+    safeQuery,
+    effectiveQuery,
+    terms,
+  });
+}
+
+if (DEBUG_SEARCH) {
+  console.log(
+    "SEARCH_TOP_RESULTS",
+    matched.slice(0, 10).map((r) => ({
+      name: r.name,
+      score: r._matchScore,
+    }))
+  );
+}
 
  const businesses = await listActiveBusinesses();
 
@@ -289,13 +303,25 @@ if (matched.length > 1) {
   }
 }
 
-console.log(
-  "SEARCH_TOP_RESULTS",
-  matched.slice(0,10).map(r => ({
-    name: r.name,
-    score: r._matchScore
-  }))
-);
+const DEBUG_SEARCH = process.env.DEBUG_SEARCH === "true";
+
+if (DEBUG_SEARCH) {
+  console.log("SEARCH_TERMS_DEBUG", {
+    safeQuery,
+    effectiveQuery,
+    terms,
+  });
+}
+
+if (DEBUG_SEARCH) {
+  console.log(
+    "SEARCH_TOP_RESULTS",
+    matched.slice(0, 10).map((r) => ({
+      name: r.name,
+      score: r._matchScore,
+    }))
+  );
+}
 
   const needsRefinement =
     !refinementAnswers &&
