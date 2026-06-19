@@ -16,7 +16,11 @@ export default function () {
     `?query=${encodeURIComponent("مشروبات قريبة مني")}` +
     `&lang=ar`;
 
-  http.get(url, { timeout: "10s" });
+  const res = http.get(url, { timeout: "10s" });
+
+  if (res.status !== 200) {
+    console.log(`FAILED status=${res.status}`);
+  }
 
   sleep(1);
 }
