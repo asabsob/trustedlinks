@@ -4,6 +4,8 @@ import { listActiveBusinesses } from "../services/pg/businesses.js";
 import { calculateBusinessScore } from "./searchScoring.js";
 import { expandTerms, isGreetingQuery } from "./synonyms.js";
 
+const DEBUG_SEARCH = process.env.DEBUG_SEARCH === "true";
+
 const RESULT_LIMITS = {
   brand: 3,
   category: 8,
@@ -41,17 +43,13 @@ function getBusinessFields(item) {
     item?.name_ar || "",
     item?.description || "",
     item?.description_ar || "",
-
     ...toArray(item?.keywords),
     ...toArray(item?.keywords_ar),
-
     ...toArray(item?.category),
     ...toArray(item?.category_ar),
-
     item?.business_type || "",
     item?.activity || "",
     item?.sector || "",
-
     item?.locationText || "",
     item?.location_text || "",
     item?.city || "",
@@ -78,17 +76,10 @@ function matchesBusiness(item, regexList, query = "") {
   return words.some((word) => fullText.includes(word));
 }
 
-function shouldAskRefinement({
-  intent = "category",
-  query = "",
-  results = [],
-}) {
-  if (!results || results.length === 0) {
-    return false;
-  }
+function shouldAskRefinement({ intent = "category", query = "", results = [] }) {
+  if (!results || results.length === 0) return false;
 
-  const normalizedQuery =
-    normalizeSearchText(query);
+  const normalizedQuery = normalizeSearchText(query);
 
   const wordCount = normalizedQuery
     .split(/\s+/)
@@ -96,40 +87,25 @@ function shouldAskRefinement({
 
   const resultCount = results.length;
 
-  // Small result sets should NEVER ask refinement
-  if (resultCount <= 3) {
-    return false;
-  }
+  if (resultCount <= 3) return false;
 
-  // Brand searches rarely need refinement
   if (intent === "brand") {
     return resultCount > 6;
   }
 
-  // Category logic
   if (intent === "category") {
-    if (wordCount <= 1 && resultCount >= 6) {
-      return true;
-    }
-
-    if (resultCount >= 10) {
-      return true;
-    }
-
+    if (wordCount <= 1 && resultCount >= 6) return true;
+    if (resultCount >= 10) return true;
     return false;
   }
 
-  // Discovery searches
   if (intent === "discovery") {
-    if (resultCount >= 8) {
-      return true;
-    }
-
-    return false;
+    return resultCount >= 8;
   }
 
   return false;
 }
+
 function getRefinementQuestions(lang = "ar") {
   return [
     {
@@ -189,14 +165,18 @@ function applyRefinementAnswers(results = [], refinementAnswers = {}) {
 
   if (priority) {
     if (priority.includes("budget") || priority.includes("اقتصادي")) {
-      filtered = filtered.sort((a, b) => Number(a._matchScore || 0) - Number(b._matchScore || 0));
+      filtered = filtered.sort(
+        (a, b) => Number(a._matchScore || 0) - Number(b._matchScore || 0)
+      );
     } else if (
       priority.includes("top") ||
       priority.includes("best") ||
       priority.includes("تقييم") ||
       priority.includes("افضل")
     ) {
-      filtered = filtered.sort((a, b) => Number(b._matchScore || 0) - Number(a._matchScore || 0));
+      filtered = filtered.sort(
+        (a, b) => Number(b._matchScore || 0) - Number(a._matchScore || 0)
+      );
     }
   }
 
@@ -210,28 +190,29 @@ export async function searchBusinesses({
   isNearby = false,
   refinementAnswers = null,
 }) {
-
   const safeQuery = String(query || "").trim();
+
   if (isGreetingQuery(safeQuery)) {
-  return {
-    ok: true,
-    mode: "greeting",
-    query: safeQuery,
-    effectiveQuery: "",
-    intent: "greeting",
-    intentMeta: {
+    return {
+      ok: true,
+      mode: "greeting",
+      query: safeQuery,
+      effectiveQuery: "",
       intent: "greeting",
-      confidence: 0.95,
-      reason: "greeting_detected",
-    },
-    totalMatched: 0,
-    results: [],
-    refinement: {
-      enabled: false,
-      answers: null,
-    },
-  };
-}
+      intentMeta: {
+        intent: "greeting",
+        confidence: 0.95,
+        reason: "greeting_detected",
+      },
+      totalMatched: 0,
+      results: [],
+      refinement: {
+        enabled: false,
+        answers: null,
+      },
+    };
+  }
+
   const intentData = parseSearchIntent(safeQuery);
 
   const effectiveQuery =
@@ -242,86 +223,60 @@ export async function searchBusinesses({
   const terms = expandTerms(effectiveQuery || "");
   const regexList = buildRegexList(terms);
 
-const DEBUG_SEARCH = process.env.DEBUG_SEARCH === "true";
+  const businesses = await listActiveBusinesses();
 
-if (DEBUG_SEARCH) {
-  console.log("SEARCH_TERMS_DEBUG", {
-    safeQuery,
-    effectiveQuery,
-    terms,
+  const searchableBusinesses = businesses.filter((b) => {
+    if (b.wallet_status === "paused") return false;
+
+    const balance = Number(b.wallet_balance ?? 0);
+    const negativeLimit = Number(b.wallet_negative_limit ?? -5);
+
+    return balance > negativeLimit;
   });
-}
 
-if (DEBUG_SEARCH) {
-  console.log(
-    "SEARCH_TOP_RESULTS",
-    matched.slice(0, 10).map((r) => ({
-      name: r.name,
-      score: r._matchScore,
-    }))
+  let matched = searchableBusinesses.filter((item) =>
+    matchesBusiness(item, regexList, effectiveQuery)
   );
-}
 
- const businesses = await listActiveBusinesses();
+  matched = matched
+    .map((item) => ({
+      ...item,
+      _matchScore: calculateBusinessScore({
+        business: item,
+        query: terms.join(" "),
+        originalQuery: effectiveQuery,
+        intentType,
+        isNearby,
+      }),
+    }))
+    .filter((item) => item._matchScore > 0)
+    .sort((a, b) => b._matchScore - a._matchScore);
 
-const searchableBusinesses = businesses.filter((b) => {
-  if (b.wallet_status === "paused") return false;
+  if (matched.length > 1) {
+    const topScore = Number(matched[0]?._matchScore || 0);
 
-  const balance = Number(b.wallet_balance ?? 0);
-  const negativeLimit = Number(b.wallet_negative_limit ?? -5);
-
-  // Allow active businesses until they reach -5
-  return balance > negativeLimit;
-});
-
-let matched = searchableBusinesses.filter((item) =>
-  matchesBusiness(item, regexList, effectiveQuery)
-);
-
- matched = matched
-  .map((item) => ({
-    ...item,
-_matchScore: calculateBusinessScore({
-  business: item,
-  query: terms.join(" "),
-  originalQuery: effectiveQuery,
-  intentType,
-  isNearby,
-}),
-  }))
-  .filter((item) => item._matchScore > 0)
-  .sort((a, b) => b._matchScore - a._matchScore);
-
-  // Relevance gap filter: remove weak generic matches
-if (matched.length > 1) {
-  const topScore = Number(matched[0]?._matchScore || 0);
-
-  if (topScore >= 300) {
-    matched = matched.filter((item) => {
-      return Number(item._matchScore || 0) >= topScore * 0.4;
-    });
+    if (topScore >= 300) {
+      matched = matched.filter((item) => {
+        return Number(item._matchScore || 0) >= topScore * 0.4;
+      });
+    }
   }
-}
 
-const DEBUG_SEARCH = process.env.DEBUG_SEARCH === "true";
+  if (DEBUG_SEARCH) {
+    console.log("SEARCH_TERMS_DEBUG", {
+      safeQuery,
+      effectiveQuery,
+      terms,
+    });
 
-if (DEBUG_SEARCH) {
-  console.log("SEARCH_TERMS_DEBUG", {
-    safeQuery,
-    effectiveQuery,
-    terms,
-  });
-}
-
-if (DEBUG_SEARCH) {
-  console.log(
-    "SEARCH_TOP_RESULTS",
-    matched.slice(0, 10).map((r) => ({
-      name: r.name,
-      score: r._matchScore,
-    }))
-  );
-}
+    console.log(
+      "SEARCH_TOP_RESULTS",
+      matched.slice(0, 10).map((r) => ({
+        name: r.name,
+        score: r._matchScore,
+      }))
+    );
+  }
 
   const needsRefinement =
     !refinementAnswers &&
