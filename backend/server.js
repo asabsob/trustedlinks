@@ -224,9 +224,10 @@ const searchLimiter = rateLimit({
   message: { error: "Too many search requests" },
 });
 
-app.use("/api/search", (req, res, next) => next());
-app.use("/api", apiLimiter);
-
+app.use("/api", (req, res, next) => {
+  if (req.path === "/search") return next();
+  return apiLimiter(req, res, next);
+});
 
 app.use("/", opsRoutes);
 
@@ -236,7 +237,7 @@ app.use("/api/auth/resend-verification", authLimiter);
 app.use("/api/auth/reset-password", authLimiter);
 app.use("/api/auth", authRoutes);
 
-app.use("/api/search", searchLimiter, searchRoutes);
+app.use("/api/search", searchRoutes);
 
 app.use("/api/business", businessRoutes);
 app.use("/api/businesses", publicBusinessRoutes);
