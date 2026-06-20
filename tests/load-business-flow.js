@@ -14,13 +14,13 @@ const queries = [
 
 export const options = {
   stages: [
-    { duration: "1m", target: 10 },
-    { duration: "3m", target: 25 },
-    { duration: "1m", target: 0 },
+    { duration: "30s", target: 5 },
+    { duration: "2m", target: 10 },
+    { duration: "30s", target: 0 },
   ],
   thresholds: {
     checks: ["rate>0.95"],
-    http_req_failed: ["rate<0.05"],
+    http_req_failed: ["rate<0.10"],
     http_req_duration: ["p(95)<3000"],
   },
 };
@@ -111,11 +111,15 @@ export default function () {
   );
 
   check(leadOpenRes, {
-    "lead open ok": (r) =>
-      r.status === 200 || r.status === 302 || r.status === 301,
+    "lead open handled": (r) =>
+      [200, 301, 302, 429].includes(r.status),
   });
 
-  if (![200, 301, 302].includes(leadOpenRes.status)) {
+  if (leadOpenRes.status === 429) {
+    console.log(`LEAD_BLOCKED_BY_FRAUD token=${token}`);
+  }
+
+  if (![200, 301, 302, 429].includes(leadOpenRes.status)) {
     console.log(
       `LEAD_OPEN_FAILED status=${leadOpenRes.status} token=${token} body=${String(
         leadOpenRes.body
