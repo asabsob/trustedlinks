@@ -22,4 +22,4 @@ jobs:
       - name: Run business flow test
         env:
           API_BASE_URL: https://trustedlinks-backend-production.up.railway.app
-     run: k6 run tests/load-business-flow.js
+        run: k6 run tests/load-business-flow.js
