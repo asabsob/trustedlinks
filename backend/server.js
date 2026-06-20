@@ -291,6 +291,10 @@ app.get("/api/debug/resend", (_req, res) => {
   });
 });
 
+app.get("/debug-sentry", (_req, _res) => {
+  throw new Error("Sentry Test Error");
+});
+
 process.on("uncaughtException", (err) => {
   console.error("UNCAUGHT_EXCEPTION:", err);
   if (process.env.SENTRY_DSN) {
