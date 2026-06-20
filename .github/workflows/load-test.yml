@@ -1,10 +1,10 @@
-name: TrustedLinks Load Test
+name: TrustedLinks Business Flow Test
 
 on:
   workflow_dispatch:
 
 jobs:
-  load-test:
+  business-flow-test:
     runs-on: ubuntu-latest
 
     steps:
@@ -19,7 +19,7 @@ jobs:
           sudo apt update
           sudo apt install k6
 
-      - name: Run load test
+      - name: Run business flow test
         env:
           API_BASE_URL: https://trustedlinks-backend-production.up.railway.app
-        run: k6 run tests/load-search.js
+        run: k6 run tests/load-business-flow.js
