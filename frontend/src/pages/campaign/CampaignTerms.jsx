@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 export default function CampaignTerms({ lang = "en" }) {
   const isAr = lang === "ar";
 
@@ -7,153 +9,183 @@ export default function CampaignTerms({ lang = "en" }) {
     <div
       dir={isAr ? "rtl" : "ltr"}
       style={{
-        maxWidth: "1000px",
-        margin: "40px auto",
-        padding: "30px",
-        background: "#fff",
-        borderRadius: "24px",
+        minHeight: "100vh",
+        background: "#f8fafc",
+        padding: "40px 20px",
       }}
     >
-      <h1>
-        {t(
-          "Terms & Conditions",
-          "الأحكام والشروط"
-        )}
-      </h1>
+      <div
+        style={{
+          maxWidth: "1000px",
+          margin: "0 auto",
+          background: "#fff",
+          borderRadius: "24px",
+          overflow: "hidden",
+          boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            background:
+              "linear-gradient(135deg,#16a34a,#22c55e)",
+            color: "#fff",
+            padding: "32px",
+          }}
+        >
+          <h1 style={{ margin: 0 }}>
+            {t(
+              "Terms & Conditions",
+              "الأحكام والشروط"
+            )}
+          </h1>
 
-      <h2>
-        {t(
-          "1. Acceptance of Terms",
-          "1. الموافقة على الشروط"
-        )}
-      </h2>
+          <p
+            style={{
+              marginTop: "10px",
+              opacity: 0.9,
+            }}
+          >
+            TrustedLinks Campaign Platform
+          </p>
+        </div>
 
-      <p>
-        {t(
-          "By creating an account, accessing, or using TrustedLinks Campaign Management Platform, the Sponsor agrees to be bound by these Terms and Conditions.",
-          "من خلال إنشاء حساب أو استخدام منصة TrustedLinks لإدارة الحملات، يوافق الممول على الالتزام بهذه الأحكام والشروط."
-        )}
-      </p>
+        <div style={{ padding: "32px" }}>
+          {/* Refund Warning */}
+          <div
+            style={{
+              background: "#fefce8",
+              border: "1px solid #fde68a",
+              borderRadius: "16px",
+              padding: "18px",
+              marginBottom: "30px",
+            }}
+          >
+            <strong>
+              {t(
+                "Important Notice",
+                "تنبيه مهم"
+              )}
+            </strong>
 
-      <h2>
-        {t(
-          "2. Sponsored Credits and Payments",
-          "2. الأرصدة الممولة والمدفوعات"
-        )}
-      </h2>
+            <p style={{ marginBottom: 0 }}>
+              {t(
+                "All sponsored balances and payments are non-refundable except in the case of a verified service failure caused by TrustedLinks.",
+                "جميع الأرصدة الممولة والمدفوعات غير قابلة للاسترداد إلا في حالة وجود فشل مثبت في الخدمة ناتج عن منصة TrustedLinks."
+              )}
+            </p>
+          </div>
 
-      <p>
-        {t(
-          "Sponsored credits may only be used within the TrustedLinks platform and have no cash value outside the platform.",
-          "تستخدم الأرصدة الممولة داخل منصة TrustedLinks فقط ولا تمثل قيمة نقدية خارج المنصة."
-        )}
-      </p>
+          <h2>1. {t("Acceptance", "الموافقة")}</h2>
 
-      <h2>
-        {t(
-          "3. Refund Policy",
-          "3. سياسة الاسترداد"
-        )}
-      </h2>
+          <p>
+            {t(
+              "By registering an account you agree to these Terms and Conditions.",
+              "بإنشاء حساب على المنصة فإنك توافق على هذه الأحكام والشروط."
+            )}
+          </p>
 
-      <p>
-        {t(
-          "All payments, deposits, sponsored balances and funded credits are non-refundable.",
-          "جميع المدفوعات والأرصدة الممولة والاعتمادات المضافة غير قابلة للاسترداد."
-        )}
-      </p>
+          <h2>2. {t("Eligibility", "الأهلية")}</h2>
 
-      <p>
-        <strong>
-          {t(
-            "Refunds may only be approved when a verified technical failure caused by TrustedLinks prevents delivery of the purchased service.",
-            "لا يتم استرداد أي مبالغ إلا في حال وجود عطل تقني مثبت من قبل TrustedLinks أدى إلى عدم تقديم الخدمة المتفق عليها."
-          )}
-        </strong>
-      </p>
+          <p>
+            {t(
+              "The registrant must be authorized to represent the organization.",
+              "يجب أن يكون المسجل مخولاً بتمثيل الجهة المسجلة."
+            )}
+          </p>
 
-      <ul>
-        <li>
-          {t(
-            "Unused balances are not refundable.",
-            "الأرصدة غير المستخدمة غير قابلة للاسترداد."
-          )}
-        </li>
+          <h2>
+            3. {t("Sponsored Credits", "الأرصدة الممولة")}
+          </h2>
 
-        <li>
-          {t(
-            "Low campaign performance is not grounds for refund.",
-            "انخفاض أداء الحملة لا يعتبر سبباً للاسترداد."
-          )}
-        </li>
+          <p>
+            {t(
+              "Sponsored credits are promotional balances used exclusively inside the TrustedLinks platform.",
+              "الأرصدة الممولة هي أرصدة ترويجية تستخدم حصرياً داخل منصة TrustedLinks."
+            )}
+          </p>
 
-        <li>
-          {t(
-            "Merchant inactivity is not grounds for refund.",
-            "عدم نشاط المتاجر لا يعتبر سبباً للاسترداد."
-          )}
-        </li>
+          <h2>
+            4. {t("Refund Policy", "سياسة الاسترداد")}
+          </h2>
 
-        <li>
-          {t(
-            "Account closure does not qualify for refund.",
-            "إغلاق الحساب لا يمنح الحق في استرداد الرصيد."
-          )}
-        </li>
-      </ul>
+          <ul>
+            <li>
+              {t(
+                "All payments are final.",
+                "جميع المدفوعات نهائية."
+              )}
+            </li>
 
-      <h2>
-        {t(
-          "4. Promotional Nature of Sponsored Credits",
-          "4. الطبيعة الترويجية للأرصدة الممولة"
-        )}
-      </h2>
+            <li>
+              {t(
+                "Unused balances are not refundable.",
+                "الأرصدة غير المستخدمة غير قابلة للاسترداد."
+              )}
+            </li>
 
-      <p>
-        {t(
-          "Sponsored balances issued to merchants are promotional marketing credits and shall not be considered cash deposits, bank balances, electronic money, or financial instruments.",
-          "الأرصدة الممولة الممنوحة للتجار هي أرصدة تسويقية ترويجية ولا تعتبر ودائع نقدية أو أموالاً إلكترونية أو أدوات مالية أو أرصدة مصرفية."
-        )}
-      </p>
+            <li>
+              {t(
+                "Low campaign performance is not grounds for refund.",
+                "ضعف أداء الحملة لا يعتبر سبباً للاسترداد."
+              )}
+            </li>
 
-      <h2>
-        {t(
-          "5. Limitation of Liability",
-          "5. حدود المسؤولية"
-        )}
-      </h2>
+            <li>
+              {t(
+                "Refunds are only available when a verified service failure prevents delivery of the purchased service.",
+                "الاسترداد متاح فقط عند وجود فشل مثبت في الخدمة يمنع تقديم الخدمة المتفق عليها."
+              )}
+            </li>
+          </ul>
 
-      <p>
-        {t(
-          "TrustedLinks shall not be liable for indirect or consequential damages arising from the use of the platform.",
-          "لا تتحمل TrustedLinks أي مسؤولية عن الأضرار غير المباشرة أو التبعية الناتجة عن استخدام المنصة."
-        )}
-      </p>
+          <h2>
+            5. {t("Limitation of Liability", "حدود المسؤولية")}
+          </h2>
 
-      <h2>
-        {t(
-          "6. Governing Law",
-          "6. القانون الواجب التطبيق"
-        )}
-      </h2>
+          <p>
+            {t(
+              "TrustedLinks shall not be liable for indirect damages, loss of profit, or campaign performance outcomes.",
+              "لا تتحمل TrustedLinks مسؤولية الأضرار غير المباشرة أو خسارة الأرباح أو نتائج أداء الحملات."
+            )}
+          </p>
 
-      <p>
-        {t(
-          "These Terms shall be governed by the laws of the Hashemite Kingdom of Jordan and disputes shall be subject to the courts of Amman.",
-          "تخضع هذه الأحكام والشروط لقوانين المملكة الأردنية الهاشمية وتختص محاكم عمان بالنظر في أي نزاع ينشأ عنها."
-        )}
-      </p>
+          <h2>
+            6. {t("Governing Law", "القانون الواجب التطبيق")}
+          </h2>
 
-      <h2>
-        {t(
-          "7. Contact",
-          "7. التواصل"
-        )}
-      </h2>
+          <p>
+            {t(
+              "These terms are governed by the laws of the Hashemite Kingdom of Jordan and disputes shall be resolved by the courts of Amman.",
+              "تخضع هذه الأحكام لقوانين المملكة الأردنية الهاشمية وتختص محاكم عمان بالنظر في أي نزاع ينشأ عنها."
+            )}
+          </p>
 
-      <p>
-        support@trustedlinks.net
-      </p>
+          <div
+            style={{
+              marginTop: "40px",
+              textAlign: "center",
+            }}
+          >
+            <Link
+              to="/campaign/register"
+              style={{
+                background: "#16a34a",
+                color: "#fff",
+                padding: "12px 24px",
+                borderRadius: "12px",
+                textDecoration: "none",
+                fontWeight: 700,
+              }}
+            >
+              {t(
+                "Back to Registration",
+                "العودة للتسجيل"
+              )}
+            </Link>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
