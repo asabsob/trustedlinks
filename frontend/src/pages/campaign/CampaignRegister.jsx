@@ -387,50 +387,39 @@ export default function CampaignRegister({ lang = "en" }) {
               marginBottom: "18px",
             }}
           >
-            <label
-              style={{
-                display: "flex",
-                gap: "10px",
-                alignItems: "flex-start",
-                fontSize: "14px",
-                color: "#334155",
-                lineHeight: 1.7,
-                cursor: "pointer",
-              }}
-            >
-              <input
-                type="checkbox"
-                name="acceptedTerms"
-                checked={form.acceptedTerms}
-                onChange={handleChange}
-                required
-                style={{
-                  marginTop: "6px",
-                  width: "16px",
-                  height: "16px",
-                  accentColor: "#16a34a",
-                }}
-              />
+         <input
+  type="checkbox"
+  name="acceptedTerms"
+  checked={form.acceptedTerms}
+  onChange={handleChange}
+  required
+  style={{
+    marginTop: "6px",
+    width: "16px",
+    height: "16px",
+    accentColor: "#16a34a",
+  }}
+/>
 
-              <span>
-                {t(
-                  "I confirm that I am authorized to register this organization and I agree to the Terms and Conditions and Privacy Policy.",
-                  "أقر بأنني مخوّل بتسجيل هذه الجهة، وأوافق على الأحكام والشروط وسياسة الخصوصية."
-                )}{" "}
-                <Link
-                  to="/campaign/terms"
-                  style={{
-                    color: "#16a34a",
-                    fontWeight: 800,
-                    textDecoration: "none",
-                  }}
-                >
-                  {t("Read terms", "قراءة الشروط")}
-                </Link>
-              </span>
-            </label>
-          </div>
+<span>
+  {t(
+    "I confirm that I am authorized to register this organization, have read and accepted the Terms & Conditions and Privacy Policy, and understand that all sponsored balances and payments are non-refundable except in the case of a verified service failure.",
+    "أقر بأنني مخوّل بتسجيل هذه الجهة، وأنني قرأت ووافقت على الأحكام والشروط وسياسة الخصوصية، وأفهم أن جميع الأرصدة الممولة والمدفوعات غير قابلة للاسترداد إلا في حالة فشل الخدمة المثبت من قبل المنصة."
+  )}{" "}
 
+  <Link
+    to="/campaign/terms"
+    target="_blank"
+    rel="noopener noreferrer"
+    style={{
+      color: "#16a34a",
+      fontWeight: 800,
+      textDecoration: "none",
+    }}
+  >
+    {t("Terms & Conditions", "الأحكام والشروط")}
+  </Link>
+</span>
           {error && (
             <div
               style={{
