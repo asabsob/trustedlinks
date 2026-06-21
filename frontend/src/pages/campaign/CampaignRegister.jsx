@@ -379,14 +379,25 @@ export default function CampaignRegister({ lang = "en" }) {
           </div>
 
           <div
-            style={{
-              background: "#f8fafc",
-              border: "1px solid #e2e8f0",
-              borderRadius: "18px",
-              padding: "16px",
-              marginBottom: "18px",
-            }}
-          >
+  style={{
+    background: "#f8fafc",
+    border: "1px solid #e2e8f0",
+    borderRadius: "18px",
+    padding: "16px",
+    marginBottom: "18px",
+  }}
+>
+  <label
+    style={{
+      display: "flex",
+      gap: "10px",
+      alignItems: "flex-start",
+      fontSize: "14px",
+      color: "#334155",
+      lineHeight: 1.7,
+      cursor: "pointer",
+    }}
+  >
          <input
   type="checkbox"
   name="acceptedTerms"
@@ -420,6 +431,8 @@ export default function CampaignRegister({ lang = "en" }) {
     {t("Terms & Conditions", "الأحكام والشروط")}
   </Link>
 </span>
+      </label>
+</div>
           {error && (
             <div
               style={{
