@@ -11,7 +11,7 @@ const API_BASE =
 let googleMapsPromise = null;
 
 function loadGoogleMaps() {
-  if (window.google?.maps?.places?.PlaceAutocompleteElement) {
+  if (window.google?.maps?.importLibrary) {
     return Promise.resolve(window.google);
   }
 
@@ -28,16 +28,11 @@ function loadGoogleMaps() {
     }
 
     const existing = document.getElementById("googleMapsScript");
+
     if (existing) {
       existing.addEventListener(
         "load",
-        () => {
-          if (window.google?.maps?.places?.PlaceAutocompleteElement) {
-            resolve(window.google);
-          } else {
-            reject(new Error("Google Maps Places widget is unavailable"));
-          }
-        },
+        () => resolve(window.google),
         { once: true }
       );
       existing.addEventListener(
@@ -47,6 +42,21 @@ function loadGoogleMaps() {
       );
       return;
     }
+
+    const script = document.createElement("script");
+    script.id = "googleMapsScript";
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&loading=async&v=weekly`;
+    script.async = true;
+    script.defer = true;
+
+    script.onload = () => resolve(window.google);
+    script.onerror = () => reject(new Error("Failed to load Google Maps"));
+
+    document.head.appendChild(script);
+  });
+
+  return googleMapsPromise;
+}
 
     const script = document.createElement("script");
     script.id = "googleMapsScript";
@@ -224,13 +234,13 @@ export default function Signup({ lang = "en" }) {
           return;
         }
 
-        const PlaceAutocompleteElement =
-          window.google?.maps?.places?.PlaceAutocompleteElement;
+      const { PlaceAutocompleteElement } =
+  await window.google.maps.importLibrary("places");
 
-        if (!PlaceAutocompleteElement) {
-          throw new Error("PlaceAutocompleteElement is unavailable");
-        }
-
+if (!PlaceAutocompleteElement) {
+  throw new Error("PlaceAutocompleteElement is unavailable");
+}
+        
         const element = new PlaceAutocompleteElement();
 
         element.style.width = "100%";
@@ -336,6 +346,8 @@ export default function Signup({ lang = "en" }) {
         try {
           await loadGoogleMaps();
 
+          await window.google.maps.importLibrary("geocoding");
+         
           const geocoder = new window.google.maps.Geocoder();
 
           geocoder.geocode({ location: { lat, lng } }, (results, status) => {
