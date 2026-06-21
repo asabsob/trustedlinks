@@ -185,9 +185,34 @@ router.post("/signup", async (req, res) => {
     try {
       await sendEmail({
         to: emailNorm,
-        subject: "Verify your email",
-        html: `<p>Verify your email:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
-      });
+       subject: "Welcome to TrustedLinks – Verify Your Email",
+html: `
+  <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:40px 24px;background:#ffffff;">
+    <h1 style="color:#16a34a;font-size:34px;margin-bottom:28px;">
+      Welcome to TrustedLinks
+    </h1>
+
+    <p style="font-size:20px;color:#111827;line-height:1.7;margin-bottom:20px;">
+      Please verify your email address to activate your business account.
+    </p>
+
+    <div style="margin:36px 0;">
+      <a href="${verifyUrl}"
+         style="background:#16a34a;color:#ffffff;text-decoration:none;padding:16px 32px;border-radius:12px;font-size:20px;font-weight:bold;display:inline-block;">
+        Verify Email
+      </a>
+    </div>
+
+    <p style="color:#6b7280;font-size:17px;">
+      This link expires in 24 hours.
+    </p>
+
+    <p style="color:#6b7280;font-size:15px;margin-top:28px;">
+      If you did not create this account, please ignore this email.
+    </p>
+  </div>
+`,
+text: `Verify your email: ${verifyUrl}`,
     } catch (mailErr) {
       console.error("signup email error:", mailErr);
     }
@@ -330,9 +355,34 @@ router.post("/resend-verification", async (req, res) => {
 
     await sendEmail({
       to: emailNorm,
-      subject: "Verify your email",
-      html: `<p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
-    });
+     subject: "Welcome to TrustedLinks – Verify Your Email",
+html: `
+  <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:40px 24px;background:#ffffff;">
+    <h1 style="color:#16a34a;font-size:34px;margin-bottom:28px;">
+      Welcome to TrustedLinks
+    </h1>
+
+    <p style="font-size:20px;color:#111827;line-height:1.7;margin-bottom:20px;">
+      Please verify your email address to activate your business account.
+    </p>
+
+    <div style="margin:36px 0;">
+      <a href="${verifyUrl}"
+         style="background:#16a34a;color:#ffffff;text-decoration:none;padding:16px 32px;border-radius:12px;font-size:20px;font-weight:bold;display:inline-block;">
+        Verify Email
+      </a>
+    </div>
+
+    <p style="color:#6b7280;font-size:17px;">
+      This link expires in 24 hours.
+    </p>
+
+    <p style="color:#6b7280;font-size:15px;margin-top:28px;">
+      If you did not create this account, please ignore this email.
+    </p>
+  </div>
+`,
+text: `Verify your email: ${verifyUrl}`,
 
     return res.json({ ok: true });
   } catch (e) {
