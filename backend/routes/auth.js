@@ -213,6 +213,7 @@ html: `
   </div>
 `,
 text: `Verify your email: ${verifyUrl}`,
+      });
     } catch (mailErr) {
       console.error("signup email error:", mailErr);
     }
