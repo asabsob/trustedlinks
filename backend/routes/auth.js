@@ -384,7 +384,7 @@ html: `
   </div>
 `,
 text: `Verify your email: ${verifyUrl}`,
-
+});
     return res.json({ ok: true });
   } catch (e) {
     console.error("resend-verification error:", e);
