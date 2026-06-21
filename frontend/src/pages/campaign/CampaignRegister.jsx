@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
@@ -9,8 +9,23 @@ export default function CampaignRegister({ lang = "en" }) {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  
+ const [form, setForm] = useState(() => {
+  const savedForm = sessionStorage.getItem(
+    "campaignRegisterForm"
+  );
 
-  const [form, setForm] = useState({
+  if (savedForm) {
+    try {
+      return JSON.parse(savedForm);
+    } catch {
+      sessionStorage.removeItem(
+        "campaignRegisterForm"
+      );
+    }
+  }
+
+  return {
     name: "",
     entityType: "mall",
     email: "",
@@ -20,8 +35,9 @@ export default function CampaignRegister({ lang = "en" }) {
     confirmPassword: "",
     country: "JO",
     acceptedTerms: false,
-  });
-
+  };
+});
+  
   const t = (en, ar) => (isAr ? ar : en);
 
   const handleChange = (e) => {
@@ -33,6 +49,13 @@ export default function CampaignRegister({ lang = "en" }) {
     });
   };
 
+  useEffect(() => {
+  sessionStorage.setItem(
+    "campaignRegisterForm",
+    JSON.stringify(form)
+  );
+}, [form]);
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -84,6 +107,10 @@ export default function CampaignRegister({ lang = "en" }) {
         throw new Error(data?.error || "Registration failed");
       }
 
+      sessionStorage.removeItem(
+  "campaignRegisterForm"
+);
+      
       navigate("/campaign/check-email", {
         state: { email: form.email },
       });
