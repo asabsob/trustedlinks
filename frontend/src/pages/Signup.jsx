@@ -57,29 +57,6 @@ function loadGoogleMaps() {
 
   return googleMapsPromise;
 }
-    
-
-    const script = document.createElement("script");
-    script.id = "googleMapsScript";
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&loading=async&v=weekly`;
-    script.async = true;
-    script.defer = true;
-
-    script.onload = () => {
-      if (window.google?.maps?.places?.PlaceAutocompleteElement) {
-        resolve(window.google);
-      } else {
-        reject(new Error("Google Maps Places widget is unavailable"));
-      }
-    };
-
-    script.onerror = () => reject(new Error("Failed to load Google Maps"));
-
-    document.body.appendChild(script);
-  });
-
-  return googleMapsPromise;
-}
 
 function getCountryBounds(code) {
   switch (code) {
