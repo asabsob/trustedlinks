@@ -57,6 +57,20 @@ function loadGoogleMaps() {
 
   return googleMapsPromise;
 }
+    const script = document.createElement("script");
+    script.id = "googleMapsScript";
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&loading=async&v=weekly`;
+    script.async = true;
+    script.defer = true;
+
+    script.onload = () => resolve(window.google);
+    script.onerror = () => reject(new Error("Failed to load Google Maps"));
+
+    document.head.appendChild(script);
+  });
+
+  return googleMapsPromise;
+}
 
     const script = document.createElement("script");
     script.id = "googleMapsScript";
