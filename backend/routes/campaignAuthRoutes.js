@@ -109,7 +109,12 @@ router.post("/register", async (req, res) => {
 
     if (error) throw error;
 
-    const verifyUrl = `${FRONTEND_BASE_URL}/campaign/verify-email?token=${verificationToken}`;
+    const API_BASE_URL =
+  process.env.API_BASE_URL ||
+  "https://trustedlinks-backend-production.up.railway.app";
+
+const verifyUrl =
+  `${API_BASE_URL}/api/campaign/auth/verify-email?token=${verificationToken}`;
 
     await sendEmail({
       to: owner.email,
