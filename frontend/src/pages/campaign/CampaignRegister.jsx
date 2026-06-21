@@ -1,97 +1,92 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL || "";
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 
-export default function CampaignRegister({
-  lang = "en",
-}) {
+export default function CampaignRegister({ lang = "en" }) {
   const isAr = lang === "ar";
   const navigate = useNavigate();
 
-  const [loading, setLoading] =
-    useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const [error, setError] =
-    useState("");
+  const [form, setForm] = useState({
+    name: "",
+    entityType: "mall",
+    email: "",
+    phone: "",
+    username: "",
+    password: "",
+    confirmPassword: "",
+    country: "JO",
+    acceptedTerms: false,
+  });
 
- const [form, setForm] = useState({
-  name: "",
-  entityType: "mall",
-  email: "",
-  phone: "",
-  username: "",
-  password: "",
-  confirmPassword: "",
-  country: "JO",
-});
-  
-  const t = (en, ar) =>
-    isAr ? ar : en;
+  const t = (en, ar) => (isAr ? ar : en);
 
   const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+
     setForm({
       ...form,
-      [e.target.name]:
-        e.target.value,
+      [name]: type === "checkbox" ? checked : value,
     });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     setLoading(true);
     setError("");
 
     if (form.password !== form.confirmPassword) {
-  setError(
-    isAr
-      ? "كلمة المرور وتأكيد كلمة المرور غير متطابقين"
-      : "Password and confirm password do not match"
-  );
-  setLoading(false);
-  return;
-}
+      setError(
+        t(
+          "Password and confirm password do not match",
+          "كلمة المرور وتأكيد كلمة المرور غير متطابقين"
+        )
+      );
+      setLoading(false);
+      return;
+    }
+
+    if (!form.acceptedTerms) {
+      setError(
+        t(
+          "You must accept the Terms and Conditions before creating an account",
+          "يجب الموافقة على الأحكام والشروط قبل إنشاء الحساب"
+        )
+      );
+      setLoading(false);
+      return;
+    }
 
     try {
-      const res = await fetch(
-        `${API_BASE}/api/campaign/auth/register`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-  name: form.name,
-  entityType: form.entityType,
-  email: form.email,
-  phone: form.phone,
-  username: form.username,
-  password: form.password,
-  country: form.country,
-}),
-        }
-      );
+      const res = await fetch(`${API_BASE}/api/campaign/auth/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: form.name,
+          entityType: form.entityType,
+          email: form.email,
+          phone: form.phone,
+          username: form.username,
+          password: form.password,
+          country: form.country,
+          acceptedTerms: form.acceptedTerms,
+        }),
+      });
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(
-          data?.error ||
-            "Registration failed"
-        );
+        throw new Error(data?.error || "Registration failed");
       }
 
-      localStorage.setItem(
-        "campaignToken",
-        data.token
-      );
-
-      navigate(
-        "/campaign/dashboard"
-      );
+      navigate("/campaign/check-email", {
+        state: { email: form.email },
+      });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -101,35 +96,48 @@ export default function CampaignRegister({
 
   const pageStyle = {
     minHeight: "100vh",
-    background: "#f8fafc",
+    background:
+      "linear-gradient(180deg, #f8fafc 0%, #eef7f1 100%)",
     display: "flex",
     justifyContent: "center",
-    padding: "40px 16px",
+    padding: "38px 16px",
   };
 
   const cardStyle = {
     width: "100%",
-    maxWidth: "760px",
-    background: "#fff",
-    borderRadius: "24px",
-    padding: "32px",
-    boxShadow:
-      "0 10px 30px rgba(15,23,42,0.06)",
-    border:
-      "1px solid rgba(15,23,42,0.06)",
+    maxWidth: "820px",
+    background: "#ffffff",
+    borderRadius: "28px",
+    padding: "34px",
+    boxShadow: "0 18px 45px rgba(15, 23, 42, 0.08)",
+    border: "1px solid rgba(15, 23, 42, 0.06)",
   };
 
   const sectionStyle = {
-    border:
-      "1px solid #e2e8f0",
-    borderRadius: "18px",
-    padding: "20px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "20px",
+    padding: "22px",
     marginBottom: "18px",
+    background: "#ffffff",
+  };
+
+  const sectionTitle = {
+    marginTop: 0,
+    marginBottom: "18px",
+    fontSize: "17px",
+    fontWeight: 800,
+    color: "#0f172a",
+  };
+
+  const gridStyle = {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+    gap: "16px",
   };
 
   const labelStyle = {
     fontSize: "13px",
-    fontWeight: 700,
+    fontWeight: 800,
     marginBottom: "8px",
     display: "block",
     color: "#0f172a",
@@ -137,206 +145,145 @@ export default function CampaignRegister({
 
   const inputStyle = {
     width: "100%",
-    padding: "14px",
-    borderRadius: "12px",
+    padding: "14px 15px",
+    borderRadius: "14px",
     border: "1px solid #dbe2ea",
     fontSize: "15px",
     outline: "none",
     background: "#fff",
     color: "#111827",
+    boxSizing: "border-box",
   };
 
   const greenBtn = {
     width: "100%",
-    background:
-      "linear-gradient(135deg,#16a34a,#22c55e)",
+    background: loading
+      ? "#94d3a2"
+      : "linear-gradient(135deg, #16a34a, #22c55e)",
     color: "#fff",
     border: "none",
-    borderRadius: "14px",
-    padding: "15px",
-    fontWeight: 700,
+    borderRadius: "16px",
+    padding: "16px",
+    fontWeight: 800,
     fontSize: "16px",
-    cursor: "pointer",
-    marginTop: "10px",
+    cursor: loading ? "not-allowed" : "pointer",
+    marginTop: "8px",
+    boxShadow: "0 10px 20px rgba(34,197,94,0.22)",
   };
 
   return (
-    <div
-      style={pageStyle}
-      dir={isAr ? "rtl" : "ltr"}
-    >
+    <div style={pageStyle} dir={isAr ? "rtl" : "ltr"}>
       <div style={cardStyle}>
-        {/* Header */}
-        <div
-          style={{
-            marginBottom: "24px",
-          }}
-        >
+        <div style={{ marginBottom: "26px" }}>
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              background: "#ecfdf5",
+              color: "#16a34a",
+              padding: "8px 12px",
+              borderRadius: "999px",
+              fontWeight: 800,
+              fontSize: "13px",
+              marginBottom: "14px",
+            }}
+          >
+            {t("Sponsor Portal", "بوابة الممولين")}
+          </div>
+
           <h1
             style={{
               margin: 0,
               color: "#16a34a",
-              fontSize: "30px",
-              fontWeight: 800,
+              fontSize: "32px",
+              fontWeight: 900,
+              letterSpacing: "-0.5px",
             }}
           >
-            {t(
-              "Campaign Management",
-              "إدارة الحملات"
-            )}
+            {t("Campaign Management", "إدارة الحملات")}
           </h1>
 
           <p
             style={{
               color: "#64748b",
-              marginTop: "8px",
+              marginTop: "10px",
+              fontSize: "15px",
             }}
           >
             {t(
-              "Create organization sponsorship account",
-              "إنشاء حساب إدارة حملات ورعاية"
+              "Create your organization sponsorship account and start managing funded campaigns.",
+              "أنشئ حساب جهة ممولة لإدارة الحملات والرعايات داخل المنصة."
             )}
           </p>
         </div>
 
-       <form onSubmit={handleSubmit}>
-  {/* Organization */}
-  <div style={sectionStyle}>
-    <h3
-      style={{
-        marginTop: 0,
-        marginBottom: "18px",
-        fontSize: "18px",
-      }}
-    >
-      {t(
-        "Organization Information",
-        "بيانات الجهة"
-      )}
-    </h3>
-
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns:
-          "repeat(auto-fit,minmax(240px,1fr))",
-        gap: "16px",
-      }}
-    >
-      {/* Name */}
-      <div>
-        <label style={labelStyle}>
-          {t(
-            "Organization Name",
-            "اسم الجهة"
-          )}
-        </label>
-
-        <input
-          name="name"
-          value={form.name}
-          onChange={handleChange}
-          style={inputStyle}
-          required
-        />
-      </div>
-
-      {/* Type */}
-      <div>
-        <label style={labelStyle}>
-          {t(
-            "Organization Type",
-            "نوع الجهة"
-          )}
-        </label>
-
-        <select
-          name="entityType"
-          value={form.entityType}
-          onChange={handleChange}
-          style={inputStyle}
-        >
-          <option value="mall">
-            {t("Mall", "مول")}
-          </option>
-
-          <option value="government">
-            {t(
-              "Government",
-              "جهة حكومية"
-            )}
-          </option>
-
-          <option value="event">
-            {t("Event", "فعالية")}
-          </option>
-
-          <option value="sponsor">
-            {t("Sponsor", "راعي")}
-          </option>
-        </select>
-      </div>
-    </div>
-  </div>
-
-          {/* Contact */}
+        <form onSubmit={handleSubmit}>
           <div style={sectionStyle}>
-            <h3
-              style={{
-                marginTop: 0,
-                marginBottom: "18px",
-                fontSize: "18px",
-              }}
-            >
-              {t(
-                "Contact Information",
-                "بيانات التواصل"
-              )}
+            <h3 style={sectionTitle}>
+              {t("Organization Information", "بيانات الجهة")}
             </h3>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns:
-                  "repeat(auto-fit,minmax(240px,1fr))",
-                gap: "16px",
-              }}
-            >
+            <div style={gridStyle}>
               <div>
-                <label
-                  style={labelStyle}
-                >
-                  Email
+                <label style={labelStyle}>
+                  {t("Organization Name", "اسم الجهة")}
                 </label>
-
                 <input
-                  type="email"
-                  name="email"
-                  value={form.email}
-                  onChange={
-                    handleChange
-                  }
+                  name="name"
+                  value={form.name}
+                  onChange={handleChange}
                   style={inputStyle}
                   required
                 />
               </div>
 
               <div>
-                <label
-                  style={labelStyle}
-                >
-                  {t(
-                    "Phone",
-                    "الهاتف"
-                  )}
+                <label style={labelStyle}>
+                  {t("Organization Type", "نوع الجهة")}
                 </label>
+                <select
+                  name="entityType"
+                  value={form.entityType}
+                  onChange={handleChange}
+                  style={inputStyle}
+                  required
+                >
+                  <option value="mall">{t("Mall", "مول")}</option>
+                  <option value="government">
+                    {t("Government", "جهة حكومية")}
+                  </option>
+                  <option value="event">{t("Event", "فعالية")}</option>
+                  <option value="sponsor">{t("Sponsor", "راعي")}</option>
+                </select>
+              </div>
+            </div>
+          </div>
 
+          <div style={sectionStyle}>
+            <h3 style={sectionTitle}>
+              {t("Contact Information", "بيانات التواصل")}
+            </h3>
+
+            <div style={gridStyle}>
+              <div>
+                <label style={labelStyle}>{t("Email", "البريد الإلكتروني")}</label>
+                <input
+                  type="email"
+                  name="email"
+                  value={form.email}
+                  onChange={handleChange}
+                  style={inputStyle}
+                  required
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>{t("Phone", "الهاتف")}</label>
                 <input
                   name="phone"
                   value={form.phone}
-                  onChange={
-                    handleChange
-                  }
+                  onChange={handleChange}
                   style={inputStyle}
                   required
                 />
@@ -344,205 +291,187 @@ export default function CampaignRegister({
             </div>
           </div>
 
-         {/* Account */}
-<div style={sectionStyle}>
-  <h3
-    style={{
-      marginTop: 0,
-      marginBottom: "18px",
-      fontSize: "18px",
-    }}
-  >
-    {t("Account Details", "بيانات الحساب")}
-  </h3>
+          <div style={sectionStyle}>
+            <h3 style={sectionTitle}>
+              {t("Account Details", "بيانات الحساب")}
+            </h3>
 
-  <div
-    style={{
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))",
-      gap: "16px",
-    }}
-  >
-    <div>
-      <label style={labelStyle}>
-        {t("Username", "اسم المستخدم")}
-      </label>
+            <div style={gridStyle}>
+              <div>
+                <label style={labelStyle}>
+                  {t("Username", "اسم المستخدم")}
+                </label>
+                <input
+                  name="username"
+                  value={form.username}
+                  onChange={handleChange}
+                  style={inputStyle}
+                  required
+                />
+              </div>
 
-      <input
-        name="username"
-        value={form.username}
-        onChange={handleChange}
-        style={inputStyle}
-        required
-      />
-    </div>
+              <div>
+                <label style={labelStyle}>
+                  {t("Password", "كلمة المرور")}
+                </label>
+                <input
+                  type="password"
+                  name="password"
+                  value={form.password}
+                  onChange={handleChange}
+                  style={inputStyle}
+                  required
+                  minLength={8}
+                />
+              </div>
 
-    <div>
-      <label style={labelStyle}>
-        {t("Password", "كلمة المرور")}
-      </label>
+              <div>
+                <label style={labelStyle}>
+                  {t("Confirm Password", "تأكيد كلمة المرور")}
+                </label>
+                <input
+                  type="password"
+                  name="confirmPassword"
+                  value={form.confirmPassword}
+                  onChange={handleChange}
+                  style={inputStyle}
+                  required
+                  minLength={8}
+                />
+              </div>
+            </div>
+          </div>
 
-      <input
-        type="password"
-        name="password"
-        value={form.password}
-        onChange={handleChange}
-        style={inputStyle}
-        required
-      />
-    </div>
+          <div style={sectionStyle}>
+            <h3 style={sectionTitle}>{t("Country", "الدولة")}</h3>
 
-    <div>
-      <label style={labelStyle}>
-        {t("Confirm Password", "تأكيد كلمة المرور")}
-      </label>
+            <div style={gridStyle}>
+              <div>
+                <label style={labelStyle}>{t("Country", "الدولة")}</label>
+                <select
+                  name="country"
+                  value={form.country}
+                  onChange={handleChange}
+                  style={inputStyle}
+                  required
+                >
+                  <option value="JO">{t("Jordan", "الأردن")}</option>
+                  <option value="QA">{t("Qatar", "قطر")}</option>
+                  <option value="SA">{t("Saudi Arabia", "السعودية")}</option>
+                  <option value="AE">
+                    {t("United Arab Emirates", "الإمارات")}
+                  </option>
+                  <option value="KW">{t("Kuwait", "الكويت")}</option>
+                  <option value="BH">{t("Bahrain", "البحرين")}</option>
+                  <option value="OM">{t("Oman", "عُمان")}</option>
+                  <option value="LB">{t("Lebanon", "لبنان")}</option>
+                  <option value="EG">{t("Egypt", "مصر")}</option>
+                  <option value="US">
+                    {t("United States", "الولايات المتحدة")}
+                  </option>
+                  <option value="GB">
+                    {t("United Kingdom", "المملكة المتحدة")}
+                  </option>
+                  <option value="OTHER">{t("Other", "أخرى")}</option>
+                </select>
+              </div>
+            </div>
+          </div>
 
-      <input
-        type="password"
-        name="confirmPassword"
-        value={form.confirmPassword}
-        onChange={handleChange}
-        style={inputStyle}
-        required
-      />
-    </div>
-  </div>
-</div>
+          <div
+            style={{
+              background: "#f8fafc",
+              border: "1px solid #e2e8f0",
+              borderRadius: "18px",
+              padding: "16px",
+              marginBottom: "18px",
+            }}
+          >
+            <label
+              style={{
+                display: "flex",
+                gap: "10px",
+                alignItems: "flex-start",
+                fontSize: "14px",
+                color: "#334155",
+                lineHeight: 1.7,
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                name="acceptedTerms"
+                checked={form.acceptedTerms}
+                onChange={handleChange}
+                required
+                style={{
+                  marginTop: "6px",
+                  width: "16px",
+                  height: "16px",
+                  accentColor: "#16a34a",
+                }}
+              />
 
-       {/* Country */}
-<div style={sectionStyle}>
-  <h3
-    style={{
-      marginTop: 0,
-      marginBottom: "18px",
-      fontSize: "18px",
-    }}
-  >
-    {t("Country", "الدولة")}
-  </h3>
-
-  <div
-    style={{
-      display: "grid",
-      gridTemplateColumns:
-        "repeat(auto-fit,minmax(240px,1fr))",
-      gap: "16px",
-    }}
-  >
-    <div>
-      <label style={labelStyle}>
-        {t("Country", "الدولة")}
-      </label>
-
-      <select
-        name="country"
-        value={form.country}
-        onChange={handleChange}
-        style={inputStyle}
-        required
-      >
-        <option value="JO">
-          {t("Jordan", "الأردن")}
-        </option>
-
-        <option value="QA">
-          {t("Qatar", "قطر")}
-        </option>
-
-        <option value="SA">
-          {t("Saudi Arabia", "السعودية")}
-        </option>
-
-        <option value="AE">
-          {t(
-            "United Arab Emirates",
-            "الإمارات"
-          )}
-        </option>
-
-        <option value="KW">
-          {t("Kuwait", "الكويت")}
-        </option>
-
-        <option value="BH">
-          {t("Bahrain", "البحرين")}
-        </option>
-
-        <option value="OM">
-          {t("Oman", "عُمان")}
-        </option>
-
-        <option value="LB">
-          {t("Lebanon", "لبنان")}
-        </option>
-
-        <option value="EG">
-          {t("Egypt", "مصر")}
-        </option>
-
-        <option value="US">
-          {t(
-            "United States",
-            "الولايات المتحدة"
-          )}
-        </option>
-
-        <option value="GB">
-          {t(
-            "United Kingdom",
-            "المملكة المتحدة"
-          )}
-        </option>
-
-        <option value="OTHER">
-          {t("Other", "أخرى")}
-        </option>
-      </select>
-    </div>
-  </div>
-</div>
+              <span>
+                {t(
+                  "I confirm that I am authorized to register this organization and I agree to the Terms and Conditions and Privacy Policy.",
+                  "أقر بأنني مخوّل بتسجيل هذه الجهة، وأوافق على الأحكام والشروط وسياسة الخصوصية."
+                )}{" "}
+                <Link
+                  to="/campaign/terms"
+                  style={{
+                    color: "#16a34a",
+                    fontWeight: 800,
+                    textDecoration: "none",
+                  }}
+                >
+                  {t("Read terms", "قراءة الشروط")}
+                </Link>
+              </span>
+            </label>
+          </div>
 
           {error && (
             <div
               style={{
                 color: "#dc2626",
+                background: "#fef2f2",
+                border: "1px solid #fecaca",
+                padding: "12px 14px",
+                borderRadius: "14px",
                 marginBottom: "14px",
-                fontWeight: 600,
+                fontWeight: 700,
+                fontSize: "14px",
               }}
             >
               {error}
             </div>
           )}
 
-          <button
-            type="submit"
-            style={greenBtn}
-            disabled={loading}
-          >
+          <button type="submit" style={greenBtn} disabled={loading}>
             {loading
-              ? t(
-                  "Creating account...",
-                  "جاري إنشاء الحساب..."
-                )
-              : t(
-                  "Create Account",
-                  "إنشاء الحساب"
-                )}
+              ? t("Creating account...", "جاري إنشاء الحساب...")
+              : t("Create Account", "إنشاء الحساب")}
           </button>
 
           <div
             style={{
               textAlign: "center",
-              marginTop: "18px",
+              marginTop: "20px",
+              color: "#64748b",
+              fontSize: "14px",
             }}
           >
+            {t("Already have an account?", "لديك حساب بالفعل؟")}{" "}
             <Link
               to="/campaign/login"
+              style={{
+                color: "#16a34a",
+                fontWeight: 800,
+                textDecoration: "none",
+              }}
             >
-              {t(
-                "Already have account?",
-                "لديك حساب بالفعل؟"
-              )}
+              {t("Login", "تسجيل الدخول")}
             </Link>
           </div>
         </form>
