@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import useIsMobile from "../hooks/useIsMobile";
+import Logo from "/logo.svg";
 
 export default function CampaignLayout({ lang = "en" }) {
   const navigate = useNavigate();
@@ -78,9 +79,13 @@ export default function CampaignLayout({ lang = "en" }) {
     <aside className="w-[280px] max-w-[82vw] h-full bg-black text-white flex flex-col">
       <div className="px-6 py-6 border-b border-white/10 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white font-bold">
-            ✓
-          </div>
+        <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center overflow-hidden">
+  <img
+    src={Logo}
+    alt="Trusted Links"
+    className="w-8 h-8 object-contain"
+  />
+</div>
 
           <div>
             <div className="font-bold text-xl">Trusted Links</div>
@@ -161,36 +166,40 @@ export default function CampaignLayout({ lang = "en" }) {
       )}
 
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-slate-200 px-4 md:px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4 min-w-0">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="w-11 h-11 rounded-xl border border-slate-200 flex items-center justify-center shrink-0"
-            >
-              <Menu size={20} />
-            </button>
+     <header className="bg-white border-b border-slate-200 px-4 md:px-6 py-4 flex items-center justify-between">
+  <div className="flex items-center gap-4 min-w-0">
+    <button
+      onClick={() => setSidebarOpen(true)}
+      className="w-11 h-11 rounded-xl border border-slate-200 flex items-center justify-center shrink-0"
+    >
+      <Menu size={20} />
+    </button>
 
-            <div className="hidden md:flex items-center bg-slate-100 rounded-2xl px-4 py-3 w-[380px]">
-              <input
-                placeholder={t[lang].search}
-                className="bg-transparent outline-none w-full text-sm"
-              />
-            </div>
-          </div>
+    <div className="hidden md:flex items-center bg-slate-100 rounded-2xl px-4 py-3 w-[380px]">
+      <input
+        placeholder={t[lang].search}
+        className="bg-transparent outline-none w-full text-sm"
+      />
+    </div>
+  </div>
 
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-11 h-11 rounded-full bg-black text-white flex items-center justify-center font-bold shrink-0">
-              {owner?.name?.charAt(0) || "C"}
-            </div>
+  <div className="flex items-center gap-3 min-w-0">
+    <div className="w-11 h-11 rounded-full overflow-hidden bg-white border border-slate-200 flex items-center justify-center shrink-0">
+      <img
+        src={Logo}
+        alt="Trusted Links"
+        className="w-8 h-8 object-contain"
+      />
+    </div>
 
-            <div className="hidden md:block">
-              <div className="font-semibold text-sm">
-                {owner?.name || "Campaign"}
-              </div>
-              <div className="text-xs text-slate-500">{t[lang].owner}</div>
-            </div>
-          </div>
-        </header>
+    <div className="hidden md:block">
+      <div className="font-semibold text-sm">
+        {owner?.name || "Campaign"}
+      </div>
+      <div className="text-xs text-slate-500">{t[lang].owner}</div>
+    </div>
+  </div>
+</header>
 
         <main className="flex-1 overflow-y-auto min-w-0">
           <Outlet />
