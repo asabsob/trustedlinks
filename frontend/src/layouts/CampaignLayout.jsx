@@ -13,7 +13,7 @@ import {
   X,
 } from "lucide-react";
 import useIsMobile from "../hooks/useIsMobile";
-import Logo from "/logo.svg";
+import Logo from "/trustedlinks-logo.svg";
 
 export default function CampaignLayout({ lang = "en" }) {
   const navigate = useNavigate();
@@ -78,20 +78,13 @@ export default function CampaignLayout({ lang = "en" }) {
   const sidebar = (
     <aside className="w-[280px] max-w-[82vw] h-full bg-black text-white flex flex-col">
       <div className="px-6 py-6 border-b border-white/10 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center overflow-hidden">
+     <div className="flex items-center gap-3 min-w-0">
   <img
     src={Logo}
     alt="Trusted Links"
-    className="w-8 h-8 object-contain"
+    className="h-12 w-auto max-w-[190px]"
   />
 </div>
-
-          <div>
-            <div className="font-bold text-xl">Trusted Links</div>
-            <div className="text-xs text-slate-400">{t[lang].platform}</div>
-          </div>
-        </div>
 
         {isMobile && (
           <button
@@ -183,22 +176,13 @@ export default function CampaignLayout({ lang = "en" }) {
     </div>
   </div>
 
-  <div className="flex items-center gap-3 min-w-0">
-    <div className="w-11 h-11 rounded-full overflow-hidden bg-white border border-slate-200 flex items-center justify-center shrink-0">
-      <img
-        src={Logo}
-        alt="Trusted Links"
-        className="w-8 h-8 object-contain"
-      />
-    </div>
-
-    <div className="hidden md:block">
-      <div className="font-semibold text-sm">
-        {owner?.name || "Campaign"}
-      </div>
-      <div className="text-xs text-slate-500">{t[lang].owner}</div>
-    </div>
-  </div>
+<div className="flex items-center gap-3 min-w-0">
+  <img
+    src={Logo}
+    alt="Trusted Links"
+    className="h-12 w-auto max-w-[190px]"
+  />
+</div>
 </header>
 
         <main className="flex-1 overflow-y-auto min-w-0">
