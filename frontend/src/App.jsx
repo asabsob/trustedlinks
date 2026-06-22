@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 
 /* 🌍 Public + User Pages */
 import Home from "./pages/Home.jsx";
@@ -51,6 +51,8 @@ import CampaignResetPassword from "./pages/campaign/CampaignResetPassword";
 import CampaignTerms from "./pages/campaign/CampaignTerms";
 import CampaignCheckEmail from "./pages/campaign/CampaignCheckEmail";
 import CampaignEmailVerified from "./pages/campaign/CampaignEmailVerified";
+
+
 // -------------------------
 // User Protected Route
 // -------------------------
@@ -72,6 +74,14 @@ function PrivateAdmin({ children }) {
 export default function App() {
   const [lang, setLang] = useState(localStorage.getItem("lang") || "en");
   const navigate = useNavigate();
+ const location = useLocation();
+
+const hideMainNavbar =
+  location.pathname.startsWith("/campaign") ||
+  location.pathname.startsWith("/admin");
+
+
+  
  const token = localStorage.getItem("trustedlinks_token");
 
   const strings = useMemo(
@@ -137,13 +147,15 @@ export default function App() {
       className={lang === "ar" ? "rtl" : ""}
       dir={lang === "ar" ? "rtl" : "ltr"}
     >
-      <Navbar
-        lang={lang}
-        t={t}
-        token={token}
-        toggleLang={toggleLang}
-        handleLogout={handleLogout}
-      />
+    {!hideMainNavbar && (
+  <Navbar
+    lang={lang}
+    t={t}
+    token={token}
+    toggleLang={toggleLang}
+    handleLogout={handleLogout}
+  />
+)}
 
       <Routes>
         {/* Public */}
@@ -271,9 +283,11 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
-      <footer className="text-center mt-10 py-5 border-t border-gray-200 text-gray-500 text-sm">
-        © {new Date().getFullYear()} Trusted Links
-      </footer>
+   {!hideMainNavbar && (
+  <footer className="text-center mt-10 py-5 border-t border-gray-200 text-gray-500 text-sm">
+    © {new Date().getFullYear()} Trusted Links
+  </footer>
+)}
     </div>
   );
 }
