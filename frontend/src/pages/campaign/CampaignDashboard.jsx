@@ -19,7 +19,7 @@ export default function CampaignDashboard({ lang = "en" }) {
 
   useEffect(() => {
     loadDashboard();
-  }, 
+  }, []);
 
   async function loadDashboard() {
     try {
