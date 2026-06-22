@@ -31,6 +31,7 @@ import AdminInsights from "./pages/admin/AdminInsights.jsx";
 import AdminCampaignApprovals from "./pages/admin/AdminCampaignApprovals.jsx";
 /* 🔐 Admin Auth */
 import { useAdminAuth } from "./context/AdminAuthContext.jsx";
+import AdminCampaignOwners from "./pages/admin/AdminCampaignOwners.jsx";
 
 /* ⭐ Navbar */
 import Navbar from "./components/Navbar.jsx";
@@ -278,6 +279,7 @@ const hideMainNavbar =
   <Route path="fraud" element={<AdminFraud />} />
   <Route path="settings" element={<AdminSettings />} />
   <Route path="campaign-approvals" element={<AdminCampaignApprovals />} />
+  <Route path="campaign-owners" element={<AdminCampaignOwners />} />
 </Route>
         {/* Fallback */} 
         <Route path="*" element={<Navigate to="/" replace />} />
