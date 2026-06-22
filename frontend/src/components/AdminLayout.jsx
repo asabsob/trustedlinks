@@ -14,6 +14,8 @@ import {
 import { useAdminAuth } from "../../context/AdminAuthContext.jsx";
 import { useLang } from "../../context/LangContext.jsx";
 
+import BrandLogo from "../../components/BrandLogo";
+
 export default function AdminLayout() {
   const { logout } = useAdminAuth();
   const navigate = useNavigate();
@@ -45,14 +47,13 @@ export default function AdminLayout() {
         } bg-white border-r border-gray-200 shadow-sm flex flex-col transition-all duration-300`}
       >
         <div className="p-4 flex items-center justify-between border-b border-gray-200">
-          <div className="flex items-center gap-2">
-            <img src="/logo.svg" alt="logo" className="h-6" />
-            {open && (
-              <h1 className="font-semibold text-green-600 text-sm md:text-base">
-                Trusted Links
-              </h1>
-            )}
-          </div>
+         <div className="flex items-center gap-2 min-w-0">
+  {open ? (
+    <BrandLogo lang={lang} className="h-10 w-auto max-w-[170px]" />
+  ) : (
+    <img src="/logo.svg" alt="Trusted Links" className="h-7 w-7" />
+  )}
+</div>
           <button
             onClick={() => setOpen(!open)}
             className="md:hidden text-gray-600 hover:text-green-600"
