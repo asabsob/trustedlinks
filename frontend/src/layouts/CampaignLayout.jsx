@@ -13,7 +13,7 @@ import {
   X,
 } from "lucide-react";
 import useIsMobile from "../hooks/useIsMobile";
-import Logo from "/trustedlinks-logo.svg";
+import BrandLogo from "../components/BrandLogo";
 
 export default function CampaignLayout({ lang = "en" }) {
   const navigate = useNavigate();
@@ -79,11 +79,7 @@ export default function CampaignLayout({ lang = "en" }) {
     <aside className="w-[280px] max-w-[82vw] h-full bg-black text-white flex flex-col">
       <div className="px-6 py-6 border-b border-white/10 flex items-center justify-between">
      <div className="flex items-center gap-3 min-w-0">
-  <img
-    src={Logo}
-    alt="Trusted Links"
-    className="h-12 w-auto max-w-[190px]"
-  />
+  <BrandLogo lang={lang} className="h-12 w-auto max-w-[190px]" />
 </div>
 
         {isMobile && (
@@ -177,11 +173,7 @@ export default function CampaignLayout({ lang = "en" }) {
   </div>
 
 <div className="flex items-center gap-3 min-w-0">
-  <img
-    src={Logo}
-    alt="Trusted Links"
-    className="h-12 w-auto max-w-[190px]"
-  />
+<BrandLogo lang={lang} className="h-12 w-auto max-w-[190px]" />
 </div>
 </header>
 
