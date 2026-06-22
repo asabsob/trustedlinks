@@ -96,9 +96,12 @@ export default function CampaignDashboard({ lang = "en" }) {
 
   const currency = campaigns?.[0]?.currency || "JOD";
 
-  function money(value) {
-    return `${Number(value || 0).toFixed(2)} ${currency}`;
-  }
+function money(value) {
+  return `${Number(value || 0).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} ${currency}`;
+}
 
   if (loading) {
     return (
@@ -279,7 +282,7 @@ function QuickLink({ to, label }) {
 }
 
 const pageStyle = (isAr) => ({
-  padding: "24px",
+padding: window.innerWidth < 768 ? "12px" : "24px",
   background: "#f8fafc",
   minHeight: "100vh",
   direction: isAr ? "rtl" : "ltr",
@@ -314,7 +317,7 @@ const heroBadge = {
 
 const heroTitle = {
   margin: 0,
-  fontSize: "34px",
+  fontSize: window.innerWidth < 768 ? "24px" : "34px",
   fontWeight: 800,
 };
 
@@ -335,7 +338,10 @@ const errorStyle = {
 
 const statsGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
+  gridTemplateColumns:
+    window.innerWidth < 768
+      ? "1fr"
+      : "repeat(auto-fit,minmax(220px,1fr))",
   gap: "18px",
   marginBottom: "26px",
 };
@@ -355,8 +361,9 @@ const cardTitle = {
 };
 
 const cardValue = {
-  fontSize: "30px",
+  fontSize: window.innerWidth < 768 ? "22px" : "30px",
   fontWeight: 800,
+  wordBreak: "break-word",
 };
 
 const quickSection = {
@@ -392,7 +399,10 @@ const sectionDesc = {
 
 const quickGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+gridTemplateColumns:
+  window.innerWidth < 768
+    ? "1fr"
+    : "repeat(auto-fit,minmax(180px,1fr))"
   gap: "14px",
 };
 
