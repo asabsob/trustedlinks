@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { Menu, X } from "lucide-react";
+import BrandLogo from "./BrandLogo";
 
 export default function Navbar({ lang, t, token, toggleLang, handleLogout }) {
   const dashboardPath = token ? "/dashboard" : "/login";
@@ -29,7 +30,7 @@ export default function Navbar({ lang, t, token, toggleLang, handleLogout }) {
           onClick={closeMobileMenu}
           className="flex items-center gap-2 font-semibold text-base sm:text-lg text-gray-800 min-w-0"
         >
-          <img src="/logo.svg" alt="Logo" className="h-7 w-7 shrink-0" />
+         <BrandLogo lang={lang} className="h-10 w-auto max-w-[170px]" />
           <span className="truncate">{t.brand}</span>
         </Link>
 
