@@ -12,7 +12,7 @@ import {
   Menu,
   X,
 } from "lucide-react";
-import useIsMobile from "../../hooks/useIsMobile";
+import useIsMobile from "../hooks/useIsMobile";
 
 export default function CampaignLayout({ lang = "en" }) {
   const navigate = useNavigate();
