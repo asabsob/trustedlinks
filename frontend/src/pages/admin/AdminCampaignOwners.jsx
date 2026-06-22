@@ -17,7 +17,10 @@ export default function AdminCampaignOwners() {
       setLoading(true);
       setError("");
 
-      const token = localStorage.getItem("admin_token");
+     const token =
+  localStorage.getItem("admintoken") ||
+  localStorage.getItem("admin_token") ||
+  localStorage.getItem("adminToken");
 
       const res = await fetch(`${API_BASE}/api/admin/campaign-owners`, {
         headers: {
