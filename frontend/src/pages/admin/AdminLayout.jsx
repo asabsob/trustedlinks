@@ -115,6 +115,11 @@ export default function AdminLayout() {
         icon: Building2,
         label: t("Businesses", "الأنشطة التجارية"),
       },
+      { 
+  to: "/admin/campaign-owners", 
+  icon: Building2, 
+  label: t("Campaign Owners", "الممولون") 
+},
       {
   to: "/admin/campaign-approvals",
   icon: CreditCard,
