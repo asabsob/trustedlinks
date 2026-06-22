@@ -10,8 +10,9 @@ export default function BrandLogo({
   return (
     <img
       src={logo}
-      alt="Trusted Links"
+      alt={lang === "ar" ? "ترستيد لينكس" : "Trusted Links"}
       className={className}
+      loading="eager"
     />
   );
 }
