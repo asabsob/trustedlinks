@@ -438,5 +438,39 @@ router.get("/notifications/unread-count", requireAdmin, async (_req, res) => {
   }
 });
 
+router.get("/campaign-owners", requireAdmin, async (_req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("campaign_owners")
+      .select(`
+        id,
+        name,
+        entity_type,
+        email,
+        phone,
+        username,
+        country,
+        city,
+        status,
+        created_at
+      `)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    return res.json({
+      ok: true,
+      owners: data || [],
+    });
+
+  } catch (e) {
+    console.error("admin campaign owners error:", e);
+
+    return res.status(500).json({
+      error: "Failed to load campaign owners",
+    });
+  }
+});
+
 export { requireAdmin };
 export default router;
