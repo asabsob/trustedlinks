@@ -51,12 +51,23 @@ if (process.env.SENTRY_DSN) {
     environment: process.env.NODE_ENV || "development",
     release: process.env.npm_package_version || undefined,
     tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
-    beforeSend(event) {
+
+    beforeSend(event, hint) {
+      const error = hint?.originalException;
+
+      if (
+        error instanceof Error &&
+        error.message?.includes("Not allowed by CORS")
+      ) {
+        return null;
+      }
+
       if (event.request) {
         delete event.request.cookies;
         delete event.request.headers?.authorization;
         delete event.request.headers?.cookie;
       }
+
       return event;
     },
   });
@@ -113,18 +124,22 @@ const corsOptions = {
   origin(origin, callback) {
     if (!origin) return callback(null, true);
 
-    if (origin.includes("vercel.app")) {
+    const isAllowed =
+      allowedOrigins.includes(origin) ||
+      origin.endsWith(".vercel.app");
+
+    if (isAllowed) {
       return callback(null, true);
     }
 
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
+    console.warn("Blocked by CORS:", origin);
 
-    console.log("Blocked by CORS:", origin);
-    return callback(new Error("Not allowed by CORS"));
+    // مهم: لا ترمي Error حتى لا يظهر في Sentry
+    return callback(null, false);
   },
+
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+
   allowedHeaders: [
     "Content-Type",
     "Authorization",
@@ -133,12 +148,14 @@ const corsOptions = {
     "X-OTP-Token",
     "x-otp-token",
   ],
+
   credentials: true,
   optionsSuccessStatus: 204,
 };
 
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
+
 
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true, limit: "2mb" }));
