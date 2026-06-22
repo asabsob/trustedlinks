@@ -275,7 +275,14 @@ const getDisplayKeywords = (b) => {
     .filter((b) => {
       return Boolean(b.name_ar || b.description_ar || b.name || b.description);
     })
-    .sort((a, b) => b._score - a._score);
+   .sort((a, b) => {
+  if (b._score !== a._score) {
+    return b._score - a._score;
+  }
+
+  return (b.search_count || 0) - (a.search_count || 0);
+});
+   
 }, [businesses, query, category, isArabic]);
 
   const trackAction = async (endpoint, businessId) => {
@@ -288,34 +295,6 @@ const getDisplayKeywords = (b) => {
     } catch {}
   };
 
-const createLeadAndOpen = async (businessId) => {
-  try {
-    const res = await fetch(`${API_BASE}/api/create-lead`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ businessId, source: "website_search" }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok || !data.link) {
-      alert(
-        isArabic
-          ? "تعذر بدء التواصل الآن"
-          : "Unable to start contact now"
-      );
-      return;
-    }
-
-    window.open(data.link, "_blank", "noopener,noreferrer");
-  } catch {
-    alert(
-      isArabic
-        ? "حدث خطأ أثناء بدء التواصل"
-        : "Something went wrong while starting contact"
-    );
-  }
-};
 
   const getMapUrl = (b) => {
     if (b.mapLink && String(b.mapLink).startsWith("http")) return b.mapLink;
@@ -325,25 +304,18 @@ const createLeadAndOpen = async (businessId) => {
     return null;
   };
 
-  const getLogoUrl = (b) => {
-    if (b.logo) return b.logo;
+ const getLogoUrl = (b) => {
+  if (b.logo) return b.logo;
 
-    if (
-      b.mediaLink &&
-      /\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(String(b.mediaLink))
-    ) {
-      return b.mediaLink;
-    }
+  if (
+    b.mediaLink &&
+    /\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(String(b.mediaLink))
+  ) {
+    return b.mediaLink;
+  }
 
-    const displayName = getDisplayName(b);
-
-    if (displayName) {
-      return `https://ui-avatars.com/api/?name=${encodeURIComponent(
-        displayName
-      )}&background=22c55e&color=fff&size=128`;
-    }
-    return "";
-  };
+  return "/trustedlinks-logo.svg";
+};
 
   const fixUrl = (url) => {
     if (!url) return "";
@@ -532,19 +504,22 @@ const createLeadAndOpen = async (businessId) => {
     ? "تفاصيل النشاط غير محدثة بعد"
     : "Business details will be updated soon");
               return (
-                <div
-                  key={businessId}
-                  style={{
-                    background: "#fff",
-                    borderRadius: 22,
-                    border: "1px solid #e5e7eb",
-                    boxShadow: "0 10px 24px rgba(15,23,42,0.06)",
-                    overflow: "hidden",
-                    display: "flex",
-                    flexDirection: "column",
-                    transition: "0.2s ease",
-                  }}
-                >
+              <div
+  key={businessId}
+  className="business-card"
+  style={{
+    background: "#fff",
+    borderRadius: 22,
+    border: "1px solid #e5e7eb",
+    boxShadow: "0 10px 24px rgba(15,23,42,0.06)",
+    overflow: "hidden",
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
+    transition: "all 0.25s ease",
+    cursor: "pointer",
+  }}
+>
                   <div
                     style={{
                       padding: "22px 18px 14px",
@@ -555,23 +530,19 @@ const createLeadAndOpen = async (businessId) => {
                       alignItems: "center",
                       justifyContent: "center",
                       gap: 12,
-                      minHeight: 170,
+                      minHeight: 230,
                     }}
                   >
-                    <img
-                      src={logoUrl}
-                      alt={displayName}
-                      style={{
-                        width: 84,
-                        height: 84,
-                        objectFit: "cover",
-                        borderRadius: 18,
-                        border: "1px solid #e2e8f0",
-                        background: "#fff",
-                        boxShadow: "0 8px 18px rgba(15,23,42,0.08)",
-                      }}
-                    />
-
+                  <div style={logoFrameStyle}>
+  <img
+    src={logoUrl}
+    alt={displayName}
+    style={logoImageStyle}
+    onError={(e) => {
+      e.currentTarget.src = "/trustedlinks-logo.svg";
+    }}
+  />
+</div>
                     <div style={{ textAlign: "center", width: "100%" }}>
                       <h3
                         style={{
@@ -791,11 +762,51 @@ const createLeadAndOpen = async (businessId) => {
             grid-template-columns: 1fr !important;
           }
         }
+        .business-card {
+  transition: all 0.25s ease;
+  height: 100%;
+}
+
+.business-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(15,23,42,0.12) !important;
+}
+
+.business-card:active {
+  transform: scale(0.98);
+}
+
+@media (hover: none) {
+  .business-card:hover {
+    transform: none;
+    box-shadow: 0 10px 24px rgba(15,23,42,0.06) !important;
+  }
+}
       `}</style>
     </div>
   );
 }
 
+const logoFrameStyle = {
+  width: 120,
+  height: 120,
+  borderRadius: 22,
+  border: "1px solid #e2e8f0",
+  background: "#fff",
+  boxShadow: "0 8px 18px rgba(15,23,42,0.08)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  overflow: "hidden",
+  padding: 10,
+};
+
+const logoImageStyle = {
+  width: "100%",
+  height: "100%",
+  objectFit: "contain",
+  display: "block",
+};
 const emptyStateStyle = {
   background: "#fff",
   borderRadius: 18,
