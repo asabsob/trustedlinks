@@ -31,7 +31,6 @@ export default function Navbar({ lang, t, token, toggleLang, handleLogout }) {
           className="flex items-center gap-2 font-semibold text-base sm:text-lg text-gray-800 min-w-0"
         >
          <BrandLogo lang={lang} className="h-10 w-auto max-w-[170px]" />
-          <span className="truncate">{t.brand}</span>
         </Link>
 
         <div className="hidden md:flex items-center gap-6">
