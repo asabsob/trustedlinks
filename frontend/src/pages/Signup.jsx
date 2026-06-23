@@ -11,7 +11,7 @@ const API_BASE =
 let googleMapsPromise = null;
 
 function loadGoogleMaps() {
-  if (window.google?.maps?.importLibrary) {
+  if (window.google?.maps?.places?.Autocomplete) {
     return Promise.resolve(window.google);
   }
 
@@ -29,30 +29,28 @@ function loadGoogleMaps() {
 
     const existing = document.getElementById("googleMapsScript");
 
- if (existing) {
-  if (window.google?.maps?.importLibrary) {
-    resolve(window.google);
-    return;
-  }
+    if (existing) {
+      if (window.google?.maps?.places?.Autocomplete) {
+        resolve(window.google);
+        return;
+      }
 
-  existing.addEventListener(
-    "load",
-    () => resolve(window.google),
-    { once: true }
-  );
+      existing.addEventListener("load", () => resolve(window.google), {
+        once: true,
+      });
 
-  existing.addEventListener(
-    "error",
-    () => reject(new Error("Failed to load Google Maps")),
-    { once: true }
-  );
+      existing.addEventListener(
+        "error",
+        () => reject(new Error("Failed to load Google Maps")),
+        { once: true }
+      );
 
-  return;
-}
+      return;
+    }
 
     const script = document.createElement("script");
     script.id = "googleMapsScript";
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&loading=async&v=weekly`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&v=weekly`;
     script.async = true;
     script.defer = true;
 
