@@ -225,7 +225,10 @@ const hideMainNavbar =
   }
 />
 
-<Route path="/campaign" element={<CampaignLayout lang={lang} />}>
+<Route
+  path="/campaign"
+  element={<CampaignLayout lang={lang} toggleLang={toggleLang} />}
+>
   <Route index element={<Navigate to="dashboard" replace />} />
 
   {/* Public Campaign Pages */}
