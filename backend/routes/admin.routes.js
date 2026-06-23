@@ -440,7 +440,7 @@ router.get("/notifications/unread-count", requireAdmin, async (_req, res) => {
 
 router.get("/campaign-owners", requireAdmin, async (_req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data: owners, error: ownersError } = await supabase
       .from("campaign_owners")
       .select(`
         id,
@@ -456,13 +456,73 @@ router.get("/campaign-owners", requireAdmin, async (_req, res) => {
       `)
       .order("created_at", { ascending: false });
 
-    if (error) throw error;
+    if (ownersError) throw ownersError;
+
+    const ownerIds = (owners || []).map((o) => o.id);
+
+    let campaigns = [];
+
+    if (ownerIds.length > 0) {
+      const { data: campaignsData, error: campaignsError } = await supabase
+        .from("campaigns")
+        .select(`
+          id,
+          owner_id,
+          budget,
+          used_budget,
+          currency
+        `)
+        .in("owner_id", ownerIds);
+
+      if (campaignsError) throw campaignsError;
+
+      campaigns = campaignsData || [];
+    }
+
+    const budgetMap = new Map();
+
+    for (const c of campaigns) {
+      const ownerId = c.owner_id;
+
+      const current = budgetMap.get(ownerId) || {
+        sponsored_budget: 0,
+        used_budget: 0,
+        currency: c.currency || "JOD",
+        campaigns_count: 0,
+      };
+
+      current.sponsored_budget += Number(c.budget || 0);
+      current.used_budget += Number(c.used_budget || 0);
+      current.currency = c.currency || current.currency || "JOD";
+      current.campaigns_count += 1;
+
+      budgetMap.set(ownerId, current);
+    }
+
+    const results = (owners || []).map((owner) => {
+      const budget = budgetMap.get(owner.id) || {
+        sponsored_budget: 0,
+        used_budget: 0,
+        currency: "JOD",
+        campaigns_count: 0,
+      };
+
+      return {
+        ...owner,
+        sponsored_budget: budget.sponsored_budget,
+        used_budget: budget.used_budget,
+        remaining_budget:
+          Number(budget.sponsored_budget || 0) -
+          Number(budget.used_budget || 0),
+        currency: budget.currency,
+        campaigns_count: budget.campaigns_count,
+      };
+    });
 
     return res.json({
       ok: true,
-      owners: data || [],
+      owners: results,
     });
-
   } catch (e) {
     console.error("admin campaign owners error:", e);
 
@@ -471,6 +531,5 @@ router.get("/campaign-owners", requireAdmin, async (_req, res) => {
     });
   }
 });
-
 export { requireAdmin };
 export default router;
