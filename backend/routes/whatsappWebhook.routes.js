@@ -32,6 +32,32 @@ const router = express.Router();
 
 const PENDING_NEARBY_REQUESTS = new Map();
 
+/* ------------------------------------------------------------------ */
+/* WhatsApp Send Queue */
+/* ------------------------------------------------------------------ */
+
+const WHATSAPP_SEND_QUEUES = new Map();
+
+async function runWhatsAppQueue(to, task) {
+  const key = String(to || "");
+
+  const previous =
+    WHATSAPP_SEND_QUEUES.get(key) || Promise.resolve();
+
+  const current = previous
+    .catch(() => {})
+    .then(task)
+    .finally(() => {
+      if (WHATSAPP_SEND_QUEUES.get(key) === current) {
+        WHATSAPP_SEND_QUEUES.delete(key);
+      }
+    });
+
+  WHATSAPP_SEND_QUEUES.set(key, current);
+
+  return current;
+}
+
 function cleanDigits(v = "") {
   return String(v).replace(/\D/g, "");
 }
@@ -368,8 +394,8 @@ async function sendBusinessCards({
         body: caption,
       }).catch(console.error);
     }
-
-    await new Promise((r) => setTimeout(r, 500));
+console.log("IMAGE_SENT", item.name || item.name_ar);
+    await new Promise((r) => setTimeout(r, 1000));
 
     if (item.trackedLink) {
       await javnaSendCallToAction({
@@ -382,7 +408,7 @@ async function sendBusinessCards({
         url: item.trackedLink,
       }).catch(console.error);
     }
-
+console.log("WHATSAPP_SENT", item.name || item.name_ar);
     await new Promise((r) => setTimeout(r, 400));
 
     const mapsUrl =
@@ -404,7 +430,7 @@ async function sendBusinessCards({
         url: mapsUrl,
       }).catch(console.error);
     }
-
+console.log("LOCATION_SENT", item.name || item.name_ar);
     await new Promise((r) => setTimeout(r, 400));
   }
 }
@@ -488,12 +514,14 @@ router.post("/", async (req, res) => {
 
       clearPendingNearby(from);
 
-      await sendBusinessCards({
-        to: from,
-        results: enrichedResults,
-        lang,
-        includeDistance: true,
-      });
+   await runWhatsAppQueue(from, () =>
+  sendBusinessCards({
+    to: from,
+    results: enrichedResults,
+    lang,
+    includeDistance: true,
+  })
+);
 
       return;
     }
@@ -591,12 +619,14 @@ router.post("/", async (req, res) => {
         needsRefinement: false,
       });
 
-      await sendBusinessCards({
-        to: from,
-        results: enrichedResults,
-        lang,
-        includeDistance: false,
-      });
+    await runWhatsAppQueue(from, () =>
+  sendBusinessCards({
+    to: from,
+    results: enrichedResults,
+    lang,
+    includeDistance: false,
+  })
+);
 
       return;
     }
@@ -774,12 +804,14 @@ if (intentData?.intent === "brand") {
       needsRefinement: false,
     });
 
-    await sendBusinessCards({
-      to: from,
-      results: enrichedResults,
-      lang,
-      includeDistance: false,
-    });
+await runWhatsAppQueue(from, () =>
+  sendBusinessCards({
+    to: from,
+    results: enrichedResults,
+    lang,
+    includeDistance: false,
+  })
+);
 
     return;
   } catch (e) {
