@@ -21,7 +21,7 @@ import {
 import useIsMobile from "../hooks/useIsMobile";
 import BrandLogo from "../components/BrandLogo";
 
-export default function CampaignLayout({ lang = "en" }) {
+export default function CampaignLayout({ lang = "en", toggleLang }) {
   const navigate = useNavigate();
   const location = useLocation();
   const isAr = lang === "ar";
@@ -194,10 +194,16 @@ export default function CampaignLayout({ lang = "en" }) {
               />
             </div>
           </div>
+<div className="flex items-center gap-3 min-w-0">
+  <button
+    onClick={toggleLang}
+    className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50"
+  >
+    {lang === "en" ? "عربي" : "EN"}
+  </button>
 
-          <div className="flex items-center gap-3 min-w-0">
-            <BrandLogo lang={lang} className="h-12 w-auto max-w-[190px]" />
-          </div>
+  <BrandLogo lang={lang} className="h-12 w-auto max-w-[190px]" />
+</div>
         </header>
 
         <main className="flex-1 overflow-y-auto min-w-0">
