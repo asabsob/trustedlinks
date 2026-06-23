@@ -87,27 +87,7 @@ const data = await res.json().catch(() => ({}));
           </p>
         </div>
 
-        <button
-          onClick={askAI}
-          disabled={loading}
-          style={{
-            ...buttonStyle,
-            opacity: loading ? 0.65 : 1,
-            cursor: loading ? "not-allowed" : "pointer",
-          }}
-        >
-          <Sparkles size={16} />
-          {loading
-            ? isAr
-              ? "جاري التحليل..."
-              : "Analyzing..."
-            : isAr
-            ? "اشرح لي الصفحة"
-            : "Explain this page"}
-        </button>
-      </div>
-
-      <div style={{ marginTop: 18, marginBottom: 14 }}>
+        <div style={{ marginTop: 18, marginBottom: 14 }}>
   <button
     type="button"
     onClick={() =>
@@ -132,6 +112,8 @@ const data = await res.json().catch(() => ({}));
       : "✨ What can I do on this page?"}
   </button>
 </div>
+
+   
 
       <div style={quickActionsStyle}>
   {[
@@ -203,20 +185,6 @@ const descStyle = {
   fontSize: 14,
   lineHeight: 1.8,
   color: "#4b5563",
-};
-
-const buttonStyle = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 8,
-  border: "none",
-  borderRadius: 14,
-  background: "#16a34a",
-  color: "#fff",
-  padding: "12px 18px",
-  fontSize: 14,
-  fontWeight: 800,
 };
 
 const answerStyle = {
