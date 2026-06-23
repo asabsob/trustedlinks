@@ -80,3 +80,7 @@ button {
   position: relative;
   z-index: 50;
 }
+/* Google Places autocomplete dropdown fix */
+.pac-container {
+  z-index: 99999 !important;
+}
