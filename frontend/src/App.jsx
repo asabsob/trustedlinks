@@ -77,10 +77,21 @@ export default function App() {
   const navigate = useNavigate();
  const location = useLocation();
 
-const hideMainNavbar =
-  location.pathname.startsWith("/campaign") ||
-  location.pathname.startsWith("/admin");
+const campaignPrivatePages = [
+  "/campaign/dashboard",
+  "/campaign/campaigns",
+  "/campaign/funding-codes",
+  "/campaign/participants",
+  "/campaign/finance",
+  "/campaign/analytics",
+  "/campaign/settings",
+];
 
+const hideMainNavbar =
+  campaignPrivatePages.some((p) =>
+    location.pathname.startsWith(p)
+  ) ||
+  location.pathname.startsWith("/admin");
 
   
  const token = localStorage.getItem("trustedlinks_token");
