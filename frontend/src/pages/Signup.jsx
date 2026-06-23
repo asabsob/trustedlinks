@@ -215,7 +215,10 @@ console.log(
 );
         if (cancelled) return;
        if (!locationInputRef.current) return;
-      if (autocompleteElementRef.current) {
+   if (autocompleteElementRef.current) {
+  autocompleteElementRef.current.setComponentRestrictions({
+    country: countryCode,
+  });
   return;
 }
 
@@ -228,6 +231,7 @@ if (!locationInputRef.current) return;
 const autocomplete = new window.google.maps.places.Autocomplete(
   locationInputRef.current,
   {
+    componentRestrictions: { country: countryCode },
     fields: ["formatted_address", "geometry", "name"],
   }
 );
@@ -691,22 +695,27 @@ autocompleteElementRef.current = autocomplete;
           </div>
 
           <div style={addressFieldWrapperStyle}>
-  <input
-    ref={locationInputRef}
-    value={locationText}
-    onChange={(e) => {
-  setLocationText(e.target.value);
-  setLatitude(null);
-  setLongitude(null);
-  setMapLink("");
-}}
-    style={{ ...inputStyle, marginBottom: 0 }}
-    placeholder={t(
-      "Start typing your address or place name",
-      "ابدأ بكتابة العنوان أو اسم المكان"
-    )}
-  />
-</div>
+ <input
+  ref={locationInputRef}
+  value={locationText}
+  onChange={(e) => {
+    setLocationText(e.target.value);
+    setLatitude(null);
+    setLongitude(null);
+    setMapLink("");
+  }}
+  onKeyDown={(e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+    }
+  }}
+  style={{ ...inputStyle, marginBottom: 0 }}
+  placeholder={t(
+    "Start typing your address or place name",
+    "ابدأ بكتابة العنوان أو اسم المكان"
+  )}
+/>
+          </div>
           {locationText ? (
             <div style={selectedLocationStyle}>
               <strong>{t("Selected address", "العنوان المختار")}:</strong> {locationText}
