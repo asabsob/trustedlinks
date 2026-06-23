@@ -1,7 +1,16 @@
-<svg width="220" height="56" viewBox="0 0 220 56" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="28" cy="28" r="24" fill="#2ECC71"/>
-  <path d="M18 28.5L25 35.5L39 19.5" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="64" y="36" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="700" fill="#111827">
-    Trusted Links
+<svg width="235" height="48" viewBox="0 0 234.59 47.26" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path
+    fill="#4EB96F"
+    d="M24.64,0C11.03,0,0,10.58,0,23.63s11.03,23.63,24.64,23.63,24.64-10.58,24.64-23.63S38.25,0,24.64,0ZM21.74,34.78l-10.74-10.02,3.34-3.76,6.92,6.32,14.27-14.85,3.97,3.64-17.76,18.66Z"
+  />
+
+  <text
+    transform="translate(60.14 32.96) scale(1.04 1)"
+    font-family="Simplified Arabic, Inter, Arial, sans-serif"
+    font-size="29.61"
+    font-weight="700"
+    fill="#231F20"
+  >
+    TrustedLinks
   </text>
 </svg>
