@@ -214,47 +214,25 @@ const hideMainNavbar =
   }
 />
 
-<Route path="/campaign/login" element={<CampaignLogin lang={lang} />} />
-
-<Route path="/campaign/register" element={<CampaignRegister lang={lang} />} />
-
-<Route path="/campaign/terms" element={<CampaignTerms lang={lang} />} />
-
-        <Route
-  path="/campaign/check-email"
-  element={<CampaignCheckEmail lang={lang} />}
-/>
-
-<Route
-  path="/campaign/email-verified"
-  element={<CampaignEmailVerified lang={lang} />}
-/>
-
-<Route
-  path="/campaign/forgot-password"
-  element={<CampaignForgotPassword lang={lang} />}
-/>
-
-<Route
-  path="/campaign/reset-password/:token"
-  element={<CampaignResetPassword lang={lang} />}
-/>
-
 <Route path="/campaign" element={<CampaignLayout lang={lang} />}>
   <Route index element={<Navigate to="dashboard" replace />} />
 
+  {/* Public Campaign Pages */}
+  <Route path="login" element={<CampaignLogin lang={lang} />} />
+  <Route path="register" element={<CampaignRegister lang={lang} />} />
+  <Route path="terms" element={<CampaignTerms lang={lang} />} />
+  <Route path="check-email" element={<CampaignCheckEmail lang={lang} />} />
+  <Route path="email-verified" element={<CampaignEmailVerified lang={lang} />} />
+  <Route path="forgot-password" element={<CampaignForgotPassword lang={lang} />} />
+  <Route path="reset-password/:token" element={<CampaignResetPassword lang={lang} />} />
+
+  {/* Campaign Dashboard Pages */}
   <Route path="dashboard" element={<CampaignDashboard lang={lang} />} />
-
   <Route path="campaigns" element={<CampaignCampaigns lang={lang} />} />
-
   <Route path="funding-codes" element={<CampaignFundingCodes lang={lang} />} />
-
   <Route path="participants" element={<CampaignParticipants lang={lang} />} />
-
   <Route path="finance" element={<CampaignFinance lang={lang} />} />
-
   <Route path="analytics" element={<CampaignAnalytics lang={lang} />} />
-
   <Route path="settings" element={<CampaignSettings lang={lang} />} />
 </Route>
       
