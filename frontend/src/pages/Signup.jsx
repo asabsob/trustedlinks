@@ -29,19 +29,26 @@ function loadGoogleMaps() {
 
     const existing = document.getElementById("googleMapsScript");
 
-    if (existing) {
-      existing.addEventListener(
-        "load",
-        () => resolve(window.google),
-        { once: true }
-      );
-      existing.addEventListener(
-        "error",
-        () => reject(new Error("Failed to load Google Maps")),
-        { once: true }
-      );
-      return;
-    }
+ if (existing) {
+  if (window.google?.maps?.importLibrary) {
+    resolve(window.google);
+    return;
+  }
+
+  existing.addEventListener(
+    "load",
+    () => resolve(window.google),
+    { once: true }
+  );
+
+  existing.addEventListener(
+    "error",
+    () => reject(new Error("Failed to load Google Maps")),
+    { once: true }
+  );
+
+  return;
+}
 
     const script = document.createElement("script");
     script.id = "googleMapsScript";
@@ -202,17 +209,7 @@ export default function Signup({ lang = "en" }) {
     async function initPlaceAutocomplete() {
       try {
         await loadGoogleMaps();
-        console.log("google", !!window.google);
-console.log("maps", !!window.google?.maps);
-console.log("places", !!window.google?.maps?.places);
-console.log(
-  "Autocomplete",
-  !!window.google?.maps?.places?.Autocomplete
-);
-console.log(
-  "Autocomplete available:",
-  !!window.google?.maps?.places?.Autocomplete
-);
+        
         if (cancelled) return;
        if (!locationInputRef.current) return;
    if (autocompleteElementRef.current) {
