@@ -45,7 +45,7 @@ function loadGoogleMaps() {
 
     const script = document.createElement("script");
     script.id = "googleMapsScript";
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&v=weekly`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&v=quarterly`;
     script.async = true;
     script.defer = true;
 
@@ -132,7 +132,6 @@ export default function Signup({ lang = "en" }) {
   const navigate = useNavigate();
   const isArabic = lang === "ar";
 
-  const autocompleteContainerRef = useRef(null);
   const autocompleteElementRef = useRef(null);
   const locationInputRef = useRef(null);
 
@@ -203,24 +202,25 @@ export default function Signup({ lang = "en" }) {
     async function initPlaceAutocomplete() {
       try {
         await loadGoogleMaps();
-
+console.log(
+  "Autocomplete available:",
+  !!window.google?.maps?.places?.Autocomplete
+);
         if (cancelled) return;
-        if (!autocompleteContainerRef.current) return;
-        if (
-          autocompleteElementRef.current &&
-          autocompleteContainerRef.current?.hasChildNodes()
-        ) {
-          return;
-        }
+       if (!locationInputRef.current) return;
+      if (autocompleteElementRef.current) {
+  return;
+}
 
-     await window.google.maps.importLibrary("places");
+     if (!window.google?.maps?.places?.Autocomplete) {
+  throw new Error("Google Places Autocomplete not loaded");
+}
 
 if (!locationInputRef.current) return;
 
 const autocomplete = new window.google.maps.places.Autocomplete(
   locationInputRef.current,
   {
-    componentRestrictions: { country: countryCode },
     fields: ["formatted_address", "geometry", "name"],
   }
 );
@@ -229,7 +229,10 @@ autocomplete.addListener("place_changed", () => {
   const place = autocomplete.getPlace();
 
   const formatted =
-    place.formatted_address || place.name || locationInputRef.current.value || "";
+    place.formatted_address ||
+    place.name ||
+    locationInputRef.current.value ||
+    "";
 
   setLocationText(formatted);
 
@@ -243,6 +246,7 @@ autocomplete.addListener("place_changed", () => {
   }
 });
 
+if (!locationInputRef.current) return;
 autocompleteElementRef.current = autocomplete;
       } catch (err) {
         console.error("Google Maps load error:", err);
@@ -257,13 +261,7 @@ autocompleteElementRef.current = autocomplete;
   }, [lang, countryCode]);
 
   useEffect(() => {
-    const el = autocompleteElementRef.current;
-    if (!el) return;
-
-    const bounds = getCountryBounds(countryCode);
-    if (bounds) {
-      el.locationRestriction = bounds;
-    }
+   
   }, [countryCode]);
 
   useEffect(() => {
@@ -689,7 +687,12 @@ autocompleteElementRef.current = autocomplete;
   <input
     ref={locationInputRef}
     value={locationText}
-    onChange={(e) => setLocationText(e.target.value)}
+    onChange={(e) => {
+  setLocationText(e.target.value);
+  setLatitude(null);
+  setLongitude(null);
+  setMapLink("");
+}}
     style={{ ...inputStyle, marginBottom: 0 }}
     placeholder={t(
       "Start typing your address or place name",
