@@ -52,7 +52,7 @@ function loadGoogleMaps() {
 
     const script = document.createElement("script");
     script.id = "googleMapsScript";
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&loading=async&v=weekly`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&loading=async&v=weekly`;
     script.async = true;
     script.defer = true;
 
@@ -209,6 +209,8 @@ export default function Signup({ lang = "en" }) {
     async function initPlaceAutocomplete() {
       try {
         await loadGoogleMaps();
+
+        const { Autocomplete } = await window.google.maps.importLibrary("places");
         
         if (cancelled) return;
        if (!locationInputRef.current) return;
@@ -219,19 +221,14 @@ export default function Signup({ lang = "en" }) {
   return;
 }
 
-     if (!window.google?.maps?.places?.Autocomplete) {
+ if (!Autocomplete) {
   throw new Error("Google Places Autocomplete not loaded");
 }
 
-if (!locationInputRef.current) return;
-
-const autocomplete = new window.google.maps.places.Autocomplete(
-  locationInputRef.current,
-  {
-    componentRestrictions: { country: countryCode },
-    fields: ["formatted_address", "geometry", "name"],
-  }
-);
+const autocomplete = new Autocomplete(locationInputRef.current, {
+  componentRestrictions: { country: countryCode },
+  fields: ["formatted_address", "geometry", "name"],
+});
 
 autocomplete.addListener("place_changed", () => {
   const place = autocomplete.getPlace();
