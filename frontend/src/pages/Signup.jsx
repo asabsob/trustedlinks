@@ -45,7 +45,7 @@ function loadGoogleMaps() {
 
     const script = document.createElement("script");
     script.id = "googleMapsScript";
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&loading=async&v=weekly`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&v=weekly`;
     script.async = true;
     script.defer = true;
 
@@ -134,6 +134,7 @@ export default function Signup({ lang = "en" }) {
 
   const autocompleteContainerRef = useRef(null);
   const autocompleteElementRef = useRef(null);
+  const locationInputRef = useRef(null);
 
   const [businessNameAr, setBusinessNameAr] = useState("");
   const [businessNameEn, setBusinessNameEn] = useState("");
@@ -212,68 +213,37 @@ export default function Signup({ lang = "en" }) {
           return;
         }
 
-      const { PlaceAutocompleteElement } =
-  await window.google.maps.importLibrary("places");
+     await window.google.maps.importLibrary("places");
 
-if (!PlaceAutocompleteElement) {
-  throw new Error("PlaceAutocompleteElement is unavailable");
-}
-        
-        const element = new PlaceAutocompleteElement();
+if (!locationInputRef.current) return;
 
-        element.style.width = "100%";
-        element.style.maxWidth = "100%";
-        element.style.display = "block";
-        element.style.boxSizing = "border-box";
+const autocomplete = new window.google.maps.places.Autocomplete(
+  locationInputRef.current,
+  {
+    componentRestrictions: { country: countryCode },
+    fields: ["formatted_address", "geometry", "name"],
+  }
+);
 
-        const bounds = getCountryBounds(countryCode);
-        if (bounds) {
-          element.locationRestriction = bounds;
-        }
+autocomplete.addListener("place_changed", () => {
+  const place = autocomplete.getPlace();
 
-        element.setAttribute(
-          "placeholder",
-          t(
-            "Start typing your address or place name",
-            "ابدأ بكتابة العنوان أو اسم المكان"
-          )
-        );
+  const formatted =
+    place.formatted_address || place.name || locationInputRef.current.value || "";
 
-        element.addEventListener("gmp-select", async (event) => {
-          try {
-            const place = event.placePrediction?.toPlace?.();
-            if (!place) return;
+  setLocationText(formatted);
 
-            await place.fetchFields({
-              fields: ["displayName", "formattedAddress", "location"],
-            });
+  const lat = place.geometry?.location?.lat?.();
+  const lng = place.geometry?.location?.lng?.();
 
-            const formatted = place.formattedAddress || place.displayName || "";
+  if (typeof lat === "number" && typeof lng === "number") {
+    setLatitude(lat);
+    setLongitude(lng);
+    setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
+  }
+});
 
-            setLocationText(formatted);
-
-            const lat =
-              typeof place.location?.lat === "function"
-                ? place.location.lat()
-                : null;
-            const lng =
-              typeof place.location?.lng === "function"
-                ? place.location.lng()
-                : null;
-
-            if (typeof lat === "number" && typeof lng === "number") {
-              setLatitude(lat);
-              setLongitude(lng);
-              setMapLink(`https://www.google.com/maps?q=${lat},${lng}`);
-            }
-          } catch (err) {
-            console.error("Place select error:", err);
-          }
-        });
-
-        autocompleteContainerRef.current.innerHTML = "";
-        autocompleteContainerRef.current.appendChild(element);
-        autocompleteElementRef.current = element;
+autocompleteElementRef.current = autocomplete;
       } catch (err) {
         console.error("Google Maps load error:", err);
       }
@@ -716,11 +686,17 @@ if (!PlaceAutocompleteElement) {
           </div>
 
           <div style={addressFieldWrapperStyle}>
-            <div style={addressFieldInnerStyle}>
-              <div ref={autocompleteContainerRef} style={autocompleteContainerStyle} />
-            </div>
-          </div>
-
+  <input
+    ref={locationInputRef}
+    value={locationText}
+    onChange={(e) => setLocationText(e.target.value)}
+    style={{ ...inputStyle, marginBottom: 0 }}
+    placeholder={t(
+      "Start typing your address or place name",
+      "ابدأ بكتابة العنوان أو اسم المكان"
+    )}
+  />
+</div>
           {locationText ? (
             <div style={selectedLocationStyle}>
               <strong>{t("Selected address", "العنوان المختار")}:</strong> {locationText}
