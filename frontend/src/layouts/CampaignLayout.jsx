@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import {
+  Outlet,
+  NavLink,
+  useNavigate,
+  useLocation,
+  Navigate,
+} from "react-router-dom";
 import {
   LayoutDashboard,
   Megaphone,
@@ -17,15 +23,36 @@ import BrandLogo from "../components/BrandLogo";
 
 export default function CampaignLayout({ lang = "en" }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const isAr = lang === "ar";
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const owner = JSON.parse(localStorage.getItem("campaign_owner") || "{}");
   const token = localStorage.getItem("campaign_token");
 
+  const publicPages = [
+    "/campaign/login",
+    "/campaign/register",
+    "/campaign/terms",
+    "/campaign/check-email",
+    "/campaign/email-verified",
+    "/campaign/forgot-password",
+  ];
+
+  const isPublicPage =
+    publicPages.includes(location.pathname) ||
+    location.pathname.startsWith("/campaign/reset-password");
+
+  if (isPublicPage) {
+    return (
+      <div dir={isAr ? "rtl" : "ltr"} className="min-h-screen bg-slate-50">
+        <Outlet />
+      </div>
+    );
+  }
+
   if (!token || token === "undefined" || token === "null") {
-    navigate("/campaign/login");
+    return <Navigate to="/campaign/login" replace />;
   }
 
   const t = {
@@ -40,8 +67,6 @@ export default function CampaignLayout({ lang = "en" }) {
       logout: "Logout",
       search: "Search campaigns...",
       campaignManagement: "Partner Network",
-      platform: "Partner Network",
-      owner: "Campaign Owner",
     },
     ar: {
       dashboard: "لوحة التحكم",
@@ -54,15 +79,13 @@ export default function CampaignLayout({ lang = "en" }) {
       logout: "تسجيل الخروج",
       search: "ابحث...",
       campaignManagement: "شبكة الشركاء",
-      platform: "شبكة الشركاء",
-      owner: "مالك الحساب",
     },
   };
 
   function handleLogout() {
     localStorage.removeItem("campaign_token");
     localStorage.removeItem("campaign_owner");
-    navigate("/campaign/login");
+    navigate("/campaign/login", { replace: true });
   }
 
   const navItems = [
@@ -78,9 +101,9 @@ export default function CampaignLayout({ lang = "en" }) {
   const sidebar = (
     <aside className="w-[280px] max-w-[82vw] h-full bg-black text-white flex flex-col">
       <div className="px-6 py-6 border-b border-white/10 flex items-center justify-between">
-     <div className="flex items-center gap-3 min-w-0">
-  <BrandLogo lang={lang} className="h-12 w-auto max-w-[190px]" />
-</div>
+        <div className="flex items-center gap-3 min-w-0">
+          <BrandLogo lang={lang} className="h-12 w-auto max-w-[190px]" />
+        </div>
 
         {isMobile && (
           <button
@@ -148,34 +171,34 @@ export default function CampaignLayout({ lang = "en" }) {
             onClick={() => setSidebarOpen(false)}
           />
 
-          <div className="relative z-10 h-full">
-            {sidebar}
-          </div>
+          <div className="relative z-10 h-full">{sidebar}</div>
         </div>
       )}
 
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-     <header className="bg-white border-b border-slate-200 px-4 md:px-6 py-4 flex items-center justify-between">
-  <div className="flex items-center gap-4 min-w-0">
-    <button
-      onClick={() => setSidebarOpen(true)}
-      className="w-11 h-11 rounded-xl border border-slate-200 flex items-center justify-center shrink-0"
-    >
-      <Menu size={20} />
-    </button>
+        <header className="bg-white border-b border-slate-200 px-4 md:px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4 min-w-0">
+            {isMobile && (
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="w-11 h-11 rounded-xl border border-slate-200 flex items-center justify-center shrink-0"
+              >
+                <Menu size={20} />
+              </button>
+            )}
 
-    <div className="hidden md:flex items-center bg-slate-100 rounded-2xl px-4 py-3 w-[380px]">
-      <input
-        placeholder={t[lang].search}
-        className="bg-transparent outline-none w-full text-sm"
-      />
-    </div>
-  </div>
+            <div className="hidden md:flex items-center bg-slate-100 rounded-2xl px-4 py-3 w-[380px]">
+              <input
+                placeholder={t[lang].search}
+                className="bg-transparent outline-none w-full text-sm"
+              />
+            </div>
+          </div>
 
-<div className="flex items-center gap-3 min-w-0">
-<BrandLogo lang={lang} className="h-12 w-auto max-w-[190px]" />
-</div>
-</header>
+          <div className="flex items-center gap-3 min-w-0">
+            <BrandLogo lang={lang} className="h-12 w-auto max-w-[190px]" />
+          </div>
+        </header>
 
         <main className="flex-1 overflow-y-auto min-w-0">
           <Outlet />
