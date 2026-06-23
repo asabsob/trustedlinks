@@ -438,9 +438,11 @@ router.get("/notifications/unread-count", requireAdmin, async (_req, res) => {
   }
 });
 
-router.get("/campaign-owners", requireAdmin, async (_req, res) => {
+router.get("/campaign-owners", requireAdmin, async (req, res) => {
   try {
-    const { data: owners, error: ownersError } = await supabase
+    const country = String(req.query.country || "").trim();
+
+    let ownersQuery = supabase
       .from("campaign_owners")
       .select(`
         id,
@@ -456,6 +458,12 @@ router.get("/campaign-owners", requireAdmin, async (_req, res) => {
       `)
       .order("created_at", { ascending: false });
 
+    if (country && country !== "all") {
+      ownersQuery = ownersQuery.eq("country", country);
+    }
+
+    const { data: owners, error: ownersError } = await ownersQuery;
+
     if (ownersError) throw ownersError;
 
     const ownerIds = (owners || []).map((o) => o.id);
@@ -468,9 +476,11 @@ router.get("/campaign-owners", requireAdmin, async (_req, res) => {
         .select(`
           id,
           owner_id,
-          budget,
-          used_budget,
-          currency
+          total_budget,
+          remaining_budget,
+          currency,
+          status,
+          approval_status
         `)
         .in("owner_id", ownerIds);
 
@@ -484,17 +494,33 @@ router.get("/campaign-owners", requireAdmin, async (_req, res) => {
     for (const c of campaigns) {
       const ownerId = c.owner_id;
 
+      const totalBudget = Number(c.total_budget || 0);
+      const remainingBudget = Number(c.remaining_budget || 0);
+      const usedBudget = Math.max(0, totalBudget - remainingBudget);
+
       const current = budgetMap.get(ownerId) || {
         sponsored_budget: 0,
         used_budget: 0,
+        remaining_budget: 0,
         currency: c.currency || "JOD",
         campaigns_count: 0,
+        active_campaigns: 0,
+        pending_campaigns: 0,
       };
 
-      current.sponsored_budget += Number(c.budget || 0);
-      current.used_budget += Number(c.used_budget || 0);
+      current.sponsored_budget += totalBudget;
+      current.used_budget += usedBudget;
+      current.remaining_budget += remainingBudget;
       current.currency = c.currency || current.currency || "JOD";
       current.campaigns_count += 1;
+
+      if (String(c.status || "").toLowerCase() === "active") {
+        current.active_campaigns += 1;
+      }
+
+      if (String(c.approval_status || "").toLowerCase() === "pending") {
+        current.pending_campaigns += 1;
+      }
 
       budgetMap.set(ownerId, current);
     }
@@ -503,19 +529,22 @@ router.get("/campaign-owners", requireAdmin, async (_req, res) => {
       const budget = budgetMap.get(owner.id) || {
         sponsored_budget: 0,
         used_budget: 0,
+        remaining_budget: 0,
         currency: "JOD",
         campaigns_count: 0,
+        active_campaigns: 0,
+        pending_campaigns: 0,
       };
 
       return {
         ...owner,
         sponsored_budget: budget.sponsored_budget,
         used_budget: budget.used_budget,
-        remaining_budget:
-          Number(budget.sponsored_budget || 0) -
-          Number(budget.used_budget || 0),
+        remaining_budget: budget.remaining_budget,
         currency: budget.currency,
         campaigns_count: budget.campaigns_count,
+        active_campaigns: budget.active_campaigns,
+        pending_campaigns: budget.pending_campaigns,
       };
     });
 
