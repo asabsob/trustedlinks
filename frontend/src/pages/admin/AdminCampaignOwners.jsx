@@ -115,8 +115,13 @@ export default function AdminCampaignOwners() {
         status,
         createdAt: owner.created_at || owner.createdAt,
         walletBalance: Number(owner.wallet_balance || owner.walletBalance || 0),
-        sponsoredBudget: Number(owner.sponsored_budget || owner.budget || 0),
-        usedBudget: Number(owner.used_budget || owner.usedBudget || 0),
+       sponsoredBudget: Number(owner.sponsored_budget || 0),
+usedBudget: Number(owner.used_budget || 0),
+remainingBudget: Number(owner.remaining_budget || 0),
+campaignsCount: Number(owner.campaigns_count || 0),
+activeCampaigns: Number(owner.active_campaigns || 0),
+pendingCampaigns: Number(owner.pending_campaigns || 0),
+currency: owner.currency || "JOD",
       };
     });
   }, [owners]);
@@ -180,7 +185,8 @@ export default function AdminCampaignOwners() {
     return "bg-slate-50 text-slate-700 border-slate-200";
   }
 
-  const formatMoney = (value) => `${Number(value || 0).toFixed(2)} ${currency}`;
+  const formatMoney = (value, rowCurrency = currency) =>
+  `${Number(value || 0).toFixed(2)} ${rowCurrency}`;
 
   if (loading) {
     return (
@@ -330,6 +336,8 @@ export default function AdminCampaignOwners() {
                     <th className="p-4 text-start">{t("Status", "الحالة")}</th>
                     <th className="p-4 text-start">{t("Budget", "الميزانية")}</th>
                     <th className="p-4 text-start">{t("Used", "المستخدم")}</th>
+                    <th className="p-4 text-start">{t("Remaining", "المتبقي")}</th>
+                    <th className="p-4 text-start">{t("Campaigns", "الحملات")}</th>
                     <th className="p-4 text-start">{t("Created", "تاريخ الإنشاء")}</th>
                   </tr>
                 </thead>
@@ -359,19 +367,29 @@ export default function AdminCampaignOwners() {
                           {statusLabel(owner.status)}
                         </span>
                       </td>
-                      <td className="p-4 font-semibold text-emerald-700">
-                        {formatMoney(owner.sponsoredBudget)}
-                      </td>
-                      <td className="p-4 font-semibold text-amber-700">
-                        {formatMoney(owner.usedBudget)}
-                      </td>
-                      <td className="p-4 text-slate-500">
-                        {owner.createdAt
-                          ? new Date(owner.createdAt).toLocaleDateString(
-                              isAr ? "ar" : "en"
-                            )
-                          : "-"}
-                      </td>
+                   <td className="p-4 font-semibold text-emerald-700">
+  {formatMoney(owner.sponsoredBudget, owner.currency)}
+</td>
+
+<td className="p-4 font-semibold text-amber-700">
+  {formatMoney(owner.usedBudget, owner.currency)}
+</td>
+
+<td className="p-4 font-semibold text-blue-700">
+  {formatMoney(owner.remainingBudget, owner.currency)}
+</td>
+
+<td className="p-4 text-slate-600">
+  {owner.campaignsCount}
+</td>
+
+<td className="p-4 text-slate-500">
+  {owner.createdAt
+    ? new Date(owner.createdAt).toLocaleDateString(
+        isAr ? "ar" : "en"
+      )
+    : "-"}
+</td>
                     </tr>
                   ))}
                 </tbody>
@@ -418,12 +436,23 @@ export default function AdminCampaignOwners() {
                     />
                     <MobileRow
                       label={t("Budget", "الميزانية")}
-                      value={formatMoney(owner.sponsoredBudget)}
+                      value={formatMoney(owner.sponsoredBudget, owner.currency)}
                     />
-                    <MobileRow
-                      label={t("Used", "المستخدم")}
-                      value={formatMoney(owner.usedBudget)}
-                    />
+               <MobileRow
+  label={t("Used", "المستخدم")}
+  value={formatMoney(owner.usedBudget, owner.currency)}
+/>
+
+<MobileRow
+  label={t("Remaining", "المتبقي")}
+  value={formatMoney(owner.remainingBudget, owner.currency)}
+/>
+
+<MobileRow
+  label={t("Campaigns", "الحملات")}
+  value={owner.campaignsCount}
+/>
+            
                     <MobileRow
                       label={t("Created", "تاريخ الإنشاء")}
                       value={
