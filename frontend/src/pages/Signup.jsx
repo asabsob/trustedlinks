@@ -45,7 +45,7 @@ function loadGoogleMaps() {
 
     const script = document.createElement("script");
     script.id = "googleMapsScript";
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&v=quarterly`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&loading=async&v=weekly`;
     script.async = true;
     script.defer = true;
 
@@ -202,6 +202,13 @@ export default function Signup({ lang = "en" }) {
     async function initPlaceAutocomplete() {
       try {
         await loadGoogleMaps();
+        console.log("google", !!window.google);
+console.log("maps", !!window.google?.maps);
+console.log("places", !!window.google?.maps?.places);
+console.log(
+  "Autocomplete",
+  !!window.google?.maps?.places?.Autocomplete
+);
 console.log(
   "Autocomplete available:",
   !!window.google?.maps?.places?.Autocomplete
