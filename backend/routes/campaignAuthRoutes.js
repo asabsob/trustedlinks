@@ -179,6 +179,10 @@ const verifyUrl =
 });
 
 // VERIFY EMAIL
+router.head("/verify-email", (req, res) => {
+  return res.status(204).end();
+});
+
 router.get("/verify-email", async (req, res) => {
   try {
     const { token } = req.query;
@@ -189,10 +193,12 @@ router.get("/verify-email", async (req, res) => {
       );
     }
 
+    const tokenNorm = String(token).trim();
+
     const { data: owner, error } = await supabase
       .from("campaign_owners")
       .select("*")
-      .eq("verification_token", token)
+      .eq("verification_token", tokenNorm)
       .maybeSingle();
 
     if (error) throw error;
@@ -200,6 +206,13 @@ router.get("/verify-email", async (req, res) => {
     if (!owner) {
       return res.redirect(
         `${FRONTEND_BASE_URL}/campaign/email-verified?status=invalid`
+      );
+    }
+
+    // مهم: إذا الحساب مفعل مسبقاً، لا تعرض Failed
+    if (owner.email_verified === true) {
+      return res.redirect(
+        `${FRONTEND_BASE_URL}/campaign/email-verified?status=success`
       );
     }
 
@@ -217,8 +230,10 @@ router.get("/verify-email", async (req, res) => {
       .update({
         email_verified: true,
         email_verified_at: new Date().toISOString(),
-        verification_token: null,
-        verification_expires_at: null,
+
+        // لا تمسح التوكن فوراً حتى لا يفشل الرابط لو انفتح مرتين
+        // verification_token: null,
+        // verification_expires_at: null,
       })
       .eq("id", owner.id);
 
