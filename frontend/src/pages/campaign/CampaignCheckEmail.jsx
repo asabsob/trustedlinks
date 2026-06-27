@@ -1,21 +1,85 @@
+import { useEffect, useState } from "react";
 import { useLocation, Link } from "react-router-dom";
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 
 export default function CampaignCheckEmail({ lang = "en" }) {
   const location = useLocation();
 
   const email = location.state?.email || "";
+  const inviteFromState = location.state?.invite || "";
+  const inviteToken =
+    inviteFromState ||
+    sessionStorage.getItem("campaignInviteToken") ||
+    "";
 
   const isAr = lang === "ar";
-
   const t = (en, ar) => (isAr ? ar : en);
+
+  const [joining, setJoining] = useState(false);
+  const [joinMessage, setJoinMessage] = useState("");
+  const [joinError, setJoinError] = useState("");
+
+  useEffect(() => {
+    if (!inviteToken || !email) return;
+
+    // ملاحظة:
+    // هذا لا يغني عن تفعيل البريد.
+    // لكنه يحاول ربط الدعوة بعد إنشاء الحساب.
+    // تسجيل الدخول سيظل يتطلب email_verified=true.
+    async function joinAfterRegister() {
+      try {
+        setJoining(true);
+        setJoinError("");
+        setJoinMessage("");
+
+        const res = await fetch(`${API_BASE}/api/campaign/team/accept`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            token: inviteToken,
+            email,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.message || "Failed to accept invitation");
+        }
+
+        sessionStorage.removeItem("campaignInviteToken");
+
+        setJoinMessage(
+          t(
+            "Your invitation has been linked to your account. Please verify your email, then sign in.",
+            "تم ربط الدعوة بحسابك. يرجى تفعيل البريد الإلكتروني ثم تسجيل الدخول."
+          )
+        );
+      } catch (err) {
+        setJoinError(
+          err.message ||
+            t(
+              "Could not link invitation automatically.",
+              "تعذر ربط الدعوة تلقائياً."
+            )
+        );
+      } finally {
+        setJoining(false);
+      }
+    }
+
+    joinAfterRegister();
+  }, [inviteToken, email]);
 
   return (
     <div
       dir={isAr ? "rtl" : "ltr"}
       style={{
         minHeight: "100vh",
-        background:
-          "linear-gradient(180deg,#f8fafc 0%,#eef7f1 100%)",
+        background: "linear-gradient(180deg,#f8fafc 0%,#eef7f1 100%)",
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
@@ -90,6 +154,51 @@ export default function CampaignCheckEmail({ lang = "en" }) {
           </div>
         )}
 
+        {inviteToken && (
+          <div
+            style={{
+              background: "#ecfdf5",
+              border: "1px solid #bbf7d0",
+              color: "#166534",
+              borderRadius: "16px",
+              padding: "16px",
+              marginTop: "20px",
+              textAlign: isAr ? "right" : "left",
+              fontWeight: 700,
+              lineHeight: 1.7,
+            }}
+          >
+            {joining
+              ? t(
+                  "Linking your invitation...",
+                  "جاري ربط الدعوة بحسابك..."
+                )
+              : joinMessage ||
+                t(
+                  "Your invitation will be linked to this account.",
+                  "سيتم ربط الدعوة بهذا الحساب."
+                )}
+          </div>
+        )}
+
+        {joinError && (
+          <div
+            style={{
+              background: "#fef2f2",
+              border: "1px solid #fecaca",
+              color: "#b91c1c",
+              borderRadius: "16px",
+              padding: "16px",
+              marginTop: "20px",
+              textAlign: isAr ? "right" : "left",
+              fontWeight: 700,
+              lineHeight: 1.7,
+            }}
+          >
+            {joinError}
+          </div>
+        )}
+
         <div
           style={{
             background: "#fffbeb",
@@ -100,9 +209,7 @@ export default function CampaignCheckEmail({ lang = "en" }) {
             textAlign: isAr ? "right" : "left",
           }}
         >
-          <strong>
-            {t("Important", "مهم")}
-          </strong>
+          <strong>{t("Important", "مهم")}</strong>
 
           <ul
             style={{
@@ -111,12 +218,7 @@ export default function CampaignCheckEmail({ lang = "en" }) {
               color: "#444",
             }}
           >
-            <li>
-              {t(
-                "Open the verification email.",
-                "افتح رسالة التفعيل."
-              )}
-            </li>
+            <li>{t("Open the verification email.", "افتح رسالة التفعيل.")}</li>
 
             <li>
               {t(
@@ -127,8 +229,12 @@ export default function CampaignCheckEmail({ lang = "en" }) {
 
             <li>
               {t(
-                "After verification you can sign in normally.",
-                "بعد التفعيل يمكنك تسجيل الدخول بشكل طبيعي."
+                inviteToken
+                  ? "After verification, sign in to access the campaign team."
+                  : "After verification you can sign in normally.",
+                inviteToken
+                  ? "بعد التفعيل، سجّل الدخول للوصول إلى فريق الحملة."
+                  : "بعد التفعيل يمكنك تسجيل الدخول بشكل طبيعي."
               )}
             </li>
 
@@ -151,7 +257,11 @@ export default function CampaignCheckEmail({ lang = "en" }) {
           }}
         >
           <Link
-            to="/campaign/login"
+            to={
+              inviteToken
+                ? `/campaign/login?invite=${inviteToken}`
+                : "/campaign/login"
+            }
             style={{
               background: "#16a34a",
               color: "#fff",
@@ -161,10 +271,7 @@ export default function CampaignCheckEmail({ lang = "en" }) {
               fontWeight: 800,
             }}
           >
-            {t(
-              "Go to Login",
-              "الانتقال لتسجيل الدخول"
-            )}
+            {t("Go to Login", "الانتقال لتسجيل الدخول")}
           </Link>
 
           <Link
@@ -178,10 +285,7 @@ export default function CampaignCheckEmail({ lang = "en" }) {
               fontWeight: 800,
             }}
           >
-            {t(
-              "Create Another Account",
-              "إنشاء حساب آخر"
-            )}
+            {t("Create Another Account", "إنشاء حساب آخر")}
           </Link>
         </div>
       </div>
