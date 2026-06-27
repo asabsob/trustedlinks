@@ -412,12 +412,9 @@ console.log("Invitation email sent:", email);
 // ACCEPT team invite
 router.post("/team/accept", async (req, res) => {
   try {
-   const {
-  token,
-  email,
-  username,
-  phone,
-  password,
+const {
+    token,
+    email
 } = req.body || {};
 
     if (!token) {
