@@ -50,17 +50,36 @@ export default function CampaignSettings({
     loadSettings();
   }, []);
 
- async function loadSettings() {
+async function loadSettings() {
   try {
     setLoading(true);
+    setError("");
 
     const headers = {
       Authorization: `Bearer ${token}`,
     };
 
+    const [campaignsRes, participantsRes, membersRes] = await Promise.all([
+      fetch(`${API_BASE}/api/campaign/campaigns`, { headers }),
+      fetch(`${API_BASE}/api/campaign/participants`, { headers }),
+      fetch(`${API_BASE}/api/campaign/team/members`, { headers }),
+    ]);
+
     const campaignsData = await campaignsRes.json();
     const participantsData = await participantsRes.json();
     const membersData = await membersRes.json();
+
+    if (!campaignsRes.ok) {
+      throw new Error(campaignsData.message || campaignsData.error || "Failed to load campaigns");
+    }
+
+    if (!participantsRes.ok) {
+      throw new Error(participantsData.message || participantsData.error || "Failed to load participants");
+    }
+
+    if (!membersRes.ok) {
+      throw new Error(membersData.message || membersData.error || "Failed to load team members");
+    }
 
     setCampaigns(campaignsData.campaigns || []);
     setParticipants(participantsData.participants || []);
@@ -76,31 +95,20 @@ export default function CampaignSettings({
       country: owner.country || "Jordan",
     }));
 
-    if (membersData.ok && membersData.members?.length) {
-      setMembers([
-        {
-          id: "owner",
-          name: owner.name || "Campaign Owner",
-          email: owner.email || "-",
-          role: "owner",
-        },
-        ...membersData.members.map((m) => ({
-          id: m.id,
-          name: m.email.split("@")[0],
-          email: m.email,
-          role: m.role,
-        })),
-      ]);
-    } else {
-      setMembers([
-        {
-          id: "owner",
-          name: owner.name || "Campaign Owner",
-          email: owner.email || "-",
-          role: "owner",
-        },
-      ]);
-    }
+    setMembers([
+      {
+        id: "owner",
+        name: owner.name || "Campaign Owner",
+        email: owner.email || "-",
+        role: "owner",
+      },
+      ...(membersData.members || []).map((m) => ({
+        id: m.id,
+        name: m.email?.split("@")[0] || "Team Member",
+        email: m.email,
+        role: m.role,
+      })),
+    ]);
   } catch (err) {
     setError(err.message || "Failed to load settings");
   } finally {
