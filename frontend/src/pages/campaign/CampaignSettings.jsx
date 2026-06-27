@@ -152,59 +152,51 @@ export default function CampaignSettings({
     }
   }
 
-  async function inviteMember() {
-    if (!form.inviteEmail) {
-      setError(
-        t(
-          "Email is required",
-          "البريد الإلكتروني مطلوب"
-        )
-      );
-
-      return;
-    }
-
-    try {
-      setSuccess("");
-
-      await new Promise((r) =>
-        setTimeout(r, 600)
-      );
-
-      setMembers((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          name:
-            form.inviteEmail.split(
-              "@"
-            )[0],
-          email:
-            form.inviteEmail,
-          role:
-            form.inviteRole,
-        },
-      ]);
-
-      setForm((prev) => ({
-        ...prev,
-        inviteEmail: "",
-      }));
-
-      setSuccess(
-        t(
-          "Invitation sent successfully",
-          "تم إرسال الدعوة بنجاح"
-        )
-      );
-    } catch (err) {
-      setError(
-        err.message ||
-          "Failed to invite"
-      );
-    }
+async function inviteMember() {
+  if (!form.inviteEmail) {
+    setError(t("Email is required", "البريد الإلكتروني مطلوب"));
+    return;
   }
 
+  try {
+    setError("");
+    setSuccess("");
+    setSaving(true);
+
+    const res = await fetch(`${API_BASE}/api/campaign/team/invite`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: form.inviteEmail.trim(),
+        role: form.inviteRole,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.message || "Failed to send invitation");
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      inviteEmail: "",
+    }));
+
+    setSuccess(
+      t("Invitation sent successfully", "تم إرسال الدعوة بنجاح")
+    );
+
+    await loadSettings();
+  } catch (err) {
+    setError(err.message || "Failed to invite");
+  } finally {
+    setSaving(false);
+  }
+}
   async function cancelCampaign(
     id
   ) {
@@ -659,29 +651,24 @@ export default function CampaignSettings({
           </Field>
         </div>
 
-        <button
-          onClick={
-            inviteMember
-          }
-          style={{
-            marginTop: "20px",
-            background:
-              "#111827",
-            color: "#fff",
-            border: "none",
-            borderRadius:
-              "14px",
-            padding:
-              "14px 22px",
-            fontWeight: 700,
-            cursor: "pointer",
-          }}
-        >
-          {t(
-            "Send Invitation",
-            "إرسال الدعوة"
-          )}
-        </button>
+     <button
+  onClick={inviteMember}
+  disabled={saving}
+  style={{
+    marginTop: "20px",
+    background: saving ? "#6b7280" : "#111827",
+    color: "#fff",
+    border: "none",
+    borderRadius: "14px",
+    padding: "14px 22px",
+    fontWeight: 700,
+    cursor: saving ? "not-allowed" : "pointer",
+  }}
+>
+  {saving
+    ? t("Sending...", "جاري الإرسال...")
+    : t("Send Invitation", "إرسال الدعوة")}
+</button>
 
         <div
           style={{
