@@ -412,7 +412,13 @@ console.log("Invitation email sent:", email);
 // ACCEPT team invite
 router.post("/team/accept", async (req, res) => {
   try {
-    const { token } = req.body || {};
+   const {
+  token,
+  email,
+  username,
+  phone,
+  password,
+} = req.body || {};
 
     if (!token) {
       return res.status(400).json({
@@ -432,6 +438,15 @@ router.post("/team/accept", async (req, res) => {
         message: "Invalid or expired invitation",
       });
     }
+
+    if (
+  email.toLowerCase().trim() !==
+  invite.email.toLowerCase().trim()
+) {
+  return res.status(403).json({
+    message: "This invitation belongs to another email.",
+  });
+}
 
     if (new Date(invite.expires_at) < new Date()) {
       await supabase
