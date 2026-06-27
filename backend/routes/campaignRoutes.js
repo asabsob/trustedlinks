@@ -3,7 +3,7 @@ import supabase from "../db/postgres.js";
 import { requireCampaignManager } from "../middleware/auth.js";
 import crypto from "crypto";
 import { runSafeAI } from "../ai/gateway/aiGateway.js";
-import { sendEmail } from "../utils/sendEmail.js";
+import { sendEmail } from "../services/email.js";
 
 const router = express.Router();
 
