@@ -1,7 +1,7 @@
 import express from "express";
 import supabase from "../db/postgres.js";
 import { requireCampaignManager } from "../middleware/auth.js";
-
+import crypto from "crypto";
 import { runSafeAI } from "../ai/gateway/aiGateway.js";
 
 const router = express.Router();
@@ -298,6 +298,67 @@ router.get("/participants", requireCampaignManager, async (req, res) => {
     console.error("CAMPAIGN PARTICIPANTS ERROR:", err);
     return res.status(500).json({
       error: "Failed to load participants",
+    });
+  }
+});
+
+// INVITE team member
+router.post("/team/invite", requireCampaignManager, async (req, res) => {
+  try {
+    const ownerId = req.campaignOwner.ownerId;
+    const { email, role = "manager" } = req.body || {};
+
+    if (!email) {
+      return res.status(400).json({
+        message: "Email is required",
+      });
+    }
+
+    const allowedRoles = ["manager", "admin", "viewer"];
+
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({
+        message: "Invalid role",
+      });
+    }
+
+    const inviteToken =
+      crypto.randomUUID() + "-" + Date.now();
+
+    const { data, error } = await supabase
+      .from("campaign_team_invites")
+      .insert({
+        owner_id: ownerId,
+        email: email.toLowerCase().trim(),
+        role,
+        token: inviteToken,
+        status: "pending",
+        expires_at: new Date(
+          Date.now() + 7 * 24 * 60 * 60 * 1000
+        ).toISOString(),
+      })
+      .select("*")
+      .single();
+
+    if (error) throw error;
+
+    const inviteUrl = `${
+      process.env.FRONTEND_BASE_URL || "https://trustedlinks.net"
+    }/campaign/accept-invite?token=${inviteToken}`;
+
+    console.log("CAMPAIGN INVITE URL:", inviteUrl);
+
+    return res.json({
+      ok: true,
+      invite: data,
+      inviteUrl,
+      message: "Invitation created successfully",
+    });
+  } catch (err) {
+    console.error("CAMPAIGN TEAM INVITE ERROR:", err);
+
+    return res.status(500).json({
+      message: "Failed to send invitation",
     });
   }
 });
