@@ -10,17 +10,8 @@ export default function CampaignJoinInvite() {
   const token = params.get("token");
 
   const [invitation, setInvitation] = useState(null);
-  const [form, setForm] = useState({
-    username: "",
-    phone: "",
-    password: "",
-    confirmPassword: "",
-  });
-
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
   useEffect(() => {
     loadInvitation();
@@ -48,51 +39,6 @@ export default function CampaignJoinInvite() {
     }
   }
 
-  async function acceptInvite(e) {
-    e.preventDefault();
-
-    if (form.password !== form.confirmPassword) {
-      setError("Password and confirm password do not match");
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      setError("");
-      setSuccess("");
-
-      const res = await fetch(`${API_BASE}/api/campaign/team/accept`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          token,
-          email: invitation.email,
-          username: form.username,
-          phone: form.phone,
-          password: form.password,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to accept invitation");
-      }
-
-      setSuccess("Account created successfully. Redirecting to login...");
-
-      setTimeout(() => {
-        navigate("/campaign/login");
-      }, 1800);
-    } catch (err) {
-      setError(err.message || "Failed to accept invitation");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
   if (loading) {
     return <CenterCard title="Loading invitation..." />;
   }
@@ -103,7 +49,7 @@ export default function CampaignJoinInvite() {
 
   return (
     <div style={pageStyle}>
-      <form onSubmit={acceptInvite} style={cardStyle}>
+      <div style={cardStyle}>
         <div style={badgeStyle}>TrustedLinks Invitation</div>
 
         <h1 style={titleStyle}>You're invited!</h1>
@@ -118,66 +64,20 @@ export default function CampaignJoinInvite() {
           <Info label="Email" value={invitation.email} />
         </div>
 
-        {error && <Alert color="#b91c1c" bg="#fef2f2" text={error} />}
-        {success && <Alert color="#166534" bg="#ecfdf5" text={success} />}
-
-        <input
-          required
-          placeholder="Username"
-          value={form.username}
-          onChange={(e) =>
-            setForm({ ...form, username: e.target.value })
-          }
-          style={inputStyle}
-        />
-
-        <input
-          placeholder="Phone number"
-          value={form.phone}
-          onChange={(e) =>
-            setForm({ ...form, phone: e.target.value })
-          }
-          style={inputStyle}
-        />
-
-        <input
-          required
-          minLength={8}
-          type="password"
-          placeholder="Password"
-          value={form.password}
-          onChange={(e) =>
-            setForm({ ...form, password: e.target.value })
-          }
-          style={inputStyle}
-        />
-
-        <input
-          required
-          minLength={8}
-          type="password"
-          placeholder="Confirm password"
-          value={form.confirmPassword}
-          onChange={(e) =>
-            setForm({ ...form, confirmPassword: e.target.value })
-          }
-          style={inputStyle}
-        />
-
-        <button disabled={submitting} style={buttonStyle(submitting)}>
-          {submitting ? "Creating account..." : "Accept Invitation & Create Account"}
+        <button
+          onClick={() => navigate(`/campaign/register?invite=${token}`)}
+          style={primaryButton}
+        >
+          Create Account
         </button>
 
-        <div style={{ textAlign: "center", marginTop: 18, color: "#64748b" }}>
-          Already have an account?{" "}
-          <Link
-            to={`/campaign/login?invite=${token}`}
-            style={{ color: "#16a34a", fontWeight: 800 }}
-          >
-            Sign in instead
-          </Link>
-        </div>
-      </form>
+        <Link
+          to={`/campaign/login?invite=${token}`}
+          style={secondaryButton}
+        >
+          I already have an account
+        </Link>
+      </div>
     </div>
   );
 }
@@ -191,23 +91,6 @@ function Info({ label, value }) {
       <div style={{ fontSize: 15, color: "#111827", fontWeight: 800 }}>
         {value}
       </div>
-    </div>
-  );
-}
-
-function Alert({ text, color, bg }) {
-  return (
-    <div
-      style={{
-        color,
-        background: bg,
-        padding: 12,
-        borderRadius: 14,
-        marginBottom: 14,
-        fontWeight: 700,
-      }}
-    >
-      {text}
     </div>
   );
 }
@@ -274,24 +157,30 @@ const infoBox = {
   margin: "22px 0",
 };
 
-const inputStyle = {
+const primaryButton = {
   width: "100%",
-  boxSizing: "border-box",
-  padding: 14,
-  borderRadius: 14,
-  border: "1px solid #dbe2ea",
-  fontSize: 15,
-  marginBottom: 14,
-};
-
-const buttonStyle = (loading) => ({
-  width: "100%",
-  background: loading ? "#94d3a2" : "linear-gradient(135deg,#16a34a,#22c55e)",
+  background: "linear-gradient(135deg,#16a34a,#22c55e)",
   color: "#fff",
   border: "none",
   borderRadius: 16,
   padding: 16,
   fontWeight: 900,
   fontSize: 15,
-  cursor: loading ? "not-allowed" : "pointer",
-});
+  cursor: "pointer",
+  marginBottom: 12,
+};
+
+const secondaryButton = {
+  display: "block",
+  textAlign: "center",
+  width: "100%",
+  boxSizing: "border-box",
+  background: "#f8fafc",
+  color: "#111827",
+  border: "1px solid #e2e8f0",
+  borderRadius: 16,
+  padding: 15,
+  fontWeight: 800,
+  fontSize: 15,
+  textDecoration: "none",
+};
