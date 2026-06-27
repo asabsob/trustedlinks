@@ -50,82 +50,63 @@ export default function CampaignSettings({
     loadSettings();
   }, []);
 
-  async function loadSettings() {
-    try {
-      setLoading(true);
+ async function loadSettings() {
+  try {
+    setLoading(true);
 
-      const headers = {
-        Authorization: `Bearer ${token}`,
-      };
+    const headers = {
+      Authorization: `Bearer ${token}`,
+    };
 
-      const [
-        campaignsRes,
-        participantsRes,
-      ] = await Promise.all([
-        fetch(
-          `${API_BASE}/api/campaign/campaigns`,
-          { headers }
-        ),
+    const campaignsData = await campaignsRes.json();
+    const participantsData = await participantsRes.json();
+    const membersData = await membersRes.json();
 
-        fetch(
-          `${API_BASE}/api/campaign/participants`,
-          { headers }
-        ),
-      ]);
+    setCampaigns(campaignsData.campaigns || []);
+    setParticipants(participantsData.participants || []);
 
-      const campaignsData =
-        await campaignsRes.json();
+    const owner = JSON.parse(
+      localStorage.getItem("campaign_owner") || "{}"
+    );
 
-      const participantsData =
-        await participantsRes.json();
+    setForm((prev) => ({
+      ...prev,
+      organizationName: owner.name || "",
+      organizationType: owner.entityType || "mall",
+      country: owner.country || "Jordan",
+    }));
 
-      setCampaigns(
-        campaignsData.campaigns || []
-      );
-
-      setParticipants(
-        participantsData.participants || []
-      );
-
-      const owner = JSON.parse(
-        localStorage.getItem(
-          "campaign_owner"
-        ) || "{}"
-      );
-
-      setForm((prev) => ({
-        ...prev,
-        organizationName:
-          owner.name || "",
-        organizationType:
-          owner.entityType ||
-          "mall",
-        country:
-          owner.country ||
-          "Jordan",
-      }));
-
+    if (membersData.ok && membersData.members?.length) {
       setMembers([
         {
-          id: 1,
-          name:
-            owner.name ||
-            "Campaign Owner",
-          email:
-            owner.email || "-",
+          id: "owner",
+          name: owner.name || "Campaign Owner",
+          email: owner.email || "-",
+          role: "owner",
+        },
+        ...membersData.members.map((m) => ({
+          id: m.id,
+          name: m.email.split("@")[0],
+          email: m.email,
+          role: m.role,
+        })),
+      ]);
+    } else {
+      setMembers([
+        {
+          id: "owner",
+          name: owner.name || "Campaign Owner",
+          email: owner.email || "-",
           role: "owner",
         },
       ]);
-    } catch (err) {
-      setError(
-        err.message ||
-          "Failed to load settings"
-      );
-    } finally {
-      setLoading(false);
     }
+  } catch (err) {
+    setError(err.message || "Failed to load settings");
+  } finally {
+    setLoading(false);
   }
-
+}
   async function saveOrganization() {
     try {
       setSaving(true);
