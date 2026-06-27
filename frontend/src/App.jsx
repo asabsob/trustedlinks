@@ -53,6 +53,7 @@ import CampaignTerms from "./pages/campaign/CampaignTerms";
 import CampaignCheckEmail from "./pages/campaign/CampaignCheckEmail";
 import CampaignEmailVerified from "./pages/campaign/CampaignEmailVerified";
 import CampaignAcceptInvite from "./pages/campaign/CampaignAcceptInvite";
+import CampaignJoinInvite from "./pages/campaign/CampaignJoinInvite";
 
 
 // -------------------------
@@ -241,6 +242,10 @@ const hideMainNavbar =
   <Route path="forgot-password" element={<CampaignForgotPassword lang={lang} />} />
   <Route path="reset-password/:token" element={<CampaignResetPassword lang={lang} />} />
   <Route path="/campaign/accept-invite" element={<CampaignAcceptInvite lang={lang} />}/>
+  <Route
+  path="/campaign/join"
+  element={<CampaignJoinInvite />}
+/>
 
   {/* Campaign Dashboard Pages */}
   <Route path="dashboard" element={<CampaignDashboard lang={lang} />} />
