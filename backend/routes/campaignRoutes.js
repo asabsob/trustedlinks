@@ -3,6 +3,7 @@ import supabase from "../db/postgres.js";
 import { requireCampaignManager } from "../middleware/auth.js";
 import crypto from "crypto";
 import { runSafeAI } from "../ai/gateway/aiGateway.js";
+import { sendEmail } from "../utils/sendEmail.js";
 
 const router = express.Router();
 
@@ -346,14 +347,59 @@ router.post("/team/invite", requireCampaignManager, async (req, res) => {
       process.env.FRONTEND_BASE_URL || "https://trustedlinks.net"
     }/campaign/accept-invite?token=${inviteToken}`;
 
-    console.log("CAMPAIGN INVITE URL:", inviteUrl);
+   await sendEmail({
+  to: email,
+  subject: "You're invited to TrustedLinks Campaign",
+  html: `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto">
+      <h2>You've been invited</h2>
 
-    return res.json({
-      ok: true,
-      invite: data,
-      inviteUrl,
-      message: "Invitation created successfully",
-    });
+      <p>You have been invited to join the TrustedLinks Campaign team.</p>
+
+      <p>
+        Click the button below to accept your invitation.
+      </p>
+
+      <p style="margin:35px 0">
+        <a
+          href="${inviteUrl}"
+          style="
+            background:#16a34a;
+            color:#fff;
+            padding:14px 26px;
+            text-decoration:none;
+            border-radius:8px;
+            display:inline-block;
+            font-weight:bold;
+          "
+        >
+          Accept Invitation
+        </a>
+      </p>
+
+      <p>
+        Or copy this link:
+      </p>
+
+      <p>
+        ${inviteUrl}
+      </p>
+
+      <hr>
+
+      <small>
+        This invitation expires in 7 days.
+      </small>
+    </div>
+  `,
+  text: inviteUrl,
+});
+
+console.log("Invitation email sent:", email);
+  return res.json({
+  ok: true,
+  message: "Invitation email sent successfully",
+});
   } catch (err) {
     console.error("CAMPAIGN TEAM INVITE ERROR:", err);
 
