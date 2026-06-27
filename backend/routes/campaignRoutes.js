@@ -409,4 +409,109 @@ console.log("Invitation email sent:", email);
   }
 });
 
+// ACCEPT team invite
+router.post("/team/accept", async (req, res) => {
+  try {
+    const { token } = req.body || {};
+
+    if (!token) {
+      return res.status(400).json({
+        message: "Invitation token is required",
+      });
+    }
+
+    const { data: invite, error: inviteError } = await supabase
+      .from("campaign_team_invites")
+      .select("*")
+      .eq("token", token)
+      .eq("status", "pending")
+      .single();
+
+    if (inviteError || !invite) {
+      return res.status(404).json({
+        message: "Invalid or expired invitation",
+      });
+    }
+
+    if (new Date(invite.expires_at) < new Date()) {
+      await supabase
+        .from("campaign_team_invites")
+        .update({ status: "expired" })
+        .eq("id", invite.id);
+
+      return res.status(410).json({
+        message: "Invitation has expired",
+      });
+    }
+
+    const email = invite.email.toLowerCase().trim();
+
+    const { data: member, error: memberError } = await supabase
+      .from("campaign_team_members")
+      .upsert(
+        {
+          owner_id: invite.owner_id,
+          email,
+          role: invite.role,
+          status: "active",
+          invited_at: invite.created_at,
+          joined_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "owner_id,email",
+        }
+      )
+      .select("*")
+      .single();
+
+    if (memberError) throw memberError;
+
+    await supabase
+      .from("campaign_team_invites")
+      .update({
+        status: "accepted",
+        accepted_at: new Date().toISOString(),
+      })
+      .eq("id", invite.id);
+
+    return res.json({
+      ok: true,
+      member,
+      message: "Invitation accepted successfully",
+    });
+  } catch (err) {
+    console.error("ACCEPT CAMPAIGN INVITE ERROR:", err);
+
+    return res.status(500).json({
+      message: "Failed to accept invitation",
+    });
+  }
+});
+
+// LIST team members
+router.get("/team/members", requireCampaignManager, async (req, res) => {
+  try {
+    const ownerId = req.campaignOwner.ownerId;
+
+    const { data: members, error } = await supabase
+      .from("campaign_team_members")
+      .select("*")
+      .eq("owner_id", ownerId)
+      .order("created_at", { ascending: true });
+
+    if (error) throw error;
+
+    return res.json({
+      ok: true,
+      members: members || [],
+    });
+  } catch (err) {
+    console.error("LIST CAMPAIGN TEAM MEMBERS ERROR:", err);
+
+    return res.status(500).json({
+      message: "Failed to load team members",
+    });
+  }
+});
+
 export default router;
