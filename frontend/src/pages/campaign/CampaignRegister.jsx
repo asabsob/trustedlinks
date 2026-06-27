@@ -1,62 +1,93 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 
 export default function CampaignRegister({ lang = "en" }) {
   const isAr = lang === "ar";
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const inviteToken = params.get("invite");
 
   const [loading, setLoading] = useState(false);
+  const [inviteLoading, setInviteLoading] = useState(false);
   const [error, setError] = useState("");
-  
- const [form, setForm] = useState(() => {
-  const savedForm = sessionStorage.getItem(
-    "campaignRegisterForm"
-  );
 
-  if (savedForm) {
-    try {
-      return JSON.parse(savedForm);
-    } catch {
-      sessionStorage.removeItem(
-        "campaignRegisterForm"
-      );
+  const [form, setForm] = useState(() => {
+    const savedForm = sessionStorage.getItem("campaignRegisterForm");
+
+    if (savedForm) {
+      try {
+        return JSON.parse(savedForm);
+      } catch {
+        sessionStorage.removeItem("campaignRegisterForm");
+      }
     }
-  }
 
-  return {
-    name: "",
-    entityType: "mall",
-    email: "",
-    phone: "",
-    username: "",
-    password: "",
-    confirmPassword: "",
-    country: "JO",
-    acceptedTerms: false,
-  };
-});
-  
+    return {
+      name: "",
+      entityType: "mall",
+      email: "",
+      phone: "",
+      username: "",
+      password: "",
+      confirmPassword: "",
+      country: "JO",
+      acceptedTerms: false,
+    };
+  });
+
   const t = (en, ar) => (isAr ? ar : en);
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-
-    setForm({
-      ...form,
-      [name]: type === "checkbox" ? checked : value,
-    });
-  };
+  useEffect(() => {
+    sessionStorage.setItem("campaignRegisterForm", JSON.stringify(form));
+  }, [form]);
 
   useEffect(() => {
-  sessionStorage.setItem(
-    "campaignRegisterForm",
-    JSON.stringify(form)
-  );
-}, [form]);
-  
-  const handleSubmit = async (e) => {
+    if (!inviteToken) return;
+
+    async function loadInvite() {
+      try {
+        setInviteLoading(true);
+        setError("");
+
+        const res = await fetch(
+          `${API_BASE}/api/campaign/team/invitation/${inviteToken}`
+        );
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.message || "Invalid invitation");
+        }
+
+        setForm((prev) => ({
+          ...prev,
+          name: data.invitation.organizationName || "",
+          entityType: data.invitation.organizationType || "sponsor",
+          email: data.invitation.email || "",
+          country: data.invitation.country || "JO",
+        }));
+      } catch (err) {
+        setError(err.message || "Failed to load invitation");
+      } finally {
+        setInviteLoading(false);
+      }
+    }
+
+    loadInvite();
+  }, [inviteToken]);
+
+  function handleChange(e) {
+    const { name, value, type, checked } = e.target;
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  }
+
+  async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
     setError("");
@@ -107,24 +138,28 @@ export default function CampaignRegister({ lang = "en" }) {
         throw new Error(data?.error || "Registration failed");
       }
 
-      sessionStorage.removeItem(
-  "campaignRegisterForm"
-);
-      
+      sessionStorage.removeItem("campaignRegisterForm");
+
+      if (inviteToken) {
+        sessionStorage.setItem("campaignInviteToken", inviteToken);
+      }
+
       navigate("/campaign/check-email", {
-        state: { email: form.email },
+        state: {
+          email: form.email,
+          invite: inviteToken,
+        },
       });
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Registration failed");
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const pageStyle = {
     minHeight: "100vh",
-    background:
-      "linear-gradient(180deg, #f8fafc 0%, #eef7f1 100%)",
+    background: "linear-gradient(180deg, #f8fafc 0%, #eef7f1 100%)",
     display: "flex",
     justifyContent: "center",
     padding: "38px 16px",
@@ -182,18 +217,26 @@ export default function CampaignRegister({ lang = "en" }) {
     boxSizing: "border-box",
   };
 
+  const disabledInputStyle = {
+    ...inputStyle,
+    background: "#f8fafc",
+    color: "#64748b",
+    cursor: "not-allowed",
+  };
+
   const greenBtn = {
     width: "100%",
-    background: loading
-      ? "#94d3a2"
-      : "linear-gradient(135deg, #16a34a, #22c55e)",
+    background:
+      loading || inviteLoading
+        ? "#94d3a2"
+        : "linear-gradient(135deg, #16a34a, #22c55e)",
     color: "#fff",
     border: "none",
     borderRadius: "16px",
     padding: "16px",
     fontWeight: 800,
     fontSize: "16px",
-    cursor: loading ? "not-allowed" : "pointer",
+    cursor: loading || inviteLoading ? "not-allowed" : "pointer",
     marginTop: "8px",
     boxShadow: "0 10px 20px rgba(34,197,94,0.22)",
   };
@@ -216,7 +259,9 @@ export default function CampaignRegister({ lang = "en" }) {
               marginBottom: "14px",
             }}
           >
-            {t("Sponsor Portal", "بوابة الممولين")}
+            {inviteToken
+              ? t("Campaign Invitation", "دعوة حملة")
+              : t("Sponsor Portal", "بوابة الممولين")}
           </div>
 
           <h1
@@ -228,7 +273,9 @@ export default function CampaignRegister({ lang = "en" }) {
               letterSpacing: "-0.5px",
             }}
           >
-            {t("Campaign Management", "إدارة الحملات")}
+            {inviteToken
+              ? t("Accept Campaign Invitation", "قبول دعوة الانضمام")
+              : t("Campaign Management", "إدارة الحملات")}
           </h1>
 
           <p
@@ -238,10 +285,15 @@ export default function CampaignRegister({ lang = "en" }) {
               fontSize: "15px",
             }}
           >
-            {t(
-              "Create your organization sponsorship account and start managing funded campaigns.",
-              "أنشئ حساب جهة ممولة لإدارة الحملات والرعايات داخل المنصة."
-            )}
+            {inviteToken
+              ? t(
+                  "Complete your account to join the invited campaign team.",
+                  "أكمل إنشاء حسابك للانضمام إلى فريق الحملة."
+                )
+              : t(
+                  "Create your organization sponsorship account and start managing funded campaigns.",
+                  "أنشئ حساب جهة ممولة لإدارة الحملات والرعايات داخل المنصة."
+                )}
           </p>
         </div>
 
@@ -257,10 +309,11 @@ export default function CampaignRegister({ lang = "en" }) {
                   {t("Organization Name", "اسم الجهة")}
                 </label>
                 <input
+                  disabled={!!inviteToken}
                   name="name"
                   value={form.name}
                   onChange={handleChange}
-                  style={inputStyle}
+                  style={inviteToken ? disabledInputStyle : inputStyle}
                   required
                 />
               </div>
@@ -270,10 +323,11 @@ export default function CampaignRegister({ lang = "en" }) {
                   {t("Organization Type", "نوع الجهة")}
                 </label>
                 <select
+                  disabled={!!inviteToken}
                   name="entityType"
                   value={form.entityType}
                   onChange={handleChange}
-                  style={inputStyle}
+                  style={inviteToken ? disabledInputStyle : inputStyle}
                   required
                 >
                   <option value="mall">{t("Mall", "مول")}</option>
@@ -294,13 +348,16 @@ export default function CampaignRegister({ lang = "en" }) {
 
             <div style={gridStyle}>
               <div>
-                <label style={labelStyle}>{t("Email", "البريد الإلكتروني")}</label>
+                <label style={labelStyle}>
+                  {t("Email", "البريد الإلكتروني")}
+                </label>
                 <input
+                  disabled={!!inviteToken}
                   type="email"
                   name="email"
                   value={form.email}
                   onChange={handleChange}
-                  style={inputStyle}
+                  style={inviteToken ? disabledInputStyle : inputStyle}
                   required
                 />
               </div>
@@ -376,10 +433,11 @@ export default function CampaignRegister({ lang = "en" }) {
               <div>
                 <label style={labelStyle}>{t("Country", "الدولة")}</label>
                 <select
+                  disabled={!!inviteToken}
                   name="country"
                   value={form.country}
                   onChange={handleChange}
-                  style={inputStyle}
+                  style={inviteToken ? disabledInputStyle : inputStyle}
                   required
                 >
                   <option value="JO">{t("Jordan", "الأردن")}</option>
@@ -406,60 +464,60 @@ export default function CampaignRegister({ lang = "en" }) {
           </div>
 
           <div
-  style={{
-    background: "#f8fafc",
-    border: "1px solid #e2e8f0",
-    borderRadius: "18px",
-    padding: "16px",
-    marginBottom: "18px",
-  }}
->
-  <label
-    style={{
-      display: "flex",
-      gap: "10px",
-      alignItems: "flex-start",
-      fontSize: "14px",
-      color: "#334155",
-      lineHeight: 1.7,
-      cursor: "pointer",
-    }}
-  >
-         <input
-  type="checkbox"
-  name="acceptedTerms"
-  checked={form.acceptedTerms}
-  onChange={handleChange}
-  required
-  style={{
-    marginTop: "6px",
-    width: "16px",
-    height: "16px",
-    accentColor: "#16a34a",
-  }}
-/>
+            style={{
+              background: "#f8fafc",
+              border: "1px solid #e2e8f0",
+              borderRadius: "18px",
+              padding: "16px",
+              marginBottom: "18px",
+            }}
+          >
+            <label
+              style={{
+                display: "flex",
+                gap: "10px",
+                alignItems: "flex-start",
+                fontSize: "14px",
+                color: "#334155",
+                lineHeight: 1.7,
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                name="acceptedTerms"
+                checked={form.acceptedTerms}
+                onChange={handleChange}
+                required
+                style={{
+                  marginTop: "6px",
+                  width: "16px",
+                  height: "16px",
+                  accentColor: "#16a34a",
+                }}
+              />
 
-<span>
-  {t(
-    "I confirm that I am authorized to register this organization, have read and accepted the Terms & Conditions and Privacy Policy, and understand that all sponsored balances and payments are non-refundable except in the case of a verified service failure.",
-    "أقر بأنني مخوّل بتسجيل هذه الجهة، وأنني قرأت ووافقت على الأحكام والشروط وسياسة الخصوصية، وأفهم أن جميع الأرصدة الممولة والمدفوعات غير قابلة للاسترداد إلا في حالة فشل الخدمة المثبت من قبل المنصة."
-  )}{" "}
+              <span>
+                {t(
+                  "I confirm that I am authorized to register this organization, have read and accepted the Terms & Conditions and Privacy Policy, and understand that all sponsored balances and payments are non-refundable except in the case of a verified service failure.",
+                  "أقر بأنني مخوّل بتسجيل هذه الجهة، وأنني قرأت ووافقت على الأحكام والشروط وسياسة الخصوصية، وأفهم أن جميع الأرصدة الممولة والمدفوعات غير قابلة للاسترداد إلا في حالة فشل الخدمة المثبت من قبل المنصة."
+                )}{" "}
+                <Link
+                  to="/campaign/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: "#16a34a",
+                    fontWeight: 800,
+                    textDecoration: "none",
+                  }}
+                >
+                  {t("Terms & Conditions", "الأحكام والشروط")}
+                </Link>
+              </span>
+            </label>
+          </div>
 
-  <Link
-    to="/campaign/terms"
-    target="_blank"
-    rel="noopener noreferrer"
-    style={{
-      color: "#16a34a",
-      fontWeight: 800,
-      textDecoration: "none",
-    }}
-  >
-    {t("Terms & Conditions", "الأحكام والشروط")}
-  </Link>
-</span>
-      </label>
-</div>
           {error && (
             <div
               style={{
@@ -477,9 +535,15 @@ export default function CampaignRegister({ lang = "en" }) {
             </div>
           )}
 
-          <button type="submit" style={greenBtn} disabled={loading}>
-            {loading
+          <button
+            type="submit"
+            style={greenBtn}
+            disabled={loading || inviteLoading}
+          >
+            {loading || inviteLoading
               ? t("Creating account...", "جاري إنشاء الحساب...")
+              : inviteToken
+              ? t("Accept Invitation", "قبول الدعوة")
               : t("Create Account", "إنشاء الحساب")}
           </button>
 
@@ -493,7 +557,11 @@ export default function CampaignRegister({ lang = "en" }) {
           >
             {t("Already have an account?", "لديك حساب بالفعل؟")}{" "}
             <Link
-              to="/campaign/login"
+              to={
+                inviteToken
+                  ? `/campaign/login?invite=${inviteToken}`
+                  : "/campaign/login"
+              }
               style={{
                 color: "#16a34a",
                 fontWeight: 800,
