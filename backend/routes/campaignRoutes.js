@@ -456,19 +456,17 @@ const {
       });
     }
 
-    const email = invite.email.toLowerCase().trim();
-
     const { data: member, error: memberError } = await supabase
       .from("campaign_team_members")
       .upsert(
-        {
-          owner_id: invite.owner_id,
-          email,
-          role: invite.role,
-          status: "active",
-          invited_at: invite.created_at,
-          joined_at: new Date().toISOString(),
-        },
+      {
+  owner_id: invite.owner_id,
+  email: memberEmail,
+  role: invite.role,
+  status: "active",
+  invited_at: invite.created_at,
+  joined_at: new Date().toISOString(),
+},
         {
           onConflict: "owner_id,email",
         }
