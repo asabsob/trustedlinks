@@ -345,7 +345,7 @@ router.post("/team/invite", requireCampaignManager, async (req, res) => {
 
     const inviteUrl = `${
       process.env.FRONTEND_BASE_URL || "https://trustedlinks.net"
-    }/campaign/accept-invite?token=${inviteToken}`;
+    }/campaign/join?token=${inviteToken}`;
 
    await sendEmail({
   to: email,
@@ -514,4 +514,50 @@ router.get("/team/members", requireCampaignManager, async (req, res) => {
   }
 });
 
+router.get("/team/invitation/:token", async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    const { data: invite, error } = await supabase
+      .from("campaign_team_invites")
+      .select("*")
+      .eq("token", token)
+      .eq("status", "pending")
+      .single();
+
+    if (error || !invite) {
+      return res.status(404).json({
+        message: "Invalid invitation",
+      });
+    }
+
+    if (new Date(invite.expires_at) < new Date()) {
+      return res.status(410).json({
+        message: "Invitation expired",
+      });
+    }
+
+    const { data: owner } = await supabase
+      .from("campaign_owners")
+      .select("name, entity_type, country")
+      .eq("id", invite.owner_id)
+      .single();
+
+    return res.json({
+      ok: true,
+      invitation: {
+        email: invite.email,
+        role: invite.role,
+        organizationName: owner?.name || "Campaign Team",
+        organizationType: owner?.entity_type || "sponsor",
+        country: owner?.country || "JO",
+      },
+    });
+  } catch (err) {
+    console.error("GET INVITATION ERROR:", err);
+    return res.status(500).json({
+      message: "Failed to load invitation",
+    });
+  }
+});
 export default router;
